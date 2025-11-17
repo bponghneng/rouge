@@ -79,7 +79,7 @@ python -m cape.worker --worker-id alleycat-1 [--poll-interval 5] [--log-level DE
 
 Required flag:
 
-- `--worker-id` – human-friendly identifier (e.g., `alleycat-1`, `tyderium-1`).
+- `--worker-id` – human-friendly identifier (e.g., `alleycat-1`, `tydirium-1`).
 
 Optional flags:
 
@@ -160,7 +160,7 @@ All executables expect the standard Supabase schema plus the worker RPC defined
 in `cape/migrations/003_add_worker_assignment.sql`. Key pieces:
 
 ```sql
-CREATE TYPE worker_id AS ENUM ('alleycat-1', 'tyderium-1');
+CREATE TYPE worker_id AS ENUM ('alleycat-1', 'tydirium-1');
 
 ALTER TABLE cape_issues
 ADD COLUMN assigned_to worker_id;

@@ -15,7 +15,7 @@ def main():
         epilog="""
 Examples:
   python -m cape-worker --worker-id alleycat-1
-  python -m cape-worker --worker-id tyderium-1 --poll-interval 5 --log-level DEBUG
+  python -m cape-worker --worker-id tydirium-1 --poll-interval 5 --log-level DEBUG
         """,
     )
 

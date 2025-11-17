@@ -114,7 +114,7 @@ class IssueListScreen(Screen):
                 desc = issue.description
 
             # Format assignment
-            if issue.assigned_to == "tyderium-1":
+            if issue.assigned_to == "tydirium-1":
                 assigned = "Tydirium"
             elif issue.assigned_to == "alleycat-1":
                 assigned = "Alleycat"
@@ -232,7 +232,7 @@ class IssueListScreen(Screen):
         # Get current assignment from table
         assigned_display = str(row_data[3])
         if assigned_display == "Tydirium":
-            current_assignment = "tyderium-1"
+            current_assignment = "tydirium-1"
         elif assigned_display == "Alleycat":
             current_assignment = "alleycat-1"
         else:
@@ -281,7 +281,7 @@ class IssueListScreen(Screen):
             updated_issue: The updated issue with new assignment.
         """
         # Format assignment for display
-        if updated_issue.assigned_to == "tyderium-1":
+        if updated_issue.assigned_to == "tydirium-1":
             assigned_display = "Tydirium"
             worker_name = "Tydirium"
         elif updated_issue.assigned_to == "alleycat-1":
@@ -700,7 +700,7 @@ class IssueDetailScreen(Screen):
         updated = issue.updated_at.strftime("%Y-%m-%d %H:%M") if issue.updated_at else "Unknown"
 
         # Format assignment
-        if issue.assigned_to == "tyderium-1":
+        if issue.assigned_to == "tydirium-1":
             assigned_display = "Tydirium"
         elif issue.assigned_to == "alleycat-1":
             assigned_display = "Alleycat"

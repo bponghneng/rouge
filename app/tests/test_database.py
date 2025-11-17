@@ -454,16 +454,16 @@ def test_update_issue_assignment_success(mock_get_client, mock_fetch_issue):
             "id": 1,
             "description": "Test issue",
             "status": "pending",
-            "assigned_to": "tyderium-1",
+            "assigned_to": "tydirium-1",
         }
     ]
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    issue = update_issue_assignment(1, "tyderium-1")
+    issue = update_issue_assignment(1, "tydirium-1")
     assert issue.id == 1
-    assert issue.assigned_to == "tyderium-1"
-    mock_table.update.assert_called_once_with({"assigned_to": "tyderium-1"})
+    assert issue.assigned_to == "tydirium-1"
+    mock_table.update.assert_called_once_with({"assigned_to": "tydirium-1"})
 
 
 @patch("cape.core.database.fetch_issue")
@@ -511,7 +511,7 @@ def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue):
     mock_fetch_issue.return_value = mock_issue
 
     with pytest.raises(ValueError, match="Only pending issues can be assigned"):
-        update_issue_assignment(1, "tyderium-1")
+        update_issue_assignment(1, "tydirium-1")
 
 
 @patch("cape.core.database.fetch_issue")
@@ -539,4 +539,4 @@ def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue):
     mock_fetch_issue.side_effect = ValueError("Issue not found")
 
     with pytest.raises(ValueError, match="Failed to fetch issue"):
-        update_issue_assignment(999, "tyderium-1")
+        update_issue_assignment(999, "tydirium-1")

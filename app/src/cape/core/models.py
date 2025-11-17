@@ -67,7 +67,7 @@ class CapeIssue(BaseModel):
     id: int
     description: str = Field(..., min_length=1)
     status: Literal["pending", "started", "completed"] = "pending"
-    assigned_to: Optional[Literal["alleycat-1", "tyderium-1"]] = None
+    assigned_to: Optional[Literal["alleycat-1", "tydirium-1"]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

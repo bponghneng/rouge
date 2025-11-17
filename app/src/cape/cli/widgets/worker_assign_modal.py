@@ -10,7 +10,7 @@ from textual.widgets import Button, Static
 # Worker options: (display_name, worker_id)
 WORKER_OPTIONS = [
     ("Unassigned", None),
-    ("Tydirium (tyderium-1)", "tyderium-1"),
+    ("Tydirium (tydirium-1)", "tydirium-1"),
     ("Alleycat (alleycat-1)", "alleycat-1"),
 ]
 
@@ -26,7 +26,7 @@ class WorkerAssignModal(ModalScreen[Optional[str]]):
         """Initialize the worker assignment modal.
 
         Args:
-            current_assignment: The current worker assignment (None, 'tyderium-1', or 'alleycat-1').
+            current_assignment: The current worker assignment (None, 'tydirium-1', or 'alleycat-1').
         """
         super().__init__()
         self.current_assignment = current_assignment
@@ -92,8 +92,8 @@ class WorkerAssignModal(ModalScreen[Optional[str]]):
         # Parse worker_id from button_id
         if button_id == "worker-none":
             self.selected_worker = None
-        elif button_id == "worker-tyderium-1":
-            self.selected_worker = "tyderium-1"
+        elif button_id == "worker-tydirium-1":
+            self.selected_worker = "tydirium-1"
         elif button_id == "worker-alleycat-1":
             self.selected_worker = "alleycat-1"
 

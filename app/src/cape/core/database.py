@@ -373,7 +373,7 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> CapeIs
 
     Args:
         issue_id: The ID of the issue to update.
-        assigned_to: The worker ID to assign. Must be one of: None, "alleycat-1", "tyderium-1".
+        assigned_to: The worker ID to assign. Must be one of: None, "alleycat-1", "tydirium-1".
 
     Returns:
         CapeIssue: The updated issue with new assignment and updated timestamp.
@@ -383,10 +383,10 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> CapeIs
                    or database operation fails.
     """
     # Validate assigned_to parameter
-    valid_workers = [None, "alleycat-1", "tyderium-1"]
+    valid_workers = [None, "alleycat-1", "tydirium-1"]
     if assigned_to not in valid_workers:
         raise ValueError(
-            f"Invalid worker ID '{assigned_to}'. Must be one of: None, 'alleycat-1', 'tyderium-1'"
+            f"Invalid worker ID '{assigned_to}'. Must be one of: None, 'alleycat-1', 'tydirium-1'"
         )
 
     # First, fetch the issue to check its status
