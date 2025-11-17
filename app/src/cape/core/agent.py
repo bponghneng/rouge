@@ -224,7 +224,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
         os.makedirs(output_dir, exist_ok=True)
 
     # Build command - always use stream-json format, verbose, and skip permissions
-    cmd = ["timeout", "600", CLAUDE_PATH, "-p", request.prompt]
+    cmd = [CLAUDE_PATH, "-p", request.prompt]
     cmd.extend(["--model", request.model])
     cmd.extend(["--output-format", "stream-json"])
     cmd.append("--verbose")
@@ -268,13 +268,7 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
             stdout_thread.start()
             stderr_thread.start()
 
-            try:
-                process.wait(timeout=600)
-            except subprocess.TimeoutExpired as exc:
-                process.kill()
-                stdout_thread.join(timeout=1)
-                stderr_thread.join(timeout=1)
-                raise exc
+            process.wait()
 
             stdout_thread.join()
             stderr_thread.join()
@@ -344,10 +338,6 @@ def prompt_claude_code(request: AgentPromptRequest) -> AgentPromptResponse:
         session_id = result_message.get("session_id") if result_message else None
         return AgentPromptResponse(output=error_msg, success=False, session_id=session_id)
 
-    except subprocess.TimeoutExpired:
-        error_msg = "Error: Claude Code command timed out after 10 minutes"
-        _emit_comment(request, error_msg)
-        return AgentPromptResponse(output=error_msg, success=False, session_id=None)
     except Exception as e:
         error_msg = f"Error executing Claude Code: {e}"
         _emit_comment(request, error_msg)
