@@ -1,4 +1,7 @@
-"""Data types for Cape CLI workflow components."""
+"""Data types for Cape CLI workflow components.
+
+Agent-specific models moved to cape.core.agents package.
+"""
 
 from datetime import datetime
 from typing import List, Literal, Optional
@@ -15,50 +18,14 @@ SlashCommand = Literal[
     "/triage:find-plan-file",
 ]
 
-
-class AgentPromptRequest(BaseModel):
-    """Claude Code agent prompt configuration."""
-
-    prompt: str
-    adw_id: str
-    issue_id: int
-    agent_name: str = "ops"
-    model: Literal["sonnet", "opus"] = "opus"
-    dangerously_skip_permissions: bool = False
-    output_file: str
-
-
-class AgentPromptResponse(BaseModel):
-    """Claude Code agent response."""
-
-    output: str
-    success: bool
-    session_id: Optional[str] = None
-
-
-class AgentTemplateRequest(BaseModel):
-    """Claude Code agent template execution request."""
-
-    agent_name: str
-    slash_command: SlashCommand
-    args: List[str]
-    adw_id: str
-    issue_id: int
-    model: Literal["sonnet", "opus"] = "sonnet"
-
-
-class ClaudeCodeResultMessage(BaseModel):
-    """Claude Code JSONL result message (last line)."""
-
-    type: str
-    subtype: str
-    is_error: bool
-    duration_ms: int
-    duration_api_ms: int
-    num_turns: int
-    result: str
-    session_id: str
-    total_cost_usd: float
+# Deprecated - use cape.core.agents.claude_models instead
+# These aliases are provided for backward compatibility during migration
+from cape.core.agents.claude_models import (
+    ClaudeAgentPromptRequest as AgentPromptRequest,
+    ClaudeAgentPromptResponse as AgentPromptResponse,
+    ClaudeAgentResultMessage as ClaudeCodeResultMessage,
+    ClaudeAgentTemplateRequest as AgentTemplateRequest,
+)
 
 
 class CapeIssue(BaseModel):
