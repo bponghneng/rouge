@@ -8,9 +8,10 @@ For new code, prefer importing from cape.core.agents directly:
 """
 
 import logging
+import os
 from typing import Callable, Optional
 
-from cape.core.agents import AgentExecuteRequest, AgentExecuteResponse, get_agent
+from cape.core.agents import AgentExecuteRequest, AgentExecuteResponse, get_agent, get_implement_provider
 from cape.core.agents.claude import execute_claude_template
 from cape.core.agents.claude_models import (
     ClaudeAgentPromptRequest,
@@ -121,3 +122,94 @@ def execute_agent_prompt(
     """
     agent = get_agent(provider)
     return agent.execute_prompt(request, stream_handler=stream_handler)
+
+
+def execute_implement_plan(
+    plan_file: str,
+    issue_id: int,
+    adw_id: str,
+    agent_name: str,
+    logger: logging.Logger
+) -> AgentExecuteResponse:
+    """Execute implementation plan using configured provider.
+
+    This helper function executes the plan using the provider configured
+    via CAPE_IMPLEMENT_PROVIDER environment variable. It automatically
+    handles progress comment integration and provider-specific formatting.
+
+    Provider selection priority:
+    1. CAPE_IMPLEMENT_PROVIDER environment variable
+    2. CAPE_AGENT_PROVIDER environment variable (fallback)
+    3. Default to "claude"
+
+    Provider-specific behavior:
+    - Claude: Uses /implement slash command with file path
+    - OpenCode: Reads file content and passes directly with --command implement
+
+    Args:
+        plan_file: Path to the plan file to implement
+        issue_id: Cape issue ID for tracking
+        adw_id: Workflow ID for tracking
+        agent_name: Agent name for directory structure
+        logger: Logger instance for logging
+
+    Returns:
+        AgentExecuteResponse with execution results
+
+    Example:
+        from cape.core.agent import execute_implement_plan
+
+        response = execute_implement_plan(
+            plan_file="specs/feature-plan.md",
+            issue_id=123,
+            adw_id="adw-456",
+            agent_name="sdlc_implementor",
+            logger=logger
+        )
+    """
+    # Get the configured provider for implementation
+    provider_name = get_implement_provider()
+    logger.info(f"Using provider '{provider_name}' for implementation")
+
+    # Provider-specific prompt construction
+    if provider_name == "claude":
+        # Claude uses /implement with file path (template reads file)
+        prompt = f"/implement {plan_file}"
+    else:
+        # Other providers (e.g., OpenCode) need file content directly
+        try:
+            with open(plan_file, "r") as f:
+                prompt = f.read()
+        except Exception as e:
+            error_msg = f"Failed to read plan file {plan_file}: {e}"
+            logger.error(error_msg)
+            return AgentExecuteResponse(
+                output=error_msg,
+                success=False,
+                session_id=None,
+                raw_output_path=None,
+                error_detail=str(e),
+            )
+
+    # Create AgentExecuteRequest
+    request = AgentExecuteRequest(
+        prompt=prompt,
+        issue_id=issue_id,
+        adw_id=adw_id,
+        agent_name=agent_name,
+    )
+
+    # Create progress comment handler
+    handler = make_progress_comment_handler(issue_id, adw_id, logger)
+
+    # Get agent and execute
+    agent = get_agent(provider_name)
+    response = agent.execute_prompt(request, stream_handler=handler)
+
+    # Insert final progress comment if successful
+    if response.success and response.raw_output_path:
+        insert_progress_comment(
+            issue_id, f"Implementation complete. Output saved to: {response.raw_output_path}", logger
+        )
+
+    return response
