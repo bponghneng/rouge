@@ -1,20 +1,22 @@
-"""Tests for Claude Code agent module."""
+"""Tests for Claude Code agent module (legacy facade)."""
 
 import json
 from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from cape.core.agent import (
+from cape.core.agent import execute_template, prompt_claude_code
+from cape.core.agents.claude import (
     check_claude_installed,
     convert_jsonl_to_json,
-    execute_template,
     get_claude_env,
     parse_jsonl_output,
-    prompt_claude_code,
     save_prompt,
 )
-from cape.core.models import AgentPromptRequest, AgentTemplateRequest
+from cape.core.agents.claude_models import (
+    ClaudeAgentPromptRequest as AgentPromptRequest,
+    ClaudeAgentTemplateRequest as AgentTemplateRequest,
+)
 
 
 def test_check_claude_installed_success():
@@ -101,10 +103,10 @@ def test_save_prompt(tmp_path, monkeypatch):
     assert expected_file.read_text() == "/implement plan.md"
 
 
-@patch("cape.core.agent.insert_progress_comment")
-@patch("cape.core.agent.check_claude_installed")
+@patch("cape.core.notifications.create_comment")
+@patch("cape.core.agents.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_prompt_claude_code_success(mock_popen, mock_check, mock_insert, tmp_path, monkeypatch):
+def test_prompt_claude_code_success(mock_popen, mock_check, mock_create_comment, tmp_path, monkeypatch):
     """Test successful Claude Code execution."""
     monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
@@ -139,12 +141,12 @@ def test_prompt_claude_code_success(mock_popen, mock_check, mock_insert, tmp_pat
     response = prompt_claude_code(request)
     assert response.success is True
     assert response.session_id == "session123"
-    assert mock_insert.called
+    assert mock_create_comment.called
 
 
-@patch("cape.core.agent.insert_progress_comment")
-@patch("cape.core.agent.check_claude_installed")
-def test_prompt_claude_code_cli_not_installed(mock_check, mock_insert):
+@patch("cape.core.notifications.create_comment")
+@patch("cape.core.agents.claude.check_claude_installed")
+def test_prompt_claude_code_cli_not_installed(mock_check, mock_create_comment):
     """Test handling of Claude Code CLI not installed."""
     mock_check.return_value = "Error: Claude Code CLI is not installed"
 
@@ -158,14 +160,34 @@ def test_prompt_claude_code_cli_not_installed(mock_check, mock_insert):
     response = prompt_claude_code(request)
     assert response.success is False
     assert "not installed" in response.output
-    mock_insert.assert_not_called()
+    mock_create_comment.assert_not_called()
 
 
-@patch("cape.core.agent.prompt_claude_code")
-def test_execute_template(mock_prompt, tmp_path, monkeypatch):
+@patch("cape.core.agents.claude.check_claude_installed")
+@patch("subprocess.Popen")
+def test_execute_template(mock_popen, mock_check, tmp_path, monkeypatch):
     """Test executing template with slash command."""
     monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
-    mock_prompt.return_value = Mock(output="Success", success=True, session_id="test")
+    mock_check.return_value = None
+
+    # Mock successful execution
+    result_msg = {
+        "type": "result",
+        "is_error": False,
+        "result": "Success",
+        "session_id": "test",
+    }
+
+    stdout_stream = StringIO(json.dumps(result_msg) + "\n")
+    stderr_stream = StringIO("")
+
+    process_mock = Mock()
+    process_mock.stdout = stdout_stream
+    process_mock.stderr = stderr_stream
+    process_mock.wait.return_value = None
+    process_mock.returncode = 0
+
+    mock_popen.return_value = process_mock
 
     request = AgentTemplateRequest(
         agent_name="ops",
@@ -177,4 +199,3 @@ def test_execute_template(mock_prompt, tmp_path, monkeypatch):
 
     response = execute_template(request)
     assert response.success is True
-    mock_prompt.assert_called_once()
