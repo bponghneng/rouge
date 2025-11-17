@@ -4,7 +4,8 @@ import json
 from logging import Logger
 from typing import Dict, Optional, Tuple, cast
 
-from cape.core.agent import execute_template
+from cape.core.agent import execute_template, execute_implement_plan
+from cape.core.agents import AgentExecuteResponse
 from cape.core.database import fetch_issue, update_issue_status
 from cape.core.models import (
     AgentPromptResponse,
@@ -193,34 +194,41 @@ def get_plan_file(
 def implement_plan(
     plan_file: str, issue_id: int, adw_id: str, logger: Logger
 ) -> AgentPromptResponse:
-    """Implement the plan using the /implement command.
+    """Implement the plan using configured provider.
+
+    Uses the provider configured via CAPE_IMPLEMENT_PROVIDER environment variable.
+    Defaults to Claude if not set.
 
     Args:
         plan_file: Path to the plan file to implement
+        issue_id: Cape issue ID for tracking
         adw_id: Workflow ID for tracking
         logger: Logger instance
 
     Returns:
         Agent response with implementation results
     """
-    request = AgentTemplateRequest(
-        agent_name=AGENT_IMPLEMENTOR,
-        slash_command="/implement",
-        args=[plan_file],
-        adw_id=adw_id,
+    # Use new execute_implement_plan helper which handles provider selection
+    response: AgentExecuteResponse = execute_implement_plan(
+        plan_file=plan_file,
         issue_id=issue_id,
-        model="sonnet",
+        adw_id=adw_id,
+        agent_name=AGENT_IMPLEMENTOR,
+        logger=logger,
     )
+
     logger.debug(
-        "implement request: %s",
-        request.model_dump_json(indent=2, by_alias=True),
+        "implement response: success=%s, session_id=%s",
+        response.success,
+        response.session_id,
     )
-    response = execute_template(request)
-    logger.debug(
-        "implement response: %s",
-        response.model_dump_json(indent=2, by_alias=True),
+
+    # Map AgentExecuteResponse to AgentPromptResponse for compatibility
+    return AgentPromptResponse(
+        output=response.output,
+        success=response.success,
+        session_id=response.session_id,
     )
-    return response
 
 
 def execute_workflow(
