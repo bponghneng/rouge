@@ -54,11 +54,46 @@ uv run cape-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\cape
 | `SUPABASE_URL` | ✅ | Supabase project URL. |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key used by the CLI/worker. |
 | `ANTHROPIC_API_KEY` | ✅ for workflow execution | Allows the workflow to call Claude via the local CLI. |
+| `CAPE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
 | `CAPE_AGENTS_DIR` | optional | Override for `.cape/logs/agents` directory. |
 | `CAPE_DATA_DIR` / `CAPE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
 | `CAPE_APP_ROOT` | optional | Root directory the worker uses when launching `uv run cape-adw`. |
+| `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
+| `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
 
 Create a `.env` or set the variables in your shell before running the tools.
+
+### Provider Configuration
+
+CAPE supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (classification, planning, and implementation) use Claude Code. You can configure a different provider for the implementation step using the `CAPE_IMPLEMENT_PROVIDER` environment variable.
+
+**Default behavior (Claude for all steps):**
+```bash
+# No configuration needed - Claude is the default
+uv run cape-adw 123
+```
+
+**Using OpenCode for implementation:**
+```bash
+# Install OpenCode CLI first
+npm install -g @opencode/cli
+
+# Configure environment
+export CAPE_IMPLEMENT_PROVIDER=opencode
+export OPENCODE_API_KEY=your-opencode-api-key
+
+# Run workflow - classification and planning use Claude, implementation uses OpenCode
+uv run cape-adw 123
+```
+
+**Provider selection priority:**
+1. `CAPE_IMPLEMENT_PROVIDER` - Most specific, controls only the implementation step
+2. `CAPE_AGENT_PROVIDER` - Fallback for general provider selection
+3. Default: `"claude"` if neither is set
+
+**Supported providers:**
+- `claude` - Claude Code CLI (default, requires `ANTHROPIC_API_KEY`)
+- `opencode` - OpenCode CLI (requires `OPENCODE_API_KEY`)
 
 ## Worker Installation & Operation
 
