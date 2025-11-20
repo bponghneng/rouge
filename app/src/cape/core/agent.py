@@ -12,11 +12,11 @@ import os
 from typing import Callable, Optional
 
 from cape.core.agents import AgentExecuteRequest, AgentExecuteResponse, get_agent, get_implement_provider
-from cape.core.agents.claude import execute_claude_template
-from cape.core.agents.claude_models import (
+from cape.core.agents.claude import (
     ClaudeAgentPromptRequest,
     ClaudeAgentPromptResponse,
     ClaudeAgentTemplateRequest,
+    execute_claude_template,
 )
 from cape.core.notifications import insert_progress_comment, make_progress_comment_handler
 
@@ -200,7 +200,7 @@ def execute_implement_plan(
     )
 
     # Create progress comment handler
-    handler = make_progress_comment_handler(issue_id, adw_id, logger)
+    handler = make_progress_comment_handler(issue_id, adw_id, logger, provider=provider_name)
 
     # Get agent and execute
     agent = get_agent(provider_name)

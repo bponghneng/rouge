@@ -20,7 +20,7 @@ SlashCommand = Literal[
 
 # Deprecated - use cape.core.agents.claude_models instead
 # These aliases are provided for backward compatibility during migration
-from cape.core.agents.claude_models import (
+from cape.core.agents.claude import (
     ClaudeAgentPromptRequest as AgentPromptRequest,
     ClaudeAgentPromptResponse as AgentPromptResponse,
     ClaudeAgentResultMessage as ClaudeCodeResultMessage,

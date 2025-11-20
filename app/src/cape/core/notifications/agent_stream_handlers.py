@@ -15,16 +15,17 @@ import logging
 from typing import Callable
 
 from cape.core.agents.claude import iter_assistant_items
+from cape.core.agents.opencode import iter_opencode_items
 from cape.core.database import create_comment
 
 
 def make_progress_comment_handler(
-    issue_id: int, adw_id: str, logger: logging.Logger
+    issue_id: int, adw_id: str, logger: logging.Logger, provider: str = "claude"
 ) -> Callable[[str], None]:
     """Create a stream handler that parses assistant messages and inserts progress comments.
 
-    This handler parses JSONL output from Claude Code CLI, extracts assistant
-    text and TodoWrite items, and inserts them as progress comments.
+    This handler parses JSONL output from agent providers (Claude or OpenCode),
+    extracts assistant text and TodoWrite items, and inserts them as progress comments.
 
     The handler is best-effort and never raises exceptions, ensuring agent
     execution continues even if comment insertion fails.
@@ -33,12 +34,13 @@ def make_progress_comment_handler(
         issue_id: Cape issue ID for comment insertion
         adw_id: Workflow ID for logging context
         logger: Logger instance for error reporting
+        provider: Provider name ("claude" or "opencode")
 
     Returns:
         Stream handler function that processes output lines
 
     Example:
-        handler = make_progress_comment_handler(123, "adw-456", logger)
+        handler = make_progress_comment_handler(123, "adw-456", logger, "opencode")
         agent.execute_prompt(request, stream_handler=handler)
     """
 
@@ -49,8 +51,13 @@ def make_progress_comment_handler(
             if not stripped:
                 return
 
-            # Parse JSONL and extract assistant items
-            items = iter_assistant_items(line)
+            # Parse JSONL and extract items based on provider
+            if provider == "opencode":
+                items = iter_opencode_items(line)
+            else:
+                # Default to Claude
+                items = iter_assistant_items(line)
+
             for item in items:
                 try:
                     # Serialize item to JSON for comment
