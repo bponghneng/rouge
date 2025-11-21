@@ -1,13 +1,14 @@
+import _frozen_importlib_external
 import logging
 from functools import partial
 from typing import List, Optional
 
 from textual import work
 from textual.app import ComposeResult
+from textual.containers import Container
 from textual.coordinate import Coordinate
 from textual.reactive import reactive
 from textual.screen import Screen
-from textual.timer import Timer
 from textual.widgets import (
     DataTable,
     Footer,
@@ -35,43 +36,45 @@ class IssueListScreen(Screen):
     """Main screen displaying issue list in DataTable."""
 
     BINDINGS = [
-        ("n", "new_issue", "New Issue"),
-        ("enter", "view_detail", "View Details"),
-        ("v", "view_detail", "View Details"),
-        ("a", "assign_worker", "Assign Worker"),
-        ("d", "delete_issue", "Delete Issue"),
-        ("delete", "delete_issue", "Delete Issue"),
+        ("n", "new_issue", "New"),
+        ("v", "view_detail", "View"),
+        ("enter", "view_detail", "View"),
+        ("r", "refresh", "Refresh"),
+        ("a", "assign_worker", "Assign"),
+        ("d", "delete_issue", "Delete"),
+        ("delete", "delete_issue", "Delete"),
         ("q", "quit", "Quit"),
         ("?", "help", "Help"),
     ]
 
     loading: reactive[bool] = reactive(False)
-    status_timer: Optional[Timer] = None
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the issue list screen."""
         yield Header(show_clock=True)
-        yield Static("Cape Issue Management", id="title")
-        yield DataTable(id="issue_table")
+        yield Container(
+            Static("Issues", id="content_header"),
+            DataTable(
+                id="issue_table",
+                cell_padding=1,
+                classes="table",
+                header_height=2,
+                zebra_stripes=True,
+            ),
+            Static("", id="content_footer"),
+            id="content",
+        )
         yield Footer()
 
     def on_mount(self) -> None:
         """Initialize the screen when mounted."""
         table = self.query_one(DataTable)
         table.cursor_type = "row"
-        table.add_column("ID", width=6)
-        table.add_column("Description", width=50)
-        table.add_column("Status", width=12)
-        table.add_column("Assigned To", width=14)
-        table.add_column("Created", width=18)
+        table.add_column("ID")
+        table.add_column("Title")
+        table.add_column("Status")
+        table.add_column("Worker")
         self.load_issues()
-        # Refresh workflow indicators every 5 seconds
-        self.status_timer = self.set_interval(5, self.load_issues)
-
-    def on_unmount(self) -> None:
-        """Clean up when screen is unmounted."""
-        if self.status_timer:
-            self.status_timer.stop()
 
     @work(exclusive=True, thread=True)
     def load_issues(self) -> None:
@@ -92,13 +95,6 @@ class IssueListScreen(Screen):
             return
 
         for issue in issues:
-            # Truncate description to 50 characters
-            if len(issue.description) > 50:
-                desc = f"{issue.description[:47]}..."
-            else:
-                desc = issue.description
-
-            # Format assignment
             if issue.assigned_to == "tydirium-1":
                 assigned = "Tydirium"
             elif issue.assigned_to == "alleycat-1":
@@ -106,10 +102,14 @@ class IssueListScreen(Screen):
             else:
                 assigned = ""
 
-            # Format timestamp
-            created = issue.created_at.strftime("%Y-%m-%d %H:%M") if issue.created_at else "Unknown"
-
-            table.add_row(str(issue.id), desc, issue.status, assigned, created, key=str(issue.id))
+            table.add_row(
+                str(issue.id),
+                issue.title,
+                issue.status,
+                assigned,
+                height=2,
+                key=str(issue.id),
+            )
 
     def action_new_issue(self) -> None:
         """Show the create issue modal."""
@@ -226,6 +226,10 @@ class IssueListScreen(Screen):
         # Show worker assignment modal with callback
         callback = partial(self.handle_worker_assignment, issue_id)
         self.app.push_screen(WorkerAssignModal(current_assignment), callback)
+
+    def action_refresh(self) -> None:
+        """Refresh the issue list."""
+        self.load_issues()
 
     def handle_worker_assignment(self, issue_id: int, assigned_to: Optional[str]) -> None:
         """Handle the result of worker assignment modal.
