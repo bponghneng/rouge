@@ -12,11 +12,12 @@ Stream handlers follow a specific protocol:
 
 import json
 import logging
-from typing import Callable
+from typing import Any, Callable, Dict, Iterable
 
 from cape.core.agents.claude import iter_assistant_items
 from cape.core.agents.opencode import iter_opencode_items
-from cape.core.database import create_comment
+from cape.core.models import CapeComment
+from cape.core.notifications.comments import insert_progress_comment
 
 
 def make_progress_comment_handler(
@@ -53,7 +54,7 @@ def make_progress_comment_handler(
 
             # Parse JSONL and extract items based on provider
             if provider == "opencode":
-                items = iter_opencode_items(line)
+                items: Iterable[Dict[str, Any]] = iter_opencode_items(line)
             else:
                 # Default to Claude
                 items = iter_assistant_items(line)
@@ -63,20 +64,21 @@ def make_progress_comment_handler(
                     # Serialize item to JSON for comment
                     text = json.dumps(item, indent=2)
 
+                    # Create CapeComment object with metadata
+                    comment = CapeComment(
+                        issue_id=issue_id,
+                        comment=text,
+                        raw=item,  # Store the raw parsed dict
+                        source="agent",
+                        type=provider  # "claude" or "opencode"
+                    )
+
                     # Insert progress comment (best-effort)
-                    try:
-                        comment = create_comment(issue_id, text)
-                        logger.debug(
-                            "Progress comment inserted: ID=%s, ADW=%s",
-                            comment.id,
-                            adw_id,
-                        )
-                    except Exception as exc:
-                        logger.error(
-                            "Failed to insert progress comment for issue %s: %s",
-                            issue_id,
-                            exc,
-                        )
+                    status, msg = insert_progress_comment(comment)
+                    if status == "success":
+                        logger.debug("Progress comment inserted: ADW=%s - %s", adw_id, msg)
+                    else:
+                        logger.error("Failed to insert progress comment: %s", msg)
                 except Exception as exc:
                     logger.error("Error serializing assistant item: %s", exc)
 
