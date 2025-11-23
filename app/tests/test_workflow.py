@@ -319,3 +319,179 @@ def test_derive_paths_from_plan():
     assert result["slug"] == ""
     assert result["plan_file"] == "specs/chore-plan.md"
     assert result["review_file"] == "specs/chore-review.txt"
+
+
+@patch("cape.core.workflow.review.subprocess.run")
+@patch("cape.core.workflow.review.insert_progress_comment")
+@patch("cape.core.workflow.review.os.makedirs")
+@patch("cape.core.workflow.review.os.path.dirname")
+def test_generate_review_success(
+    mock_dirname, mock_makedirs, mock_insert_comment, mock_subprocess, mock_logger, tmp_path
+):
+    """Test successful CodeRabbit review generation."""
+    # Mock subprocess result
+    mock_result = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = "CodeRabbit review output"
+    mock_subprocess.return_value = mock_result
+
+    # Mock directory name
+    mock_dirname.return_value = "specs"
+
+    # Mock insert_progress_comment success
+    mock_insert_comment.return_value = ("success", "Comment inserted")
+
+    from cape.core.workflow.review import generate_review
+
+    # Use a temporary file for the test
+    review_file = tmp_path / "chore-test-review.txt"
+
+    success, review_text = generate_review(
+        review_file=str(review_file),
+        working_dir="/working/dir",
+        repo_path="/repo/path",
+        issue_id=123,
+        logger=mock_logger
+    )
+
+    assert success is True
+    assert review_text == "CodeRabbit review output"
+    mock_subprocess.assert_called_once()
+
+    # Verify the file was written
+    assert review_file.exists()
+    assert review_file.read_text() == "CodeRabbit review output"
+
+
+@patch("cape.core.workflow.review.subprocess.run")
+def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
+    """Test CodeRabbit review generation handles subprocess failures."""
+    # Mock subprocess failure
+    mock_result = Mock()
+    mock_result.returncode = 1
+    mock_result.stderr = "CodeRabbit error"
+    mock_subprocess.return_value = mock_result
+
+    from cape.core.workflow.review import generate_review
+
+    success, review_text = generate_review(
+        review_file="specs/chore-test-review.txt",
+        working_dir="/working/dir",
+        repo_path="/repo/path",
+        issue_id=123,
+        logger=mock_logger
+    )
+
+    assert success is False
+    assert review_text is None
+    mock_logger.error.assert_called()
+
+
+@patch("cape.core.workflow.review.subprocess.run")
+def test_generate_review_timeout(mock_subprocess, mock_logger):
+    """Test CodeRabbit review generation handles timeout."""
+    import subprocess
+    mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="coderabbit", timeout=300)
+
+    from cape.core.workflow.review import generate_review
+
+    success, review_text = generate_review(
+        review_file="specs/chore-test-review.txt",
+        working_dir="/working/dir",
+        repo_path="/repo/path",
+        issue_id=123,
+        logger=mock_logger
+    )
+
+    assert success is False
+    assert review_text is None
+    mock_logger.error.assert_called_with("CodeRabbit review timed out after 300 seconds")
+
+
+@patch("cape.core.workflow.review.execute_template")
+@patch("cape.core.workflow.review.insert_progress_comment")
+@patch("cape.core.workflow.review.os.path.exists")
+@patch("cape.core.workflow.review.ClaudeAgentTemplateRequest")
+def test_notify_review_template_success(
+    mock_request_class, mock_exists, mock_insert_comment, mock_execute, mock_logger
+):
+    """Test successful notification of review template."""
+    # Mock file exists
+    mock_exists.return_value = True
+
+    # Mock the request object
+    mock_request = Mock()
+    mock_request_class.return_value = mock_request
+
+    # Mock successful template execution
+    mock_response = Mock()
+    mock_response.success = True
+    mock_response.output = "Template executed successfully"
+    mock_execute.return_value = mock_response
+
+    # Mock insert_progress_comment success
+    mock_insert_comment.return_value = ("success", "Comment inserted")
+
+    from cape.core.workflow.review import notify_review_template
+
+    success = notify_review_template(
+        review_file="specs/chore-test-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger
+    )
+
+    assert success is True
+    mock_exists.assert_called_once_with("specs/chore-test-review.txt")
+    mock_execute.assert_called_once_with(mock_request)
+    mock_insert_comment.assert_called_once()
+
+
+@patch("cape.core.workflow.review.os.path.exists")
+def test_notify_review_template_file_not_found(mock_exists, mock_logger):
+    """Test notification handles missing review file."""
+    mock_exists.return_value = False
+
+    from cape.core.workflow.review import notify_review_template
+
+    success = notify_review_template(
+        review_file="specs/missing-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger
+    )
+
+    assert success is False
+    mock_logger.error.assert_called_with("Review file does not exist: specs/missing-review.txt")
+
+
+@patch("cape.core.workflow.review.execute_template")
+@patch("cape.core.workflow.review.os.path.exists")
+@patch("cape.core.workflow.review.ClaudeAgentTemplateRequest")
+def test_notify_review_template_execution_failure(
+    mock_request_class, mock_exists, mock_execute, mock_logger
+):
+    """Test notification handles template execution failure."""
+    mock_exists.return_value = True
+
+    # Mock the request object
+    mock_request = Mock()
+    mock_request_class.return_value = mock_request
+
+    # Mock failed template execution
+    mock_response = Mock()
+    mock_response.success = False
+    mock_response.output = "Template execution failed"
+    mock_execute.return_value = mock_response
+
+    from cape.core.workflow.review import notify_review_template
+
+    success = notify_review_template(
+        review_file="specs/chore-test-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger
+    )
+
+    assert success is False
+    mock_logger.error.assert_called()
