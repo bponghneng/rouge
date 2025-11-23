@@ -16,6 +16,8 @@ from cape.core.workflow import (
     implement_plan,
     update_status,
 )
+from cape.core.workflow.implement import parse_implement_output
+from cape.core.workflow.shared import derive_paths_from_plan
 
 
 @pytest.fixture
@@ -30,7 +32,7 @@ def sample_issue():
     return CapeIssue(id=1, description="Fix login bug", status="pending")
 
 
-@patch("cape.core.workflow.update_issue_status")
+@patch("cape.core.workflow.status.update_issue_status")
 def test_update_status_success(mock_update_issue_status, mock_logger):
     """Test successful status update."""
     mock_issue = Mock()
@@ -42,7 +44,7 @@ def test_update_status_success(mock_update_issue_status, mock_logger):
     mock_update_issue_status.assert_called_once_with(1, "started")
 
 
-@patch("cape.core.workflow.update_issue_status")
+@patch("cape.core.workflow.status.update_issue_status")
 def test_update_status_failure(mock_update_issue_status, mock_logger):
     """Test status update handles errors gracefully."""
     mock_update_issue_status.side_effect = Exception("Database error")
@@ -90,7 +92,7 @@ def test_insert_progress_comment_failure(mock_create_comment):
     assert "Database error" in msg
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.classify.execute_template")
 def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
     """Test successful issue classification."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -105,7 +107,7 @@ def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
     assert error is None
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.classify.execute_template")
 def test_classify_issue_failure(mock_execute, mock_logger, sample_issue):
     """Test issue classification failure."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -118,7 +120,7 @@ def test_classify_issue_failure(mock_execute, mock_logger, sample_issue):
     assert error == "Error occurred"
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.classify.execute_template")
 def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue):
     """Test issue classification with invalid command."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -133,7 +135,7 @@ def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue)
     assert "Invalid issue type" in error
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.classify.execute_template")
 def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
     """Test classification with invalid JSON output."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -146,7 +148,7 @@ def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
     assert "Invalid classification JSON" in error
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.plan.execute_template")
 def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     """Test successful plan building."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -158,7 +160,7 @@ def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     assert response.output == "Plan created successfully"
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.plan_file.execute_template")
 def test_get_plan_file_success(mock_execute, mock_logger):
     """Test successful plan file extraction."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -170,7 +172,7 @@ def test_get_plan_file_success(mock_execute, mock_logger):
     assert error is None
 
 
-@patch("cape.core.workflow.execute_template")
+@patch("cape.core.workflow.plan_file.execute_template")
 def test_get_plan_file_not_found(mock_execute, mock_logger):
     """Test plan file not found."""
     mock_execute.return_value = ClaudeAgentPromptResponse(output="0", success=True, session_id="test123")
@@ -180,7 +182,7 @@ def test_get_plan_file_not_found(mock_execute, mock_logger):
     assert "No plan file found" in error
 
 
-@patch("cape.core.workflow.execute_implement_plan")
+@patch("cape.core.workflow.implement.execute_implement_plan")
 def test_implement_plan_success(mock_execute, mock_logger):
     """Test successful plan implementation."""
     mock_execute.return_value = Mock(
@@ -193,13 +195,13 @@ def test_implement_plan_success(mock_execute, mock_logger):
     assert response.success is True
 
 
-@patch("cape.core.workflow.fetch_issue")
-@patch("cape.core.workflow.classify_issue")
-@patch("cape.core.workflow.build_plan")
-@patch("cape.core.workflow.get_plan_file")
-@patch("cape.core.workflow.implement_plan")
-@patch("cape.core.workflow.insert_progress_comment")
-@patch("cape.core.workflow.update_status")
+@patch("cape.core.workflow.runner.fetch_issue")
+@patch("cape.core.workflow.runner.classify_issue")
+@patch("cape.core.workflow.runner.build_plan")
+@patch("cape.core.workflow.runner.get_plan_file")
+@patch("cape.core.workflow.runner.implement_plan")
+@patch("cape.core.workflow.runner.insert_progress_comment")
+@patch("cape.core.workflow.runner.update_status")
 def test_execute_workflow_success(
     mock_update_status,
     mock_insert_comment,
@@ -232,7 +234,7 @@ def test_execute_workflow_success(
     mock_update_status.assert_any_call(1, "completed", mock_logger)
 
 
-@patch("cape.core.workflow.fetch_issue")
+@patch("cape.core.workflow.runner.fetch_issue")
 def test_execute_workflow_fetch_failure(mock_fetch, mock_logger):
     """Test workflow handles fetch failure."""
     mock_fetch.side_effect = ValueError("Issue not found")
@@ -242,8 +244,8 @@ def test_execute_workflow_fetch_failure(mock_fetch, mock_logger):
     mock_logger.error.assert_called()
 
 
-@patch("cape.core.workflow.fetch_issue")
-@patch("cape.core.workflow.classify_issue")
+@patch("cape.core.workflow.runner.fetch_issue")
+@patch("cape.core.workflow.runner.classify_issue")
 def test_execute_workflow_classify_failure(mock_classify, mock_fetch, mock_logger, sample_issue):
     """Test workflow handles classification failure."""
     mock_fetch.return_value = sample_issue
@@ -251,3 +253,69 @@ def test_execute_workflow_classify_failure(mock_classify, mock_fetch, mock_logge
 
     result = execute_workflow(1, "adw123", mock_logger)
     assert result is False
+
+
+def test_parse_implement_output_success(mock_logger):
+    """Test successful parsing of implementation output."""
+    output = """{
+        "summary": "Fixed the bug",
+        "files_modified": ["file1.py", "file2.py"],
+        "path": "specs/chore-fix-bug-plan.md",
+        "git_diff_stat": "2 files changed, 10 insertions(+), 5 deletions(-)",
+        "status": "completed"
+    }"""
+
+    result = parse_implement_output(output, mock_logger)
+    assert result is not None
+    assert result["summary"] == "Fixed the bug"
+    assert len(result["files_modified"]) == 2
+    assert result["path"] == "specs/chore-fix-bug-plan.md"
+
+
+def test_parse_implement_output_invalid_json(mock_logger):
+    """Test parsing with invalid JSON."""
+    output = "not valid json"
+
+    result = parse_implement_output(output, mock_logger)
+    assert result is None
+    mock_logger.error.assert_called()
+
+
+def test_parse_implement_output_missing_fields(mock_logger):
+    """Test parsing with missing required fields."""
+    output = """{
+        "summary": "Fixed the bug",
+        "files_modified": ["file1.py"]
+    }"""
+
+    result = parse_implement_output(output, mock_logger)
+    assert result is None
+    mock_logger.error.assert_called()
+
+
+def test_derive_paths_from_plan():
+    """Test deriving paths from plan file name."""
+    # Test typical case
+    result = derive_paths_from_plan("specs/chore-fix-login-plan.md")
+    assert result["type"] == "chore"
+    assert result["slug"] == "fix-login"
+    assert result["plan_file"] == "specs/chore-fix-login-plan.md"
+    assert result["review_file"] == "specs/chore-fix-login-review.txt"
+
+    # Test feature type
+    result = derive_paths_from_plan("specs/feature-add-auth-plan.md")
+    assert result["type"] == "feature"
+    assert result["slug"] == "add-auth"
+    assert result["review_file"] == "specs/feature-add-auth-review.txt"
+
+    # Test bug type
+    result = derive_paths_from_plan("specs/bug-memory-leak-plan.md")
+    assert result["type"] == "bug"
+    assert result["slug"] == "memory-leak"
+
+    # Test edge case with no slug
+    result = derive_paths_from_plan("specs/chore-plan.md")
+    assert result["type"] == "chore"
+    assert result["slug"] == ""
+    assert result["plan_file"] == "specs/chore-plan.md"
+    assert result["review_file"] == "specs/chore-review.txt"
