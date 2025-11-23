@@ -30,7 +30,7 @@ def parse_implement_output(output: str, logger: Logger) -> Optional[Dict]:
             return None
 
         # Validate required fields
-        required_fields = ["summary", "files_modified", "path", "git_diff_stat", "status"]
+        required_fields = ["summary", "files_modified", "planPath", "git_diff_stat", "status"]
         missing_fields = []
 
         for field in required_fields:
