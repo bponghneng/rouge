@@ -13,11 +13,7 @@ from cape.core.workflow.shared import AGENT_IMPLEMENTOR
 
 
 def generate_review(
-    review_file: str,
-    working_dir: str,
-    repo_path: str,
-    issue_id: int,
-    logger: Logger
+    review_file: str, working_dir: str, repo_path: str, issue_id: int, logger: Logger
 ) -> Tuple[bool, Optional[str]]:
     """Generate CodeRabbit review and save to file.
 
@@ -41,21 +37,16 @@ def generate_review(
         cmd = [
             "coderabbit",
             "review",
-            "--config", f"{repo_path}/.coderabbit.yaml",
-            "--prompt-only"
+            "--config",
+            f"{working_dir}/.coderabbit.yaml",
+            "--prompt-only",
         ]
 
         logger.debug(f"Executing CodeRabbit command: {' '.join(cmd)}")
         logger.debug(f"Running from directory: {repo_path}")
 
         # Execute CodeRabbit review from repo_path
-        result = subprocess.run(
-            cmd,
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            timeout=300
-        )
+        result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
             logger.error(f"CodeRabbit review failed with code {result.returncode}")
@@ -63,22 +54,25 @@ def generate_review(
             return False, None
 
         # Write review to file
-        with open(review_file, 'w') as f:
+        with open(review_file, "w") as f:
             f.write(result.stdout)
 
         logger.debug(f"Review written to {review_file}")
 
         # Read back the content
-        with open(review_file, 'r') as f:
+        with open(review_file, "r") as f:
             review_text = f.read()
 
         # Insert progress comment with artifact
         comment = CapeComment(
             issue_id=issue_id,
             comment=f"CodeRabbit review generated at {review_file}",
-            raw={"review_file": review_file, "review_text": review_text[:500]},  # First 500 chars for preview
+            raw={
+                "review_file": review_file,
+                "review_text": review_text[:500],
+            },  # First 500 chars for preview
             source="system",
-            type="artifact"
+            type="artifact",
         )
         status, msg = insert_progress_comment(comment)
         if status != "success":
@@ -96,12 +90,7 @@ def generate_review(
         return False, None
 
 
-def notify_review_template(
-    review_file: str,
-    issue_id: int,
-    adw_id: str,
-    logger: Logger
-) -> bool:
+def notify_review_template(review_file: str, issue_id: int, adw_id: str, logger: Logger) -> bool:
     """Notify the /address-review-issues template with the review file.
 
     Args:
@@ -153,7 +142,7 @@ def notify_review_template(
             comment="Review issues template executed successfully",
             raw={"template_output": response.output[:1000]},  # First 1000 chars of output
             source="system",
-            type="artifact"
+            type="artifact",
         )
         status, msg = insert_progress_comment(comment)
         if status != "success":
