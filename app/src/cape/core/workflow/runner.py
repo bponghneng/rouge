@@ -5,6 +5,7 @@ from logging import Logger
 from cape.core.database import fetch_issue
 from cape.core.models import CapeComment
 from cape.core.notifications import insert_progress_comment
+from cape.core.workflow.acceptance import notify_plan_acceptance
 from cape.core.workflow.classify import classify_issue
 from cape.core.workflow.implement import implement_plan, parse_implement_output
 from cape.core.workflow.plan import build_plan
@@ -64,7 +65,7 @@ def execute_workflow(
         comment="Workflow started - Issue fetched and validated",
         raw={},
         source="system",
-        type="workflow"
+        type="workflow",
     )
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
@@ -98,11 +99,7 @@ def execute_workflow(
     else:
         comment_text = f"Issue classified as {issue_command}"
     comment = CapeComment(
-        issue_id=issue_id,
-        comment=comment_text,
-        raw={},
-        source="system",
-        type="workflow"
+        issue_id=issue_id, comment=comment_text, raw={}, source="system", type="workflow"
     )
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
@@ -121,7 +118,7 @@ def execute_workflow(
         comment="Implementation plan created successfully",
         raw={},
         source="system",
-        type="workflow"
+        type="workflow",
     )
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
@@ -151,7 +148,9 @@ def execute_workflow(
 
     # Find the plan file that was implemented
     logger.info("\n=== Finding implemented plan file ===")
-    implemented_plan_path, error = get_plan_file(implement_response.output, issue_id, adw_id, logger)
+    implemented_plan_path, error = get_plan_file(
+        implement_response.output, issue_id, adw_id, logger
+    )
     if error:
         logger.error(f"Error finding implemented plan file: {error}")
         # Fall back to the original plan file path
@@ -173,11 +172,7 @@ def execute_workflow(
     repo_path = get_repo_path()
 
     review_success, review_text = generate_review(
-        review_file,
-        working_dir,
-        repo_path,
-        issue_id,
-        logger
+        review_file, working_dir, repo_path, issue_id, logger
     )
 
     if not review_success:
@@ -188,18 +183,23 @@ def execute_workflow(
 
         # Notify the /address-review-issues template
         logger.info("\n=== Notifying review template ===")
-        notify_success = notify_review_template(
-            review_file,
-            issue_id,
-            adw_id,
-            logger
-        )
+        notify_success = notify_review_template(review_file, issue_id, adw_id, logger)
 
         if not notify_success:
             logger.error("Failed to notify review template")
             # Continue workflow even if notification fails
         else:
             logger.info("Review template notified successfully")
+
+    # Validate plan acceptance
+    logger.info("\n=== Validating plan acceptance ===")
+    acceptance_success = notify_plan_acceptance(implemented_plan_path, issue_id, adw_id, logger)
+
+    if not acceptance_success:
+        logger.error("Failed to validate plan acceptance")
+        # Continue workflow even if acceptance validation fails
+    else:
+        logger.info("Plan acceptance validated successfully")
 
     # Update status to "completed" - best-effort, non-blocking
     update_status(issue_id, "completed", logger)
@@ -210,7 +210,7 @@ def execute_workflow(
         comment="Solution implemented successfully",
         raw={},
         source="system",
-        type="workflow"
+        type="workflow",
     )
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
