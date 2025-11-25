@@ -63,8 +63,11 @@ def execute_workflow(
     # Insert progress comment - best-effort, non-blocking
     comment = CapeComment(
         issue_id=issue_id,
-        comment="Workflow started - Issue fetched and validated",
-        raw={},
+        comment="Workflow started. Issue fetched and validated",
+        raw={
+            "issue_id": issue_id,
+            "text": "Workflow started. Issue fetched and validated.",
+        },
         source="system",
         type="workflow",
     )
@@ -104,7 +107,7 @@ def execute_workflow(
     else:
         comment_text = f"Issue classified as {issue_command}"
     comment = CapeComment(
-        issue_id=issue_id, comment=comment_text, raw={}, source="system", type="workflow"
+        issue_id=issue_id, comment=comment_text, raw=classification_data, source="system", type="workflow"
     )
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
@@ -116,7 +119,7 @@ def execute_workflow(
     if not plan_response.success:
         logger.error(f"Error building plan: {plan_response.error}")
         return False
-    logger.info(" Implementation plan created")
+    logger.info(f"Implementation plan created:\n\n{plan_response}")
 
     # Insert progress comment - best-effort, non-blocking
     comment = CapeComment(
