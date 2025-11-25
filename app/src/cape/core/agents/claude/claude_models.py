@@ -13,6 +13,7 @@ from pydantic import BaseModel
 SlashCommand = Literal[
     "/address-review-issues",
     "/implement",
+    "/plan-acceptance",
     "/triage:classify",
     "/triage:chore",
     "/triage:bug",
