@@ -187,7 +187,10 @@ def execute_workflow(
 
         # Notify the /address-review-issues template
         logger.info("\n=== Notifying review template ===")
-        notify_success = notify_review_template(review_file, issue_id, adw_id, logger)
+        review_handler = make_progress_comment_handler(issue_id, adw_id, logger)
+        notify_success = notify_review_template(
+            review_file, issue_id, adw_id, logger, stream_handler=review_handler
+        )
 
         if not notify_success:
             logger.error("Failed to notify review template")
@@ -197,7 +200,10 @@ def execute_workflow(
 
     # Validate plan acceptance
     logger.info("\n=== Validating plan acceptance ===")
-    acceptance_success = notify_plan_acceptance(implemented_plan_path, issue_id, adw_id, logger)
+    acceptance_handler = make_progress_comment_handler(issue_id, adw_id, logger)
+    acceptance_success = notify_plan_acceptance(
+        implemented_plan_path, issue_id, adw_id, logger, stream_handler=acceptance_handler
+    )
 
     if not acceptance_success:
         logger.error("Failed to validate plan acceptance")

@@ -2,6 +2,7 @@
 
 import os
 from logging import Logger
+from typing import Callable, Optional
 
 from cape.core.agent import execute_template
 from cape.core.agents.claude import ClaudeAgentTemplateRequest
@@ -10,7 +11,13 @@ from cape.core.notifications import insert_progress_comment
 from cape.core.workflow.shared import AGENT_IMPLEMENTOR
 
 
-def notify_plan_acceptance(plan_path: str, issue_id: int, adw_id: str, logger: Logger) -> bool:
+def notify_plan_acceptance(
+    plan_path: str,
+    issue_id: int,
+    adw_id: str,
+    logger: Logger,
+    stream_handler: Optional[Callable[[str], None]] = None,
+) -> bool:
     """Notify the /plan-acceptance template with the plan file to validate.
 
     Validates implementation against plan, returns True on success.
@@ -48,7 +55,7 @@ def notify_plan_acceptance(plan_path: str, issue_id: int, adw_id: str, logger: L
         )
 
         # Execute template
-        response = execute_template(request)
+        response = execute_template(request, stream_handler=stream_handler)
 
         logger.debug(
             "notify_plan_acceptance response: success=%s",

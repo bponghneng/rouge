@@ -3,7 +3,7 @@
 import os
 import subprocess
 from logging import Logger
-from typing import Optional, Tuple
+from typing import Callable, Optional, Tuple
 
 from cape.core.agent import execute_template
 from cape.core.agents.claude import ClaudeAgentTemplateRequest
@@ -90,7 +90,13 @@ def generate_review(
         return False, None
 
 
-def notify_review_template(review_file: str, issue_id: int, adw_id: str, logger: Logger) -> bool:
+def notify_review_template(
+    review_file: str,
+    issue_id: int,
+    adw_id: str,
+    logger: Logger,
+    stream_handler: Optional[Callable[[str], None]] = None,
+) -> bool:
     """Notify the /address-review-issues template with the review file.
 
     Args:
@@ -125,7 +131,7 @@ def notify_review_template(review_file: str, issue_id: int, adw_id: str, logger:
             request.model_dump_json(indent=2, by_alias=True),
         )
 
-        response = execute_template(request)
+        response = execute_template(request, stream_handler=stream_handler)
 
         logger.debug(
             "notify_review_template response: success=%s",
