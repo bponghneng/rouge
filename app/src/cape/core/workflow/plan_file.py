@@ -1,16 +1,16 @@
 """Plan file path extraction functionality for workflow orchestration."""
 
 from logging import Logger
-from typing import Optional, Tuple
 
 from cape.core.agent import execute_template
 from cape.core.agents.claude import ClaudeAgentTemplateRequest
 from cape.core.workflow.shared import AGENT_PLAN_FINDER
+from cape.core.workflow.types import PlanFileData, StepResult
 
 
 def get_plan_file(
     plan_output: str, issue_id: int, adw_id: str, logger: Logger
-) -> Tuple[Optional[str], Optional[str]]:
+) -> StepResult[PlanFileData]:
     """Get the path to the plan file that was just created.
 
     Args:
@@ -20,7 +20,7 @@ def get_plan_file(
         logger: Logger instance
 
     Returns:
-        Tuple of (file_path, error_message) where one will be None
+        StepResult with PlanFileData containing file path
     """
     request = ClaudeAgentTemplateRequest(
         agent_name=AGENT_PLAN_FINDER,
@@ -41,16 +41,16 @@ def get_plan_file(
     )
 
     if not response.success:
-        return None, response.output
+        return StepResult.fail(response.output)
 
     # Clean up the response - get just the file path
     file_path = response.output.strip()
 
     # Validate it looks like a file path
     if file_path and file_path != "0" and "/" in file_path:
-        return file_path, None
+        return StepResult.ok(PlanFileData(file_path=file_path))
     elif file_path == "0":
-        return None, "No plan file found in output"
+        return StepResult.fail("No plan file found in output")
     else:
         # If response doesn't look like a path, return error
-        return None, f"Invalid file path response: {file_path}"
+        return StepResult.fail(f"Invalid file path response: {file_path}")

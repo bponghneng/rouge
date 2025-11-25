@@ -9,6 +9,7 @@ from cape.core.agents.claude import ClaudeAgentTemplateRequest
 from cape.core.models import CapeComment
 from cape.core.notifications import insert_progress_comment
 from cape.core.workflow.shared import AGENT_IMPLEMENTOR
+from cape.core.workflow.types import StepResult
 
 
 def notify_plan_acceptance(
@@ -17,25 +18,26 @@ def notify_plan_acceptance(
     adw_id: str,
     logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
-) -> bool:
+) -> StepResult[None]:
     """Notify the /plan-acceptance template with the plan file to validate.
 
-    Validates implementation against plan, returns True on success.
+    Validates implementation against plan.
 
     Args:
         plan_path: Path to the plan file to validate
         issue_id: Cape issue ID for tracking
         adw_id: Workflow ID for tracking
         logger: Logger instance
+        stream_handler: Optional callback for streaming output
 
     Returns:
-        True on success, False on failure
+        StepResult with None data (success/failure only)
     """
     try:
         # Validate plan file exists
         if not os.path.exists(plan_path):
             logger.error(f"Plan file does not exist: {plan_path}")
-            return False
+            return StepResult.fail(f"Plan file does not exist: {plan_path}")
 
         logger.debug(f"Invoking /plan-acceptance template with plan file: {plan_path}")
 
@@ -64,7 +66,9 @@ def notify_plan_acceptance(
 
         if not response.success:
             logger.error(f"Failed to execute /plan-acceptance template: {response.output}")
-            return False
+            return StepResult.fail(
+                f"Failed to execute /plan-acceptance template: {response.output}"
+            )
 
         # Insert progress comment with artifact
         comment = CapeComment(
@@ -80,8 +84,8 @@ def notify_plan_acceptance(
         else:
             logger.debug(f"Plan acceptance comment inserted: {msg}")
 
-        return True
+        return StepResult.ok(None)
 
     except Exception as e:
         logger.error(f"Failed to notify plan acceptance template: {e}")
-        return False
+        return StepResult.fail(f"Failed to notify plan acceptance template: {e}")

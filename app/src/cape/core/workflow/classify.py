@@ -2,12 +2,13 @@
 
 import json
 from logging import Logger
-from typing import Callable, Dict, Optional, Tuple, cast
+from typing import Callable, Optional, cast
 
 from cape.core.agent import execute_template
 from cape.core.agents.claude import ClaudeAgentTemplateRequest
-from cape.core.models import CapeIssue, SlashCommand
+from cape.core.models import CapeIssue
 from cape.core.workflow.shared import AGENT_CLASSIFIER
+from cape.core.workflow.types import ClassifyData, ClassifySlashCommand, StepResult
 
 
 def classify_issue(
@@ -15,7 +16,7 @@ def classify_issue(
     adw_id: str,
     logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
-) -> Tuple[Optional[SlashCommand], Optional[Dict[str, str]], Optional[str]]:
+) -> StepResult[ClassifyData]:
     """Classify issue and return appropriate slash command.
 
     Args:
@@ -25,8 +26,7 @@ def classify_issue(
         stream_handler: Optional callback for streaming output
 
     Returns:
-        Tuple of (command, classification_data, error_message)
-        where only one of classification_data/error_message is set.
+        StepResult with ClassifyData containing command and classification
     """
     request = ClaudeAgentTemplateRequest(
         agent_name=AGENT_CLASSIFIER,
@@ -47,7 +47,7 @@ def classify_issue(
     )
 
     if not response.success:
-        return None, None, response.output
+        return StepResult.fail(response.output)
 
     raw_output = response.output.strip()
     logger.debug("Classifier raw output: %s", raw_output)
@@ -55,18 +55,18 @@ def classify_issue(
         classification_data = json.loads(raw_output)
     except json.JSONDecodeError as exc:
         logger.error("Classifier JSON decode failed: %s | raw=%s", exc, raw_output)
-        return None, None, f"Invalid classification JSON: {exc}"
+        return StepResult.fail(f"Invalid classification JSON: {exc}")
 
     if not isinstance(classification_data, dict):
-        return None, None, "Invalid classification response type"
+        return StepResult.fail("Invalid classification response type")
 
     issue_type = classification_data.get("type")
     complexity_level = classification_data.get("level")
 
     if not isinstance(issue_type, str):
-        return None, None, "Classification missing 'type' field"
+        return StepResult.fail("Classification missing 'type' field")
     if not isinstance(complexity_level, str):
-        return None, None, "Classification missing 'level' field"
+        return StepResult.fail("Classification missing 'level' field")
 
     normalized_type = issue_type.strip().lower()
     normalized_level = complexity_level.strip().lower()
@@ -75,14 +75,16 @@ def classify_issue(
     valid_levels = {"simple", "average", "complex", "critical"}
 
     if normalized_type not in valid_types:
-        return None, None, f"Invalid issue type selected: {issue_type}"
+        return StepResult.fail(f"Invalid issue type selected: {issue_type}")
     if normalized_level not in valid_levels:
-        return None, None, f"Invalid complexity level selected: {complexity_level}"
+        return StepResult.fail(f"Invalid complexity level selected: {complexity_level}")
 
-    triage_command = cast(SlashCommand, f"/triage:{normalized_type}")
+    triage_command = cast(ClassifySlashCommand, f"/triage:{normalized_type}")
     normalized_classification = {
         "type": normalized_type,
         "level": normalized_level,
     }
 
-    return triage_command, normalized_classification, None
+    return StepResult.ok(
+        ClassifyData(command=triage_command, classification=normalized_classification)
+    )

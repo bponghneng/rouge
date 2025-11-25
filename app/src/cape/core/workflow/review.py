@@ -1,20 +1,17 @@
-"""Review generation and notification functionality for workflow orchestration."""
+"""Review generation functionality for workflow orchestration."""
 
 import os
 import subprocess
 from logging import Logger
-from typing import Callable, Optional, Tuple
 
-from cape.core.agent import execute_template
-from cape.core.agents.claude import ClaudeAgentTemplateRequest
 from cape.core.models import CapeComment
 from cape.core.notifications import insert_progress_comment
-from cape.core.workflow.shared import AGENT_IMPLEMENTOR
+from cape.core.workflow.types import ReviewData, StepResult
 
 
 def generate_review(
     review_file: str, working_dir: str, repo_path: str, issue_id: int, logger: Logger
-) -> Tuple[bool, Optional[str]]:
+) -> StepResult[ReviewData]:
     """Generate CodeRabbit review and save to file.
 
     Args:
@@ -25,7 +22,7 @@ def generate_review(
         logger: Logger instance
 
     Returns:
-        Tuple of (success, review_text) where review_text is None on failure
+        StepResult with ReviewData containing review text and file path
     """
     try:
         # Ensure specs directory exists
@@ -51,7 +48,7 @@ def generate_review(
         if result.returncode != 0:
             logger.error(f"CodeRabbit review failed with code {result.returncode}")
             logger.error(f"stderr: {result.stderr}")
-            return False, None
+            return StepResult.fail(f"CodeRabbit review failed with code {result.returncode}")
 
         # Write review to file
         with open(review_file, "w") as f:
@@ -80,84 +77,11 @@ def generate_review(
         else:
             logger.debug(f"Review artifact comment inserted: {msg}")
 
-        return True, review_text
+        return StepResult.ok(ReviewData(review_text=review_text, review_file=review_file))
 
     except subprocess.TimeoutExpired:
         logger.error("CodeRabbit review timed out after 300 seconds")
-        return False, None
+        return StepResult.fail("CodeRabbit review timed out after 300 seconds")
     except Exception as e:
         logger.error(f"Failed to generate review: {e}")
-        return False, None
-
-
-def notify_review_template(
-    review_file: str,
-    issue_id: int,
-    adw_id: str,
-    logger: Logger,
-    stream_handler: Optional[Callable[[str], None]] = None,
-) -> bool:
-    """Notify the /address-review-issues template with the review file.
-
-    Args:
-        review_file: Path to the review file
-        issue_id: Cape issue ID for tracking
-        adw_id: Workflow ID for tracking
-        logger: Logger instance
-
-    Returns:
-        True on success, False on failure
-    """
-    try:
-        # Validate review file exists
-        if not os.path.exists(review_file):
-            logger.error(f"Review file does not exist: {review_file}")
-            return False
-
-        logger.debug(f"Invoking /address-review-issues template with review file: {review_file}")
-
-        # Call execute_template with the review file
-        request = ClaudeAgentTemplateRequest(
-            agent_name=AGENT_IMPLEMENTOR,
-            slash_command="/address-review-issues",
-            args=[review_file],
-            adw_id=adw_id,
-            issue_id=issue_id,
-            model="sonnet",
-        )
-
-        logger.debug(
-            "notify_review_template request: %s",
-            request.model_dump_json(indent=2, by_alias=True),
-        )
-
-        response = execute_template(request, stream_handler=stream_handler)
-
-        logger.debug(
-            "notify_review_template response: success=%s",
-            response.success,
-        )
-
-        if not response.success:
-            logger.error(f"Failed to execute /address-review-issues template: {response.output}")
-            return False
-
-        # Insert progress comment with template output
-        comment = CapeComment(
-            issue_id=issue_id,
-            comment="Review issues template executed successfully",
-            raw={"template_output": response.output[:1000]},  # First 1000 chars of output
-            source="system",
-            type="artifact",
-        )
-        status, msg = insert_progress_comment(comment)
-        if status != "success":
-            logger.error(f"Failed to insert template notification comment: {msg}")
-        else:
-            logger.debug(f"Template notification comment inserted: {msg}")
-
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to notify review template: {e}")
-        return False
+        return StepResult.fail(f"Failed to generate review: {e}")

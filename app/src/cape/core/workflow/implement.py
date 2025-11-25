@@ -5,8 +5,8 @@ from typing import Dict, Optional
 
 from cape.core.agent import execute_implement_plan
 from cape.core.agents import AgentExecuteResponse
-from cape.core.agents.claude import ClaudeAgentPromptResponse
 from cape.core.workflow.shared import AGENT_IMPLEMENTOR
+from cape.core.workflow.types import ImplementData, StepResult
 
 
 def parse_implement_output(output: str, logger: Logger) -> Optional[Dict]:
@@ -31,7 +31,7 @@ def parse_implement_output(output: str, logger: Logger) -> Optional[Dict]:
 
 def implement_plan(
     plan_file: str, issue_id: int, adw_id: str, logger: Logger
-) -> ClaudeAgentPromptResponse:
+) -> StepResult[ImplementData]:
     """Implement the plan using configured provider.
 
     Uses the provider configured via CAPE_IMPLEMENT_PROVIDER environment variable.
@@ -44,7 +44,7 @@ def implement_plan(
         logger: Logger instance
 
     Returns:
-        Agent response with implementation results
+        StepResult with ImplementData containing output and optional session_id
     """
     # Use new execute_implement_plan helper which handles provider selection
     response: AgentExecuteResponse = execute_implement_plan(
@@ -61,9 +61,7 @@ def implement_plan(
         response.session_id,
     )
 
-    # Map AgentExecuteResponse to ClaudeAgentPromptResponse for compatibility
-    return ClaudeAgentPromptResponse(
-        output=response.output,
-        success=response.success,
-        session_id=response.session_id,
-    )
+    if not response.success:
+        return StepResult.fail(response.output)
+
+    return StepResult.ok(ImplementData(output=response.output, session_id=response.session_id))
