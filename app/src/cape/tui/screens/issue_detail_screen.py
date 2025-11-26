@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from textual import work
 from textual.app import ComposeResult
-from textual.containers import VerticalScroll
+from textual.containers import Container, VerticalScroll
 from textual.reactive import reactive
 from textual.screen import Screen
 from textual.timer import Timer
@@ -11,6 +11,7 @@ from textual.widgets import (
     Collapsible,
     Footer,
     Header,
+    Markdown,
     Static,
 )
 
@@ -46,18 +47,31 @@ class IssueDetailScreen(Screen):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the detail screen."""
-        yield Header()
-        yield VerticalScroll(
-            Static("Issue Details", id="detail-header"),
-            Collapsible(
-                Static("Loading...", id="issue-content"), title="Description", collapsed=False
+        yield Header(show_clock=True)
+        yield Container(
+            Static("Issue Details", id="content_header"),
+            Static("Loading...", id="issue-metadata"),
+            VerticalScroll(
+                Collapsible(Markdown("", id="issue-content"), title="Description", collapsed=False),
+                Collapsible(
+                    Comments(id="comments-widget"),
+                    title="Comments",
+                    collapsed=True,
+                    id="comments-section",
+                ),
+                id="detail-container",
             ),
-            id="detail-container",
+            Static("", id="content_footer"),
+            id="content",
         )
         yield Footer()
 
     def on_mount(self) -> None:
         """Initialize the screen when mounted."""
+        # Hide comments section initially (will be shown based on issue status)
+        comments_section = self.query_one("#comments-section")
+        comments_section.display = False
+
         # Create a paused timer for auto-refresh (activated when status becomes "started")
         self.refresh_timer = self.set_interval(
             10,
@@ -155,57 +169,38 @@ class IssueDetailScreen(Screen):
         else:
             assigned_display = "None"
 
-        content = f"""[bold]Issue #{issue.id}[/bold]
+        # Update metadata section
+        metadata = f"""[bold]Issue #{issue.id}[/bold]
 Status: [{status_color}]{issue.status}[/{status_color}]
 Assigned to: {assigned_display}
 Created: {created}
 Updated: {updated}
-
-{issue.description}
 """
-        self.query_one("#issue-content", Static).update(content)
+        self.query_one("#issue-metadata", Static).update(metadata)
+
+        # Update description content
+        self.query_one("#issue-content", Markdown).update(issue.description)
 
         # Handle conditional comments section visibility
         # Comments should only be visible for "started" or "completed" issues
         should_show_comments = issue.status in ["started", "completed"]
 
-        # Check if comments section currently exists
-        try:
-            comments_widget = self.query_one(Comments)
-            has_comments_section = True
-        except Exception:
-            has_comments_section = False
-
-        # Add or remove comments section based on status
-        if should_show_comments and not has_comments_section:
-            # Add comments section
-            container = self.query_one("#detail-container")
-            container.mount(Static("Comments", id="comments-header"))
-            container.mount(Comments(id="comments-widget"))
-            comments_changed = True  # Force update since we just added it
-        elif not should_show_comments and has_comments_section:
-            # Remove comments section
-            try:
-                self.query_one("#comments-header").remove()
-                self.query_one(Comments).remove()
-            except Exception:
-                pass
+        # Show or hide comments section based on issue status
+        comments_section = self.query_one("#comments-section")
+        comments_section.display = should_show_comments
 
         # Update comments if section is visible and data changed
         if should_show_comments and comments_changed:
-            try:
-                comments_widget = self.query_one(Comments)
-                comments_widget.update_comments(comments)
+            comments_widget = self.query_one(Comments)
+            comments_widget.update_comments(comments)
 
-                # Log refresh activity
-                if self.auto_refresh_active:
-                    logger.debug(
-                        "Auto-refresh updated %s comments for issue %s",
-                        len(comments),
-                        self.issue_id,
-                    )
-            except Exception as e:
-                logger.warning(f"Error updating comments: {e}")
+            # Log refresh activity
+            if self.auto_refresh_active:
+                logger.debug(
+                    "Auto-refresh updated %s comments for issue %s",
+                    len(comments),
+                    self.issue_id,
+                )
 
         # Activate or deactivate auto-refresh based on issue status
         if self.refresh_timer is not None:
