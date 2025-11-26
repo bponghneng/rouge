@@ -10,7 +10,7 @@ from cape.core.database import create_issue as db_create_issue
 from cape.tui.components.issue_form import IssueForm
 
 
-class CreateIssueScreen(ModalScreen[Optional[int]]):
+class CreateIssueModal(ModalScreen[Optional[int]]):
     """Modal form for creating new issues."""
 
     def compose(self) -> ComposeResult:

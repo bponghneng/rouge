@@ -10,7 +10,7 @@ from cape.core.database import update_issue_description
 from cape.tui.components.issue_form import IssueForm
 
 
-class EditDescriptionScreen(ModalScreen[bool]):
+class EditDescriptionModal(ModalScreen[bool]):
     """Modal form for editing issue description."""
 
     def __init__(self, issue_id: int, current_description: str):

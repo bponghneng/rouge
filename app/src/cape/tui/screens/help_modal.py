@@ -4,7 +4,7 @@ from textual.screen import ModalScreen
 from textual.widgets import Static
 
 
-class HelpScreen(ModalScreen):
+class HelpModal(ModalScreen):
     """Help screen displaying keyboard shortcuts and usage information."""
 
     BINDINGS = [

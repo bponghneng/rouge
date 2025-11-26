@@ -16,17 +16,17 @@ from textual.widgets import (
 )
 from textual.widgets._data_table import RowKey
 
-from cape.cli.widgets import WorkerAssignModal
+from cape.tui.screens.worker_assign_modal import WorkerAssignModal
 from cape.core.database import (
     delete_issue,
     fetch_all_issues,
     update_issue_assignment,
 )
 from cape.core.models import CapeIssue
-from cape.tui.screens.confirm_delete import ConfirmDeleteModal
-from cape.tui.screens.create_issue import CreateIssueScreen
-from cape.tui.screens.help import HelpScreen
-from cape.tui.screens.issue_detail import IssueDetailScreen
+from cape.tui.screens.confirm_delete_modal import ConfirmDeleteModal
+from cape.tui.screens.create_issue_modal import CreateIssueModal
+from cape.tui.screens.help_modal import HelpModal
+from cape.tui.screens.issue_detail_screen import IssueDetailScreen
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ class IssueListScreen(Screen):
 
     def action_new_issue(self) -> None:
         """Show the create issue modal."""
-        self.app.push_screen(CreateIssueScreen(), self.on_issue_created)
+        self.app.push_screen(CreateIssueModal(), self.on_issue_created)
 
     def action_view_detail(self) -> None:
         """Navigate to issue detail screen."""
@@ -183,7 +183,7 @@ class IssueListScreen(Screen):
 
     def action_help(self) -> None:
         """Show help screen."""
-        self.app.push_screen(HelpScreen())
+        self.app.push_screen(HelpModal())
 
     def action_quit(self) -> None:
         """Quit the application."""

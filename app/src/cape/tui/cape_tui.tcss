@@ -159,7 +159,7 @@ Button {
     overflow-y: hidden;
 }
 
-CommentsWidget {
+Comments {
     height: auto;
     border: solid $primary;
     padding: 1;

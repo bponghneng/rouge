@@ -1,8 +1,8 @@
 from textual.app import App
 
 from cape.core.utils import make_adw_id, setup_logger
-from cape.tui.screens.help import HelpScreen
-from cape.tui.screens.issue_list import IssueListScreen
+from cape.tui.screens.help_modal import HelpModal
+from cape.tui.screens.issue_list_screen import IssueListScreen
 
 
 class CapeApp(App):
@@ -57,4 +57,4 @@ class CapeApp(App):
 
     def action_help(self) -> None:
         """Show help screen."""
-        self.push_screen(HelpScreen())
+        self.push_screen(HelpModal())

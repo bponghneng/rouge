@@ -6,9 +6,9 @@ from unittest.mock import Mock, PropertyMock, patch
 import pytest
 
 from cape.core.models import CapeComment, CapeIssue
-from cape.tui.components.comments import CommentsWidget
+from cape.tui.components.comments import Comments
 from cape.tui.components.issue_form import IssueForm
-from cape.tui.screens.issue_detail import IssueDetailScreen
+from cape.tui.screens.issue_detail_screen import IssueDetailScreen
 
 
 @pytest.fixture
@@ -344,18 +344,18 @@ def test_issue_form_cancel_callback():
     cancel_callback.assert_called_once()
 
 
-# Tests for CommentsWidget
+# Tests for Comments
 
 
 def test_comments_widget_initialization():
-    """Test CommentsWidget can be initialized."""
-    widget = CommentsWidget()
+    """Test Comments can be initialized."""
+    widget = Comments()
     assert widget is not None
 
 
 def test_comments_widget_empty_state(mock_comments):
-    """Test CommentsWidget displays empty state message."""
-    widget = CommentsWidget()
+    """Test Comments displays empty state message."""
+    widget = Comments()
     widget.clear = Mock()
     widget.write = Mock()
 
@@ -368,8 +368,8 @@ def test_comments_widget_empty_state(mock_comments):
 
 
 def test_comments_widget_with_comments(mock_comments):
-    """Test CommentsWidget displays comments correctly."""
-    widget = CommentsWidget()
+    """Test Comments displays comments correctly."""
+    widget = Comments()
     widget.clear = Mock()
     widget.write = Mock()
 
@@ -384,8 +384,8 @@ def test_comments_widget_with_comments(mock_comments):
 
 
 def test_comments_widget_timestamp_formatting(mock_comments):
-    """Test CommentsWidget formats timestamps correctly."""
-    widget = CommentsWidget()
+    """Test Comments formats timestamps correctly."""
+    widget = Comments()
     widget.clear = Mock()
     widget.write = Mock()
 
@@ -406,9 +406,9 @@ def test_comments_section_hidden_for_pending_issue(mock_issue_pending, mock_comm
     """Test that comments section is not shown for pending issues."""
     screen = IssueDetailScreen(issue_id=2)
 
-    # Mock query_one to simulate no CommentsWidget exists
+    # Mock query_one to simulate no Comments exists
     def mock_query_side_effect(selector, *args):
-        if selector == CommentsWidget:
+        if selector == Comments:
             raise Exception("Widget not found")
         return Mock()
 
@@ -428,13 +428,13 @@ def test_comments_section_visible_for_started_issue(mock_issue_started, mock_com
     screen = IssueDetailScreen(issue_id=1)
 
     # Mock widgets
-    mock_comments_widget = Mock(spec=CommentsWidget)
+    mock_comments_widget = Mock(spec=Comments)
     mock_container = Mock()
 
     def mock_query_side_effect(selector, *args):
         if selector == "#issue-content":
             return Mock()
-        elif selector == CommentsWidget:
+        elif selector == Comments:
             return mock_comments_widget
         elif selector == "#detail-container":
             return mock_container
@@ -456,13 +456,13 @@ def test_comments_section_visible_for_completed_issue(mock_issue_completed, mock
     screen = IssueDetailScreen(issue_id=3)
 
     # Mock widgets
-    mock_comments_widget = Mock(spec=CommentsWidget)
+    mock_comments_widget = Mock(spec=Comments)
     mock_container = Mock()
 
     def mock_query_side_effect(selector, *args):
         if selector == "#issue-content":
             return Mock()
-        elif selector == CommentsWidget:
+        elif selector == Comments:
             return mock_comments_widget
         elif selector == "#detail-container":
             return mock_container
@@ -483,7 +483,7 @@ def test_comments_section_visible_for_completed_issue(mock_issue_completed, mock
 
 def test_v_key_triggers_view_detail():
     """Test that 'v' key binding triggers action_view_detail method."""
-    from cape.tui.screens.issue_list import IssueListScreen
+    from cape.tui.screens.issue_list_screen import IssueListScreen
 
     # Create screen instance
     screen = IssueListScreen()
@@ -500,7 +500,7 @@ def test_v_key_triggers_view_detail():
 
 def test_enter_key_still_works():
     """Test that existing 'enter' key binding still works after adding 'v'."""
-    from cape.tui.screens.issue_list import IssueListScreen
+    from cape.tui.screens.issue_list_screen import IssueListScreen
 
     # Create screen instance
     screen = IssueListScreen()
@@ -517,7 +517,7 @@ def test_enter_key_still_works():
 
 def test_both_keys_map_to_same_action():
     """Test that both 'enter' and 'v' map to the same action."""
-    from cape.tui.screens.issue_list import IssueListScreen
+    from cape.tui.screens.issue_list_screen import IssueListScreen
 
     screen = IssueListScreen()
 

@@ -16,9 +16,9 @@ from textual.widgets import (
 
 from cape.core.database import delete_issue, fetch_comments, fetch_issue
 from cape.core.models import CapeComment, CapeIssue
-from cape.tui.components.comments import CommentsWidget
-from cape.tui.screens.confirm_delete import ConfirmDeleteModal
-from cape.tui.screens.edit_description import EditDescriptionScreen
+from cape.tui.components.comments import Comments
+from cape.tui.screens.confirm_delete_modal import ConfirmDeleteModal
+from cape.tui.screens.edit_description_modal import EditDescriptionModal
 
 logger = logging.getLogger(__name__)
 
@@ -115,8 +115,8 @@ class IssueDetailScreen(Screen):
     def _set_loading(self, loading: bool) -> None:
         """Set loading state for the comments widget."""
         try:
-            # Try to find CommentsWidget if it exists
-            comments_widget = self.query_one(CommentsWidget)
+            # Try to find Comments if it exists
+            comments_widget = self.query_one(Comments)
             comments_widget.loading = loading
         except Exception:
             # Ignore errors if widget is not yet mounted or doesn't exist
@@ -171,7 +171,7 @@ Updated: {updated}
 
         # Check if comments section currently exists
         try:
-            comments_widget = self.query_one(CommentsWidget)
+            comments_widget = self.query_one(Comments)
             has_comments_section = True
         except Exception:
             has_comments_section = False
@@ -181,20 +181,20 @@ Updated: {updated}
             # Add comments section
             container = self.query_one("#detail-container")
             container.mount(Static("Comments", id="comments-header"))
-            container.mount(CommentsWidget(id="comments-widget"))
+            container.mount(Comments(id="comments-widget"))
             comments_changed = True  # Force update since we just added it
         elif not should_show_comments and has_comments_section:
             # Remove comments section
             try:
                 self.query_one("#comments-header").remove()
-                self.query_one(CommentsWidget).remove()
+                self.query_one(Comments).remove()
             except Exception:
                 pass
 
         # Update comments if section is visible and data changed
         if should_show_comments and comments_changed:
             try:
-                comments_widget = self.query_one(CommentsWidget)
+                comments_widget = self.query_one(Comments)
                 comments_widget.update_comments(comments)
 
                 # Log refresh activity
@@ -238,7 +238,7 @@ Updated: {updated}
             return
 
         self.app.push_screen(
-            EditDescriptionScreen(self.issue_id, self.issue.description),
+            EditDescriptionModal(self.issue_id, self.issue.description),
             self.on_description_updated,
         )
 

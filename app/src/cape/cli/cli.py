@@ -45,7 +45,7 @@ def main(
     if ctx.invoked_subcommand is None:
         # Import TUI here to avoid import errors if textual isn't installed
         try:
-            from cape.cli.tui import CapeApp
+            from cape.tui.app import CapeApp
 
             tui_app = CapeApp()
             tui_app.run()

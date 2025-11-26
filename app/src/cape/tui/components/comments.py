@@ -5,7 +5,7 @@ from textual.widgets import RichLog
 from cape.core.models import CapeComment
 
 
-class CommentsWidget(RichLog):
+class Comments(RichLog):
     """Widget for displaying issue comments with consistent formatting.
 
     This widget extends RichLog to provide specialized comment display
@@ -13,7 +13,7 @@ class CommentsWidget(RichLog):
     """
 
     def __init__(self, **kwargs):
-        """Initialize the comments widget."""
+        """Initialize the comments component."""
         super().__init__(**kwargs)
 
     def update_comments(self, comments: List[CapeComment]) -> None:
