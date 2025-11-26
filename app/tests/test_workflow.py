@@ -426,7 +426,6 @@ def test_address_review_issues_success(
     # Mock insert_progress_comment success
     mock_insert_comment.return_value = ("success", "Comment inserted")
 
-    from cape.core.workflow.address_review import address_review_issues
 
     result = address_review_issues(
         review_file="specs/chore-test-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
@@ -443,7 +442,6 @@ def test_address_review_issues_file_not_found(mock_exists, mock_logger):
     """Test notification handles missing review file."""
     mock_exists.return_value = False
 
-    from cape.core.workflow.address_review import address_review_issues
 
     result = address_review_issues(
         review_file="specs/missing-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
@@ -472,7 +470,6 @@ def test_address_review_issues_execution_failure(
     mock_response.output = "Template execution failed"
     mock_execute.return_value = mock_response
 
-    from cape.core.workflow.address_review import address_review_issues
 
     result = address_review_issues(
         review_file="specs/chore-test-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
