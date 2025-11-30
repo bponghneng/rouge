@@ -11,14 +11,16 @@ from pydantic import BaseModel
 
 # Import SlashCommand type directly to avoid circular import
 SlashCommand = Literal[
-    "/address-review-issues",
-    "/implement",
-    "/plan-acceptance",
-    "/triage:classify",
-    "/triage:chore",
-    "/triage:bug",
-    "/triage:feature",
-    "/triage:find-plan-file",
+    "/adw-acceptance",
+    "/adw-bug-plan",
+    "/adw-chore-plan",
+    "/adw-classify",
+    "/adw-code-quality",
+    "/adw-feature-plan",
+    "/adw-find-plan-file",
+    "/adw-implement-plan",
+    "/adw-implement-review",
+    "/adw-pull-request",
 ]
 
 

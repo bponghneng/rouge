@@ -11,9 +11,9 @@ from pydantic import BaseModel
 
 # Slash commands that can be output from classify step
 ClassifySlashCommand = Literal[
-    "/triage:chore",
-    "/triage:bug",
-    "/triage:feature",
+    "/adw-chore-plan",
+    "/adw-bug-plan",
+    "/adw-feature-plan",
 ]
 
 # Generic type parameter for StepResult data payload

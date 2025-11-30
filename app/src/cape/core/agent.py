@@ -184,8 +184,8 @@ def execute_implement_plan(
 
     # Provider-specific prompt construction
     if provider_name == "claude":
-        # Claude uses /implement with file path (template reads file)
-        prompt = f"/implement {plan_file}"
+        # Claude uses /adw-implement-plan with file path (template reads file)
+        prompt = f"/adw-implement-plan {plan_file}"
     else:
         # Other providers (e.g., OpenCode) need file content directly
         try:
