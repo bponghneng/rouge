@@ -99,7 +99,7 @@ def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
 
     result = classify_issue(sample_issue, "adw123", mock_logger)
     assert result.success
-    assert result.data.command == "/triage:feature"
+    assert result.data.command == "/adw-feature-plan"
     assert result.data.classification == {"type": "feature", "level": "simple"}
     assert result.error is None
 
@@ -152,7 +152,7 @@ def test_build_plan_success(mock_execute, mock_logger, sample_issue):
         output="Plan created successfully", success=True, session_id="test123"
     )
 
-    result = build_plan(sample_issue, "/triage:feature", "adw123", mock_logger)
+    result = build_plan(sample_issue, "/adw-feature-plan", "adw123", mock_logger)
     assert result.success
     assert result.data.output == "Plan created successfully"
 
@@ -197,81 +197,59 @@ def test_implement_plan_success(mock_execute, mock_logger):
     assert result.data.output == "Implementation complete"
 
 
-@patch("cape.core.workflow.runner.fetch_issue")
-@patch("cape.core.workflow.runner.classify_issue")
-@patch("cape.core.workflow.runner.build_plan")
-@patch("cape.core.workflow.runner.get_plan_file")
-@patch("cape.core.workflow.runner.implement_plan")
-@patch("cape.core.workflow.runner.generate_review")
-@patch("cape.core.workflow.runner.address_review_issues")
-@patch("cape.core.workflow.runner.notify_plan_acceptance")
-@patch("cape.core.workflow.runner.insert_progress_comment")
-@patch("cape.core.workflow.runner.update_status")
-def test_execute_workflow_success(
-    mock_update_status,
-    mock_insert_comment,
-    mock_notify_plan_acceptance,
-    mock_address_review,
-    mock_generate_review,
-    mock_implement,
-    mock_get_file,
-    mock_build,
-    mock_classify,
-    mock_fetch,
-    mock_logger,
-    sample_issue,
-):
-    """Test successful complete workflow execution."""
-    mock_fetch.return_value = sample_issue
-    mock_classify.return_value = StepResult.ok(
-        ClassifyData(
-            command="/triage:feature",
-            classification={"type": "feature", "level": "simple"},
-        )
-    )
-    mock_build.return_value = StepResult.ok(PlanData(output="Plan created", session_id="test"))
-    mock_get_file.side_effect = [
-        StepResult.ok(PlanFileData(file_path="specs/plan.md")),
-        StepResult.ok(PlanFileData(file_path="specs/plan.md")),
-    ]  # Called twice - once for plan, once for implemented plan
-    mock_implement.return_value = StepResult.ok(ImplementData(output="Done", session_id="test"))
-    # Mock review generation
-    mock_generate_review.return_value = StepResult.ok(
-        ReviewData(review_text="Review text", review_file="specs/review.md")
-    )
-    mock_address_review.return_value = StepResult.ok(None)
-    mock_notify_plan_acceptance.return_value = StepResult.ok(None)
-    # Mock insert_progress_comment to return success tuples
-    mock_insert_comment.return_value = ("success", "Comment inserted successfully")
+@patch("cape.core.workflow.runner.get_default_pipeline")
+def test_execute_workflow_success(mock_get_pipeline, mock_logger):
+    """Test successful complete workflow execution via pipeline."""
+    # Create mock steps that all succeed
+    mock_steps = []
+    for i in range(11):  # 11 steps in the pipeline
+        mock_step = Mock()
+        mock_step.name = f"Step {i}"
+        mock_step.is_critical = True
+        mock_step.run.return_value = True
+        mock_steps.append(mock_step)
+
+    mock_get_pipeline.return_value = mock_steps
 
     result = execute_workflow(1, "adw123", mock_logger)
     assert result is True
-    assert mock_insert_comment.call_count == 7  # progress comments for each stage
-    assert mock_update_status.call_count == 2  # status updated to "started" and "completed"
-    mock_update_status.assert_any_call(1, "started", mock_logger)
-    mock_update_status.assert_any_call(1, "completed", mock_logger)
-    # Verify review steps were called
-    mock_generate_review.assert_called_once()
-    mock_address_review.assert_called_once()
-    mock_notify_plan_acceptance.assert_called_once()
+
+    # Verify all steps were executed
+    for step in mock_steps:
+        step.run.assert_called_once()
 
 
-@patch("cape.core.workflow.runner.fetch_issue")
-def test_execute_workflow_fetch_failure(mock_fetch, mock_logger):
-    """Test workflow handles fetch failure."""
-    mock_fetch.side_effect = ValueError("Issue not found")
+@patch("cape.core.workflow.runner.get_default_pipeline")
+def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
+    """Test workflow handles fetch failure (first step fails)."""
+    # Create a mock first step that fails
+    mock_fetch_step = Mock()
+    mock_fetch_step.name = "Fetch Issue"
+    mock_fetch_step.is_critical = True
+    mock_fetch_step.run.return_value = False
+
+    mock_get_pipeline.return_value = [mock_fetch_step]
 
     result = execute_workflow(999, "adw123", mock_logger)
     assert result is False
     mock_logger.error.assert_called()
 
 
-@patch("cape.core.workflow.runner.fetch_issue")
-@patch("cape.core.workflow.runner.classify_issue")
-def test_execute_workflow_classify_failure(mock_classify, mock_fetch, mock_logger, sample_issue):
-    """Test workflow handles classification failure."""
-    mock_fetch.return_value = sample_issue
-    mock_classify.return_value = StepResult.fail("Classification failed")
+@patch("cape.core.workflow.runner.get_default_pipeline")
+def test_execute_workflow_classify_failure(mock_get_pipeline, mock_logger):
+    """Test workflow handles classification failure (second step fails)."""
+    # Create mock steps where first succeeds, second fails
+    mock_fetch_step = Mock()
+    mock_fetch_step.name = "Fetch Issue"
+    mock_fetch_step.is_critical = True
+    mock_fetch_step.run.return_value = True
+
+    mock_classify_step = Mock()
+    mock_classify_step.name = "Classify Issue"
+    mock_classify_step.is_critical = True
+    mock_classify_step.run.return_value = False
+
+    mock_get_pipeline.return_value = [mock_fetch_step, mock_classify_step]
 
     result = execute_workflow(1, "adw123", mock_logger)
     assert result is False
