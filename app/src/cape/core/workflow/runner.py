@@ -413,9 +413,9 @@ def execute_workflow(
     3. Build implementation plan
     4. Find plan file
     5. Implement the plan
-    6. Run code quality checks (best-effort)
-    7. Generate CodeRabbit review
-    8. Address review issues
+    6. Generate CodeRabbit review
+    7. Address review issues
+    8. Run code quality checks (best-effort)
     9. Validate plan acceptance
     10. Prepare pull request (best-effort)
 
@@ -532,14 +532,11 @@ def execute_workflow(
         implement_data.output, issue_id, adw_id, logger, plan_file_path
     )
 
-    # Step 6: Run code quality checks (best-effort, continues on failure)
-    _run_code_quality(issue_id, adw_id, logger)
-
     # Derive paths from the implemented plan file
     paths = derive_paths_from_plan(implemented_plan_path)
     review_file = paths["review_file"]
 
-    # Step 7: Generate CodeRabbit review
+    # Step 6: Generate CodeRabbit review
     working_dir = get_working_dir()
     repo_path = get_repo_path()
 
@@ -559,7 +556,7 @@ def execute_workflow(
         status, msg = insert_progress_comment(comment)
         logger.debug(msg) if status == "success" else logger.error(msg)
 
-        # Step 8: Address review issues
+        # Step 7: Address review issues
         _address_review(review_file, issue_id, adw_id, logger)
 
         # Insert progress comment - best-effort, non-blocking
@@ -572,6 +569,9 @@ def execute_workflow(
         )
         status, msg = insert_progress_comment(comment)
         logger.debug(msg) if status == "success" else logger.error(msg)
+
+    # Step 8: Run code quality checks (best-effort, continues on failure)
+    _run_code_quality(issue_id, adw_id, logger)
 
     # Step 9: Validate plan acceptance
     _validate_acceptance(implemented_plan_path, issue_id, adw_id, logger)
