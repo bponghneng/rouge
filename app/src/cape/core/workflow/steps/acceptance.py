@@ -34,9 +34,7 @@ class ValidateAcceptanceStep(WorkflowStep):
             logger.warning("No plan file available for acceptance validation")
             return False
 
-        acceptance_handler = make_progress_comment_handler(
-            context.issue_id, context.adw_id, logger
-        )
+        acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
         acceptance_result = notify_plan_acceptance(
             plan_path, context.issue_id, context.adw_id, logger, stream_handler=acceptance_handler
         )

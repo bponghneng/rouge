@@ -29,9 +29,7 @@ class ClassifyStep(WorkflowStep):
             logger.error("Cannot classify: issue not fetched")
             return False
 
-        classify_handler = make_progress_comment_handler(
-            issue.id, context.adw_id, logger
-        )
+        classify_handler = make_progress_comment_handler(issue.id, context.adw_id, logger)
         result = classify_issue(issue, context.adw_id, logger, stream_handler=classify_handler)
 
         if not result.success:

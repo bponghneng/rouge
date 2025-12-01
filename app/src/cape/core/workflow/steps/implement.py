@@ -29,9 +29,7 @@ class ImplementStep(WorkflowStep):
             logger.error("Cannot implement: plan_file not available")
             return False
 
-        implement_response = implement_plan(
-            plan_file, context.issue_id, context.adw_id, logger
-        )
+        implement_response = implement_plan(plan_file, context.issue_id, context.adw_id, logger)
 
         if not implement_response.success:
             logger.error(f"Error implementing solution: {implement_response.error}")
