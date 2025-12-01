@@ -142,9 +142,9 @@ class TestGetDefaultPipeline:
     """Tests for get_default_pipeline factory."""
 
     def test_returns_correct_step_count(self):
-        """Test default pipeline has 11 steps."""
+        """Test default pipeline has 12 steps."""
         pipeline = get_default_pipeline()
-        assert len(pipeline) == 11
+        assert len(pipeline) == 12
 
     def test_returns_workflow_step_instances(self):
         """Test all items are WorkflowStep subclasses."""
@@ -169,6 +169,7 @@ class TestGetDefaultPipeline:
         assert "quality" in step_names[8].lower()
         assert "acceptance" in step_names[9].lower()
         assert "pull request" in step_names[10].lower()
+        assert "pull request" in step_names[11].lower()
 
     def test_critical_flags(self):
         """Test critical/best-effort flags are set correctly."""
@@ -188,5 +189,6 @@ class TestGetDefaultPipeline:
         # Acceptance is best-effort
         assert pipeline[9].is_critical is False  # ValidateAcceptanceStep
 
-        # PR is best-effort
+        # PR steps are best-effort
         assert pipeline[10].is_critical is False  # PreparePullRequestStep
+        assert pipeline[11].is_critical is False  # CreatePullRequestStep

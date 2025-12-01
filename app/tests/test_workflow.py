@@ -18,14 +18,6 @@ from cape.core.workflow import (
 )
 from cape.core.workflow.address_review import address_review_issues
 from cape.core.workflow.shared import derive_paths_from_plan
-from cape.core.workflow.types import (
-    ClassifyData,
-    ImplementData,
-    PlanData,
-    PlanFileData,
-    ReviewData,
-    StepResult,
-)
 
 
 @pytest.fixture
@@ -202,7 +194,7 @@ def test_execute_workflow_success(mock_get_pipeline, mock_logger):
     """Test successful complete workflow execution via pipeline."""
     # Create mock steps that all succeed
     mock_steps = []
-    for i in range(11):  # 11 steps in the pipeline
+    for i in range(12):  # 12 steps in the pipeline
         mock_step = Mock()
         mock_step.name = f"Step {i}"
         mock_step.is_critical = True
@@ -443,3 +435,248 @@ def test_address_review_issues_execution_failure(
 
     assert not result.success
     mock_logger.error.assert_called()
+
+
+# === CreatePullRequestStep Tests ===
+
+
+@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_success(mock_emit, mock_subprocess, mock_logger):
+    """Test successful PR creation."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    # Mock subprocess success
+    mock_result = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = "https://github.com/owner/repo/pull/123\n"
+    mock_subprocess.return_value = mock_result
+
+    # Mock emit_progress_comment success
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": ["abc1234", "def5678"],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is True
+    mock_subprocess.assert_called_once()
+    mock_emit.assert_called_once()
+
+    # Verify the emit call has correct data
+    call_args = mock_emit.call_args
+    assert call_args[0][0] == 1  # issue_id
+    assert "https://github.com/owner/repo/pull/123" in call_args[0][1]
+    assert call_args[1]["raw"]["output"] == "pull-request-created"
+    assert call_args[1]["raw"]["url"] == "https://github.com/owner/repo/pull/123"
+
+
+@patch.dict("os.environ", {}, clear=True)
+def test_create_pr_step_missing_github_pat(mock_logger):
+    """Test PR creation skipped when GITHUB_PAT is missing."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called_with(
+        "GITHUB_PAT environment variable not set, skipping PR creation"
+    )
+
+
+def test_create_pr_step_missing_pr_details(mock_logger):
+    """Test PR creation skipped when pr_details is missing."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    # No pr_details in context
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called_with("No PR details found in context, skipping PR creation")
+
+
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_empty_title(mock_logger):
+    """Test PR creation skipped when title is empty."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "",
+        "summary": "Some summary",
+        "commits": [],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called_with("PR title is empty, skipping PR creation")
+
+
+@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_gh_command_failure(mock_subprocess, mock_logger):
+    """Test PR creation handles gh command failure."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    # Mock subprocess failure
+    mock_result = Mock()
+    mock_result.returncode = 1
+    mock_result.stderr = "error: could not create pull request"
+    mock_subprocess.return_value = mock_result
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called()
+
+
+@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_timeout(mock_subprocess, mock_logger):
+    """Test PR creation handles timeout."""
+    import subprocess
+
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="gh", timeout=120)
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called_with("gh pr create timed out after 120 seconds")
+
+
+@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_gh_not_found(mock_subprocess, mock_logger):
+    """Test PR creation handles gh CLI not found."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    mock_subprocess.side_effect = FileNotFoundError("gh not found")
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreatePullRequestStep()
+    result = step.run(context)
+
+    assert result is False
+    mock_logger.warning.assert_called_with("gh CLI not found, skipping PR creation")
+
+
+def test_create_pr_step_is_not_critical():
+    """Test CreatePullRequestStep is not critical."""
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    step = CreatePullRequestStep()
+    assert step.is_critical is False
+
+
+def test_create_pr_step_name():
+    """Test CreatePullRequestStep has correct name."""
+    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+
+    step = CreatePullRequestStep()
+    assert step.name == "Creating pull request"
+
+
+# === PreparePullRequestStep JSON parsing Tests ===
+
+
+def test_prepare_pr_step_store_pr_details_success(mock_logger):
+    """Test _store_pr_details parses and stores JSON correctly."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.pr import PreparePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    step = PreparePullRequestStep()
+
+    output = (
+        '{"title": "feat: add feature", "summary": "This adds a feature.", '
+        '"commits": ["abc123", "def456"]}'
+    )
+    step._store_pr_details(output, context, mock_logger)
+
+    assert "pr_details" in context.data
+    assert context.data["pr_details"]["title"] == "feat: add feature"
+    assert context.data["pr_details"]["summary"] == "This adds a feature."
+    assert context.data["pr_details"]["commits"] == ["abc123", "def456"]
+
+
+def test_prepare_pr_step_store_pr_details_malformed_json(mock_logger):
+    """Test _store_pr_details handles malformed JSON gracefully."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.pr import PreparePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    step = PreparePullRequestStep()
+
+    output = "not valid json"
+    step._store_pr_details(output, context, mock_logger)
+
+    assert "pr_details" not in context.data
+    mock_logger.warning.assert_called()
+
+
+def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
+    """Test _store_pr_details handles missing fields with defaults."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.pr import PreparePullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    step = PreparePullRequestStep()
+
+    output = '{"title": "only title"}'
+    step._store_pr_details(output, context, mock_logger)
+
+    assert "pr_details" in context.data
+    assert context.data["pr_details"]["title"] == "only title"
+    assert context.data["pr_details"]["summary"] == ""
+    assert context.data["pr_details"]["commits"] == []
