@@ -86,13 +86,13 @@ def test_agent_template_request():
     """Test ClaudeAgentTemplateRequest creation."""
     request = ClaudeAgentTemplateRequest(
         agent_name="ops",
-        slash_command="/implement",
+        slash_command="/adw-implement-plan",
         args=["plan.md"],
         adw_id="test123",
         issue_id=42,
     )
     assert request.agent_name == "ops"
-    assert request.slash_command == "/implement"
+    assert request.slash_command == "/adw-implement-plan"
     assert request.args == ["plan.md"]
     assert request.adw_id == "test123"
     assert request.issue_id == 42

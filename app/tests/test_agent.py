@@ -199,7 +199,7 @@ def test_execute_template(mock_popen, mock_check, tmp_path, monkeypatch):
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        slash_command="/implement",
+        slash_command="/adw-implement-plan",
         args=["plan.md"],
         adw_id="test123",
         issue_id=1,
