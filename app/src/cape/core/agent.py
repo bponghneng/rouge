@@ -9,6 +9,7 @@ For new code, prefer importing from cape.core.agents directly:
 
 import json
 import logging
+import re
 from typing import Callable, Optional
 
 from cape.core.agents import (
@@ -27,6 +28,29 @@ from cape.core.models import CapeComment
 from cape.core.notifications import insert_progress_comment, make_progress_comment_handler
 
 _DEFAULT_LOGGER = logging.getLogger(__name__)
+
+# Regex pattern to match Markdown code fences wrapping JSON
+# Matches: ```json\n...\n``` or ```\n...\n```
+_MARKDOWN_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
+
+
+def _sanitize_json_output(output: str) -> str:
+    """Strip Markdown code fences from JSON output if present.
+
+    LLM outputs may wrap JSON in Markdown code fences (e.g., ```json ... ```).
+    This helper detects and removes such fencing to extract the raw JSON content.
+
+    Args:
+        output: Raw output string that may contain Markdown code fences
+
+    Returns:
+        The inner content if Markdown fences are found, otherwise the original output
+    """
+    stripped = output.strip()
+    match = _MARKDOWN_FENCE_PATTERN.match(stripped)
+    if match:
+        return match.group(1).strip()
+    return output
 
 
 def _get_issue_logger(adw_id: str) -> logging.Logger:
@@ -87,6 +111,8 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
 def execute_template(
     request: ClaudeAgentTemplateRequest,
     stream_handler: Optional[Callable[[str], None]] = None,
+    *,
+    require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
     """Execute a Claude Code template with slash command and arguments.
 
@@ -97,6 +123,10 @@ def execute_template(
     Args:
         request: Claude-specific template request
         stream_handler: Optional callback for streaming output
+        require_json: If True (default), validates output as JSON and emits
+            error comments for non-JSON output. If False, skips JSON validation
+            and allows plain text output (used by FindPlanFileStep and
+            GenerateReviewStep).
 
     Returns:
         Claude-specific prompt response
@@ -107,34 +137,48 @@ def execute_template(
     # Import here to avoid circular import
     from cape.core.workflow.workflow_io import emit_progress_comment
 
-    # Attempt to parse output as JSON and emit progress comment
+    # Handle JSON validation based on require_json parameter
     if response.success and response.output:
         raw_output = response.output.strip()
-        try:
-            parsed_json = json.loads(raw_output)
-            # Emit progress comment with parsed JSON in raw field
+
+        if require_json:
+            # Sanitize output to strip Markdown code fences before parsing
+            sanitized_output = _sanitize_json_output(raw_output)
+            try:
+                parsed_json = json.loads(sanitized_output)
+                # Emit progress comment with parsed JSON in raw field
+                emit_progress_comment(
+                    issue_id=request.issue_id,
+                    message=f"Template {request.slash_command} completed",
+                    logger=logger,
+                    raw={"template": request.slash_command, "result": parsed_json},
+                    comment_type="workflow",
+                )
+                logger.debug("Template output parsed as JSON successfully")
+            except json.JSONDecodeError as exc:
+                # Emit error progress comment for non-JSON output
+                logger.error("Template output is not valid JSON: %s", exc)
+                emit_progress_comment(
+                    issue_id=request.issue_id,
+                    message=f"Template {request.slash_command} returned non-JSON output",
+                    logger=logger,
+                    raw={
+                        "template": request.slash_command,
+                        "error": str(exc),
+                        "output": raw_output[:500],
+                    },
+                    comment_type="workflow",
+                )
+        else:
+            # Skip JSON validation for plain text output (FindPlanFileStep, GenerateReviewStep)
             emit_progress_comment(
                 issue_id=request.issue_id,
                 message=f"Template {request.slash_command} completed",
                 logger=logger,
-                raw={"template": request.slash_command, "result": parsed_json},
+                raw={"template": request.slash_command, "output": raw_output[:500]},
                 comment_type="workflow",
             )
-            logger.debug("Template output parsed as JSON successfully")
-        except json.JSONDecodeError as exc:
-            # Emit error progress comment for non-JSON output
-            logger.debug("Template output is not valid JSON: %s", exc)
-            emit_progress_comment(
-                issue_id=request.issue_id,
-                message=f"Template {request.slash_command} returned non-JSON output",
-                logger=logger,
-                raw={
-                    "template": request.slash_command,
-                    "error": str(exc),
-                    "output": raw_output[:500],
-                },
-                comment_type="workflow",
-            )
+            logger.debug("Template output accepted as plain text (require_json=False)")
 
     return response
 
