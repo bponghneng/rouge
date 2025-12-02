@@ -54,7 +54,8 @@ def address_review_issues(
             request.model_dump_json(indent=2, by_alias=True),
         )
 
-        response = execute_template(request, stream_handler=stream_handler)
+        # GenerateReviewStep may return plain text output, not JSON
+        response = execute_template(request, stream_handler=stream_handler, require_json=False)
 
         logger.debug(
             "address_review_issues response: success=%s",

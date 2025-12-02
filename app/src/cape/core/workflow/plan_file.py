@@ -34,7 +34,8 @@ def get_plan_file(
         "get_plan_file request: %s",
         request.model_dump_json(indent=2, by_alias=True),
     )
-    response = execute_template(request)
+    # FindPlanFileStep returns a plain text file path, not JSON
+    response = execute_template(request, require_json=False)
     logger.debug(
         "get_plan_file response: %s",
         response.model_dump_json(indent=2, by_alias=True),
