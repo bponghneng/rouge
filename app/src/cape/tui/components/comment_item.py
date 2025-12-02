@@ -99,7 +99,7 @@ class CommentItem(Container):
     def compose(self) -> ComposeResult:
         """Compose the comment layout."""
         yield self._compose_header()
-        yield Static(self.comment.comment, classes="comment-body")
+        yield Static(self.comment.comment, classes="comment-body", markup=False)
 
 
 class AgentClaudeComment(CommentItem):
@@ -142,7 +142,7 @@ class AgentClaudeComment(CommentItem):
                     )
                 else:
                     text_value = text if isinstance(text, str) else json.dumps(text, indent=2)
-                    yield Static(text_value, classes="comment-body")
+                    yield Static(text_value, classes="comment-body", markup=False)
                 content_yielded = True
         elif raw_type == "tool_use":
             # Display todos as checklist from raw.input.todos
@@ -152,12 +152,12 @@ class AgentClaudeComment(CommentItem):
                     status = todo.get("status", "pending")
                     content = todo.get("content", "")
                     emoji = self._STATUS_EMOJI.get(status, "⏳")
-                    yield Static(f"{emoji} {content}", classes="comment-todo-item")
+                    yield Static(f"{emoji} {content}", classes="comment-todo-item", markup=False)
                 content_yielded = True
 
         # Always fall back to comment body if no content was rendered
         if not content_yielded and self.comment.comment:
-            yield Static(self.comment.comment, classes="comment-body")
+            yield Static(self.comment.comment, classes="comment-body", markup=False)
 
     @staticmethod
     def _extract_output(text: Any) -> dict | None:
