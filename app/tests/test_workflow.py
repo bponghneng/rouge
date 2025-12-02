@@ -18,6 +18,7 @@ from cape.core.workflow import (
 )
 from cape.core.workflow.address_review import address_review_issues
 from cape.core.workflow.shared import derive_paths_from_plan
+from cape.core.workflow.types import StepResult
 
 
 @pytest.fixture
@@ -198,7 +199,7 @@ def test_execute_workflow_success(mock_get_pipeline, mock_logger):
         mock_step = Mock()
         mock_step.name = f"Step {i}"
         mock_step.is_critical = True
-        mock_step.run.return_value = True
+        mock_step.run.return_value = StepResult.ok(None)
         mock_steps.append(mock_step)
 
     mock_get_pipeline.return_value = mock_steps
@@ -218,7 +219,7 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
     mock_fetch_step = Mock()
     mock_fetch_step.name = "Fetch Issue"
     mock_fetch_step.is_critical = True
-    mock_fetch_step.run.return_value = False
+    mock_fetch_step.run.return_value = StepResult.fail("Fetch failed")
 
     mock_get_pipeline.return_value = [mock_fetch_step]
 
@@ -234,12 +235,12 @@ def test_execute_workflow_classify_failure(mock_get_pipeline, mock_logger):
     mock_fetch_step = Mock()
     mock_fetch_step.name = "Fetch Issue"
     mock_fetch_step.is_critical = True
-    mock_fetch_step.run.return_value = True
+    mock_fetch_step.run.return_value = StepResult.ok(None)
 
     mock_classify_step = Mock()
     mock_classify_step.name = "Classify Issue"
     mock_classify_step.is_critical = True
-    mock_classify_step.run.return_value = False
+    mock_classify_step.run.return_value = StepResult.fail("Classification failed")
 
     mock_get_pipeline.return_value = [mock_fetch_step, mock_classify_step]
 
@@ -467,7 +468,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is True
+    assert result.success is True
     mock_subprocess.assert_called_once()
     mock_emit.assert_called_once()
 
@@ -495,7 +496,7 @@ def test_create_pr_step_missing_github_pat(mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called_with(
         "GITHUB_PAT environment variable not set, skipping PR creation"
     )
@@ -512,7 +513,7 @@ def test_create_pr_step_missing_pr_details(mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called_with("No PR details found in context, skipping PR creation")
 
 
@@ -532,7 +533,7 @@ def test_create_pr_step_empty_title(mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called_with("PR title is empty, skipping PR creation")
 
 
@@ -559,7 +560,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called()
 
 
@@ -584,7 +585,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called_with("gh pr create timed out after 120 seconds")
 
 
@@ -607,7 +608,7 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result is False
+    assert result.success is False
     mock_logger.warning.assert_called_with("gh CLI not found, skipping PR creation")
 
 

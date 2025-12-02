@@ -7,6 +7,7 @@ import pytest
 
 from cape.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 
 
 @pytest.fixture
@@ -57,12 +58,12 @@ class TestWorkflowRunner:
         step1 = Mock(spec=WorkflowStep)
         step1.name = "Step 1"
         step1.is_critical = True
-        step1.run.return_value = True
+        step1.run.return_value = StepResult.ok(None)
 
         step2 = Mock(spec=WorkflowStep)
         step2.name = "Step 2"
         step2.is_critical = True
-        step2.run.return_value = True
+        step2.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2])
         result = runner.run(1, "adw123", mock_logger)
@@ -76,12 +77,12 @@ class TestWorkflowRunner:
         step1 = Mock(spec=WorkflowStep)
         step1.name = "Step 1"
         step1.is_critical = True
-        step1.run.return_value = False  # Fails
+        step1.run.return_value = StepResult.fail("Step 1 failed")
 
         step2 = Mock(spec=WorkflowStep)
         step2.name = "Step 2"
         step2.is_critical = True
-        step2.run.return_value = True
+        step2.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2])
         result = runner.run(1, "adw123", mock_logger)
@@ -95,17 +96,17 @@ class TestWorkflowRunner:
         step1 = Mock(spec=WorkflowStep)
         step1.name = "Critical Step"
         step1.is_critical = True
-        step1.run.return_value = True
+        step1.run.return_value = StepResult.ok(None)
 
         step2 = Mock(spec=WorkflowStep)
         step2.name = "Best Effort Step"
         step2.is_critical = False  # Best-effort
-        step2.run.return_value = False  # Fails
+        step2.run.return_value = StepResult.fail("Best Effort Step failed")
 
         step3 = Mock(spec=WorkflowStep)
         step3.name = "Another Critical"
         step3.is_critical = True
-        step3.run.return_value = True
+        step3.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2, step3])
         result = runner.run(1, "adw123", mock_logger)
@@ -122,7 +123,7 @@ class TestWorkflowRunner:
         def capture_context(context):
             nonlocal captured_context
             captured_context = context
-            return True
+            return StepResult.ok(None)
 
         step = Mock(spec=WorkflowStep)
         step.name = "Test Step"
