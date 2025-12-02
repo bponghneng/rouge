@@ -5,6 +5,7 @@ from cape.core.workflow.address_review import address_review_issues
 from cape.core.workflow.review import generate_review
 from cape.core.workflow.shared import derive_paths_from_plan, get_repo_path, get_working_dir
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -20,21 +21,21 @@ class GenerateReviewStep(WorkflowStep):
         # Review generation is not critical - workflow continues if it fails
         return False
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Generate review and store result in context.
 
         Args:
             context: Workflow context with implemented_plan_file
 
         Returns:
-            True if review generated successfully, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         implemented_plan_path = context.data.get("implemented_plan_file", "")
 
         if not implemented_plan_path:
             logger.warning("No implemented plan file, skipping review generation")
-            return False
+            return StepResult.fail("No implemented plan file, skipping review generation")
 
         # Derive paths from the implemented plan file
         paths = derive_paths_from_plan(implemented_plan_path)
@@ -52,11 +53,13 @@ class GenerateReviewStep(WorkflowStep):
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
-            return False
+            return StepResult.fail(f"Failed to generate CodeRabbit review: {review_result.error}")
 
         if review_result.data is None:
             logger.warning("CodeRabbit review succeeded but no data/review_file was returned")
-            return False
+            return StepResult.fail(
+                "CodeRabbit review succeeded but no data/review_file was returned"
+            )
 
         logger.info(f"CodeRabbit review generated successfully at {review_result.data.review_file}")
 
@@ -71,7 +74,7 @@ class GenerateReviewStep(WorkflowStep):
             raw={"text": "CodeRabbit review complete."},
         )
 
-        return True
+        return StepResult.ok(None)
 
 
 class AddressReviewStep(WorkflowStep):
@@ -86,14 +89,14 @@ class AddressReviewStep(WorkflowStep):
         # Addressing review is not critical - workflow continues if it fails
         return False
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Address review issues.
 
         Args:
             context: Workflow context with review_file
 
         Returns:
-            True if review issues addressed successfully, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         review_file = context.data.get("review_file", "")
@@ -102,11 +105,11 @@ class AddressReviewStep(WorkflowStep):
         # Only proceed if we have review data (review generation succeeded)
         if review_data is None:
             logger.warning("No review data available, skipping address review")
-            return True  # Not a failure - just nothing to do
+            return StepResult.ok(None)  # Not a failure - just nothing to do
 
         if not review_file:
             logger.warning("No review file available, skipping address review")
-            return True
+            return StepResult.ok(None)
 
         review_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
         review_issues_result = address_review_issues(
@@ -114,10 +117,10 @@ class AddressReviewStep(WorkflowStep):
         )
 
         if not review_issues_result.success:
-            logger.error(f"Failed to notify review template: {review_issues_result.error}")
-            return False
+            logger.error(f"Failed to address review issues: {review_issues_result.error}")
+            return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
-        logger.info("Review template notified successfully")
+        logger.info("Review issues addressed successfully")
 
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
@@ -127,4 +130,4 @@ class AddressReviewStep(WorkflowStep):
             raw={"text": "Review issues addressed."},
         )
 
-        return True
+        return StepResult.ok(None)

@@ -3,6 +3,7 @@
 from cape.core.workflow.implement import implement_plan
 from cape.core.workflow.plan_file import get_plan_file
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -13,33 +14,33 @@ class ImplementStep(WorkflowStep):
     def name(self) -> str:
         return "Implementing solution"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Implement the plan and store result in context.
 
         Args:
             context: Workflow context with plan_file
 
         Returns:
-            True if implementation succeeded, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         plan_file = context.data.get("plan_file")
 
         if plan_file is None:
             logger.error("Cannot implement: plan_file not available")
-            return False
+            return StepResult.fail("Cannot implement: plan_file not available")
 
         implement_response = implement_plan(plan_file, context.issue_id, context.adw_id, logger)
 
         if not implement_response.success:
             logger.error(f"Error implementing solution: {implement_response.error}")
-            return False
+            return StepResult.fail(f"Error implementing solution: {implement_response.error}")
 
         logger.info("Solution implemented")
 
         if implement_response.data is None:
             logger.error("Implementation data missing despite successful response")
-            return False
+            return StepResult.fail("Implementation data missing despite successful response")
 
         logger.debug("Output preview: %s...", implement_response.data.output[:200])
 
@@ -54,7 +55,7 @@ class ImplementStep(WorkflowStep):
             raw={"text": "Implementation complete."},
         )
 
-        return True
+        return StepResult.ok(None)
 
 
 class FindImplementedPlanStep(WorkflowStep):
@@ -64,7 +65,7 @@ class FindImplementedPlanStep(WorkflowStep):
     def name(self) -> str:
         return "Finding implemented plan file"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Find implemented plan file and store in context.
 
         Always succeeds (uses fallback to original plan file).
@@ -73,7 +74,7 @@ class FindImplementedPlanStep(WorkflowStep):
             context: Workflow context with implement_data and plan_file
 
         Returns:
-            True (always succeeds with fallback)
+            StepResult (always succeeds with fallback)
         """
         logger = context.logger
         implement_data = context.data.get("implement_data")
@@ -82,7 +83,7 @@ class FindImplementedPlanStep(WorkflowStep):
         if implement_data is None:
             logger.warning("No implementation data, using fallback plan file")
             context.data["implemented_plan_file"] = fallback_path
-            return True
+            return StepResult.ok(None)
 
         impl_plan_result = get_plan_file(
             implement_data.output, context.issue_id, context.adw_id, logger
@@ -92,15 +93,15 @@ class FindImplementedPlanStep(WorkflowStep):
             logger.error(f"Error finding implemented plan file: {impl_plan_result.error}")
             logger.warning(f"Falling back to original plan file: {fallback_path}")
             context.data["implemented_plan_file"] = fallback_path
-            return True
+            return StepResult.ok(None)
 
         if impl_plan_result.data is None:
             logger.warning("Could not determine implemented plan file, using original")
             context.data["implemented_plan_file"] = fallback_path
-            return True
+            return StepResult.ok(None)
 
         implemented_plan_path = impl_plan_result.data.file_path
         logger.info(f"Implemented plan file: {implemented_plan_path}")
         context.data["implemented_plan_file"] = implemented_plan_path
 
-        return True
+        return StepResult.ok(None)

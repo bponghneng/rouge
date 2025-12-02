@@ -3,6 +3,7 @@
 from cape.core.notifications import make_progress_comment_handler
 from cape.core.workflow.acceptance import notify_plan_acceptance
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -18,21 +19,21 @@ class ValidateAcceptanceStep(WorkflowStep):
         # Acceptance validation is not critical - workflow continues on failure
         return False
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Validate implementation against plan.
 
         Args:
             context: Workflow context with implemented_plan_file
 
         Returns:
-            True if validation succeeded, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         plan_path = context.data.get("implemented_plan_file", "")
 
         if not plan_path:
             logger.warning("No plan file available for acceptance validation")
-            return False
+            return StepResult.fail("No plan file available for acceptance validation")
 
         acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
         acceptance_result = notify_plan_acceptance(
@@ -41,7 +42,7 @@ class ValidateAcceptanceStep(WorkflowStep):
 
         if not acceptance_result.success:
             logger.error(f"Failed to validate plan acceptance: {acceptance_result.error}")
-            return False
+            return StepResult.fail(f"Failed to validate plan acceptance: {acceptance_result.error}")
 
         logger.info("Plan acceptance validated successfully")
 
@@ -53,4 +54,4 @@ class ValidateAcceptanceStep(WorkflowStep):
             raw={"text": "Plan acceptance validation completed."},
         )
 
-        return True
+        return StepResult.ok(None)

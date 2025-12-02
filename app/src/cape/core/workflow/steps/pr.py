@@ -8,6 +8,7 @@ from cape.core.notifications import make_progress_comment_handler
 from cape.core.workflow.shared import AGENT_IMPLEMENTOR
 from cape.core.workflow.status import update_status
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -23,14 +24,14 @@ class PreparePullRequestStep(WorkflowStep):
         # PR preparation is best-effort - workflow continues on failure
         return False
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Prepare pull request and finalize workflow.
 
         Args:
             context: Workflow context
 
         Returns:
-            True if PR preparation succeeded, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
 
@@ -59,7 +60,7 @@ class PreparePullRequestStep(WorkflowStep):
                 logger.warning(f"Pull request preparation failed: {response.output}")
                 # Still mark workflow as completed even if PR prep fails
                 self._finalize_workflow(context)
-                return False
+                return StepResult.fail(f"Pull request preparation failed: {response.output}")
 
             logger.info("Pull request prepared successfully")
 
@@ -77,13 +78,13 @@ class PreparePullRequestStep(WorkflowStep):
             # Finalize workflow
             self._finalize_workflow(context)
 
-            return True
+            return StepResult.ok(None)
 
         except Exception as e:
             logger.warning(f"Pull request preparation failed: {e}")
             # Still mark workflow as completed
             self._finalize_workflow(context)
-            return False
+            return StepResult.fail(f"Pull request preparation failed: {e}")
 
     def _finalize_workflow(self, context: WorkflowContext) -> None:
         """Finalize workflow by updating status and inserting completion comment.

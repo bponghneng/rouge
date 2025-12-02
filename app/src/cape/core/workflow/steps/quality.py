@@ -5,6 +5,7 @@ from cape.core.agents.claude import ClaudeAgentTemplateRequest
 from cape.core.notifications import make_progress_comment_handler
 from cape.core.workflow.shared import AGENT_IMPLEMENTOR
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -20,14 +21,14 @@ class CodeQualityStep(WorkflowStep):
         # Code quality is best-effort - workflow continues on failure
         return False
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Run code quality checks.
 
         Args:
             context: Workflow context
 
         Returns:
-            True if quality checks passed, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
 
@@ -56,7 +57,7 @@ class CodeQualityStep(WorkflowStep):
 
             if not response.success:
                 logger.warning(f"Code quality checks failed: {response.output}")
-                return False
+                return StepResult.fail(f"Code quality checks failed: {response.output}")
 
             logger.info("Code quality checks completed successfully")
 
@@ -68,8 +69,8 @@ class CodeQualityStep(WorkflowStep):
                 raw={"text": "Code quality checks completed."},
             )
 
-            return True
+            return StepResult.ok(None)
 
         except Exception as e:
             logger.warning(f"Code quality step failed: {e}")
-            return False
+            return StepResult.fail(f"Code quality step failed: {e}")

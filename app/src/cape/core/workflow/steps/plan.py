@@ -4,7 +4,7 @@ from cape.core.notifications import make_progress_comment_handler
 from cape.core.workflow.plan import build_plan
 from cape.core.workflow.plan_file import get_plan_file
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
-from cape.core.workflow.types import ClassifyData
+from cape.core.workflow.types import ClassifyData, StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -15,26 +15,26 @@ class BuildPlanStep(WorkflowStep):
     def name(self) -> str:
         return "Building implementation plan"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Build implementation plan and store in context.
 
         Args:
             context: Workflow context with classify_data
 
         Returns:
-            True if plan built successfully, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         issue = context.issue
 
         if issue is None:
             logger.error("Cannot build plan: issue not fetched")
-            return False
+            return StepResult.fail("Cannot build plan: issue not fetched")
 
         classify_data: ClassifyData | None = context.data.get("classify_data")
         if classify_data is None:
             logger.error("Cannot build plan: classify_data not available")
-            return False
+            return StepResult.fail("Cannot build plan: classify_data not available")
 
         plan_handler = make_progress_comment_handler(issue.id, context.adw_id, logger)
         plan_response = build_plan(
@@ -43,7 +43,7 @@ class BuildPlanStep(WorkflowStep):
 
         if not plan_response.success:
             logger.error(f"Error building plan: {plan_response.error}")
-            return False
+            return StepResult.fail(f"Error building plan: {plan_response.error}")
 
         logger.info(f"Implementation plan created:\n\n{plan_response}")
 
@@ -58,7 +58,7 @@ class BuildPlanStep(WorkflowStep):
             raw={"text": "Implementation plan created successfully."},
         )
 
-        return True
+        return StepResult.ok(None)
 
 
 class FindPlanFileStep(WorkflowStep):
@@ -68,31 +68,31 @@ class FindPlanFileStep(WorkflowStep):
     def name(self) -> str:
         return "Finding plan file"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Find plan file path and store in context.
 
         Args:
             context: Workflow context with plan_data
 
         Returns:
-            True if plan file found, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         plan_data = context.data.get("plan_data")
 
         if plan_data is None:
             logger.error("Cannot find plan file: plan_data not available")
-            return False
+            return StepResult.fail("Cannot find plan file: plan_data not available")
 
         plan_file_result = get_plan_file(plan_data.output, context.issue_id, context.adw_id, logger)
 
         if not plan_file_result.success:
             logger.error(f"Error finding plan file: {plan_file_result.error}")
-            return False
+            return StepResult.fail(f"Error finding plan file: {plan_file_result.error}")
 
         if plan_file_result.data is None:
             logger.error("Plan file data missing despite successful response")
-            return False
+            return StepResult.fail("Plan file data missing despite successful response")
 
         plan_file_path = plan_file_result.data.file_path
         logger.info(f"Plan file created: {plan_file_path}")
@@ -100,4 +100,4 @@ class FindPlanFileStep(WorkflowStep):
         # Store plan file path in context
         context.data["plan_file"] = plan_file_path
 
-        return True
+        return StepResult.ok(None)

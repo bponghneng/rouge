@@ -3,6 +3,7 @@
 from cape.core.notifications import make_progress_comment_handler
 from cape.core.workflow.classify import classify_issue
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -13,32 +14,32 @@ class ClassifyStep(WorkflowStep):
     def name(self) -> str:
         return "Classifying issue"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Classify the issue and store classification data.
 
         Args:
             context: Workflow context with issue to classify
 
         Returns:
-            True if classification succeeded, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         issue = context.issue
 
         if issue is None:
             logger.error("Cannot classify: issue not fetched")
-            return False
+            return StepResult.fail("Cannot classify: issue not fetched")
 
         classify_handler = make_progress_comment_handler(issue.id, context.adw_id, logger)
         result = classify_issue(issue, context.adw_id, logger, stream_handler=classify_handler)
 
         if not result.success:
             logger.error(f"Error classifying issue: {result.error}")
-            return False
+            return StepResult.fail(f"Error classifying issue: {result.error}")
 
         if result.data is None:
             logger.error("Classifier did not return data")
-            return False
+            return StepResult.fail("Classifier did not return data")
 
         # Store classification data in context
         context.data["classify_data"] = result.data
@@ -69,4 +70,4 @@ class ClassifyStep(WorkflowStep):
             raw={"text": comment_text},
         )
 
-        return True
+        return StepResult.ok(None)

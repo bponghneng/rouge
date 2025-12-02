@@ -45,17 +45,23 @@ class WorkflowRunner:
         for step in self._steps:
             log_step_start(step.name, logger, issue_id=issue_id)
 
-            success = step.run(context)
+            result = step.run(context)
 
-            if not success:
+            if not result.success:
                 if step.is_critical:
-                    log_step_end(step.name, success, logger, issue_id=issue_id)
-                    logger.error(f"Critical step '{step.name}' failed, aborting workflow")
+                    log_step_end(step.name, result.success, logger, issue_id=issue_id)
+                    error_msg = f"Critical step '{step.name}' failed"
+                    if result.error:
+                        error_msg += f": {result.error}"
+                    logger.error(f"{error_msg}, aborting workflow")
                     return False
                 else:
-                    logger.warning(f"Best-effort step '{step.name}' failed, continuing")
+                    warning_msg = f"Best-effort step '{step.name}' failed"
+                    if result.error:
+                        warning_msg += f": {result.error}"
+                    logger.warning(f"{warning_msg}, continuing")
             else:
-                log_step_end(step.name, success, logger, issue_id=issue_id)
+                log_step_end(step.name, result.success, logger, issue_id=issue_id)
 
         logger.info("\n=== Workflow completed successfully ===")
         return True

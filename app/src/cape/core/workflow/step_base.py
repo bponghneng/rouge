@@ -3,9 +3,12 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from logging import Logger
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from cape.core.models import CapeIssue
+
+if TYPE_CHECKING:
+    from cape.core.workflow.types import StepResult
 
 
 @dataclass
@@ -51,13 +54,13 @@ class WorkflowStep(ABC):
         return True
 
     @abstractmethod
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> "StepResult":
         """Execute the step logic.
 
         Args:
             context: Shared workflow context with state and data
 
         Returns:
-            True if step completed successfully, False otherwise
+            StepResult with success status, optional data, and optional error message
         """
         ...

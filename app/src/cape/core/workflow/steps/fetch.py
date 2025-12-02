@@ -3,6 +3,7 @@
 from cape.core.database import fetch_issue
 from cape.core.workflow.status import update_status
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
+from cape.core.workflow.types import StepResult
 from cape.core.workflow.workflow_io import emit_progress_comment
 
 
@@ -13,14 +14,14 @@ class FetchIssueStep(WorkflowStep):
     def name(self) -> str:
         return "Fetching issue from Supabase"
 
-    def run(self, context: WorkflowContext) -> bool:
+    def run(self, context: WorkflowContext) -> StepResult:
         """Fetch issue and store in context.
 
         Args:
             context: Workflow context to update
 
         Returns:
-            True if issue fetched successfully, False otherwise
+            StepResult with success status and optional error message
         """
         logger = context.logger
         issue_id = context.issue_id
@@ -44,11 +45,11 @@ class FetchIssueStep(WorkflowStep):
                 },
             )
 
-            return True
+            return StepResult.ok(None)
 
         except ValueError as e:
             logger.error(f"Error fetching issue: {e}")
-            return False
+            return StepResult.fail(f"Error fetching issue: {e}")
         except Exception as e:
             logger.error(f"Unexpected error fetching issue: {e}")
-            return False
+            return StepResult.fail(f"Unexpected error fetching issue: {e}")
