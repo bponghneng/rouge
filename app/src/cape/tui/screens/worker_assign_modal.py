@@ -8,10 +8,18 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, RadioButton, RadioSet, Static
 
 # Worker options: (display_name, worker_id)
-WORKER_OPTIONS = [
+# Grouped by fleet: Alleycat, Nebuchadnezzar, Tydirium
+WORKER_OPTIONS: list[tuple[str, str | None]] = [
     ("Unassigned", None),
-    ("Tydirium (tydirium-1)", "tydirium-1"),
-    ("Alleycat (alleycat-1)", "alleycat-1"),
+    ("Alleycat 1 (alleycat-1)", "alleycat-1"),
+    ("Alleycat 2 (alleycat-2)", "alleycat-2"),
+    ("Alleycat 3 (alleycat-3)", "alleycat-3"),
+    ("Nebuchadnezzar 1 (nebuchadnezzar-1)", "nebuchadnezzar-1"),
+    ("Nebuchadnezzar 2 (nebuchadnezzar-2)", "nebuchadnezzar-2"),
+    ("Nebuchadnezzar 3 (nebuchadnezzar-3)", "nebuchadnezzar-3"),
+    ("Tydirium 1 (tydirium-1)", "tydirium-1"),
+    ("Tydirium 2 (tydirium-2)", "tydirium-2"),
+    ("Tydirium 3 (tydirium-3)", "tydirium-3"),
 ]
 
 
@@ -26,32 +34,32 @@ class WorkerAssignModal(ModalScreen[Optional[str]]):
         """Initialize the worker assignment modal.
 
         Args:
-            current_assignment: The current worker assignment (None, 'tydirium-1', or 'alleycat-1').
+            current_assignment: The current worker assignment (e.g., None,
+                'tydirium-1', 'alleycat-1').
         """
         super().__init__()
         self.current_assignment = current_assignment
 
+    def _make_radio_id(self, worker_id: Optional[str]) -> str:
+        """Generate a radio button ID from a worker ID."""
+        return f"worker-{worker_id}" if worker_id else "worker-none"
+
     def compose(self) -> ComposeResult:
         """Create child widgets for the worker assignment modal."""
+        # Dynamically generate RadioButtons from WORKER_OPTIONS
+        radio_buttons = [
+            RadioButton(
+                display_name,
+                value=(self.current_assignment == worker_id),
+                id=self._make_radio_id(worker_id),
+            )
+            for display_name, worker_id in WORKER_OPTIONS
+        ]
+
         yield Container(
             Static("Assign Worker", id="modal-header"),
             Static("Select a worker to assign this issue:", id="modal-description"),
-            RadioSet(
-                RadioButton(
-                    "Unassigned", value=(self.current_assignment is None), id="worker-none"
-                ),
-                RadioButton(
-                    "Tydirium (tydirium-1)",
-                    value=(self.current_assignment == "tydirium-1"),
-                    id="worker-tydirium-1",
-                ),
-                RadioButton(
-                    "Alleycat (alleycat-1)",
-                    value=(self.current_assignment == "alleycat-1"),
-                    id="worker-alleycat-1",
-                ),
-                id="worker-radioset",
-            ),
+            RadioSet(*radio_buttons, id="worker-radioset"),
             Horizontal(
                 Button("Save", variant="success", compact=True, flat=True, id="save-btn"),
                 Button("Cancel", variant="error", compact=True, flat=True, id="cancel-btn"),
@@ -91,15 +99,17 @@ class WorkerAssignModal(ModalScreen[Optional[str]]):
         if selected_button is None:
             # No selection, return None (unassigned)
             self.dismiss(None)
-        elif selected_button.id == "worker-none":
-            self.dismiss(None)
-        elif selected_button.id == "worker-tydirium-1":
-            self.dismiss("tydirium-1")
-        elif selected_button.id == "worker-alleycat-1":
-            self.dismiss("alleycat-1")
-        else:
-            # Fallback
-            self.dismiss(None)
+            return
+
+        # Build a lookup from radio button ID to worker_id
+        id_to_worker = {
+            self._make_radio_id(worker_id): worker_id for _, worker_id in WORKER_OPTIONS
+        }
+
+        # Look up the worker_id from the selected button's ID
+        button_id = selected_button.id
+        worker_id = id_to_worker.get(button_id) if button_id else None
+        self.dismiss(worker_id)
 
     def action_cancel(self) -> None:
         """Cancel and close the modal without making changes."""
