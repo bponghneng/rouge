@@ -383,7 +383,9 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> CapeIs
 
     Args:
         issue_id: The ID of the issue to update.
-        assigned_to: The worker ID to assign. Must be one of: None, "alleycat-1", "tydirium-1".
+        assigned_to: The worker ID to assign. Must be one of: None, "alleycat-1",
+                    "alleycat-2", "alleycat-3", "hailmary-1", "hailmary-2",
+                    "hailmary-3", "tydirium-1", "tydirium-2", "tydirium-3".
 
     Returns:
         CapeIssue: The updated issue with new assignment and updated timestamp.

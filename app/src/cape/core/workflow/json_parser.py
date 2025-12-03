@@ -48,7 +48,7 @@ def _sanitize_json_output(output: str) -> str:
 
 
 def parse_and_validate_json(
-    output: str,
+    output: Optional[str],
     required_fields: Dict[str, Type],
     logger: Logger,
     step_name: Optional[str] = None,
