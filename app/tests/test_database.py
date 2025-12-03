@@ -561,3 +561,60 @@ def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue):
 
     with pytest.raises(ValueError, match="Failed to fetch issue"):
         update_issue_assignment(999, "tydirium-1")
+
+
+@patch("cape.core.database.fetch_issue")
+@patch("cape.core.database.get_client")
+def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
+    """Test assignment to new expanded worker pool IDs."""
+    # Mock fetch_issue to return a pending issue
+    mock_issue = Mock()
+    mock_issue.status = "pending"
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the database client
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq
+    mock_get_client.return_value = mock_client
+
+    # Test all new worker IDs
+    new_worker_ids = [
+        "alleycat-2",
+        "alleycat-3",
+        "nebuchadnezzar-1",
+        "nebuchadnezzar-2",
+        "nebuchadnezzar-3",
+        "tydirium-2",
+        "tydirium-3",
+    ]
+
+    for worker_id in new_worker_ids:
+        mock_execute.data = [
+            {
+                "id": 1,
+                "description": "Test issue",
+                "status": "pending",
+                "assigned_to": worker_id,
+            }
+        ]
+        mock_eq.execute.return_value = mock_execute
+
+        issue = update_issue_assignment(1, worker_id)
+        assert issue.assigned_to == worker_id
+
+
+@patch("cape.core.database.get_client")
+def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
+    """Test that assignment is rejected for invalid worker IDs not in expanded pool."""
+    invalid_workers = ["alleycat-4", "nebuchadnezzar-4", "tydirium-4", "unknown-1"]
+
+    for worker_id in invalid_workers:
+        with pytest.raises(ValueError, match="Invalid worker ID"):
+            update_issue_assignment(1, worker_id)
