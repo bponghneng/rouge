@@ -393,10 +393,22 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> CapeIs
                    or database operation fails.
     """
     # Validate assigned_to parameter
-    valid_workers = [None, "alleycat-1", "tydirium-1"]
+    valid_workers = [
+        None,
+        "alleycat-1",
+        "alleycat-2",
+        "alleycat-3",
+        "nebuchadnezzar-1",
+        "nebuchadnezzar-2",
+        "nebuchadnezzar-3",
+        "tydirium-1",
+        "tydirium-2",
+        "tydirium-3",
+    ]
     if assigned_to not in valid_workers:
         raise ValueError(
-            f"Invalid worker ID '{assigned_to}'. Must be one of: None, 'alleycat-1', 'tydirium-1'"
+            f"Invalid worker ID '{assigned_to}'. Must be one of: "
+            f"{', '.join(repr(w) for w in valid_workers)}"
         )
 
     # First, fetch the issue to check its status
