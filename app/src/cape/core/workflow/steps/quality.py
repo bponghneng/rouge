@@ -71,7 +71,7 @@ class CodeQualityStep(WorkflowStep):
                 response.output, CODE_QUALITY_REQUIRED_FIELDS, logger, step_name="code_quality"
             )
             if not parse_result.success:
-                return StepResult.fail(parse_result.error)
+                return StepResult.fail(parse_result.error or "JSON parsing failed")
 
             logger.info("Code quality checks completed successfully")
 

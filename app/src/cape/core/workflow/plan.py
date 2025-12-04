@@ -64,7 +64,7 @@ def build_plan(
         response.output, PLAN_REQUIRED_FIELDS, logger, step_name="build_plan"
     )
     if not parse_result.success:
-        return StepResult.fail(parse_result.error)
+        return StepResult.fail(parse_result.error or "JSON parsing failed")
 
     return StepResult.ok(
         PlanData(output=response.output, session_id=response.session_id),

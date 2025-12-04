@@ -83,7 +83,7 @@ def notify_plan_acceptance(
             response.output, ACCEPTANCE_REQUIRED_FIELDS, logger, step_name="acceptance"
         )
         if not parse_result.success:
-            return StepResult.fail(parse_result.error)
+            return StepResult.fail(parse_result.error or "JSON parsing failed")
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 

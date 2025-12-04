@@ -59,7 +59,7 @@ def implement_plan(
         response.output, IMPLEMENT_REQUIRED_FIELDS, logger, step_name="implement"
     )
     if not parse_result.success:
-        return StepResult.fail(parse_result.error)
+        return StepResult.fail(parse_result.error or "JSON parsing failed")
 
     return StepResult.ok(
         ImplementData(output=response.output, session_id=response.session_id),

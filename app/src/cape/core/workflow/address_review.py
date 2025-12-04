@@ -81,7 +81,7 @@ def address_review_issues(
             response.output, ADDRESS_REVIEW_REQUIRED_FIELDS, logger, step_name="address_review"
         )
         if not parse_result.success:
-            return StepResult.fail(parse_result.error)
+            return StepResult.fail(parse_result.error or "JSON parsing failed")
 
         # Insert progress comment with parsed template output
         comment = CapeComment(
