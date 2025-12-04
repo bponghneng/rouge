@@ -209,50 +209,6 @@ def test_execute_template(mock_popen, mock_check, tmp_path, monkeypatch):
     assert response.success is True
 
 
-class TestSanitizeJsonOutput:
-    """Tests for _sanitize_json_output helper function."""
-
-    def test_sanitize_json_with_json_fence(self):
-        """Test stripping ```json ... ``` fences."""
-        from cape.core.agent import _sanitize_json_output
-
-        output = '```json\n{"key": "value"}\n```'
-        result = _sanitize_json_output(output)
-        assert result == '{"key": "value"}'
-
-    def test_sanitize_json_with_plain_fence(self):
-        """Test stripping ``` ... ``` fences (no language specifier)."""
-        from cape.core.agent import _sanitize_json_output
-
-        output = '```\n{"key": "value"}\n```'
-        result = _sanitize_json_output(output)
-        assert result == '{"key": "value"}'
-
-    def test_sanitize_json_without_fence(self):
-        """Test plain JSON without fences is returned unchanged."""
-        from cape.core.agent import _sanitize_json_output
-
-        output = '{"key": "value"}'
-        result = _sanitize_json_output(output)
-        assert result == '{"key": "value"}'
-
-    def test_sanitize_plain_text_without_fence(self):
-        """Test plain text without fences is returned unchanged."""
-        from cape.core.agent import _sanitize_json_output
-
-        output = "specs/feature-plan.md"
-        result = _sanitize_json_output(output)
-        assert result == "specs/feature-plan.md"
-
-    def test_sanitize_json_with_whitespace(self):
-        """Test stripping fences with surrounding whitespace."""
-        from cape.core.agent import _sanitize_json_output
-
-        output = '  \n```json\n{"key": "value"}\n```  \n'
-        result = _sanitize_json_output(output)
-        assert result == '{"key": "value"}'
-
-
 @patch("cape.core.notifications.comments.create_comment")
 @patch("cape.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")

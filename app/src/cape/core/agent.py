@@ -7,9 +7,7 @@ For new code, prefer importing from cape.core.agents directly:
     from cape.core.agents import get_agent, AgentExecuteRequest
 """
 
-import json
 import logging
-import re
 from typing import Callable, Optional
 
 from cape.core.agents import (
@@ -24,33 +22,11 @@ from cape.core.agents.claude import (
     ClaudeAgentTemplateRequest,
     execute_claude_template,
 )
+from cape.core.json_parser import parse_and_validate_json
 from cape.core.models import CapeComment
 from cape.core.notifications import insert_progress_comment, make_progress_comment_handler
 
 _DEFAULT_LOGGER = logging.getLogger(__name__)
-
-# Regex pattern to match Markdown code fences wrapping JSON
-# Matches: ```json\n...\n``` or ```\n...\n```
-_MARKDOWN_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
-
-
-def _sanitize_json_output(output: str) -> str:
-    """Strip Markdown code fences from JSON output if present.
-
-    LLM outputs may wrap JSON in Markdown code fences (e.g., ```json ... ```).
-    This helper detects and removes such fencing to extract the raw JSON content.
-
-    Args:
-        output: Raw output string that may contain Markdown code fences
-
-    Returns:
-        The inner content if Markdown fences are found, otherwise the original output
-    """
-    stripped = output.strip()
-    match = _MARKDOWN_FENCE_PATTERN.match(stripped)
-    if match:
-        return match.group(1).strip()
-    return output
 
 
 def _get_issue_logger(adw_id: str) -> logging.Logger:
@@ -142,29 +118,30 @@ def execute_template(
         raw_output = response.output.strip()
 
         if require_json:
-            # Sanitize output to strip Markdown code fences before parsing
-            sanitized_output = _sanitize_json_output(raw_output)
-            try:
-                parsed_json = json.loads(sanitized_output)
+            # Use shared parser to sanitize and validate JSON
+            result = parse_and_validate_json(
+                raw_output, {}, logger, step_name=request.slash_command
+            )
+            if result.success:
                 # Emit progress comment with parsed JSON in raw field
                 emit_progress_comment(
                     issue_id=request.issue_id,
                     message=f"Template {request.slash_command} completed",
                     logger=logger,
-                    raw={"template": request.slash_command, "result": parsed_json},
+                    raw={"template": request.slash_command, "result": result.data},
                     comment_type="workflow",
                 )
                 logger.debug("Template output parsed as JSON successfully")
-            except json.JSONDecodeError as exc:
+            else:
                 # Emit error progress comment for non-JSON output
-                logger.error("Template output is not valid JSON: %s", exc)
+                logger.error("Template output is not valid JSON: %s", result.error)
                 emit_progress_comment(
                     issue_id=request.issue_id,
                     message=f"Template {request.slash_command} returned non-JSON output",
                     logger=logger,
                     raw={
                         "template": request.slash_command,
-                        "error": str(exc),
+                        "error": result.error,
                         "output": raw_output[:500],
                     },
                     comment_type="workflow",
