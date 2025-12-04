@@ -26,7 +26,8 @@ from cape.tui.screens.confirm_delete_modal import ConfirmDeleteModal
 from cape.tui.screens.create_issue_modal import CreateIssueModal
 from cape.tui.screens.help_modal import HelpModal
 from cape.tui.screens.issue_detail_screen import IssueDetailScreen
-from cape.tui.screens.worker_assign_modal import WorkerAssignModal, get_worker_display_name
+from cape.tui.screens.worker_assign_modal import WorkerAssignModal
+from cape.tui.worker_utils import get_worker_display_name
 
 logger = logging.getLogger(__name__)
 

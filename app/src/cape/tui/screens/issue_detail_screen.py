@@ -20,7 +20,7 @@ from cape.core.models import CapeComment, CapeIssue
 from cape.tui.components.comments import Comments
 from cape.tui.screens.confirm_delete_modal import ConfirmDeleteModal
 from cape.tui.screens.edit_description_modal import EditDescriptionModal
-from cape.tui.screens.worker_assign_modal import get_worker_display_name
+from cape.tui.worker_utils import get_worker_display_name
 
 logger = logging.getLogger(__name__)
 
