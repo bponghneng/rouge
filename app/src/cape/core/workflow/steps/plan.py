@@ -56,5 +56,3 @@ class BuildPlanStep(WorkflowStep):
         )
 
         return StepResult.ok(None)
-
-

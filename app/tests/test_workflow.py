@@ -681,9 +681,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
 @patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
 @patch("cape.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
-):
+def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
     """Test PR creation handles gh CLI not found."""
     from cape.core.workflow.step_base import WorkflowContext
     from cape.core.workflow.steps.create_pr import CreatePullRequestStep
@@ -900,7 +898,7 @@ def test_prepare_pr_step_emits_raw_llm_response(
             llm_response_call = call
             break
 
-    assert llm_response_call is not None, (
-        "Expected emit_progress_comment call with pr-preparation-response"
-    )
+    assert (
+        llm_response_call is not None
+    ), "Expected emit_progress_comment call with pr-preparation-response"
     assert llm_response_call[1]["raw"]["llm_response"] == pr_json

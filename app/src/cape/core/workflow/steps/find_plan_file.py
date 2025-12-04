@@ -1,4 +1,5 @@
 """Find plan file step implementation."""
+
 from cape.core.workflow.plan_file import get_plan_file
 from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
 from cape.core.workflow.types import StepResult
@@ -27,9 +28,7 @@ class FindPlanFileStep(WorkflowStep):
             logger.error("Cannot find plan file: plan_data not available")
             return StepResult.fail("Cannot find plan file: plan_data not available")
 
-        plan_file_result = get_plan_file(
-            plan_data.output, context.issue_id, context.adw_id, logger
-        )
+        plan_file_result = get_plan_file(plan_data.output, context.issue_id, context.adw_id, logger)
 
         if not plan_file_result.success:
             logger.error(f"Error finding plan file: {plan_file_result.error}")
@@ -37,9 +36,7 @@ class FindPlanFileStep(WorkflowStep):
 
         if plan_file_result.data is None:
             logger.error("Plan file data missing despite successful response")
-            return StepResult.fail(
-                "Plan file data missing despite successful response"
-            )
+            return StepResult.fail("Plan file data missing despite successful response")
 
         plan_file_path = plan_file_result.data.file_path
         logger.info(f"Plan file created: {plan_file_path}")

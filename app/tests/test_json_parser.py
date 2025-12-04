@@ -194,9 +194,7 @@ class TestParseAndValidateJson:
         output = '{"wrong": "data"}'
         required_fields = {"type": str}
 
-        result = parse_and_validate_json(
-            output, required_fields, mock_logger, step_name="classify"
-        )
+        result = parse_and_validate_json(output, required_fields, mock_logger, step_name="classify")
 
         assert not result.success
         assert "[classify]" in result.error

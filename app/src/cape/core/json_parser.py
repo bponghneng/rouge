@@ -117,9 +117,7 @@ def parse_and_validate_json(
     try:
         parsed_data = json.loads(sanitized_output)
     except json.JSONDecodeError as exc:
-        logger.error(
-            f"{step_prefix}JSON decode failed: {exc} | raw={raw_output[:200]}..."
-        )
+        logger.error(f"{step_prefix}JSON decode failed: {exc} | raw={raw_output[:200]}...")
         return StepResult.fail(
             f"{step_prefix}Invalid JSON: {exc}. Output starts with: {raw_output[:100]}..."
         )
