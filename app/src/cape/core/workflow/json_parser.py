@@ -7,7 +7,7 @@ for agent outputs across all workflow steps.
 import json
 import re
 from logging import Logger
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Mapping, Optional
 
 from cape.core.workflow.types import StepResult
 
@@ -49,7 +49,7 @@ def _sanitize_json_output(output: str) -> str:
 
 def parse_and_validate_json(
     output: Optional[str],
-    required_fields: Dict[str, Type],
+    required_fields: Mapping[str, type[Any]],
     logger: Logger,
     step_name: Optional[str] = None,
 ) -> StepResult[Dict[str, Any]]:
