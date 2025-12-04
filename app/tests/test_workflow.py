@@ -138,6 +138,22 @@ def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
     assert "Invalid classification JSON" in result.error
 
 
+@patch("cape.core.workflow.classify.execute_template")
+def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_issue):
+    """Test successful classification with JSON wrapped in markdown fences."""
+    mock_execute.return_value = ClaudeAgentPromptResponse(
+        output='```json\n{"type": "bug", "level": "average"}\n```',
+        success=True,
+        session_id="test123",
+    )
+
+    result = classify_issue(sample_issue, "adw123", mock_logger)
+    assert result.success
+    assert result.data.command == "/adw-bug-plan"
+    assert result.data.classification == {"type": "bug", "level": "average"}
+    assert result.error is None
+
+
 @patch("cape.core.workflow.plan.execute_template")
 def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     """Test successful plan building."""

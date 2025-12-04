@@ -1,14 +1,20 @@
 """Issue classification functionality for workflow orchestration."""
 
-import json
 from logging import Logger
 from typing import Callable, Optional, cast
 
 from cape.core.agent import execute_template
 from cape.core.agents.claude import ClaudeAgentTemplateRequest
 from cape.core.models import CapeIssue
+from cape.core.workflow.json_parser import parse_and_validate_json
 from cape.core.workflow.shared import AGENT_CLASSIFIER
 from cape.core.workflow.types import ClassifyData, ClassifySlashCommand, StepResult
+
+# Required fields for classification output JSON
+CLASSIFY_REQUIRED_FIELDS = {
+    "type": str,
+    "level": str,
+}
 
 
 def classify_issue(
@@ -49,24 +55,20 @@ def classify_issue(
     if not response.success:
         return StepResult.fail(response.output)
 
-    raw_output = response.output.strip()
-    logger.debug("Classifier raw output: %s", raw_output)
-    try:
-        classification_data = json.loads(raw_output)
-    except json.JSONDecodeError as exc:
-        logger.error("Classifier JSON decode failed: %s | raw=%s", exc, raw_output)
-        return StepResult.fail(f"Invalid classification JSON: {exc}")
+    logger.debug("Classifier raw output: %s", response.output)
 
-    if not isinstance(classification_data, dict):
-        return StepResult.fail("Invalid classification response type")
+    # Parse and validate JSON output using the shared helper
+    parse_result = parse_and_validate_json(
+        response.output, CLASSIFY_REQUIRED_FIELDS, logger, step_name="classify"
+    )
+    if not parse_result.success:
+        return StepResult.fail(f"Invalid classification JSON: {parse_result.error}")
 
-    issue_type = classification_data.get("type")
-    complexity_level = classification_data.get("level")
-
-    if not isinstance(issue_type, str):
-        return StepResult.fail("Classification missing 'type' field")
-    if not isinstance(complexity_level, str):
-        return StepResult.fail("Classification missing 'level' field")
+    # parse_result.data is guaranteed to be non-None after success check
+    assert parse_result.data is not None
+    classification_data = parse_result.data
+    issue_type = classification_data["type"]
+    complexity_level = classification_data["level"]
 
     normalized_type = issue_type.strip().lower()
     normalized_level = complexity_level.strip().lower()
