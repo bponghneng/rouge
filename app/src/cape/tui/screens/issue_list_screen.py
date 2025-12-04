@@ -26,7 +26,7 @@ from cape.tui.screens.confirm_delete_modal import ConfirmDeleteModal
 from cape.tui.screens.create_issue_modal import CreateIssueModal
 from cape.tui.screens.help_modal import HelpModal
 from cape.tui.screens.issue_detail_screen import IssueDetailScreen
-from cape.tui.screens.worker_assign_modal import WorkerAssignModal
+from cape.tui.screens.worker_assign_modal import WorkerAssignModal, get_worker_display_name
 
 logger = logging.getLogger(__name__)
 
@@ -94,12 +94,7 @@ class IssueListScreen(Screen):
             return
 
         for issue in issues:
-            if issue.assigned_to == "tydirium-1":
-                assigned = "Tydirium"
-            elif issue.assigned_to == "alleycat-1":
-                assigned = "Alleycat"
-            else:
-                assigned = ""
+            assigned = get_worker_display_name(issue.assigned_to) or "None"
 
             table.add_row(
                 str(issue.id),
@@ -213,13 +208,14 @@ class IssueListScreen(Screen):
             self.notify("Only pending issues can be assigned", severity="warning")
             return
 
-        # Get current assignment from table
-        assigned_display = str(row_data[3])
-        if assigned_display == "Tydirium":
-            current_assignment = "tydirium-1"
-        elif assigned_display == "Alleycat":
-            current_assignment = "alleycat-1"
-        else:
+        # Get current assignment from database - we need to fetch the actual issue
+        # to get the worker_id, since the table only shows display names
+        from cape.core.database import fetch_issue
+
+        try:
+            current_issue = fetch_issue(issue_id)
+            current_assignment = current_issue.assigned_to if current_issue else None
+        except Exception:
             current_assignment = None
 
         # Show worker assignment modal with callback
@@ -269,15 +265,8 @@ class IssueListScreen(Screen):
             updated_issue: The updated issue with new assignment.
         """
         # Format assignment for display
-        if updated_issue.assigned_to == "tydirium-1":
-            assigned_display = "Tydirium"
-            worker_name = "Tydirium"
-        elif updated_issue.assigned_to == "alleycat-1":
-            assigned_display = "Alleycat"
-            worker_name = "Alleycat"
-        else:
-            assigned_display = ""
-            worker_name = None
+        assigned_display = get_worker_display_name(updated_issue.assigned_to)
+        worker_name = assigned_display if assigned_display else None
 
         # Find and update the row in the table
         table = self.query_one(DataTable)
