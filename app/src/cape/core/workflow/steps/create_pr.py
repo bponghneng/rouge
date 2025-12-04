@@ -34,43 +34,43 @@ class CreatePullRequestStep(WorkflowStep):
         # Check for pr_details in context
         pr_details = context.data.get("pr_details")
         if not pr_details:
-            error_msg = "No PR details found in context, skipping PR creation"
-            logger.warning(error_msg)
+            skip_msg = "PR creation skipped: no PR details in context"
+            logger.info(skip_msg)
             emit_progress_comment(
                 context.issue_id,
-                error_msg,
+                skip_msg,
                 logger,
-                raw={"output": "pull-request-failed", "error": error_msg},
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
             )
-            return StepResult.fail(error_msg)
+            return StepResult.ok(None)
 
         title = pr_details.get("title", "")
         summary = pr_details.get("summary", "")
         commits = pr_details.get("commits", [])
 
         if not title:
-            error_msg = "PR title is empty, skipping PR creation"
-            logger.warning(error_msg)
+            skip_msg = "PR creation skipped: PR title is empty"
+            logger.info(skip_msg)
             emit_progress_comment(
                 context.issue_id,
-                error_msg,
+                skip_msg,
                 logger,
-                raw={"output": "pull-request-failed", "error": error_msg},
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
             )
-            return StepResult.fail(error_msg)
+            return StepResult.ok(None)
 
         # Check for GITHUB_PAT environment variable
         github_pat = os.environ.get("GITHUB_PAT")
         if not github_pat:
-            error_msg = "GITHUB_PAT environment variable not set, skipping PR creation"
-            logger.warning(error_msg)
+            skip_msg = "PR creation skipped: GITHUB_PAT environment variable not set"
+            logger.info(skip_msg)
             emit_progress_comment(
                 context.issue_id,
-                error_msg,
+                skip_msg,
                 logger,
-                raw={"output": "pull-request-failed", "error": error_msg},
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
             )
-            return StepResult.fail(error_msg)
+            return StepResult.ok(None)
 
         try:
             # Build gh pr create command

@@ -511,12 +511,12 @@ def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result.success is False
-    mock_logger.warning.assert_called_with(
-        "GITHUB_PAT environment variable not set, skipping PR creation"
+    assert result.success is True
+    mock_logger.info.assert_called_with(
+        "PR creation skipped: GITHUB_PAT environment variable not set"
     )
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
 @patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
@@ -531,10 +531,10 @@ def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result.success is False
-    mock_logger.warning.assert_called_with("No PR details found in context, skipping PR creation")
+    assert result.success is True
+    mock_logger.info.assert_called_with("PR creation skipped: no PR details in context")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
 @patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
@@ -554,10 +554,10 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
     step = CreatePullRequestStep()
     result = step.run(context)
 
-    assert result.success is False
-    mock_logger.warning.assert_called_with("PR title is empty, skipping PR creation")
+    assert result.success is True
+    mock_logger.info.assert_called_with("PR creation skipped: PR title is empty")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
 @patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
@@ -703,3 +703,48 @@ def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
     assert context.data["pr_details"]["title"] == "only title"
     assert context.data["pr_details"]["summary"] == ""
     assert context.data["pr_details"]["commits"] == []
+
+
+@patch("cape.core.workflow.steps.pr.emit_progress_comment")
+@patch("cape.core.workflow.steps.pr.execute_template")
+@patch("cape.core.workflow.steps.pr.update_status")
+@patch("cape.core.workflow.steps.pr.make_progress_comment_handler")
+def test_prepare_pr_step_emits_raw_llm_response(
+    mock_handler, mock_update_status, mock_execute, mock_emit, mock_logger
+):
+    """Test PreparePullRequestStep emits raw LLM response for debugging."""
+    from cape.core.workflow.step_base import WorkflowContext
+    from cape.core.workflow.steps.pr import PreparePullRequestStep
+
+    # Mock progress comment handler
+    mock_handler.return_value = Mock()
+
+    # Mock successful template execution with valid JSON
+    pr_json = (
+        '{"output": "pull_request", "title": "feat: test", '
+        '"summary": "Test summary", "commits": ["abc123"]}'
+    )
+    mock_response = Mock()
+    mock_response.success = True
+    mock_response.output = pr_json
+    mock_execute.return_value = mock_response
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    step = PreparePullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+
+    # Verify emit_progress_comment was called with raw LLM response
+    # It should be called at least twice - once for raw response, once for "PR prepared"
+    assert mock_emit.call_count >= 2
+
+    # Find the call with the raw LLM response
+    llm_response_call = None
+    for call in mock_emit.call_args_list:
+        if call[1].get("raw", {}).get("output") == "pr-preparation-response":
+            llm_response_call = call
+            break
+
+    assert llm_response_call is not None, "Expected emit_progress_comment call with pr-preparation-response"
+    assert llm_response_call[1]["raw"]["llm_response"] == pr_json
