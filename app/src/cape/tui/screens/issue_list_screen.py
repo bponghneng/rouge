@@ -216,7 +216,8 @@ class IssueListScreen(Screen):
         try:
             current_issue = fetch_issue(issue_id)
             current_assignment = current_issue.assigned_to if current_issue else None
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to fetch current assignment for issue {issue_id}: {e}")
             current_assignment = None
 
         # Show worker assignment modal with callback
@@ -266,8 +267,8 @@ class IssueListScreen(Screen):
             updated_issue: The updated issue with new assignment.
         """
         # Format assignment for display
-        assigned_display = get_worker_display_name(updated_issue.assigned_to)
-        worker_name = assigned_display if assigned_display else None
+        assigned_display = get_worker_display_name(updated_issue.assigned_to) or "None"
+        worker_name = assigned_display if assigned_display != "None" else None
 
         # Find and update the row in the table
         table = self.query_one(DataTable)

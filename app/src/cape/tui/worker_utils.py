@@ -30,6 +30,11 @@ for display_name, worker_id in WORKER_OPTIONS:
         name_part = display_name.split(" (")[0]
         _WORKER_DISPLAY_NAMES[worker_id] = name_part
 
+# Add nebuchadnezzar-* aliases for hailmary-* IDs (database accepts both)
+_WORKER_DISPLAY_NAMES["nebuchadnezzar-1"] = "Nebuchadnezzar 1"
+_WORKER_DISPLAY_NAMES["nebuchadnezzar-2"] = "Nebuchadnezzar 2"
+_WORKER_DISPLAY_NAMES["nebuchadnezzar-3"] = "Nebuchadnezzar 3"
+
 
 def get_worker_display_name(worker_id: Optional[str]) -> str:
     """Get the display name for a worker ID.
