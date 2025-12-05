@@ -63,6 +63,30 @@ class TestSanitizeJsonOutput:
         result = _sanitize_json_output(output)
         assert result == '{"status": "completed", "summary": "Done"}'
 
+    def test_strips_markdown_fence_with_leading_text(self):
+        """Test stripping markdown fence when preceded by conversational text."""
+        output = (
+            "Perfect! Here is the JSON output:\n\n```json\n"
+            '{"status": "ACCEPT", "summary": "All tests pass"}\n```'
+        )
+        result = _sanitize_json_output(output)
+        assert result == '{"status": "ACCEPT", "summary": "All tests pass"}'
+
+    def test_strips_markdown_fence_with_trailing_text(self):
+        """Test stripping markdown fence when followed by conversational text."""
+        output = '```json\n{"type": "feature"}\n```\n\nLet me know if you need anything else!'
+        result = _sanitize_json_output(output)
+        assert result == '{"type": "feature"}'
+
+    def test_strips_markdown_fence_with_surrounding_text(self):
+        """Test stripping markdown fence when surrounded by conversational text."""
+        output = (
+            "Based on my analysis, here is the result:\n\n```json\n"
+            '{"status": "completed"}\n```\n\nI hope this helps!'
+        )
+        result = _sanitize_json_output(output)
+        assert result == '{"status": "completed"}'
+
     def test_handles_empty_string(self):
         """Test handling empty string."""
         result = _sanitize_json_output("")

@@ -46,8 +46,8 @@ class StepResult(BaseModel, Generic[T]):
 
 
 # Regex pattern to match Markdown code fences wrapping JSON
-# Matches: ```json\n...\n``` or ```\n...\n```
-_MARKDOWN_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*\n(.*?)\n```\s*$", re.DOTALL)
+# Matches: ```json\n...\n``` or ```\n...\n``` anywhere in the string
+_MARKDOWN_FENCE_PATTERN = re.compile(r"```(?:json)?\s*\n(.*?)\n```", re.DOTALL)
 
 
 def _sanitize_json_output(output: str) -> str:
@@ -65,8 +65,8 @@ def _sanitize_json_output(output: str) -> str:
     """
     stripped = output.strip()
 
-    # First try to match markdown fences
-    match = _MARKDOWN_FENCE_PATTERN.match(stripped)
+    # First try to match markdown fences anywhere in the string
+    match = _MARKDOWN_FENCE_PATTERN.search(stripped)
     if match:
         return match.group(1).strip()
 
