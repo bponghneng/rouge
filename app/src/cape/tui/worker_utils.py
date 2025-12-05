@@ -35,9 +35,11 @@ def get_worker_display_name(worker_id: Optional[str]) -> str:
     """Get the display name for a worker ID.
 
     Args:
-        worker_id: The worker ID (e.g., "alleycat-1", "hailmary-2", "nebuchadnezzar-3") or None for unassigned.
+        worker_id: The worker ID (e.g., "alleycat-1", "hailmary-2",
+            "nebuchadnezzar-3") or None for unassigned.
 
     Returns:
-        The display name (e.g., "Alleycat 1", "HailMary 2", "Nebuchadnezzar 3") or empty string for unassigned.
+        The display name (e.g., "Alleycat 1", "HailMary 2",
+            "Nebuchadnezzar 3") or empty string for unassigned.
     """
     return _WORKER_DISPLAY_NAMES.get(worker_id, "")

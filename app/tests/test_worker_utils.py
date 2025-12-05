@@ -1,7 +1,5 @@
 """Tests for TUI worker utilities."""
 
-import pytest
-
 from cape.tui.worker_utils import WORKER_OPTIONS, get_worker_display_name
 
 
@@ -12,7 +10,7 @@ class TestWorkerOptions:
         """Test WORKER_OPTIONS has correct structure."""
         assert isinstance(WORKER_OPTIONS, list)
         assert len(WORKER_OPTIONS) > 0
-        
+
         # Check each entry is a tuple with (display_name, worker_id)
         for entry in WORKER_OPTIONS:
             assert isinstance(entry, tuple)
@@ -24,25 +22,25 @@ class TestWorkerOptions:
     def test_worker_options_includes_all_workers(self):
         """Test WORKER_OPTIONS includes all expected workers."""
         worker_ids = [worker_id for _, worker_id in WORKER_OPTIONS]
-        
+
         # Check for Unassigned
         assert None in worker_ids
-        
+
         # Check for Alleycat workers
         assert "alleycat-1" in worker_ids
         assert "alleycat-2" in worker_ids
         assert "alleycat-3" in worker_ids
-        
+
         # Check for HailMary workers
         assert "hailmary-1" in worker_ids
         assert "hailmary-2" in worker_ids
         assert "hailmary-3" in worker_ids
-        
+
         # Check for Nebuchadnezzar workers
         assert "nebuchadnezzar-1" in worker_ids
         assert "nebuchadnezzar-2" in worker_ids
         assert "nebuchadnezzar-3" in worker_ids
-        
+
         # Check for Tydirium workers
         assert "tydirium-1" in worker_ids
         assert "tydirium-2" in worker_ids
