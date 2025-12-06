@@ -43,9 +43,7 @@ class PreparePullRequestStep(WorkflowStep):
         logger = context.logger
 
         try:
-            pr_handler = make_progress_comment_handler(
-                context.issue_id, context.adw_id, logger
-            )
+            pr_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
 
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_IMPLEMENTOR,
@@ -81,9 +79,7 @@ class PreparePullRequestStep(WorkflowStep):
                 logger.warning(f"Pull request preparation failed: {response.output}")
                 # Still mark workflow as completed even if PR prep fails
                 self._finalize_workflow(context)
-                return StepResult.fail(
-                    f"Pull request preparation failed: {response.output}"
-                )
+                return StepResult.fail(f"Pull request preparation failed: {response.output}")
 
             # Parse and validate JSON output
             parse_result = parse_and_validate_json(
@@ -140,9 +136,7 @@ class PreparePullRequestStep(WorkflowStep):
             raw={"text": "Solution implemented successfully."},
         )
 
-    def _store_pr_details(
-        self, pr_data: dict, context: WorkflowContext, logger
-    ) -> None:
+    def _store_pr_details(self, pr_data: dict, context: WorkflowContext, logger) -> None:
         """Store validated PR details in context for CreatePullRequestStep.
 
         Args:

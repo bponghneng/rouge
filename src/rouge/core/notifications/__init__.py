@@ -1,17 +1,17 @@
-"""Notification helpers for Cape workflows including progress comments and stream handlers.
+"""Notification helpers for workflows including progress comments and stream handlers.
 
 This package provides utilities for inserting progress comments during
 workflow execution and creating stream handlers for agent output processing.
 
 Example:
-    from rouge.core.models import CapeComment
+    from rouge.core.models import Comment
     from rouge.core.notifications import (
         insert_progress_comment,
         make_progress_comment_handler
     )
 
     # Insert a manual progress comment
-    comment = CapeComment(issue_id=123, comment="Starting implementation")
+    comment = Comment(issue_id=123, comment="Starting implementation")
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
 

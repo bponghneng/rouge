@@ -250,9 +250,7 @@ class OpenCodeAgent(CodingAgent):
                 agents_dir = os.environ.get(
                     "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
                 )
-                output_dir = os.path.join(
-                    agents_dir, request.adw_id, request.agent_name
-                )
+                output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
                 output_file = os.path.join(output_dir, "raw_output.jsonl")
 
             # Create output directory if needed

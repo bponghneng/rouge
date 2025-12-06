@@ -4,7 +4,7 @@ import os
 import subprocess
 from logging import Logger
 
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
 from rouge.core.workflow.types import ReviewData, StepResult
 
@@ -43,16 +43,12 @@ def generate_review(
         logger.debug(f"Running from directory: {repo_path}")
 
         # Execute CodeRabbit review from repo_path
-        result = subprocess.run(
-            cmd, cwd=repo_path, capture_output=True, text=True, timeout=300
-        )
+        result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
             logger.error(f"CodeRabbit review failed with code {result.returncode}")
             logger.error(f"stderr: {result.stderr}")
-            return StepResult.fail(
-                f"CodeRabbit review failed with code {result.returncode}"
-            )
+            return StepResult.fail(f"CodeRabbit review failed with code {result.returncode}")
 
         # Write review to file
         with open(review_file, "w") as f:
@@ -65,7 +61,7 @@ def generate_review(
             review_text = f.read()
 
         # Insert progress comment with artifact
-        comment = CapeComment(
+        comment = Comment(
             issue_id=issue_id,
             comment=f"CodeRabbit review generated at {review_file}",
             raw={
@@ -81,9 +77,7 @@ def generate_review(
         else:
             logger.debug(f"Review artifact comment inserted: {msg}")
 
-        return StepResult.ok(
-            ReviewData(review_text=review_text, review_file=review_file)
-        )
+        return StepResult.ok(ReviewData(review_text=review_text, review_file=review_file))
 
     except subprocess.TimeoutExpired:
         logger.error("CodeRabbit review timed out after 300 seconds")

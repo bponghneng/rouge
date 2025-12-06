@@ -23,7 +23,7 @@ from rouge.core.agents.claude import (
     execute_claude_template,
 )
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 from rouge.core.notifications import (
     insert_progress_comment,
     make_progress_comment_handler,
@@ -62,9 +62,7 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
         agent_name=request.agent_name,
         model=request.model,
         output_path=request.output_file,
-        provider_options={
-            "dangerously_skip_permissions": request.dangerously_skip_permissions
-        },
+        provider_options={"dangerously_skip_permissions": request.dangerously_skip_permissions},
     )
 
     # Create progress comment handler
@@ -77,7 +75,7 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
 
     # Insert final progress comment if successful
     if response.success and response.raw_output_path:
-        comment = CapeComment(
+        comment = Comment(
             issue_id=request.issue_id,
             comment=f"Output saved to: {response.raw_output_path}",
             raw={},
@@ -281,9 +279,7 @@ def execute_implement_plan(
     )
 
     # Create progress comment handler
-    handler = make_progress_comment_handler(
-        issue_id, adw_id, logger, provider=provider_name
-    )
+    handler = make_progress_comment_handler(issue_id, adw_id, logger, provider=provider_name)
 
     # Get agent and execute
     agent = get_agent(provider_name)

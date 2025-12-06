@@ -6,7 +6,7 @@ from typing import Callable, Optional, cast
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CapeIssue
+from rouge.core.models import Issue
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.types import ClassifyData, ClassifySlashCommand, StepResult
 
@@ -18,7 +18,7 @@ CLASSIFY_REQUIRED_FIELDS = {
 
 
 def classify_issue(
-    issue: CapeIssue,
+    issue: Issue,
     adw_id: str,
     logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
@@ -26,7 +26,7 @@ def classify_issue(
     """Classify issue and return appropriate slash command.
 
     Args:
-        issue: The Cape issue to classify
+        issue: The issue to classify
         adw_id: Workflow ID for tracking
         logger: Logger instance
         stream_handler: Optional callback for streaming output

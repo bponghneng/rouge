@@ -30,23 +30,17 @@ class ImplementStep(WorkflowStep):
             logger.error("Cannot implement: plan_file not available")
             return StepResult.fail("Cannot implement: plan_file not available")
 
-        implement_response = implement_plan(
-            plan_file, context.issue_id, context.adw_id, logger
-        )
+        implement_response = implement_plan(plan_file, context.issue_id, context.adw_id, logger)
 
         if not implement_response.success:
             logger.error(f"Error implementing solution: {implement_response.error}")
-            return StepResult.fail(
-                f"Error implementing solution: {implement_response.error}"
-            )
+            return StepResult.fail(f"Error implementing solution: {implement_response.error}")
 
         logger.info("Solution implemented")
 
         if implement_response.data is None:
             logger.error("Implementation data missing despite successful response")
-            return StepResult.fail(
-                "Implementation data missing despite successful response"
-            )
+            return StepResult.fail("Implementation data missing despite successful response")
 
         logger.debug("Output preview: %s...", implement_response.data.output[:200])
 
@@ -96,9 +90,7 @@ class FindImplementedPlanStep(WorkflowStep):
         )
 
         if not impl_plan_result.success:
-            logger.error(
-                f"Error finding implemented plan file: {impl_plan_result.error}"
-            )
+            logger.error(f"Error finding implemented plan file: {impl_plan_result.error}")
             logger.warning(f"Falling back to original plan file: {fallback_path}")
             context.data["implemented_plan_file"] = fallback_path
             return StepResult.ok(None)

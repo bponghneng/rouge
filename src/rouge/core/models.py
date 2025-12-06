@@ -8,7 +8,7 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-# All slash commands used in the Cape workflow system
+# All slash commands used in the Rouge workflow system
 SlashCommand = Literal[
     "/implement",
     "/triage:classify",
@@ -19,8 +19,8 @@ SlashCommand = Literal[
 ]
 
 
-class CapeIssue(BaseModel):
-    """Cape issue model matching Supabase schema."""
+class Issue(BaseModel):
+    """Issue model matching Supabase schema."""
 
     id: int
     title: Optional[str] = None
@@ -58,13 +58,13 @@ class CapeIssue(BaseModel):
         return v if v else "pending"
 
     @classmethod
-    def from_supabase(cls, row: dict) -> "CapeIssue":
-        """Create CapeIssue from Supabase row."""
+    def from_supabase(cls, row: dict) -> "Issue":
+        """Create Issue from Supabase row."""
         return cls(**row)
 
 
-class CapeComment(BaseModel):
-    """Cape comment model matching Supabase schema."""
+class Comment(BaseModel):
+    """Comment model matching Supabase schema."""
 
     id: Optional[int] = None
     issue_id: int
@@ -79,3 +79,8 @@ class CapeComment(BaseModel):
     def trim_comment(cls, v: str) -> str:
         """Trim whitespace from comment."""
         return v.strip()
+
+
+# Backward compatibility aliases
+CapeIssue = Issue
+CapeComment = Comment

@@ -17,7 +17,7 @@ from rouge.core.database import (
     update_issue_description,
     update_issue_status,
 )
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 
 
 @pytest.fixture
@@ -197,7 +197,7 @@ def test_create_comment_success(mock_get_client):
     mock_insert.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    comment_payload = CapeComment(
+    comment_payload = Comment(
         issue_id=1,
         comment="Test comment",
         raw={"test": "data"},

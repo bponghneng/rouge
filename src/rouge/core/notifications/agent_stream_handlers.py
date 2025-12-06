@@ -16,7 +16,7 @@ from typing import Any, Callable, Dict, Iterable
 
 from rouge.core.agents.claude import iter_assistant_items
 from rouge.core.agents.opencode import iter_opencode_items
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 from rouge.core.notifications.comments import insert_progress_comment
 
 
@@ -32,7 +32,7 @@ def make_progress_comment_handler(
     execution continues even if comment insertion fails.
 
     Args:
-        issue_id: Cape issue ID for comment insertion
+        issue_id: Issue ID for comment insertion
         adw_id: Workflow ID for logging context
         logger: Logger instance for error reporting
         provider: Provider name ("claude" or "opencode")
@@ -64,8 +64,8 @@ def make_progress_comment_handler(
                     # Serialize item to JSON for comment
                     text = json.dumps(item, indent=2)
 
-                    # Create CapeComment object with metadata
-                    comment = CapeComment(
+                    # Create Comment object with metadata
+                    comment = Comment(
                         issue_id=issue_id,
                         comment=text,
                         raw=item,  # Store the raw parsed dict
@@ -76,9 +76,7 @@ def make_progress_comment_handler(
                     # Insert progress comment (best-effort)
                     status, msg = insert_progress_comment(comment)
                     if status == "success":
-                        logger.debug(
-                            "Progress comment inserted: ADW=%s - %s", adw_id, msg
-                        )
+                        logger.debug("Progress comment inserted: ADW=%s - %s", adw_id, msg)
                     else:
                         logger.error("Failed to insert progress comment: %s", msg)
                 except Exception as exc:
