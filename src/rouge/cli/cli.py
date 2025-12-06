@@ -112,9 +112,7 @@ def create_from_file(file_path: Path):
 @app.command()
 def run(
     issue_id: int,
-    adw_id: Optional[str] = typer.Option(
-        None, help="Workflow ID (auto-generated if not provided)"
-    ),
+    adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
     working_dir: Optional[Path] = typer.Option(
         None,
         "--working-dir",

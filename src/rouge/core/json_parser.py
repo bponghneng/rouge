@@ -117,9 +117,7 @@ def parse_and_validate_json(
     try:
         parsed_data = json.loads(sanitized_output)
     except json.JSONDecodeError as exc:
-        logger.error(
-            f"{step_prefix}JSON decode failed: {exc} | raw={raw_output[:200]}..."
-        )
+        logger.error(f"{step_prefix}JSON decode failed: {exc} | raw={raw_output[:200]}...")
         return StepResult.fail(
             f"{step_prefix}Invalid JSON: {exc}. Output starts with: {raw_output[:100]}..."
         )
@@ -135,9 +133,7 @@ def parse_and_validate_json(
     for field_name, expected_type in required_fields.items():
         if field_name not in parsed_data:
             logger.error(f"{step_prefix}Missing required field: '{field_name}'")
-            return StepResult.fail(
-                f"{step_prefix}Missing required field: '{field_name}'"
-            )
+            return StepResult.fail(f"{step_prefix}Missing required field: '{field_name}'")
 
         field_value = parsed_data[field_name]
         # Special case: reject bool when expecting int (bool is subclass of int)
