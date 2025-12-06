@@ -57,10 +57,11 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `ROUGE_AGENTS_DIR` | optional | Override for `.rouge/logs/agents` directory. |
 | `ROUGE_DATA_DIR` / `ROUGE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
 | `ROUGE_APP_ROOT` | optional | Root directory the worker uses when launching `uv run rouge-adw`. |
+| `ROUGE_ADW_COMMAND` | optional | Override command to run rouge-adw (e.g. `uv run rouge-adw`). |
 | `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
 | `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
 
-Create a `.env` or set the variables in your shell before running the tools.
+Create a `.env` file in the directory where you are running the `rouge` commands from, or set the variables directly in your shell environment.
 
 ### Provider Configuration
 
@@ -96,19 +97,37 @@ uv run rouge-adw 123
 
 ## Worker Installation & Operation
 
-### Manual Run
+The `rouge-worker` daemon is designed to run in the background, processing issues from Supabase. It can be installed globally or run from the project directory.
 
+### Global Installation
+
+To install `rouge` and its CLI commands globally using `uv tool`, making `rouge-worker` available from any directory:
+
+```bash
+cd rouge
+uv tool install .
+```
+*   **Note:** If you update the `rouge` package source, run `uv tool upgrade rouge` to apply the changes to your global installation.
+
+### Manual Run (Local or Global)
+
+You can run the worker directly. If installed globally, omit `uv run`.
+
+**From project directory (development):**
 ```bash
 cd rouge
 uv run rouge-worker --worker-id alleycat-1 \
   --poll-interval 10 \
-  --log-level INFO
+  --log-level INFO \
+  --working-dir "/path/to/process/issues/in" # Optional, if different from current dir
 ```
 
-You can also invoke the package directly once it is installed:
-
+**After global installation:**
 ```bash
-python -m rouge.worker --worker-id alleycat-1 [--poll-interval 5] [--log-level DEBUG]
+rouge-worker --worker-id alleycat-1 \
+  --poll-interval 10 \
+  --log-level INFO \
+  --working-dir "/path/to/process/issues/in" # Optional, if different from current dir
 ```
 
 Required flag:
@@ -119,7 +138,15 @@ Optional flags:
 
 - `--poll-interval` – seconds between Supabase polls (default `10`).
 - `--log-level` – `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default `INFO`).
-- `--working-dir` – absolute directory to switch into before polling (default: current directory).
+- `--working-dir` – absolute directory to switch into before polling (default: current directory). This is where `rouge-adw` will execute its operations.
+
+### Environment Variables for ADW Execution
+
+The `rouge-worker` executes the `rouge-adw` command. You can control how `rouge-adw` is found and run using the following environment variables:
+
+-   **`.env` file loading:** The worker attempts to load environment variables from a `.env` file. If `--working-dir` is specified, it will first look for `.env` in the directory specified by `--working-dir`, and then in its parent directory. Otherwise, it will search in the current directory and its parents.
+-   `ROUGE_APP_ROOT`: (Optional) Specifies the root directory of the `rouge` application. This is used as the `cwd` when spawning the `rouge-adw` command. It's crucial if `rouge-adw` isn't globally installed and the worker is run from outside the `rouge/` directory.
+-   `ROUGE_ADW_COMMAND`: (Optional) Explicitly sets the command to execute for `rouge-adw` (e.g., `"/usr/local/bin/rouge-adw"` or `"uv run rouge-adw"`). If not set, the worker first checks if `rouge-adw` is in the system PATH, then falls back to `uv run rouge-adw`.
 
 ### System Service (Linux / systemd)
 
@@ -152,8 +179,7 @@ launchctl list | grep com.rouge.worker
 launchctl unload ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
 ```
 
-Both service definitions assume `uv` is on the PATH, `ROUGE_APP_ROOT` points to
-`/absolute/path/to/rouge`, and the `.env` contains Supabase + Anthropic creds.
+Both service definitions assume `uv` is on the PATH (for local development setups), `ROUGE_APP_ROOT` points to the absolute path to the `rouge` project, and the `.env` contains Supabase + Anthropic credentials.
 
 ## CLI Commands
 
@@ -179,8 +205,7 @@ Example service install scripts for systemd/launchd are in `ops/daemons/`.
 
 ## Database Requirements
 
-All executables expect the standard Supabase schema plus the worker RPC defined
-in `cape/migrations/003_add_worker_assignment.sql`. Key pieces:
+All executables expect the standard Supabase schema plus the worker RPC. Key pieces:
 
 ```sql
 CREATE TYPE worker_id AS ENUM ('alleycat-1', 'tydirium-1');

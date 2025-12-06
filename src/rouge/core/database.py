@@ -13,9 +13,6 @@ from supabase.lib.client_options import SyncClientOptions
 
 from rouge.core.models import CapeComment, CapeIssue
 
-# Load environment variables early so Supabase config picks them up
-load_dotenv()
-
 logger = logging.getLogger(__name__)
 
 SupabaseRow = Dict[str, Any]
@@ -24,6 +21,19 @@ SupabaseRows = List[SupabaseRow]
 # ============================================================================
 # Configuration
 # ============================================================================
+
+
+def init_db_env(dotenv_path: Optional[str] = None) -> None:
+    """
+    Initialize environment variables for database connection.
+    
+    This should be called as early as possible in the application lifecycle,
+    but it's also called lazily by get_client() if needed.
+    
+    Args:
+        dotenv_path: Optional path to a specific .env file to load.
+    """
+    load_dotenv(dotenv_path=dotenv_path)
 
 
 class SupabaseConfig:
@@ -81,6 +91,10 @@ def get_client() -> Client:
     global _client
 
     if _client is None:
+        # Ensure env vars are loaded if not already done manually
+        # This will use the default behavior (cwd) if init_db_env wasn't called
+        init_db_env()
+        
         config = SupabaseConfig()
         config.validate()
 
