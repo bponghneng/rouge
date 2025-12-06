@@ -2,7 +2,7 @@
 """
 Rouge Issue Worker Daemon
 
-A standalone daemon that continuously polls the rouge_issues database table for pending
+A standalone daemon that continuously polls the cape_issues database table for pending
 issues and executes the appropriate workflows using the rouge-adw command. The worker
 operates independently of the CLI, providing automated background processing of issues
 with proper locking mechanisms to prevent race conditions between multiple worker instances.
@@ -16,12 +16,14 @@ Example:
 
 import logging
 import os
+import shutil
 import signal
 import subprocess
 import time
 from pathlib import Path
 
 from rouge.core.utils import make_adw_id
+from rouge.core.database import init_db_env
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -45,6 +47,15 @@ class IssueWorker:
             self._working_dir_note = (
                 f"Working directory set to {self.config.working_dir}"
             )
+            # Re-initialize env vars from the new working directory
+            # This ensures we pick up the .env file from the target directory
+            env_file_path = Path(self.config.working_dir).parent / ".env"
+            if env_file_path.is_file():
+                init_db_env(dotenv_path=str(env_file_path))
+            else:
+                # Fallback to default load_dotenv behavior if not found at parent
+                init_db_env()
+
         self.logger = self.setup_logging()
         if self._working_dir_note:
             self.logger.info(self._working_dir_note)
@@ -117,10 +128,20 @@ class IssueWorker:
             workflow_id = make_adw_id()
             # Build the command to execute
             # Note: Options must come before positional arguments in Typer/Click
-            cmd = [
-                "uv",
-                "run",
-                "rouge-adw",
+            
+            # Determine command to run
+            # Check for explicit override
+            adw_cmd = os.environ.get("ROUGE_ADW_COMMAND")
+            if adw_cmd:
+                base_cmd = adw_cmd.split()
+            # Check if rouge-adw is in PATH (e.g. global install)
+            elif shutil.which("rouge-adw"):
+                base_cmd = ["rouge-adw"]
+            # Fallback to uv run (development mode)
+            else:
+                base_cmd = ["uv", "run", "rouge-adw"]
+
+            cmd = base_cmd + [
                 "--adw-id",
                 workflow_id,
                 str(issue_id),
