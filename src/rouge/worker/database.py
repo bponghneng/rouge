@@ -36,9 +36,7 @@ def get_next_issue(
         client = get_client()
 
         # Call the PostgreSQL function to get and lock the next issue
-        response = client.rpc(
-            "get_and_lock_next_issue", {"p_worker_id": worker_id}
-        ).execute()
+        response = client.rpc("get_and_lock_next_issue", {"p_worker_id": worker_id}).execute()
 
         if response.data and len(response.data) > 0:
             issue = response.data[0]
@@ -84,9 +82,7 @@ def update_issue_status(
     try:
         client = get_client()
 
-        client.table("cape_issues").update({"status": status}).eq(
-            "id", issue_id
-        ).execute()
+        client.table("issues").update({"status": status}).eq("id", issue_id).execute()
 
         if logger:
             logger.debug(f"Updated issue {issue_id} status to {status}")

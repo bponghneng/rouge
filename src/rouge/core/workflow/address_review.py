@@ -7,7 +7,7 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
 from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
@@ -32,7 +32,7 @@ def address_review_issues(
 
     Args:
         review_file: Path to the review file
-        issue_id: Cape issue ID for tracking
+        issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
         logger: Logger instance
         stream_handler: Optional callback for streaming output
@@ -46,9 +46,7 @@ def address_review_issues(
             logger.error(f"Review file does not exist: {review_file}")
             return StepResult.fail(f"Review file does not exist: {review_file}")
 
-        logger.debug(
-            f"Invoking /adw-implement-review template with review file: {review_file}"
-        )
+        logger.debug(f"Invoking /adw-implement-review template with review file: {review_file}")
 
         # Call execute_template with the review file
         request = ClaudeAgentTemplateRequest(
@@ -66,9 +64,7 @@ def address_review_issues(
         )
 
         # Execute template - now requiring JSON with proper validation
-        response = execute_template(
-            request, stream_handler=stream_handler, require_json=True
-        )
+        response = execute_template(request, stream_handler=stream_handler, require_json=True)
 
         logger.debug(
             "address_review_issues response: success=%s",
@@ -84,9 +80,7 @@ def address_review_issues(
         )
 
         if not response.success:
-            logger.error(
-                f"Failed to execute /adw-implement-review template: {response.output}"
-            )
+            logger.error(f"Failed to execute /adw-implement-review template: {response.output}")
             return StepResult.fail(
                 f"Failed to execute /adw-implement-review template: {response.output}"
             )
@@ -102,7 +96,7 @@ def address_review_issues(
             return StepResult.fail(parse_result.error or "JSON parsing failed")
 
         # Insert progress comment with parsed template output
-        comment = CapeComment(
+        comment = Comment(
             issue_id=issue_id,
             comment="Review issues template executed successfully",
             raw={"template_output": parse_result.data},

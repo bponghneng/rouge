@@ -78,8 +78,7 @@ def get_agent(provider: Optional[str] = None) -> CodingAgent:
     if provider not in _AGENTS:
         available = list(_AGENTS.keys())
         raise ValueError(
-            f"Agent provider '{provider}' not registered. "
-            f"Available providers: {available}"
+            f"Agent provider '{provider}' not registered. " f"Available providers: {available}"
         )
 
     return _AGENTS[provider]

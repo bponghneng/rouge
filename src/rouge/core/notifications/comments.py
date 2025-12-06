@@ -5,18 +5,18 @@ workflow execution.
 
 Example:
     from rouge.core.notifications import insert_progress_comment
-    from rouge.core.models import CapeComment
+    from rouge.core.models import Comment
 
-    comment = CapeComment(issue_id=1, comment="Starting implementation")
+    comment = Comment(issue_id=1, comment="Starting implementation")
     status, msg = insert_progress_comment(comment)
     logger.debug(msg) if status == "success" else logger.error(msg)
 """
 
 from rouge.core.database import create_comment
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 
 
-def insert_progress_comment(comment: CapeComment) -> tuple[str, str]:
+def insert_progress_comment(comment: Comment) -> tuple[str, str]:
     """Insert a progress comment for the given issue.
 
     Best-effort helper that returns a status tuple, allowing callers to
@@ -24,7 +24,7 @@ def insert_progress_comment(comment: CapeComment) -> tuple[str, str]:
     continues even if Supabase is unavailable.
 
     Args:
-        comment: A CapeComment object containing the comment details.
+        comment: A Comment object containing the comment details.
 
     Returns:
         A tuple of (status, message) where status is "success" or "error"

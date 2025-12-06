@@ -28,9 +28,7 @@ class FindPlanFileStep(WorkflowStep):
             logger.error("Cannot find plan file: plan_data not available")
             return StepResult.fail("Cannot find plan file: plan_data not available")
 
-        plan_file_result = get_plan_file(
-            plan_data.output, context.issue_id, context.adw_id, logger
-        )
+        plan_file_result = get_plan_file(plan_data.output, context.issue_id, context.adw_id, logger)
 
         if not plan_file_result.success:
             logger.error(f"Error finding plan file: {plan_file_result.error}")

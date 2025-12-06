@@ -2,7 +2,7 @@
 """
 Rouge Issue Worker Daemon
 
-A standalone daemon that continuously polls the cape_issues database table for pending
+A standalone daemon that continuously polls the issues database table for pending
 issues and executes the appropriate workflows using the rouge-adw command. The worker
 operates independently of the CLI, providing automated background processing of issues
 with proper locking mechanisms to prevent race conditions between multiple worker instances.
@@ -23,8 +23,8 @@ import subprocess
 import time
 from pathlib import Path
 
-from rouge.core.utils import make_adw_id
 from rouge.core.database import init_db_env
+from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -45,9 +45,7 @@ class IssueWorker:
         self._working_dir_note = None
         if self.config.working_dir is not None:
             os.chdir(self.config.working_dir)
-            self._working_dir_note = (
-                f"Working directory set to {self.config.working_dir}"
-            )
+            self._working_dir_note = f"Working directory set to {self.config.working_dir}"
             # Re-initialize env vars from the new working directory
             # This ensures we pick up the .env file from the target directory
             # First try the working directory itself, then its parent
@@ -134,7 +132,7 @@ class IssueWorker:
             workflow_id = make_adw_id()
             # Build the command to execute
             # Note: Options must come before positional arguments in Typer/Click
-            
+
             # Determine command to run
             # Check for explicit override
             adw_cmd = os.environ.get("ROUGE_ADW_COMMAND")

@@ -6,7 +6,7 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CapeIssue
+from rouge.core.models import Issue
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.types import ClassifySlashCommand, PlanData, StepResult
 
@@ -20,7 +20,7 @@ PLAN_REQUIRED_FIELDS = {
 
 
 def build_plan(
-    issue: CapeIssue,
+    issue: Issue,
     command: ClassifySlashCommand,
     adw_id: str,
     logger: Logger,

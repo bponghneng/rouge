@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 from typer.testing import CliRunner
 
 from rouge.cli.cli import app
-from rouge.core.models import CapeIssue
+from rouge.core.models import Issue
 
 runner = CliRunner()
 
@@ -27,7 +27,7 @@ def test_cli_version():
 @patch("rouge.cli.cli.create_issue")
 def test_create_command_success(mock_create_issue):
     """Test successful issue creation via CLI."""
-    mock_issue = CapeIssue(id=123, description="Test issue", status="pending")
+    mock_issue = Issue(id=123, description="Test issue", status="pending")
     mock_create_issue.return_value = mock_issue
 
     result = runner.invoke(app, ["create", "Test issue"])
@@ -49,7 +49,7 @@ def test_create_command_empty_description(mock_create_issue):
 @patch("rouge.cli.cli.create_issue")
 def test_create_from_file_success(mock_create_issue, tmp_path):
     """Test successful issue creation from file."""
-    mock_issue = CapeIssue(id=456, description="File issue", status="pending")
+    mock_issue = Issue(id=456, description="File issue", status="pending")
     mock_create_issue.return_value = mock_issue
 
     # Create temp file with issue description

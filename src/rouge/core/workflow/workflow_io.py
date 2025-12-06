@@ -6,7 +6,7 @@ Centralizes repetitive patterns for logging and progress comments.
 from logging import Logger
 from typing import Tuple
 
-from rouge.core.models import CapeComment
+from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
 
 
@@ -22,7 +22,7 @@ def emit_progress_comment(
     Wraps the comment creation and insertion with consistent handling.
 
     Args:
-        issue_id: The Cape issue ID
+        issue_id: The issue ID
         message: The comment message text
         logger: Logger instance
         raw: Optional raw data dict for the comment
@@ -31,7 +31,7 @@ def emit_progress_comment(
     Returns:
         Tuple of (status, message) from insert_progress_comment
     """
-    comment = CapeComment(
+    comment = Comment(
         issue_id=issue_id,
         comment=message,
         raw=raw or {"text": message},
@@ -52,7 +52,7 @@ def log_step_start(step_name: str, logger: Logger, issue_id: int | None = None) 
     Args:
         step_name: Name of the step starting
         logger: Logger instance
-        issue_id: Optional Cape issue ID for progress comment
+        issue_id: Optional issue ID for progress comment
     """
     logger.info(f"\n=== {step_name} ===")
     if issue_id is not None:
@@ -74,7 +74,7 @@ def log_step_end(
         step_name: Name of the step ending
         success: Whether the step succeeded
         logger: Logger instance
-        issue_id: Optional Cape issue ID for progress comment
+        issue_id: Optional issue ID for progress comment
     """
     status_text = "Success" if success else "Failed"
     if success:

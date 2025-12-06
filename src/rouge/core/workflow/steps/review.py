@@ -39,9 +39,7 @@ class GenerateReviewStep(WorkflowStep):
 
         if not implemented_plan_path:
             logger.warning("No implemented plan file, skipping review generation")
-            return StepResult.fail(
-                "No implemented plan file, skipping review generation"
-            )
+            return StepResult.fail("No implemented plan file, skipping review generation")
 
         # Derive paths from the implemented plan file
         paths = derive_paths_from_plan(implemented_plan_path)
@@ -59,21 +57,15 @@ class GenerateReviewStep(WorkflowStep):
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
-            return StepResult.fail(
-                f"Failed to generate CodeRabbit review: {review_result.error}"
-            )
+            return StepResult.fail(f"Failed to generate CodeRabbit review: {review_result.error}")
 
         if review_result.data is None:
-            logger.warning(
-                "CodeRabbit review succeeded but no data/review_file was returned"
-            )
+            logger.warning("CodeRabbit review succeeded but no data/review_file was returned")
             return StepResult.fail(
                 "CodeRabbit review succeeded but no data/review_file was returned"
             )
 
-        logger.info(
-            f"CodeRabbit review generated successfully at {review_result.data.review_file}"
-        )
+        logger.info(f"CodeRabbit review generated successfully at {review_result.data.review_file}")
 
         # Store review data in context
         context.data["review_data"] = review_result.data
@@ -123,9 +115,7 @@ class AddressReviewStep(WorkflowStep):
             logger.warning("No review file available, skipping address review")
             return StepResult.ok(None)
 
-        review_handler = make_progress_comment_handler(
-            context.issue_id, context.adw_id, logger
-        )
+        review_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
         review_issues_result = address_review_issues(
             review_file,
             context.issue_id,
@@ -135,12 +125,8 @@ class AddressReviewStep(WorkflowStep):
         )
 
         if not review_issues_result.success:
-            logger.error(
-                f"Failed to address review issues: {review_issues_result.error}"
-            )
-            return StepResult.fail(
-                f"Failed to address review issues: {review_issues_result.error}"
-            )
+            logger.error(f"Failed to address review issues: {review_issues_result.error}")
+            return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
         logger.info("Review issues addressed successfully")
 

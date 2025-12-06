@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.agents.claude import ClaudeAgentPromptResponse
-from rouge.core.models import CapeComment, CapeIssue
+from rouge.core.models import Comment, Issue
 from rouge.core.notifications import insert_progress_comment
 from rouge.core.workflow import (
     build_plan,
@@ -30,7 +30,7 @@ def mock_logger():
 @pytest.fixture
 def sample_issue():
     """Create a sample issue for testing."""
-    return CapeIssue(id=1, description="Fix login bug", status="pending")
+    return Issue(id=1, description="Fix login bug", status="pending")
 
 
 @patch("rouge.core.workflow.status.update_issue_status")
@@ -61,7 +61,7 @@ def test_insert_progress_comment_success(mock_create_comment):
     mock_comment.id = 1
     mock_create_comment.return_value = mock_comment
 
-    comment = CapeComment(
+    comment = Comment(
         issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
     )
     status, msg = insert_progress_comment(comment)
@@ -76,7 +76,7 @@ def test_insert_progress_comment_failure(mock_create_comment):
     """Test progress comment insertion handles errors gracefully."""
     mock_create_comment.side_effect = Exception("Database error")
 
-    comment = CapeComment(
+    comment = Comment(
         issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
     )
     status, msg = insert_progress_comment(comment)

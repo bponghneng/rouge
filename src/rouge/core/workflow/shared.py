@@ -57,9 +57,7 @@ def derive_paths_from_plan(plan_path: str) -> Dict[str, str]:
 
             # Build canonical paths
             result["plan_file"] = f"specs/{result['type']}-{result['slug']}-plan.md"
-            result["review_file"] = (
-                f"specs/{result['type']}-{result['slug']}-review.txt"
-            )
+            result["review_file"] = f"specs/{result['type']}-{result['slug']}-review.txt"
         elif len(parts) == 1:
             # Handle case where there's no slug (shouldn't happen but be safe)
             result["type"] = parts[0]

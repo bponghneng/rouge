@@ -35,13 +35,9 @@ _DEFAULT_LOGGER = logging.getLogger(__name__)
 def check_claude_installed() -> Optional[str]:
     """Check if Claude Code CLI is installed. Return error message if not."""
     try:
-        result = subprocess.run(
-            [CLAUDE_PATH, "--version"], capture_output=True, text=True
-        )
+        result = subprocess.run([CLAUDE_PATH, "--version"], capture_output=True, text=True)
         if result.returncode != 0:
-            return (
-                f"Error: Claude Code CLI is not installed. Expected at: {CLAUDE_PATH}"
-            )
+            return f"Error: Claude Code CLI is not installed. Expected at: {CLAUDE_PATH}"
     except FileNotFoundError:
         return f"Error: Claude Code CLI is not installed. Expected at: {CLAUDE_PATH}"
     return None
@@ -195,9 +191,7 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     command_name = slash_command[1:]
 
     # Create directory structure using current working directory or env override
-    agents_dir = os.environ.get(
-        "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
-    )
+    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
     prompt_dir = os.path.join(agents_dir, adw_id, agent_name, "prompts")
     os.makedirs(prompt_dir, exist_ok=True)
 
@@ -259,9 +253,7 @@ class ClaudeAgent(CodingAgent):
                 agents_dir = os.environ.get(
                     "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
                 )
-                output_dir = os.path.join(
-                    agents_dir, request.adw_id, request.agent_name
-                )
+                output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
                 output_file = os.path.join(output_dir, "raw_output.jsonl")
 
             # Check if Claude Code CLI is installed
@@ -454,9 +446,7 @@ def execute_claude_template(
     prompt = f"{request.slash_command} {' '.join(request.args)}"
 
     # Create output directory with adw_id using current working directory
-    agents_dir = os.environ.get(
-        "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
-    )
+    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
     output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
     os.makedirs(output_dir, exist_ok=True)
 
