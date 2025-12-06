@@ -155,18 +155,62 @@ class TestExecuteWorkflow:
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
+                    # Mock shutil.which to return None so it falls back to uv run
+                    with patch("shutil.which", return_value=None):
+                        worker.execute_workflow(456, "Test description")
+
+                    # Verify the command was called with correct arguments
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
+
+                    assert cmd[0] == "uv"
+                    assert cmd[1] == "run"
+                    assert cmd[2] == "rouge-adw"
+                    assert cmd[3] == "--adw-id"
+                    assert cmd[4] == "test-adw"
+                    assert cmd[5] == "456"
+
+    def test_execute_workflow_command_from_path(self, worker):
+        """Test workflow command uses rouge-adw from PATH when available."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
+                    # Mock shutil.which to return a path, simulating global install
+                    with patch("shutil.which", return_value="/usr/local/bin/rouge-adw"):
+                        worker.execute_workflow(456, "Test description")
+
+                    # Verify the command uses rouge-adw directly
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
+
+                    assert cmd[0] == "rouge-adw"
+                    assert cmd[1] == "--adw-id"
+                    assert cmd[2] == "test-adw"
+                    assert cmd[3] == "456"
+
+    def test_execute_workflow_command_from_env_var(self, worker, monkeypatch):
+        """Test workflow command uses ROUGE_ADW_COMMAND when set."""
+        monkeypatch.setenv("ROUGE_ADW_COMMAND", "/custom/path/rouge-adw --verbose")
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     worker.execute_workflow(456, "Test description")
 
-                # Verify the command was called with correct arguments
-                call_args = mock_run.call_args
-                cmd = call_args[0][0]
+                    # Verify the command uses the custom command
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
 
-                assert cmd[0] == "uv"
-                assert cmd[1] == "run"
-                assert cmd[2] == "rouge-adw"
-                assert cmd[3] == "--adw-id"
-                assert cmd[4] == "test-adw"
-                assert cmd[5] == "456"
+                    assert cmd[0] == "/custom/path/rouge-adw"
+                    assert cmd[1] == "--verbose"
+                    assert cmd[2] == "--adw-id"
+                    assert cmd[3] == "test-adw"
+                    assert cmd[4] == "456"
 
 
 class TestUpdateIssueStatus:

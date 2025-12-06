@@ -16,6 +16,7 @@ Example:
 
 import logging
 import os
+import shlex
 import shutil
 import signal
 import subprocess
@@ -49,12 +50,17 @@ class IssueWorker:
             )
             # Re-initialize env vars from the new working directory
             # This ensures we pick up the .env file from the target directory
-            env_file_path = Path(self.config.working_dir).parent / ".env"
+            # First try the working directory itself, then its parent
+            env_file_path = Path(self.config.working_dir) / ".env"
             if env_file_path.is_file():
                 init_db_env(dotenv_path=str(env_file_path))
             else:
-                # Fallback to default load_dotenv behavior if not found at parent
-                init_db_env()
+                env_file_path = Path(self.config.working_dir).parent / ".env"
+                if env_file_path.is_file():
+                    init_db_env(dotenv_path=str(env_file_path))
+                else:
+                    # Fallback to default load_dotenv behavior if not found
+                    init_db_env()
 
         self.logger = self.setup_logging()
         if self._working_dir_note:
@@ -133,7 +139,7 @@ class IssueWorker:
             # Check for explicit override
             adw_cmd = os.environ.get("ROUGE_ADW_COMMAND")
             if adw_cmd:
-                base_cmd = adw_cmd.split()
+                base_cmd = shlex.split(adw_cmd)
             # Check if rouge-adw is in PATH (e.g. global install)
             elif shutil.which("rouge-adw"):
                 base_cmd = ["rouge-adw"]

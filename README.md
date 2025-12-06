@@ -144,7 +144,7 @@ Optional flags:
 
 The `rouge-worker` executes the `rouge-adw` command. You can control how `rouge-adw` is found and run using the following environment variables:
 
--   **`.env` file loading:** The worker attempts to load environment variables from a `.env` file. If `--working-dir` is specified, it will first look for `.env` in the directory specified by `--working-dir`, and then in its parent directory. Otherwise, it will search in the current directory and its parents.
+-   **`.env` file loading:** The worker attempts to load environment variables from a `.env` file. If `--working-dir` is specified, it will first look for `.env` in the directory specified by `--working-dir`, and then in its parent directory. If `--working-dir` is not specified, the worker will use the default behavior of searching for `.env` in the current directory and walking up the directory tree.
 -   `ROUGE_APP_ROOT`: (Optional) Specifies the root directory of the `rouge` application. This is used as the `cwd` when spawning the `rouge-adw` command. It's crucial if `rouge-adw` isn't globally installed and the worker is run from outside the `rouge/` directory.
 -   `ROUGE_ADW_COMMAND`: (Optional) Explicitly sets the command to execute for `rouge-adw` (e.g., `"/usr/local/bin/rouge-adw"` or `"uv run rouge-adw"`). If not set, the worker first checks if `rouge-adw` is in the system PATH, then falls back to `uv run rouge-adw`.
 
