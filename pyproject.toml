@@ -1,13 +1,12 @@
 [project]
-name = "cape"
+name = "rouge"
 version = "0.1.0"
-description = "Unified CLI, ADW runner, and worker tooling for the CAPE workflow"
+description = "Unified CLI, ADW runner, and worker tooling for the Rouge workflow"
 readme = "README.md"
 authors = [{ name = "Robert Pratt", email = "robert@bpong.me" }]
 requires-python = ">=3.12"
 dependencies = [
     "typer>=0.12.0",
-    "textual>=0.50.0",
     "supabase>=2.0",
     "httpx>=0.27.2",
     "postgrest>=0.14.6",
@@ -20,24 +19,20 @@ dependencies = [
     "ruff>=0.14.5",
     "black>=25.0.0",
     "mypy>=1.18.2",
-    "textual-dev>=1.8.0",
 ]
 classifiers = ["Programming Language :: Python :: 3.12"]
 
 [project.scripts]
-cape = "cape.cli.cli:app"
-cape-adw = "cape.adw.cli:app"
-cape-worker = "cape.worker.cli:main"
+rouge = "rouge.cli.cli:app"
+rouge-adw = "rouge.adw.cli:app"
+rouge-worker = "rouge.worker.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/cape"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/cape/tui/cape_tui.tcss" = "cape/tui/cape_tui.tcss"
+packages = ["src/rouge"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

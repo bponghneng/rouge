@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from cape.core.database import (
+from rouge.core.database import (
     SupabaseConfig,
     create_comment,
     create_issue,
@@ -17,7 +17,7 @@ from cape.core.database import (
     update_issue_description,
     update_issue_status,
 )
-from cape.core.models import CapeComment
+from rouge.core.models import CapeComment
 
 
 @pytest.fixture
@@ -53,7 +53,7 @@ def test_supabase_config_validation_missing_key(monkeypatch):
         config.validate()
 
 
-@patch("cape.core.database.create_client")
+@patch("rouge.core.database.create_client")
 def test_get_client(mock_create_client, mock_env):
     """Test get_client creates and returns client."""
     mock_client = Mock()
@@ -61,16 +61,16 @@ def test_get_client(mock_create_client, mock_env):
 
     # Clear cache and global client
     get_client.cache_clear()
-    import cape.core.database
+    import rouge.core.database
 
-    cape.core.database._client = None
+    rouge.core.database._client = None
 
     client = get_client()
     assert client is mock_client
     mock_create_client.assert_called_once()
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_create_issue_success(mock_get_client):
     """Test successful issue creation."""
     mock_client = Mock()
@@ -90,21 +90,21 @@ def test_create_issue_success(mock_get_client):
     assert issue.status == "pending"
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_create_issue_empty_description(mock_get_client):
     """Test creating issue with empty description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         create_issue("")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_create_issue_whitespace_only(mock_get_client):
     """Test creating issue with whitespace-only description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         create_issue("   ")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_fetch_issue_success(mock_get_client):
     """Test successful issue fetch."""
     mock_client = Mock()
@@ -127,7 +127,7 @@ def test_fetch_issue_success(mock_get_client):
     assert issue.description == "Test issue"
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_fetch_issue_not_found(mock_get_client):
     """Test fetching non-existent issue."""
     mock_client = Mock()
@@ -149,7 +149,7 @@ def test_fetch_issue_not_found(mock_get_client):
         fetch_issue(999)
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_fetch_all_issues_success(mock_get_client):
     """Test fetching all issues."""
     mock_client = Mock()
@@ -174,7 +174,7 @@ def test_fetch_all_issues_success(mock_get_client):
     assert issues[1].id == 2
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_create_comment_success(mock_get_client):
     """Test successful comment creation."""
     mock_client = Mock()
@@ -213,7 +213,7 @@ def test_create_comment_success(mock_get_client):
     assert comment.type == "unit"
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_fetch_comments_success(mock_get_client):
     """Test fetching comments for an issue."""
     mock_client = Mock()
@@ -240,7 +240,7 @@ def test_fetch_comments_success(mock_get_client):
     assert comments[1].comment == "Comment 2"
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_status_success(mock_get_client):
     """Test successful status update."""
     mock_client = Mock()
@@ -262,7 +262,7 @@ def test_update_issue_status_success(mock_get_client):
     mock_table.update.assert_called_once_with({"status": "started"})
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_status_to_completed(mock_get_client):
     """Test updating status to completed."""
     mock_client = Mock()
@@ -282,14 +282,14 @@ def test_update_issue_status_to_completed(mock_get_client):
     assert issue.status == "completed"
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_status_invalid_status(mock_get_client):
     """Test updating with invalid status fails."""
     with pytest.raises(ValueError, match="Invalid status"):
         update_issue_status(1, "invalid_status")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_status_not_found(mock_get_client):
     """Test updating non-existent issue."""
     mock_client = Mock()
@@ -309,7 +309,7 @@ def test_update_issue_status_not_found(mock_get_client):
         update_issue_status(999, "started")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_success(mock_get_client):
     """Test successful description update."""
     mock_client = Mock()
@@ -321,7 +321,9 @@ def test_update_issue_description_success(mock_get_client):
     mock_client.table.return_value = mock_table
     mock_table.update.return_value = mock_update
     mock_update.eq.return_value = mock_eq
-    mock_execute.data = [{"id": 1, "description": "Updated description", "status": "pending"}]
+    mock_execute.data = [
+        {"id": 1, "description": "Updated description", "status": "pending"}
+    ]
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
@@ -331,28 +333,28 @@ def test_update_issue_description_success(mock_get_client):
     mock_table.update.assert_called_once_with({"description": "Updated description"})
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_empty(mock_get_client):
     """Test updating with empty description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         update_issue_description(1, "")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_whitespace_only(mock_get_client):
     """Test updating with whitespace-only description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         update_issue_description(1, "   ")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_too_short(mock_get_client):
     """Test updating with too short description fails."""
     with pytest.raises(ValueError, match="at least 10 characters"):
         update_issue_description(1, "Short")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_too_long(mock_get_client):
     """Test updating with too long description fails."""
     long_description = "x" * 10001
@@ -360,7 +362,7 @@ def test_update_issue_description_too_long(mock_get_client):
         update_issue_description(1, long_description)
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_description_not_found(mock_get_client):
     """Test updating description of non-existent issue."""
     mock_client = Mock()
@@ -380,7 +382,7 @@ def test_update_issue_description_not_found(mock_get_client):
         update_issue_description(999, "Valid description text here")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_delete_issue_success(mock_get_client):
     """Test successful issue deletion."""
     mock_client = Mock()
@@ -402,7 +404,7 @@ def test_delete_issue_success(mock_get_client):
     mock_delete.eq.assert_called_once_with("id", 1)
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_delete_issue_not_found(mock_get_client):
     """Test deleting non-existent issue."""
     mock_client = Mock()
@@ -422,7 +424,7 @@ def test_delete_issue_not_found(mock_get_client):
         delete_issue(999)
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_delete_issue_with_comments(mock_get_client):
     """Test deleting issue cascades to comments.
 
@@ -440,7 +442,9 @@ def test_delete_issue_with_comments(mock_get_client):
     mock_table.delete.return_value = mock_delete
     mock_delete.eq.return_value = mock_eq
     # Simulate successful deletion of issue with comments
-    mock_execute.data = [{"id": 1, "description": "Issue with comments", "status": "pending"}]
+    mock_execute.data = [
+        {"id": 1, "description": "Issue with comments", "status": "pending"}
+    ]
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
@@ -451,8 +455,8 @@ def test_delete_issue_with_comments(mock_get_client):
     # The cascade to comments is handled by the database, not in application code
 
 
-@patch("cape.core.database.fetch_issue")
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.fetch_issue")
+@patch("rouge.core.database.get_client")
 def test_update_issue_assignment_success(mock_get_client, mock_fetch_issue):
     """Test successful worker assignment."""
     # Mock fetch_issue to return a pending issue
@@ -487,8 +491,8 @@ def test_update_issue_assignment_success(mock_get_client, mock_fetch_issue):
     mock_table.update.assert_called_once_with({"assigned_to": "tydirium-1"})
 
 
-@patch("cape.core.database.fetch_issue")
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.fetch_issue")
+@patch("rouge.core.database.get_client")
 def test_update_issue_assignment_to_none(mock_get_client, mock_fetch_issue):
     """Test unassigning a worker (setting to None)."""
     # Mock fetch_issue to return a pending issue
@@ -523,7 +527,7 @@ def test_update_issue_assignment_to_none(mock_get_client, mock_fetch_issue):
     mock_table.update.assert_called_once_with({"assigned_to": None})
 
 
-@patch("cape.core.database.fetch_issue")
+@patch("rouge.core.database.fetch_issue")
 def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue):
     """Test that assignment is rejected for started issues."""
     # Mock fetch_issue to return a started issue
@@ -535,7 +539,7 @@ def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue):
         update_issue_assignment(1, "tydirium-1")
 
 
-@patch("cape.core.database.fetch_issue")
+@patch("rouge.core.database.fetch_issue")
 def test_update_issue_assignment_rejects_completed_issue(mock_fetch_issue):
     """Test that assignment is rejected for completed issues."""
     # Mock fetch_issue to return a completed issue
@@ -547,14 +551,14 @@ def test_update_issue_assignment_rejects_completed_issue(mock_fetch_issue):
         update_issue_assignment(1, "alleycat-1")
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_assignment_rejects_invalid_worker(mock_get_client):
     """Test that assignment is rejected for invalid worker IDs."""
     with pytest.raises(ValueError, match="Invalid worker ID"):
         update_issue_assignment(1, "invalid-worker")
 
 
-@patch("cape.core.database.fetch_issue")
+@patch("rouge.core.database.fetch_issue")
 def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue):
     """Test assignment fails for non-existent issue."""
     mock_fetch_issue.side_effect = ValueError("Issue not found")
@@ -563,8 +567,8 @@ def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue):
         update_issue_assignment(999, "tydirium-1")
 
 
-@patch("cape.core.database.fetch_issue")
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.fetch_issue")
+@patch("rouge.core.database.get_client")
 def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
     """Test assignment to new expanded worker pool IDs."""
     # Mock fetch_issue to return a pending issue
@@ -610,7 +614,7 @@ def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
         assert issue.assigned_to == worker_id
 
 
-@patch("cape.core.database.get_client")
+@patch("rouge.core.database.get_client")
 def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
     """Test that assignment is rejected for invalid worker IDs not in expanded pool."""
     invalid_workers = ["alleycat-4", "nebuchadnezzar-4", "tydirium-4", "unknown-1"]

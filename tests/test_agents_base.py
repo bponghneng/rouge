@@ -2,7 +2,11 @@
 
 import pytest
 
-from cape.core.agents.base import AgentExecuteRequest, AgentExecuteResponse, CodingAgent
+from rouge.core.agents.base import (
+    AgentExecuteRequest,
+    AgentExecuteResponse,
+    CodingAgent,
+)
 
 
 def test_agent_execute_request_validation():

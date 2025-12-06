@@ -4,8 +4,8 @@ from unittest.mock import Mock, patch
 
 from typer.testing import CliRunner
 
-from cape.cli.cli import app
-from cape.core.models import CapeIssue
+from rouge.cli.cli import app
+from rouge.core.models import CapeIssue
 
 runner = CliRunner()
 
@@ -14,7 +14,7 @@ def test_cli_help():
     """Test CLI help command."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
-    assert "Cape CLI" in result.output
+    assert "Rouge CLI" in result.output
 
 
 def test_cli_version():
@@ -24,7 +24,7 @@ def test_cli_version():
     assert "version" in result.output.lower()
 
 
-@patch("cape.cli.cli.create_issue")
+@patch("rouge.cli.cli.create_issue")
 def test_create_command_success(mock_create_issue):
     """Test successful issue creation via CLI."""
     mock_issue = CapeIssue(id=123, description="Test issue", status="pending")
@@ -36,7 +36,7 @@ def test_create_command_success(mock_create_issue):
     mock_create_issue.assert_called_once_with("Test issue")
 
 
-@patch("cape.cli.cli.create_issue")
+@patch("rouge.cli.cli.create_issue")
 def test_create_command_empty_description(mock_create_issue):
     """Test create command with empty description."""
     mock_create_issue.side_effect = ValueError("Issue description cannot be empty")
@@ -46,7 +46,7 @@ def test_create_command_empty_description(mock_create_issue):
     assert "Error" in result.output
 
 
-@patch("cape.cli.cli.create_issue")
+@patch("rouge.cli.cli.create_issue")
 def test_create_from_file_success(mock_create_issue, tmp_path):
     """Test successful issue creation from file."""
     mock_issue = CapeIssue(id=456, description="File issue", status="pending")
@@ -85,8 +85,8 @@ def test_create_from_file_directory(tmp_path):
     assert "not a file" in result.output.lower()
 
 
-@patch("cape.cli.cli.execute_workflow")
-@patch("cape.cli.cli.setup_logger")
+@patch("rouge.cli.cli.execute_workflow")
+@patch("rouge.cli.cli.setup_logger")
 def test_run_command_success(mock_logger, mock_execute):
     """Test successful workflow execution."""
     mock_logger.return_value = Mock()
@@ -97,8 +97,8 @@ def test_run_command_success(mock_logger, mock_execute):
     mock_execute.assert_called_once()
 
 
-@patch("cape.cli.cli.execute_workflow")
-@patch("cape.cli.cli.setup_logger")
+@patch("rouge.cli.cli.execute_workflow")
+@patch("rouge.cli.cli.setup_logger")
 def test_run_command_failure(mock_logger, mock_execute):
     """Test workflow execution failure."""
     mock_logger.return_value = Mock()
@@ -108,8 +108,8 @@ def test_run_command_failure(mock_logger, mock_execute):
     assert result.exit_code == 1
 
 
-@patch("cape.cli.cli.execute_workflow")
-@patch("cape.cli.cli.setup_logger")
+@patch("rouge.cli.cli.execute_workflow")
+@patch("rouge.cli.cli.setup_logger")
 def test_run_command_with_adw_id(mock_logger, mock_execute):
     """Test run command with custom ADW ID."""
     mock_logger.return_value = Mock()

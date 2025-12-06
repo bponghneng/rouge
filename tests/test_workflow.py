@@ -5,10 +5,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from cape.core.agents.claude import ClaudeAgentPromptResponse
-from cape.core.models import CapeComment, CapeIssue
-from cape.core.notifications import insert_progress_comment
-from cape.core.workflow import (
+from rouge.core.agents.claude import ClaudeAgentPromptResponse
+from rouge.core.models import CapeComment, CapeIssue
+from rouge.core.notifications import insert_progress_comment
+from rouge.core.workflow import (
     build_plan,
     classify_issue,
     execute_workflow,
@@ -16,9 +16,9 @@ from cape.core.workflow import (
     implement_plan,
     update_status,
 )
-from cape.core.workflow.address_review import address_review_issues
-from cape.core.workflow.shared import derive_paths_from_plan
-from cape.core.workflow.types import StepResult
+from rouge.core.workflow.address_review import address_review_issues
+from rouge.core.workflow.shared import derive_paths_from_plan
+from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def sample_issue():
     return CapeIssue(id=1, description="Fix login bug", status="pending")
 
 
-@patch("cape.core.workflow.status.update_issue_status")
+@patch("rouge.core.workflow.status.update_issue_status")
 def test_update_status_success(mock_update_issue_status, mock_logger):
     """Test successful status update."""
     mock_issue = Mock()
@@ -45,7 +45,7 @@ def test_update_status_success(mock_update_issue_status, mock_logger):
     mock_update_issue_status.assert_called_once_with(1, "started")
 
 
-@patch("cape.core.workflow.status.update_issue_status")
+@patch("rouge.core.workflow.status.update_issue_status")
 def test_update_status_failure(mock_update_issue_status, mock_logger):
     """Test status update handles errors gracefully."""
     mock_update_issue_status.side_effect = Exception("Database error")
@@ -54,14 +54,16 @@ def test_update_status_failure(mock_update_issue_status, mock_logger):
     mock_logger.error.assert_called_once()
 
 
-@patch("cape.core.notifications.comments.create_comment")
+@patch("rouge.core.notifications.comments.create_comment")
 def test_insert_progress_comment_success(mock_create_comment):
     """Test successful progress comment insertion."""
     mock_comment = Mock()
     mock_comment.id = 1
     mock_create_comment.return_value = mock_comment
 
-    comment = CapeComment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
+    comment = CapeComment(
+        issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
+    )
     status, msg = insert_progress_comment(comment)
     assert status == "success"
     assert "Comment inserted: ID=1" in msg
@@ -69,19 +71,21 @@ def test_insert_progress_comment_success(mock_create_comment):
     mock_create_comment.assert_called_once_with(comment)
 
 
-@patch("cape.core.notifications.comments.create_comment")
+@patch("rouge.core.notifications.comments.create_comment")
 def test_insert_progress_comment_failure(mock_create_comment):
     """Test progress comment insertion handles errors gracefully."""
     mock_create_comment.side_effect = Exception("Database error")
 
-    comment = CapeComment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
+    comment = CapeComment(
+        issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
+    )
     status, msg = insert_progress_comment(comment)
     assert status == "error"
     assert "Failed to insert comment on issue 1" in msg
     assert "Database error" in msg
 
 
-@patch("cape.core.workflow.classify.execute_template")
+@patch("rouge.core.workflow.classify.execute_template")
 def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
     """Test successful issue classification."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -97,7 +101,7 @@ def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
     assert result.error is None
 
 
-@patch("cape.core.workflow.classify.execute_template")
+@patch("rouge.core.workflow.classify.execute_template")
 def test_classify_issue_failure(mock_execute, mock_logger, sample_issue):
     """Test issue classification failure."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -110,7 +114,7 @@ def test_classify_issue_failure(mock_execute, mock_logger, sample_issue):
     assert result.error == "Error occurred"
 
 
-@patch("cape.core.workflow.classify.execute_template")
+@patch("rouge.core.workflow.classify.execute_template")
 def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue):
     """Test issue classification with invalid command."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -125,7 +129,7 @@ def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue)
     assert "Invalid issue type" in result.error
 
 
-@patch("cape.core.workflow.classify.execute_template")
+@patch("rouge.core.workflow.classify.execute_template")
 def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
     """Test classification with invalid JSON output."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -138,7 +142,7 @@ def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
     assert "Invalid classification JSON" in result.error
 
 
-@patch("cape.core.workflow.classify.execute_template")
+@patch("rouge.core.workflow.classify.execute_template")
 def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_issue):
     """Test successful classification with JSON wrapped in markdown fences."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -154,7 +158,7 @@ def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_i
     assert result.error is None
 
 
-@patch("cape.core.workflow.plan.execute_template")
+@patch("rouge.core.workflow.plan.execute_template")
 def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     """Test successful plan building."""
     plan_json = (
@@ -168,10 +172,13 @@ def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     result = build_plan(sample_issue, "/adw-feature-plan", "adw123", mock_logger)
     assert result.success
     assert result.data.output == plan_json
-    assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
+    assert (
+        result.metadata.get("parsed_data", {}).get("summary")
+        == "Plan created successfully"
+    )
 
 
-@patch("cape.core.workflow.plan_file.execute_template")
+@patch("rouge.core.workflow.plan_file.execute_template")
 def test_get_plan_file_success(mock_execute, mock_logger):
     """Test successful plan file extraction."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -184,7 +191,7 @@ def test_get_plan_file_success(mock_execute, mock_logger):
     assert result.error is None
 
 
-@patch("cape.core.workflow.plan_file.execute_template")
+@patch("rouge.core.workflow.plan_file.execute_template")
 def test_get_plan_file_not_found(mock_execute, mock_logger):
     """Test plan file not found."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -197,7 +204,7 @@ def test_get_plan_file_not_found(mock_execute, mock_logger):
     assert "No plan file found" in result.error
 
 
-@patch("cape.core.workflow.implement.execute_implement_plan")
+@patch("rouge.core.workflow.implement.execute_implement_plan")
 def test_implement_plan_success(mock_execute, mock_logger):
     """Test successful plan implementation."""
     implement_json = (
@@ -217,7 +224,7 @@ def test_implement_plan_success(mock_execute, mock_logger):
     assert result.metadata.get("parsed_data", {}).get("status") == "completed"
 
 
-@patch("cape.core.workflow.runner.get_default_pipeline")
+@patch("rouge.core.workflow.runner.get_default_pipeline")
 def test_execute_workflow_success(mock_get_pipeline, mock_logger):
     """Test successful complete workflow execution via pipeline."""
     # Create mock steps that all succeed
@@ -239,7 +246,7 @@ def test_execute_workflow_success(mock_get_pipeline, mock_logger):
         step.run.assert_called_once()
 
 
-@patch("cape.core.workflow.runner.get_default_pipeline")
+@patch("rouge.core.workflow.runner.get_default_pipeline")
 def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
     """Test workflow handles fetch failure (first step fails)."""
     # Create a mock first step that fails
@@ -255,7 +262,7 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
     mock_logger.error.assert_called()
 
 
-@patch("cape.core.workflow.runner.get_default_pipeline")
+@patch("rouge.core.workflow.runner.get_default_pipeline")
 def test_execute_workflow_classify_failure(mock_get_pipeline, mock_logger):
     """Test workflow handles classification failure (second step fails)."""
     # Create mock steps where first succeeds, second fails
@@ -303,12 +310,17 @@ def test_derive_paths_from_plan():
     assert result["review_file"] == "specs/chore-review.txt"
 
 
-@patch("cape.core.workflow.review.subprocess.run")
-@patch("cape.core.workflow.review.insert_progress_comment")
-@patch("cape.core.workflow.review.os.makedirs")
-@patch("cape.core.workflow.review.os.path.dirname")
+@patch("rouge.core.workflow.review.subprocess.run")
+@patch("rouge.core.workflow.review.insert_progress_comment")
+@patch("rouge.core.workflow.review.os.makedirs")
+@patch("rouge.core.workflow.review.os.path.dirname")
 def test_generate_review_success(
-    mock_dirname, mock_makedirs, mock_insert_comment, mock_subprocess, mock_logger, tmp_path
+    mock_dirname,
+    mock_makedirs,
+    mock_insert_comment,
+    mock_subprocess,
+    mock_logger,
+    tmp_path,
 ):
     """Test successful CodeRabbit review generation."""
     # Mock subprocess result
@@ -323,7 +335,7 @@ def test_generate_review_success(
     # Mock insert_progress_comment success
     mock_insert_comment.return_value = ("success", "Comment inserted")
 
-    from cape.core.workflow.review import generate_review
+    from rouge.core.workflow.review import generate_review
 
     # Use a temporary file for the test
     review_file = tmp_path / "chore-test-review.txt"
@@ -345,7 +357,7 @@ def test_generate_review_success(
     assert review_file.read_text() == "CodeRabbit review output"
 
 
-@patch("cape.core.workflow.review.subprocess.run")
+@patch("rouge.core.workflow.review.subprocess.run")
 def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
     """Test CodeRabbit review generation handles subprocess failures."""
     # Mock subprocess failure
@@ -354,7 +366,7 @@ def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
     mock_result.stderr = "CodeRabbit error"
     mock_subprocess.return_value = mock_result
 
-    from cape.core.workflow.review import generate_review
+    from rouge.core.workflow.review import generate_review
 
     result = generate_review(
         review_file="specs/chore-test-review.txt",
@@ -369,14 +381,16 @@ def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
     mock_logger.error.assert_called()
 
 
-@patch("cape.core.workflow.review.subprocess.run")
+@patch("rouge.core.workflow.review.subprocess.run")
 def test_generate_review_timeout(mock_subprocess, mock_logger):
     """Test CodeRabbit review generation handles timeout."""
     import subprocess
 
-    mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="coderabbit", timeout=300)
+    mock_subprocess.side_effect = subprocess.TimeoutExpired(
+        cmd="coderabbit", timeout=300
+    )
 
-    from cape.core.workflow.review import generate_review
+    from rouge.core.workflow.review import generate_review
 
     result = generate_review(
         review_file="specs/chore-test-review.txt",
@@ -388,13 +402,15 @@ def test_generate_review_timeout(mock_subprocess, mock_logger):
 
     assert not result.success
     assert result.data is None
-    mock_logger.error.assert_called_with("CodeRabbit review timed out after 300 seconds")
+    mock_logger.error.assert_called_with(
+        "CodeRabbit review timed out after 300 seconds"
+    )
 
 
-@patch("cape.core.workflow.address_review.execute_template")
-@patch("cape.core.workflow.address_review.insert_progress_comment")
-@patch("cape.core.workflow.address_review.os.path.exists")
-@patch("cape.core.workflow.address_review.ClaudeAgentTemplateRequest")
+@patch("rouge.core.workflow.address_review.execute_template")
+@patch("rouge.core.workflow.address_review.insert_progress_comment")
+@patch("rouge.core.workflow.address_review.os.path.exists")
+@patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_success(
     mock_request_class, mock_exists, mock_insert_comment, mock_execute, mock_logger
 ):
@@ -419,31 +435,41 @@ def test_address_review_issues_success(
     mock_insert_comment.return_value = ("success", "Comment inserted")
 
     result = address_review_issues(
-        review_file="specs/chore-test-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
+        review_file="specs/chore-test-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger,
     )
 
     assert result.success
     mock_exists.assert_called_once_with("specs/chore-test-review.txt")
-    mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
+    mock_execute.assert_called_once_with(
+        mock_request, stream_handler=None, require_json=True
+    )
     mock_insert_comment.assert_called_once()
 
 
-@patch("cape.core.workflow.address_review.os.path.exists")
+@patch("rouge.core.workflow.address_review.os.path.exists")
 def test_address_review_issues_file_not_found(mock_exists, mock_logger):
     """Test notification handles missing review file."""
     mock_exists.return_value = False
 
     result = address_review_issues(
-        review_file="specs/missing-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
+        review_file="specs/missing-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger,
     )
 
     assert not result.success
-    mock_logger.error.assert_called_with("Review file does not exist: specs/missing-review.txt")
+    mock_logger.error.assert_called_with(
+        "Review file does not exist: specs/missing-review.txt"
+    )
 
 
-@patch("cape.core.workflow.address_review.execute_template")
-@patch("cape.core.workflow.address_review.os.path.exists")
-@patch("cape.core.workflow.address_review.ClaudeAgentTemplateRequest")
+@patch("rouge.core.workflow.address_review.execute_template")
+@patch("rouge.core.workflow.address_review.os.path.exists")
+@patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_execution_failure(
     mock_request_class, mock_exists, mock_execute, mock_logger
 ):
@@ -461,7 +487,10 @@ def test_address_review_issues_execution_failure(
     mock_execute.return_value = mock_response
 
     result = address_review_issues(
-        review_file="specs/chore-test-review.txt", issue_id=123, adw_id="adw123", logger=mock_logger
+        review_file="specs/chore-test-review.txt",
+        issue_id=123,
+        adw_id="adw123",
+        logger=mock_logger,
     )
 
     assert not result.success
@@ -471,14 +500,16 @@ def test_address_review_issues_execution_failure(
 # === CreatePullRequestStep Tests ===
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_logger):
+def test_create_pr_step_success(
+    mock_emit, mock_subprocess, mock_get_repo_path, mock_logger
+):
     """Test successful PR creation with git push before gh pr create."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     # Mock get_repo_path to return a specific path
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -531,11 +562,11 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     """Test PR creation skipped when GITHUB_PAT is missing."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     context.data["pr_details"] = {
@@ -555,11 +586,11 @@ def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     """Test PR creation skipped when pr_details is missing."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     # No pr_details in context
@@ -573,12 +604,12 @@ def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit, mock_logger):
     """Test PR creation skipped when title is empty."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     context.data["pr_details"] = {
@@ -596,16 +627,16 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
 ):
     """Test PR creation handles gh command failure."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -637,16 +668,18 @@ def test_create_pr_step_gh_command_failure(
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_pr_step_timeout(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -677,14 +710,16 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_pr_step_gh_not_found(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+):
     """Test PR creation handles gh CLI not found."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -712,16 +747,16 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
 ):
     """Test PR creation continues even when git push fails."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -754,9 +789,9 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-created"
 
 
-@patch("cape.core.workflow.steps.create_pr.get_repo_path")
-@patch("cape.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
@@ -764,8 +799,8 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     """Test PR creation continues even when git push times out."""
     import subprocess
 
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -798,7 +833,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
 def test_create_pr_step_is_not_critical():
     """Test CreatePullRequestStep is not critical."""
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     step = CreatePullRequestStep()
     assert step.is_critical is False
@@ -806,7 +841,7 @@ def test_create_pr_step_is_not_critical():
 
 def test_create_pr_step_name():
     """Test CreatePullRequestStep has correct name."""
-    from cape.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
 
     step = CreatePullRequestStep()
     assert step.name == "Creating pull request"
@@ -817,8 +852,8 @@ def test_create_pr_step_name():
 
 def test_prepare_pr_step_store_pr_details_success(mock_logger):
     """Test _store_pr_details stores validated dict correctly."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.pr import PreparePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     step = PreparePullRequestStep()
@@ -839,8 +874,8 @@ def test_prepare_pr_step_store_pr_details_success(mock_logger):
 
 def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
     """Test _store_pr_details handles missing fields with defaults."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.pr import PreparePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     step = PreparePullRequestStep()
@@ -857,16 +892,16 @@ def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
     assert context.data["pr_details"]["commits"] == []
 
 
-@patch("cape.core.workflow.steps.pr.emit_progress_comment")
-@patch("cape.core.workflow.steps.pr.execute_template")
-@patch("cape.core.workflow.steps.pr.update_status")
-@patch("cape.core.workflow.steps.pr.make_progress_comment_handler")
+@patch("rouge.core.workflow.steps.pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.pr.execute_template")
+@patch("rouge.core.workflow.steps.pr.update_status")
+@patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
 def test_prepare_pr_step_emits_raw_llm_response(
     mock_handler, mock_update_status, mock_execute, mock_emit, mock_logger
 ):
     """Test PreparePullRequestStep emits raw LLM response for debugging."""
-    from cape.core.workflow.step_base import WorkflowContext
-    from cape.core.workflow.steps.pr import PreparePullRequestStep
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
 
     # Mock progress comment handler
     mock_handler.return_value = Mock()
