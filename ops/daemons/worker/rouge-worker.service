@@ -1,0 +1,40 @@
+[Unit]
+Description=Rouge Issue Worker Daemon (WORKER_ID)
+After=network.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=USER_NAME
+Group=USER_GROUP
+WorkingDirectory=ROUGE_ROOT_PATH/rouge-worker
+
+# Environment
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+EnvironmentFile=-/etc/default/rouge-worker
+
+# Main process
+ExecStart=PYTHON_PATH WORKER_SCRIPT_PATH --worker-id WORKER_ID --poll-interval 10 --log-level INFO
+
+# Restart policy
+Restart=on-failure
+RestartSec=30s
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=2G
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=append:ROUGE_ROOT_PATH/rouge-worker/logs/worker_WORKER_ID_stdout.log
+StandardError=append:ROUGE_ROOT_PATH/rouge-worker/logs/worker_WORKER_ID_stderr.log
+SyslogIdentifier=rouge-worker-WORKER_ID
+
+# Process priority
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

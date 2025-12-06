@@ -5,18 +5,18 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from cape.core.agent import execute_template, prompt_claude_code
-from cape.core.agents.claude import (
+from rouge.core.agent import execute_template, prompt_claude_code
+from rouge.core.agents.claude import (
     check_claude_installed,
     convert_jsonl_to_json,
     get_claude_env,
     parse_jsonl_output,
     save_prompt,
 )
-from cape.core.agents.claude.claude_models import (
+from rouge.core.agents.claude.claude_models import (
     ClaudeAgentPromptRequest as AgentPromptRequest,
 )
-from cape.core.agents.claude.claude_models import (
+from rouge.core.agents.claude.claude_models import (
     ClaudeAgentTemplateRequest as AgentTemplateRequest,
 )
 
@@ -96,7 +96,7 @@ def test_get_claude_env_with_github_pat(monkeypatch):
 
 def test_save_prompt(tmp_path, monkeypatch):
     """Test saving prompt to file."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
 
     save_prompt("/implement plan.md", "test123", "ops")
 
@@ -105,8 +105,8 @@ def test_save_prompt(tmp_path, monkeypatch):
     assert expected_file.read_text() == "/implement plan.md"
 
 
-@patch("cape.core.notifications.comments.create_comment")
-@patch("cape.core.agents.claude.claude.check_claude_installed")
+@patch("rouge.core.notifications.comments.create_comment")
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_prompt_claude_code_success(
     mock_popen,
@@ -116,7 +116,7 @@ def test_prompt_claude_code_success(
     monkeypatch,
 ):
     """Test successful Claude Code execution."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     output_file = tmp_path / "output.jsonl"
@@ -152,8 +152,8 @@ def test_prompt_claude_code_success(
     assert mock_create_comment.called
 
 
-@patch("cape.core.notifications.comments.create_comment")
-@patch("cape.core.agents.claude.claude.check_claude_installed")
+@patch("rouge.core.notifications.comments.create_comment")
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
 def test_prompt_claude_code_cli_not_installed(mock_check, mock_create_comment):
     """Test handling of Claude Code CLI not installed."""
     mock_check.return_value = "Error: Claude Code CLI is not installed"
@@ -171,11 +171,11 @@ def test_prompt_claude_code_cli_not_installed(mock_check, mock_create_comment):
     mock_create_comment.assert_not_called()
 
 
-@patch("cape.core.agents.claude.claude.check_claude_installed")
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template(mock_popen, mock_check, tmp_path, monkeypatch):
     """Test executing template with slash command."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock successful execution
@@ -209,14 +209,14 @@ def test_execute_template(mock_popen, mock_check, tmp_path, monkeypatch):
     assert response.success is True
 
 
-@patch("cape.core.notifications.comments.create_comment")
-@patch("cape.core.agents.claude.claude.check_claude_installed")
+@patch("rouge.core.notifications.comments.create_comment")
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_require_json_false(
     mock_popen, mock_check, mock_create_comment, tmp_path, monkeypatch
 ):
     """Test execute_template with require_json=False allows plain text output."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock execution that returns plain text (not JSON)
@@ -252,14 +252,14 @@ def test_execute_template_require_json_false(
     assert response.output == "specs/feature-plan.md"
 
 
-@patch("cape.core.notifications.comments.create_comment")
-@patch("cape.core.agents.claude.claude.check_claude_installed")
+@patch("rouge.core.notifications.comments.create_comment")
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_sanitizes_markdown_fence(
     mock_popen, mock_check, mock_create_comment, tmp_path, monkeypatch
 ):
     """Test execute_template strips Markdown fences before parsing JSON."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock execution that returns JSON wrapped in Markdown fences

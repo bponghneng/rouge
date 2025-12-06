@@ -2,8 +2,11 @@
 
 import pytest
 
-from cape.core.agents.claude import ClaudeAgentPromptRequest, ClaudeAgentTemplateRequest
-from cape.core.models import CapeComment, CapeIssue
+from rouge.core.agents.claude import (
+    ClaudeAgentPromptRequest,
+    ClaudeAgentTemplateRequest,
+)
+from rouge.core.models import CapeComment, CapeIssue
 
 
 def test_cape_issue_creation():

@@ -5,9 +5,9 @@ from unittest.mock import Mock
 
 import pytest
 
-from cape.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
-from cape.core.workflow.step_base import WorkflowContext, WorkflowStep
-from cape.core.workflow.types import StepResult
+from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture

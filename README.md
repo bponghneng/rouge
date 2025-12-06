@@ -1,49 +1,48 @@
-# CAPE Application Suite
+# Rouge Application Suite
 
 ## Overview
 
-The `cape/app` package is the installable bundle for CAPE’s workflow automation
-stack. It combines the Textual-based TUI, Typer CLIs, and the automated worker
-daemon on top of a shared `cape.core` foundation (Supabase models, workflow
-orchestration, logging utilities). Use it to create issues, generate plans,
-launch Claude-based implementations, or run unattended workers against Supabase.
+The `rouge/` package is the installable bundle for Rouge's workflow automation
+stack. It combines Typer CLIs and the automated worker daemon on top of a shared
+`rouge.core` foundation (Supabase models, workflow orchestration, logging
+utilities). Use it to create issues, generate plans, launch Claude-based
+implementations, or run unattended workers against Supabase.
 
 ## Components
 
-- `cape.cli` – Typer CLI with a Textual TUI (`uv run cape`) plus subcommands for
-  creating issues, launching workflows, tailing logs, and managing background
-  processes.
-- `cape.adw` – Lightweight CLI (`uv run cape-adw`) that executes the Agent
+- `rouge.cli` – Typer CLI (`uv run rouge`) with subcommands for creating issues,
+  launching workflows, and managing background processes.
+- `rouge.adw` – Lightweight CLI (`uv run rouge-adw`) that executes the Agent
   Development Workflow (fetch → classify → plan → implement) for a single issue.
-- `cape.worker` – Long-running daemon (`uv run cape-worker --worker-id …`) that
+- `rouge.worker` – Long-running daemon (`uv run rouge-worker --worker-id …`) that
   polls Supabase, atomically locks the next pending issue, and shells out to the
   ADW CLI so multiple hosts can process the queue without collisions.
-- `cape.core` – Shared Supabase client, pydantic models, workflow orchestration,
+- `rouge.core` – Shared Supabase client, pydantic models, workflow orchestration,
   and logging utilities used by every entry point.
 
 ## Quick Start
 
 ```bash
-cd cape/app
+cd rouge
 uv sync
 
-# Launch the interactive TUI
-uv run cape
+# Show CLI help
+uv run rouge --help
 
 # Execute a workflow from the CLI
-uv run cape run 123
-uv run cape run 123 --working-dir "C:\Users\bpong\git\cape"
+uv run rouge run 123
+uv run rouge run 123 --working-dir "C:\Users\bpong\git\rouge"
 
 # Run the headless ADW command
-uv run cape-adw 123
+uv run rouge-adw 123
 
 # Start a background worker
-uv run cape-worker --worker-id alleycat-1
-uv run cape-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\cape"
+uv run rouge-worker --worker-id alleycat-1
+uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rouge"
 ```
 
-> **Note:** The worker shells out to `uv run cape-adw`. If you execute the worker
-> outside of the `cape/app` directory, set `CAPE_APP_ROOT=/absolute/path/to/cape/app`
+> **Note:** The worker shells out to `uv run rouge-adw`. If you execute the worker
+> outside of the `rouge/` directory, set `ROUGE_APP_ROOT=/absolute/path/to/rouge`
 > so it knows where to run the workflow command. Combine this with the
 > `--working-dir` flag if you want the worker process itself to `chdir` elsewhere.
 
@@ -54,10 +53,10 @@ uv run cape-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\cape
 | `SUPABASE_URL` | ✅ | Supabase project URL. |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key used by the CLI/worker. |
 | `ANTHROPIC_API_KEY` | ✅ for workflow execution | Allows the workflow to call Claude via the local CLI. |
-| `CAPE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
-| `CAPE_AGENTS_DIR` | optional | Override for `.cape/logs/agents` directory. |
-| `CAPE_DATA_DIR` / `CAPE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
-| `CAPE_APP_ROOT` | optional | Root directory the worker uses when launching `uv run cape-adw`. |
+| `ROUGE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
+| `ROUGE_AGENTS_DIR` | optional | Override for `.rouge/logs/agents` directory. |
+| `ROUGE_DATA_DIR` / `ROUGE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
+| `ROUGE_APP_ROOT` | optional | Root directory the worker uses when launching `uv run rouge-adw`. |
 | `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
 | `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
 
@@ -65,12 +64,12 @@ Create a `.env` or set the variables in your shell before running the tools.
 
 ### Provider Configuration
 
-CAPE supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (classification, planning, and implementation) use Claude Code. You can configure a different provider for the implementation step using the `CAPE_IMPLEMENT_PROVIDER` environment variable.
+Rouge supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (classification, planning, and implementation) use Claude Code. You can configure a different provider for the implementation step using the `ROUGE_IMPLEMENT_PROVIDER` environment variable.
 
 **Default behavior (Claude for all steps):**
 ```bash
 # No configuration needed - Claude is the default
-uv run cape-adw 123
+uv run rouge-adw 123
 ```
 
 **Using OpenCode for implementation:**
@@ -79,16 +78,16 @@ uv run cape-adw 123
 npm install -g @opencode/cli
 
 # Configure environment
-export CAPE_IMPLEMENT_PROVIDER=opencode
+export ROUGE_IMPLEMENT_PROVIDER=opencode
 export OPENCODE_API_KEY=your-opencode-api-key
 
 # Run workflow - classification and planning use Claude, implementation uses OpenCode
-uv run cape-adw 123
+uv run rouge-adw 123
 ```
 
 **Provider selection priority:**
-1. `CAPE_IMPLEMENT_PROVIDER` - Most specific, controls only the implementation step
-2. `CAPE_AGENT_PROVIDER` - Fallback for general provider selection
+1. `ROUGE_IMPLEMENT_PROVIDER` - Most specific, controls only the implementation step
+2. `ROUGE_AGENT_PROVIDER` - Fallback for general provider selection
 3. Default: `"claude"` if neither is set
 
 **Supported providers:**
@@ -100,8 +99,8 @@ uv run cape-adw 123
 ### Manual Run
 
 ```bash
-cd cape/app
-uv run cape-worker --worker-id alleycat-1 \
+cd rouge
+uv run rouge-worker --worker-id alleycat-1 \
   --poll-interval 10 \
   --log-level INFO
 ```
@@ -109,7 +108,7 @@ uv run cape-worker --worker-id alleycat-1 \
 You can also invoke the package directly once it is installed:
 
 ```bash
-python -m cape.worker --worker-id alleycat-1 [--poll-interval 5] [--log-level DEBUG]
+python -m rouge.worker --worker-id alleycat-1 [--poll-interval 5] [--log-level DEBUG]
 ```
 
 Required flag:
@@ -124,55 +123,44 @@ Optional flags:
 
 ### System Service (Linux / systemd)
 
-Service templates live in `app/ops/daemons/worker/`. To install:
+Service templates live in `ops/daemons/worker/`. To install:
 
 ```bash
-# copy and customize the template (set CAPE_APP_ROOT, worker id, etc.)
-sudo cp app/ops/daemons/worker/cape-worker.service \
-  /etc/systemd/system/cape-worker-alleycat-1.service
+# copy and customize the template (set ROUGE_APP_ROOT, worker id, etc.)
+sudo cp ops/daemons/worker/rouge-worker.service \
+  /etc/systemd/system/rouge-worker-alleycat-1.service
 sudo systemctl daemon-reload
-sudo systemctl enable cape-worker-alleycat-1.service
-sudo systemctl start cape-worker-alleycat-1.service
+sudo systemctl enable rouge-worker-alleycat-1.service
+sudo systemctl start rouge-worker-alleycat-1.service
 
 # helpful commands
-sudo systemctl status cape-worker-alleycat-1.service
-sudo journalctl -u cape-worker-alleycat-1.service -f
+sudo systemctl status rouge-worker-alleycat-1.service
+sudo journalctl -u rouge-worker-alleycat-1.service -f
 ```
 
 ### System Service (macOS / launchd)
 
 ```bash
-cp app/ops/daemons/worker/com.cape.worker.plist \
-  ~/Library/LaunchAgents/com.cape.worker.alleycat-1.plist
-launchctl load ~/Library/LaunchAgents/com.cape.worker.alleycat-1.plist
-launchctl start com.cape.worker.alleycat-1
+cp ops/daemons/worker/com.rouge.worker.plist \
+  ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
+launchctl load ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
+launchctl start com.rouge.worker.alleycat-1
 
 # manage service
-launchctl stop com.cape.worker.alleycat-1
-launchctl list | grep com.cape.worker
-launchctl unload ~/Library/LaunchAgents/com.cape.worker.alleycat-1.plist
+launchctl stop com.rouge.worker.alleycat-1
+launchctl list | grep com.rouge.worker
+launchctl unload ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
 ```
 
-Both service definitions assume `uv` is on the PATH, `CAPE_APP_ROOT` points to
-`/absolute/path/to/cape/app`, and the `.env` contains Supabase + Anthropic creds.
+Both service definitions assume `uv` is on the PATH, `ROUGE_APP_ROOT` points to
+`/absolute/path/to/rouge`, and the `.env` contains Supabase + Anthropic creds.
 
-## TUI Highlights
-
-- **Issue List View** – browse the Supabase backlog with ID, description,
-  status, and created timestamp.
-- **Issue Detail** – view metadata and comments with auto-refresh timer that
-  keeps "started" issues up to date.
-- **Keyboard shortcuts** – `n` (new issue), `Enter`/`v` (details), `d` (delete
-  pending issue), `q` (quit), `?` (help), `Ctrl+S` (save forms), `Esc` (close
-  modal).
-
-The TUI runs from the same executable (`uv run cape`) and uses `cape.core`
-internals, so no duplicate configuration is required.
+## CLI Commands
 
 Workflows can be executed directly using:
-- `cape run <issue-id>` - Execute workflow synchronously in foreground
-- `cape create "description"` - Create a new issue from description string
-- `cape create-from-file <file>` - Create a new issue from description file
+- `rouge run <issue-id>` - Execute workflow synchronously in foreground
+- `rouge create "description"` - Create a new issue from description string
+- `rouge create-from-file <file>` - Create a new issue from description file
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 
@@ -180,14 +168,14 @@ For asynchronous workflow processing, use the worker daemon (see Worker Features
 
 - Polls `cape_issues` for `status='pending'`, locks the next row via a
   PostgreSQL function, and marks it `started` while recording the `worker_id`.
-- Spawns `uv run cape-adw <issue-id> --adw-id <workflow-id>` with clear logging
-  so you can tail progress from the TUI or by reading log files directly.
+- Spawns `uv run rouge-adw <issue-id> --adw-id <workflow-id>` with clear logging
+  so you can tail progress or read log files directly.
 - Supports multiple concurrent instances (systemd service files live in
-  `app/ops/daemons/worker/` for Linux and launchd plists for macOS).
-- Logs to `.cape/logs/agents/{workflow_id}/adw_plan_build/execution.log` for
+  `ops/daemons/worker/` for Linux and launchd plists for macOS).
+- Logs to `.rouge/logs/agents/{workflow_id}/adw_plan_build/execution.log` for
   tracking workflow progress.
 
-Example service install scripts for systemd/launchd are in `app/ops/daemons/`.
+Example service install scripts for systemd/launchd are in `ops/daemons/`.
 
 ## Database Requirements
 
@@ -224,23 +212,21 @@ instance can atomically claim work.
 ## Tests
 
 ```bash
-cd cape/app
+cd rouge
 uv run pytest tests/ -v
 ```
 
 ## Project Layout
 
 ```
-app/
+rouge/
 ├── pyproject.toml        # unified build configuration
-├── src/cape/             # Python packages (core, cli, adw, worker)
+├── src/rouge/            # Python packages (core, cli, adw, worker)
 └── tests/                # consolidated unit tests
 ```
 
 Service templates and installation helpers for the worker live under
-`app/ops/daemons`.
+`ops/daemons`.
 
 For the broader methodology, specs, and AI-agent prompts, see the workspace
-README (`../README.md`) and the historical context in
-`cape.worktrees/add-worker/README.md`.
-
+README (`../README.md`).

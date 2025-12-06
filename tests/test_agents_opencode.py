@@ -5,8 +5,8 @@ import subprocess
 from io import StringIO
 from unittest.mock import Mock, patch
 
-from cape.core.agents.base import AgentExecuteRequest
-from cape.core.agents.opencode import (
+from rouge.core.agents.base import AgentExecuteRequest
+from rouge.core.agents.opencode import (
     OpenCodeAgent,
     check_opencode_installed,
     convert_jsonl_to_json,
@@ -140,11 +140,13 @@ def test_convert_jsonl_to_json(tmp_path):
         assert len(data) == 2
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_execute_prompt_success(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_opencode_agent_execute_prompt_success(
+    mock_popen, mock_check, tmp_path, monkeypatch
+):
     """Test successful OpenCodeAgent execution."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock successful execution
@@ -178,11 +180,13 @@ def test_opencode_agent_execute_prompt_success(mock_popen, mock_check, tmp_path,
     assert "Implementation complete" in response.output
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_execute_prompt_error(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_opencode_agent_execute_prompt_error(
+    mock_popen, mock_check, tmp_path, monkeypatch
+):
     """Test OpenCodeAgent execution with error."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock failed execution
@@ -204,13 +208,16 @@ def test_opencode_agent_execute_prompt_error(mock_popen, mock_check, tmp_path, m
 
     # Verify
     assert response.success is False
-    assert "Something went wrong" in response.error_detail or "OpenCode error" in response.output
+    assert (
+        "Something went wrong" in response.error_detail
+        or "OpenCode error" in response.output
+    )
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 def test_opencode_agent_cli_not_installed(mock_check, tmp_path, monkeypatch):
     """Test OpenCodeAgent when CLI is not installed."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = "Error: OpenCode CLI is not installed"
 
     agent = OpenCodeAgent()
@@ -226,15 +233,22 @@ def test_opencode_agent_cli_not_installed(mock_check, tmp_path, monkeypatch):
     assert "not installed" in response.error_detail
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_with_stream_handler(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_opencode_agent_with_stream_handler(
+    mock_popen, mock_check, tmp_path, monkeypatch
+):
     """Test OpenCodeAgent with stream handler invocation."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock process output
-    result_msg = {"type": "result", "is_error": False, "result": "Done", "session_id": "123"}
+    result_msg = {
+        "type": "result",
+        "is_error": False,
+        "result": "Done",
+        "session_id": "123",
+    }
     mock_process = Mock()
     mock_process.returncode = 0
     mock_process.stdout = StringIO(json.dumps(result_msg) + "\n")
@@ -262,11 +276,11 @@ def test_opencode_agent_with_stream_handler(mock_popen, mock_check, tmp_path, mo
     assert response.success is True
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_command_construction(mock_popen, mock_check, tmp_path, monkeypatch):
     """Test OpenCode CLI command construction."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     monkeypatch.setenv("OPENCODE_PATH", "/usr/bin/opencode")
     mock_check.return_value = None
 
@@ -299,11 +313,11 @@ def test_opencode_command_construction(mock_popen, mock_check, tmp_path, monkeyp
     assert "# Test Plan Content" in cmd
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_model_selection(mock_popen, mock_check, tmp_path, monkeypatch):
     """Test OpenCode model parameter handling."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     mock_process = Mock()
@@ -330,11 +344,13 @@ def test_opencode_model_selection(mock_popen, mock_check, tmp_path, monkeypatch)
     assert cmd[model_idx + 1] == "custom-model"
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_exception_handling(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_opencode_agent_exception_handling(
+    mock_popen, mock_check, tmp_path, monkeypatch
+):
     """Test OpenCodeAgent exception handling."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     # Mock process that raises exception
@@ -353,13 +369,13 @@ def test_opencode_agent_exception_handling(mock_popen, mock_check, tmp_path, mon
     assert "Unexpected error" in response.error_detail
 
 
-@patch("cape.core.agents.opencode.opencode.check_opencode_installed")
+@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_stream_handler_exception(
     mock_popen, mock_check, tmp_path, monkeypatch, caplog
 ):
     """Test that stream handler exceptions don't interrupt execution."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
     mock_check.return_value = None
 
     result_msg = {"type": "result", "is_error": False, "result": "Done"}

@@ -5,9 +5,9 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from cape.worker import database
-from cape.worker.config import WorkerConfig
-from cape.worker.worker import IssueWorker
+from rouge.worker import database
+from rouge.worker.config import WorkerConfig
+from rouge.worker.worker import IssueWorker
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def worker_config():
 @pytest.fixture
 def worker(mock_env, worker_config):
     """Create a worker instance for testing."""
-    with patch("cape.worker.database.get_client"):
+    with patch("rouge.worker.database.get_client"):
         worker = IssueWorker(worker_config)
         return worker
 
@@ -36,7 +36,7 @@ class TestIssueWorkerInit:
 
     def test_worker_initialization(self, mock_env, worker_config):
         """Test worker initializes with correct parameters."""
-        with patch("cape.worker.database.get_client"):
+        with patch("rouge.worker.database.get_client"):
             worker = IssueWorker(worker_config)
 
             assert worker.config.worker_id == "test-worker"
@@ -46,11 +46,11 @@ class TestIssueWorkerInit:
 
     def test_worker_logging_setup(self, mock_env, worker_config):
         """Test worker sets up logging correctly."""
-        with patch("cape.worker.database.get_client"):
+        with patch("rouge.worker.database.get_client"):
             worker = IssueWorker(worker_config)
 
             assert worker.logger is not None
-            assert worker.logger.name == "cape_worker_test-worker"
+            assert worker.logger.name == "rouge_worker_test-worker"
 
 
 class TestGetNextIssue:
@@ -63,7 +63,7 @@ class TestGetNextIssue:
         mock_response.data = [{"issue_id": 123, "issue_description": "Test issue"}]
         mock_client.rpc.return_value.execute.return_value = mock_response
 
-        with patch("cape.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
             assert result == (123, "Test issue")
@@ -78,7 +78,7 @@ class TestGetNextIssue:
         mock_response.data = []
         mock_client.rpc.return_value.execute.return_value = mock_response
 
-        with patch("cape.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
             assert result is None
@@ -88,7 +88,7 @@ class TestGetNextIssue:
         mock_client = Mock()
         mock_client.rpc.side_effect = Exception("Database connection failed")
 
-        with patch("cape.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
             assert result is None
@@ -105,7 +105,7 @@ class TestExecuteWorkflow:
         mock_result.stderr = ""
 
         with patch("subprocess.run", return_value=mock_result):
-            with patch("cape.worker.worker.update_issue_status") as mock_update:
+            with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 result = worker.execute_workflow(123, "Test issue")
 
                 assert result is True
@@ -119,7 +119,7 @@ class TestExecuteWorkflow:
         mock_result.stderr = "Workflow failed"
 
         with patch("subprocess.run", return_value=mock_result):
-            with patch("cape.worker.worker.update_issue_status") as mock_update:
+            with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 result = worker.execute_workflow(123, "Test issue")
 
                 assert result is False
@@ -127,8 +127,10 @@ class TestExecuteWorkflow:
 
     def test_execute_workflow_timeout(self, worker):
         """Test workflow execution timeout."""
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
-            with patch("cape.worker.worker.update_issue_status") as mock_update:
+        with patch(
+            "subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)
+        ):
+            with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 result = worker.execute_workflow(123, "Test issue")
 
                 assert result is False
@@ -137,7 +139,7 @@ class TestExecuteWorkflow:
     def test_execute_workflow_exception(self, worker):
         """Test workflow execution with unexpected exception."""
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
-            with patch("cape.worker.worker.update_issue_status") as mock_update:
+            with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 result = worker.execute_workflow(123, "Test issue")
 
                 assert result is False
@@ -151,8 +153,8 @@ class TestExecuteWorkflow:
         mock_result.stderr = ""
 
         with patch("subprocess.run", return_value=mock_result) as mock_run:
-            with patch("cape.worker.worker.update_issue_status"):
-                with patch("cape.worker.worker.make_adw_id", return_value="test-adw"):
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     worker.execute_workflow(456, "Test description")
 
                 # Verify the command was called with correct arguments
@@ -161,7 +163,7 @@ class TestExecuteWorkflow:
 
                 assert cmd[0] == "uv"
                 assert cmd[1] == "run"
-                assert cmd[2] == "cape-adw"
+                assert cmd[2] == "rouge-adw"
                 assert cmd[3] == "--adw-id"
                 assert cmd[4] == "test-adw"
                 assert cmd[5] == "456"
@@ -182,7 +184,7 @@ class TestUpdateIssueStatus:
         mock_update.eq.return_value = mock_eq
         mock_eq.execute.return_value = Mock()
 
-        with patch("cape.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
             database.update_issue_status(123, "completed")
 
             mock_client.table.assert_called_once_with("cape_issues")
@@ -195,7 +197,7 @@ class TestUpdateIssueStatus:
         mock_client = Mock()
         mock_client.table.side_effect = Exception("Database error")
 
-        with patch("cape.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
             # Should not raise exception
             database.update_issue_status(123, "completed")
 
@@ -203,7 +205,9 @@ class TestUpdateIssueStatus:
 class TestWorkerRun:
     """Tests for the main worker run loop."""
 
-    @pytest.mark.skip(reason="Hangs intermittently on Windows runners; tracked for later fix.")
+    @pytest.mark.skip(
+        reason="Hangs intermittently on Windows runners; tracked for later fix."
+    )
     def test_run_processes_issue(self, worker):
         """Test worker processes an issue and then stops."""
         worker.running = True
@@ -216,7 +220,9 @@ class TestWorkerRun:
             worker.running = False
             return None
 
-        with patch("cape.worker.database.get_next_issue", side_effect=mock_get_next_issue):
+        with patch(
+            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
+        ):
             with patch.object(worker, "execute_workflow") as mock_execute:
                 worker.run()
 
@@ -234,7 +240,9 @@ class TestWorkerRun:
                 worker.running = False
             return None
 
-        with patch("cape.worker.database.get_next_issue", side_effect=mock_get_next_issue):
+        with patch(
+            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
+        ):
             with patch("time.sleep") as mock_sleep:
                 worker.run()
 
@@ -242,19 +250,25 @@ class TestWorkerRun:
                 assert mock_sleep.call_count >= 1
                 mock_sleep.assert_called_with(5)  # poll_interval is 5 for test worker
 
-    @pytest.mark.skip(reason="Intermittent signal propagation issues on Windows runners.")
+    @pytest.mark.skip(
+        reason="Intermittent signal propagation issues on Windows runners."
+    )
     def test_run_handles_keyboard_interrupt(self, worker):
         """Test worker handles keyboard interrupt gracefully."""
 
         def mock_get_next_issue(worker_id, logger):
             raise KeyboardInterrupt()
 
-        with patch("cape.worker.database.get_next_issue", side_effect=mock_get_next_issue):
+        with patch(
+            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
+        ):
             worker.run()
 
             assert worker.running is False
 
-    @pytest.mark.skip(reason="Flaky on Windows due to patching/time.sleep interactions.")
+    @pytest.mark.skip(
+        reason="Flaky on Windows due to patching/time.sleep interactions."
+    )
     def test_run_handles_unexpected_error(self, worker):
         """Test worker handles unexpected errors and continues."""
         worker.running = True
@@ -267,7 +281,9 @@ class TestWorkerRun:
             worker.running = False
             return None
 
-        with patch("cape.worker.database.get_next_issue", side_effect=mock_get_next_issue):
+        with patch(
+            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
+        ):
             with patch("time.sleep") as mock_sleep:
                 worker.run()
 
@@ -292,14 +308,14 @@ class TestCommandLineInterface:
 
     def test_main_with_required_args(self, mock_env):
         """Test main function with required arguments."""
-        test_args = ["cape-worker", "--worker-id", "test-worker"]
+        test_args = ["rouge-worker", "--worker-id", "test-worker"]
 
         with patch("sys.argv", test_args):
-            with patch("cape.worker.cli.IssueWorker") as mock_worker_class:
+            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
                 mock_worker = Mock()
                 mock_worker_class.return_value = mock_worker
 
-                from cape.worker.cli import main
+                from rouge.worker.cli import main
 
                 main()
 
@@ -315,7 +331,7 @@ class TestCommandLineInterface:
     def test_main_with_all_args(self, mock_env):
         """Test main function with all arguments."""
         test_args = [
-            "cape-worker",
+            "rouge-worker",
             "--worker-id",
             "custom-worker",
             "--poll-interval",
@@ -325,11 +341,11 @@ class TestCommandLineInterface:
         ]
 
         with patch("sys.argv", test_args):
-            with patch("cape.worker.cli.IssueWorker") as mock_worker_class:
+            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
                 mock_worker = Mock()
                 mock_worker_class.return_value = mock_worker
 
-                from cape.worker.cli import main
+                from rouge.worker.cli import main
 
                 main()
 
@@ -348,7 +364,9 @@ class TestWorkerConfig:
 
     def test_config_validation_success(self):
         """Test valid configuration."""
-        config = WorkerConfig(worker_id="test-worker", poll_interval=10, log_level="INFO")
+        config = WorkerConfig(
+            worker_id="test-worker", poll_interval=10, log_level="INFO"
+        )
 
         assert config.worker_id == "test-worker"
         assert config.poll_interval == 10

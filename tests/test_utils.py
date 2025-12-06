@@ -2,7 +2,7 @@
 
 import logging
 
-from cape.core.utils import get_logger, make_adw_id, setup_logger
+from rouge.core.utils import get_logger, make_adw_id, setup_logger
 
 
 def test_make_adw_id():
@@ -22,12 +22,12 @@ def test_make_adw_id_unique():
 def test_setup_logger(tmp_path, monkeypatch):
     """Test logger setup with temp directory."""
     # Use temp directory for agents
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
 
     adw_id = "test1234"
     logger = setup_logger(adw_id, "test_trigger")
 
-    assert logger.name == f"cape_{adw_id}"
+    assert logger.name == f"rouge_{adw_id}"
     assert logger.level == logging.DEBUG
 
     # Check log directory was created
@@ -49,7 +49,7 @@ def test_setup_logger(tmp_path, monkeypatch):
 
 def test_setup_logger_file_handler(tmp_path, monkeypatch):
     """Test logger file handler writes correctly."""
-    monkeypatch.setenv("CAPE_AGENTS_DIR", str(tmp_path))
+    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
 
     adw_id = "test5678"
     logger = setup_logger(adw_id)
@@ -71,6 +71,6 @@ def test_setup_logger_file_handler(tmp_path, monkeypatch):
 def test_get_logger():
     """Test getting existing logger."""
     adw_id = "test9999"
-    logger = logging.getLogger(f"cape_{adw_id}")
+    logger = logging.getLogger(f"rouge_{adw_id}")
     retrieved = get_logger(adw_id)
     assert retrieved is logger
