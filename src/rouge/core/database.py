@@ -33,7 +33,7 @@ def init_db_env(dotenv_path: Optional[str] = None) -> None:
     Args:
         dotenv_path: Optional path to a specific .env file to load.
     """
-    load_dotenv(dotenv_path=dotenv_path)
+    load_dotenv(dotenv_path=dotenv_path, override=True)
 
 
 class SupabaseConfig:
