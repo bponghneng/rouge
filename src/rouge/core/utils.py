@@ -60,9 +60,7 @@ def setup_logger(
     """
     # Create log directory: .rouge/logs/agents/{adw_id}/{trigger_type}/
     # Use current working directory as base or environment variable override
-    agents_dir = os.environ.get(
-        "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
-    )
+    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
     log_dir = os.path.join(agents_dir, adw_id, trigger_type)
 
     # Atomic directory creation with proper error handling
