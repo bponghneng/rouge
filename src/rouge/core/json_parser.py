@@ -91,17 +91,21 @@ def _sanitize_json_output(output: str) -> str:
         try:
             # Decode unicode escape sequences to get actual newlines and quotes
             decoded = codecs.decode(stripped, "unicode_escape")
-            first_brace = decoded.find("{")
-            last_brace = decoded.rfind("}")
-            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                json_candidate = decoded[first_brace : last_brace + 1]
+            decoded_first_brace = decoded.find("{")
+            decoded_last_brace = decoded.rfind("}")
+            if (
+                decoded_first_brace != -1
+                and decoded_last_brace != -1
+                and decoded_last_brace > decoded_first_brace
+            ):
+                json_candidate = decoded[decoded_first_brace : decoded_last_brace + 1]
                 try:
                     json.loads(json_candidate)
                     return json_candidate
                 except json.JSONDecodeError:
                     pass
         except (UnicodeDecodeError, ValueError):
-            # If decode fails, continue with other strategies
+            # If decode fails, continue with fallback
             pass
 
     # Fallback: return original with braces if found
