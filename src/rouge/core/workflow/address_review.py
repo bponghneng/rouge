@@ -9,7 +9,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
-from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_REVIEW_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
 
@@ -50,7 +50,7 @@ def address_review_issues(
 
         # Call execute_template with the review file
         request = ClaudeAgentTemplateRequest(
-            agent_name=AGENT_IMPLEMENTOR,
+            agent_name=AGENT_REVIEW_IMPLEMENTOR,
             slash_command="/adw-implement-review",
             args=[review_file],
             adw_id=adw_id,

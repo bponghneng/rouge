@@ -4,7 +4,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.notifications import make_progress_comment_handler
-from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -46,7 +46,7 @@ class PreparePullRequestStep(WorkflowStep):
             pr_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
 
             request = ClaudeAgentTemplateRequest(
-                agent_name=AGENT_IMPLEMENTOR,
+                agent_name=AGENT_PULL_REQUEST_BUILDER,
                 slash_command="/adw-pull-request",
                 args=[],
                 adw_id=context.adw_id,
