@@ -321,9 +321,7 @@ def test_update_issue_description_success(mock_get_client):
     mock_client.table.return_value = mock_table
     mock_table.update.return_value = mock_update
     mock_update.eq.return_value = mock_eq
-    mock_execute.data = [
-        {"id": 1, "description": "Updated description", "status": "pending"}
-    ]
+    mock_execute.data = [{"id": 1, "description": "Updated description", "status": "pending"}]
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
@@ -442,9 +440,7 @@ def test_delete_issue_with_comments(mock_get_client):
     mock_table.delete.return_value = mock_delete
     mock_delete.eq.return_value = mock_eq
     # Simulate successful deletion of issue with comments
-    mock_execute.data = [
-        {"id": 1, "description": "Issue with comments", "status": "pending"}
-    ]
+    mock_execute.data = [{"id": 1, "description": "Issue with comments", "status": "pending"}]
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 

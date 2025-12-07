@@ -72,9 +72,7 @@ def test_register_agent_duplicate_overwrites():
     register_agent("test_dup", TestAgent2())
 
     agent = get_agent("test_dup")
-    request = AgentExecuteRequest(
-        prompt="test", issue_id=1, adw_id="test", agent_name="test"
-    )
+    request = AgentExecuteRequest(prompt="test", issue_id=1, adw_id="test", agent_name="test")
     response = agent.execute_prompt(request)
     assert response.output == "v2"
 

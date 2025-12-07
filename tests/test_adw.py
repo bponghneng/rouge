@@ -11,9 +11,7 @@ def test_execute_adw_workflow_generates_id(monkeypatch):
     calls = {}
 
     monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "generated-id")
-    monkeypatch.setattr(
-        "rouge.adw.adw.setup_logger", lambda *args, **kwargs: mock_logger
-    )
+    monkeypatch.setattr("rouge.adw.adw.setup_logger", lambda *args, **kwargs: mock_logger)
 
     def fake_execute(issue_id, adw_id, logger):
         calls["args"] = (issue_id, adw_id, logger)
@@ -32,13 +30,9 @@ def test_execute_adw_workflow_uses_provided_values(monkeypatch):
     """Workflow should respect caller-provided workflow ID and logger."""
     provided_logger = MagicMock()
 
-    monkeypatch.setattr(
-        "rouge.adw.adw.execute_workflow", lambda issue_id, adw_id, logger: False
-    )
+    monkeypatch.setattr("rouge.adw.adw.execute_workflow", lambda issue_id, adw_id, logger: False)
 
-    success, workflow_id = execute_adw_workflow(
-        456, adw_id="custom-id", logger=provided_logger
-    )
+    success, workflow_id = execute_adw_workflow(456, adw_id="custom-id", logger=provided_logger)
 
     assert success is False
     assert workflow_id == "custom-id"

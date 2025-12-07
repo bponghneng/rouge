@@ -61,9 +61,7 @@ def test_insert_progress_comment_success(mock_create_comment):
     mock_comment.id = 1
     mock_create_comment.return_value = mock_comment
 
-    comment = Comment(
-        issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
-    )
+    comment = Comment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
     status, msg = insert_progress_comment(comment)
     assert status == "success"
     assert "Comment inserted: ID=1" in msg
@@ -76,9 +74,7 @@ def test_insert_progress_comment_failure(mock_create_comment):
     """Test progress comment insertion handles errors gracefully."""
     mock_create_comment.side_effect = Exception("Database error")
 
-    comment = Comment(
-        issue_id=1, comment="Test comment", raw={}, source="test", type="comment"
-    )
+    comment = Comment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
     status, msg = insert_progress_comment(comment)
     assert status == "error"
     assert "Failed to insert comment on issue 1" in msg
@@ -172,10 +168,7 @@ def test_build_plan_success(mock_execute, mock_logger, sample_issue):
     result = build_plan(sample_issue, "/adw-feature-plan", "adw123", mock_logger)
     assert result.success
     assert result.data.output == plan_json
-    assert (
-        result.metadata.get("parsed_data", {}).get("summary")
-        == "Plan created successfully"
-    )
+    assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
 
 
 @patch("rouge.core.workflow.plan_file.execute_template")
@@ -386,9 +379,7 @@ def test_generate_review_timeout(mock_subprocess, mock_logger):
     """Test CodeRabbit review generation handles timeout."""
     import subprocess
 
-    mock_subprocess.side_effect = subprocess.TimeoutExpired(
-        cmd="coderabbit", timeout=300
-    )
+    mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="coderabbit", timeout=300)
 
     from rouge.core.workflow.review import generate_review
 
@@ -402,9 +393,7 @@ def test_generate_review_timeout(mock_subprocess, mock_logger):
 
     assert not result.success
     assert result.data is None
-    mock_logger.error.assert_called_with(
-        "CodeRabbit review timed out after 300 seconds"
-    )
+    mock_logger.error.assert_called_with("CodeRabbit review timed out after 300 seconds")
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
@@ -443,9 +432,7 @@ def test_address_review_issues_success(
 
     assert result.success
     mock_exists.assert_called_once_with("specs/chore-test-review.txt")
-    mock_execute.assert_called_once_with(
-        mock_request, stream_handler=None, require_json=True
-    )
+    mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
     mock_insert_comment.assert_called_once()
 
 
@@ -462,9 +449,7 @@ def test_address_review_issues_file_not_found(mock_exists, mock_logger):
     )
 
     assert not result.success
-    mock_logger.error.assert_called_with(
-        "Review file does not exist: specs/missing-review.txt"
-    )
+    mock_logger.error.assert_called_with("Review file does not exist: specs/missing-review.txt")
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
@@ -504,9 +489,7 @@ def test_address_review_issues_execution_failure(
 @patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_success(
-    mock_emit, mock_subprocess, mock_get_repo_path, mock_logger
-):
+def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_logger):
     """Test successful PR creation with git push before gh pr create."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
@@ -672,9 +655,7 @@ def test_create_pr_step_gh_command_failure(
 @patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_timeout(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
-):
+def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
@@ -714,9 +695,7 @@ def test_create_pr_step_timeout(
 @patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
-):
+def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
     """Test PR creation handles gh CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_pr import CreatePullRequestStep

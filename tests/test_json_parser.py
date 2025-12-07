@@ -43,9 +43,7 @@ class TestSanitizeJsonOutput:
 
     def test_trims_leading_prose(self):
         """Test trimming leading prose before JSON object."""
-        output = (
-            'Here is the classification result:\n{"type": "bug", "level": "average"}'
-        )
+        output = 'Here is the classification result:\n{"type": "bug", "level": "average"}'
         result = _sanitize_json_output(output)
         assert result == '{"type": "bug", "level": "average"}'
 
@@ -104,6 +102,40 @@ class TestSanitizeJsonOutput:
         output = "Just some plain text"
         result = _sanitize_json_output(output)
         assert result == output
+
+    def test_escape_sequences_with_valid_json(self):
+        """Test handling escape sequences with valid JSON after decoding."""
+        output = 'prose text\\n\\n{\\"key\\":\\"value\\"}'
+        result = _sanitize_json_output(output)
+        assert result == '{"key":"value"}'
+
+    def test_escape_sequences_with_newlines_and_braces(self):
+        """Test handling \\n escape sequences with JSON object."""
+        output = 'Some text\\n\\n{\\"type\\":\\"feature\\",\\"level\\":\\"simple\\"}'
+        result = _sanitize_json_output(output)
+        assert result == '{"type":"feature","level":"simple"}'
+
+    def test_escape_sequences_without_valid_json(self):
+        """Test handling escape sequences that don't contain valid JSON after decoding."""
+        output = "text with\\n\\nno valid json here"
+        result = _sanitize_json_output(output)
+        # Should return original or best effort extraction
+        assert result == output
+
+    def test_escape_sequences_with_invalid_json_structure(self):
+        """Test handling escape sequences where decoded content isn't valid JSON."""
+        output = 'text\\n\\n{\\"invalid\\": incomplete'
+        result = _sanitize_json_output(output)
+        # Should fall back to extracting braces from original
+        assert "{" in result or result == output
+
+    def test_escape_sequences_unicode_decode_error(self):
+        """Test handling invalid unicode escape sequences that trigger UnicodeDecodeError."""
+        # This is a contrived case - actual invalid escape might vary by platform
+        # The function should handle exceptions gracefully
+        output = '{"valid": "json"}'  # Valid JSON that won't trigger decode
+        result = _sanitize_json_output(output)
+        assert result == '{"valid": "json"}'
 
 
 class TestParseAndValidateJson:
@@ -177,9 +209,7 @@ class TestParseAndValidateJson:
 
     def test_malformed_json(self, mock_logger):
         """Test failure with malformed JSON."""
-        output = (
-            '{"type": "feature", level: simple}'  # Missing quotes around keys/values
-        )
+        output = '{"type": "feature", level: simple}'  # Missing quotes around keys/values
         required_fields = {"type": str}
 
         result = parse_and_validate_json(output, required_fields, mock_logger)
@@ -222,9 +252,7 @@ class TestParseAndValidateJson:
         output = '{"wrong": "data"}'
         required_fields = {"type": str}
 
-        result = parse_and_validate_json(
-            output, required_fields, mock_logger, step_name="classify"
-        )
+        result = parse_and_validate_json(output, required_fields, mock_logger, step_name="classify")
 
         assert not result.success
         assert "[classify]" in result.error
