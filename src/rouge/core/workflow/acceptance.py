@@ -7,7 +7,7 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_VALIDATOR
 from rouge.core.workflow.types import StepResult
 
 # Required fields for acceptance validation output JSON
@@ -53,7 +53,7 @@ def notify_plan_acceptance(
 
         # Create template request
         request = ClaudeAgentTemplateRequest(
-            agent_name=AGENT_IMPLEMENTOR,
+            agent_name=AGENT_VALIDATOR,
             slash_command="/adw-acceptance",
             args=[plan_path],
             adw_id=adw_id,

@@ -4,7 +4,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.notifications import make_progress_comment_handler
-from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -45,7 +45,7 @@ class CodeQualityStep(WorkflowStep):
             )
 
             request = ClaudeAgentTemplateRequest(
-                agent_name=AGENT_IMPLEMENTOR,
+                agent_name=AGENT_CODE_QUALITY_CHECKER,
                 slash_command="/adw-code-quality",
                 args=[],
                 adw_id=context.adw_id,

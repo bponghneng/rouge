@@ -5,7 +5,7 @@ from logging import Logger
 from rouge.core.agent import execute_implement_plan
 from rouge.core.agents import AgentExecuteResponse
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.workflow.shared import AGENT_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
 from rouge.core.workflow.types import ImplementData, StepResult
 
 # Required fields for implement output JSON
@@ -41,7 +41,7 @@ def implement_plan(
         plan_file=plan_file,
         issue_id=issue_id,
         adw_id=adw_id,
-        agent_name=AGENT_IMPLEMENTOR,
+        agent_name=AGENT_PLAN_IMPLEMENTOR,
         logger=logger,
     )
 
