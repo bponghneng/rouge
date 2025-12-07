@@ -4,6 +4,7 @@ This module provides consistent JSON extraction, parsing, and validation
 for agent outputs across all core components and workflow steps.
 """
 
+import codecs
 import json
 import re
 from logging import Logger
@@ -75,6 +76,35 @@ def _sanitize_json_output(output: str) -> str:
     first_brace = stripped.find("{")
     last_brace = stripped.rfind("}")
 
+    if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+        json_candidate = stripped[first_brace : last_brace + 1]
+        # Validate that extraction worked by attempting a parse
+        try:
+            json.loads(json_candidate)
+            return json_candidate
+        except json.JSONDecodeError:
+            pass
+
+    # Handle strings with escape sequences (e.g., literal \n and \" characters)
+    # LLM outputs sometimes include "prose text\n\n{\"key\":\"value\"}"
+    if "\\n" in stripped or '\\"' in stripped:
+        try:
+            # Decode unicode escape sequences to get actual newlines and quotes
+            decoded = codecs.decode(stripped, "unicode_escape")
+            first_brace = decoded.find("{")
+            last_brace = decoded.rfind("}")
+            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                json_candidate = decoded[first_brace : last_brace + 1]
+                try:
+                    json.loads(json_candidate)
+                    return json_candidate
+                except json.JSONDecodeError:
+                    pass
+        except (UnicodeDecodeError, ValueError):
+            # If decode fails, continue with other strategies
+            pass
+
+    # Fallback: return original with braces if found
     if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
         return stripped[first_brace : last_brace + 1]
 
