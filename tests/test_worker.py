@@ -127,9 +127,7 @@ class TestExecuteWorkflow:
 
     def test_execute_workflow_timeout(self, worker):
         """Test workflow execution timeout."""
-        with patch(
-            "subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)
-        ):
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 result = worker.execute_workflow(123, "Test issue")
 
@@ -257,9 +255,7 @@ class TestUpdateIssueStatus:
 class TestWorkerRun:
     """Tests for the main worker run loop."""
 
-    @pytest.mark.skip(
-        reason="Hangs intermittently on Windows runners; tracked for later fix."
-    )
+    @pytest.mark.skip(reason="Hangs intermittently on Windows runners; tracked for later fix.")
     def test_run_processes_issue(self, worker):
         """Test worker processes an issue and then stops."""
         worker.running = True
@@ -272,9 +268,7 @@ class TestWorkerRun:
             worker.running = False
             return None
 
-        with patch(
-            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
-        ):
+        with patch("rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue):
             with patch.object(worker, "execute_workflow") as mock_execute:
                 worker.run()
 
@@ -292,9 +286,7 @@ class TestWorkerRun:
                 worker.running = False
             return None
 
-        with patch(
-            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
-        ):
+        with patch("rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue):
             with patch("time.sleep") as mock_sleep:
                 worker.run()
 
@@ -302,25 +294,19 @@ class TestWorkerRun:
                 assert mock_sleep.call_count >= 1
                 mock_sleep.assert_called_with(5)  # poll_interval is 5 for test worker
 
-    @pytest.mark.skip(
-        reason="Intermittent signal propagation issues on Windows runners."
-    )
+    @pytest.mark.skip(reason="Intermittent signal propagation issues on Windows runners.")
     def test_run_handles_keyboard_interrupt(self, worker):
         """Test worker handles keyboard interrupt gracefully."""
 
         def mock_get_next_issue(worker_id, logger):
             raise KeyboardInterrupt()
 
-        with patch(
-            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
-        ):
+        with patch("rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue):
             worker.run()
 
             assert worker.running is False
 
-    @pytest.mark.skip(
-        reason="Flaky on Windows due to patching/time.sleep interactions."
-    )
+    @pytest.mark.skip(reason="Flaky on Windows due to patching/time.sleep interactions.")
     def test_run_handles_unexpected_error(self, worker):
         """Test worker handles unexpected errors and continues."""
         worker.running = True
@@ -333,9 +319,7 @@ class TestWorkerRun:
             worker.running = False
             return None
 
-        with patch(
-            "rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue
-        ):
+        with patch("rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue):
             with patch("time.sleep") as mock_sleep:
                 worker.run()
 
@@ -416,9 +400,7 @@ class TestWorkerConfig:
 
     def test_config_validation_success(self):
         """Test valid configuration."""
-        config = WorkerConfig(
-            worker_id="test-worker", poll_interval=10, log_level="INFO"
-        )
+        config = WorkerConfig(worker_id="test-worker", poll_interval=10, log_level="INFO")
 
         assert config.worker_id == "test-worker"
         assert config.poll_interval == 10
