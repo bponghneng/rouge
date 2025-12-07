@@ -46,7 +46,7 @@ class BuildPlanStep(WorkflowStep):
             logger.error(f"Error building plan: {plan_response.error}")
             return StepResult.fail(f"Error building plan: {plan_response.error}")
 
-        logger.info(f"Implementation plan created:\n\n{plan_response}")
+        logger.info(f"Implementation plan created:\n\n{plan_response.data}")
 
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
