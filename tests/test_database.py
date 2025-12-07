@@ -592,9 +592,9 @@ def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
     new_worker_ids = [
         "alleycat-2",
         "alleycat-3",
-        "nebuchadnezzar-1",
-        "nebuchadnezzar-2",
-        "nebuchadnezzar-3",
+        "local-1",
+        "local-2",
+        "local-3",
         "tydirium-2",
         "tydirium-3",
     ]
@@ -617,7 +617,7 @@ def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
 @patch("rouge.core.database.get_client")
 def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
     """Test that assignment is rejected for invalid worker IDs not in expanded pool."""
-    invalid_workers = ["alleycat-4", "nebuchadnezzar-4", "tydirium-4", "unknown-1"]
+    invalid_workers = ["alleycat-4", "local-4", "tydirium-4", "unknown-1"]
 
     for worker_id in invalid_workers:
         with pytest.raises(ValueError, match="Invalid worker ID"):

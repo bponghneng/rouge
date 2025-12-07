@@ -70,4 +70,4 @@ The initial migration (`001_initial_schema.py`) creates:
 - `get_and_lock_next_issue(worker_id)` - Atomic issue locking for worker processing
 
 ### Enum Types
-- `worker_id` - Valid worker identifiers (alleycat-1/2/3, hailmary-1/2/3, nebuchadnezzar-1/2/3, tydirium-1/2/3)
+- `worker_id` - Valid worker identifiers (alleycat-1/2/3, hailmary-1/2/3, local-1/2/3, tydirium-1/2/3)
