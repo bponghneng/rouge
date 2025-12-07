@@ -5,31 +5,28 @@ This project uses [yoyo-migrations](https://ollycope.com/software/yoyo/latest/) 
 ## Prerequisites
 
 - PostgreSQL database (e.g., Supabase, local Postgres)
-- Environment variable `DATABASE_URL` set to your connection string
+- Database password for your Supabase project
 
 ## Running Migrations
 
 ### Apply Migrations
 
 ```bash
-# Using DATABASE_URL environment variable
-yoyo apply --database "$DATABASE_URL"
-
-# Or specify the database URL directly
-yoyo apply --database postgresql://user:pass@host:port/dbname
+# Set DATABASE_URL inline and apply migrations
+DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo apply --database "$DATABASE_URL"
 ```
 
 ### Rollback Migrations
 
 ```bash
 # Roll back the most recent migration
-yoyo rollback --database "$DATABASE_URL"
+DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo rollback --database "$DATABASE_URL"
 ```
 
 ### Show Migration Status
 
 ```bash
-yoyo show --database "$DATABASE_URL"
+DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo show --database "$DATABASE_URL"
 ```
 
 ## Configuration
