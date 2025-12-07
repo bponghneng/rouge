@@ -46,17 +46,27 @@ class BuildPlanStep(WorkflowStep):
             logger.error(f"Error building plan: {plan_response.error}")
             return StepResult.fail(f"Error building plan: {plan_response.error}")
 
-        logger.info(f"Implementation plan created:\n\n{plan_response.data}")
-
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
+
+        # Build progress comment from parsed plan data
+        parsed_data = plan_response.metadata.get("parsed_data", {})
+        # Extract title from one of: chore, bug, feature keys
+        title = (
+            parsed_data.get("chore")
+            or parsed_data.get("bug")
+            or parsed_data.get("feature")
+            or "Implementation plan created"
+        )
+        summary = parsed_data.get("summary", "")
+        comment_text = f"{title}\n\n{summary}" if summary else title
 
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
             issue.id,
-            "Implementation plan created successfully",
+            "Implementation plan created",
             logger,
-            raw={"text": "Implementation plan created successfully."},
+            raw={"text": comment_text},
         )
 
         return StepResult.ok(None)
