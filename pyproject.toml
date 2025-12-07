@@ -20,6 +20,7 @@ dependencies = [
     "ruff>=0.14.5",
     "black>=25.0.0",
     "mypy>=1.18.2",
+    "psycopg2-binary>=2.9.11",
 ]
 classifiers = ["Programming Language :: Python :: 3.12"]
 
