@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from rouge import __version__
 from rouge.core.database import create_issue
-from rouge.core.utils import make_adw_id, setup_logger
+from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
 
 # Load environment variables
@@ -143,11 +143,8 @@ def run(
     if not adw_id:
         adw_id = make_adw_id()
 
-    # Set up logger
-    logger = setup_logger(adw_id, "adw_plan_build")
-
     # Execute workflow
-    success = execute_workflow(issue_id, adw_id, logger)
+    success = execute_workflow(issue_id, adw_id)
 
     if not success:
         raise typer.Exit(1)
