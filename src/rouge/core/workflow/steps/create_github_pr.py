@@ -1,4 +1,4 @@
-"""Create pull request step implementation."""
+"""Create GitHub pull request step implementation."""
 
 import os
 import subprocess
@@ -9,12 +9,12 @@ from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
 
 
-class CreatePullRequestStep(WorkflowStep):
+class CreateGitHubPullRequestStep(WorkflowStep):
     """Create GitHub pull request via gh CLI."""
 
     @property
     def name(self) -> str:
-        return "Creating pull request"
+        return "Creating GitHub pull request"
 
     @property
     def is_critical(self) -> bool:
