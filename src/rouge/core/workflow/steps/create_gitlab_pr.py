@@ -50,7 +50,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         commits = pr_details.get("commits", [])
 
         if not title:
-            skip_msg = "MR creation skipped: PR title is empty"
+            skip_msg = "MR creation skipped: MR title is empty"
             logger.info(skip_msg)
             emit_progress_comment(
                 context.issue_id,
