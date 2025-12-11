@@ -1,7 +1,7 @@
 """Plan acceptance validation functionality for workflow orchestration."""
 
+import logging
 import os
-from logging import Logger
 from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
@@ -9,6 +9,8 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.workflow.shared import AGENT_VALIDATOR
 from rouge.core.workflow.types import StepResult
+
+logger = logging.getLogger(__name__)
 
 # Required fields for acceptance validation output JSON
 ACCEPTANCE_REQUIRED_FIELDS = {
@@ -26,7 +28,6 @@ def notify_plan_acceptance(
     plan_path: str,
     issue_id: int,
     adw_id: str,
-    logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[None]:
     """Notify the /plan-acceptance template with the plan file to validate.
@@ -37,7 +38,6 @@ def notify_plan_acceptance(
         plan_path: Path to the plan file to validate
         issue_id: Rouge issue ID for tracking
         adw_id: Workflow ID for tracking
-        logger: Logger instance
         stream_handler: Optional callback for streaming output
 
     Returns:
@@ -80,7 +80,7 @@ def notify_plan_acceptance(
 
         # Parse and validate JSON output
         parse_result = parse_and_validate_json(
-            response.output, ACCEPTANCE_REQUIRED_FIELDS, logger, step_name="acceptance"
+            response.output, ACCEPTANCE_REQUIRED_FIELDS, step_name="acceptance"
         )
         if not parse_result.success:
             return StepResult.fail(parse_result.error or "JSON parsing failed")

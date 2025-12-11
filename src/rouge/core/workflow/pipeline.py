@@ -1,11 +1,12 @@
 """Pipeline orchestrator for workflow execution."""
 
-import os
-from logging import Logger
+import logging
 from typing import List
 
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
+
+logger = logging.getLogger(__name__)
 
 
 class WorkflowRunner:
@@ -23,13 +24,12 @@ class WorkflowRunner:
         """
         self._steps = steps
 
-    def run(self, issue_id: int, adw_id: str, logger: Logger) -> bool:
+    def run(self, issue_id: int, adw_id: str) -> bool:
         """Execute all workflow steps in sequence.
 
         Args:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
-            logger: Logger instance
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
@@ -37,20 +37,19 @@ class WorkflowRunner:
         context = WorkflowContext(
             issue_id=issue_id,
             adw_id=adw_id,
-            logger=logger,
         )
 
         logger.info(f"ADW ID: {adw_id}")
         logger.info(f"Processing issue ID: {issue_id}")
 
         for step in self._steps:
-            log_step_start(step.name, logger, issue_id=issue_id)
+            log_step_start(step.name, issue_id=issue_id)
 
             result = step.run(context)
 
             if not result.success:
                 if step.is_critical:
-                    log_step_end(step.name, result.success, logger, issue_id=issue_id)
+                    log_step_end(step.name, result.success, issue_id=issue_id)
                     error_msg = f"Critical step '{step.name}' failed"
                     if result.error:
                         error_msg += f": {result.error}"
@@ -62,7 +61,7 @@ class WorkflowRunner:
                         warning_msg += f": {result.error}"
                     logger.warning(f"{warning_msg}, continuing")
             else:
-                log_step_end(step.name, result.success, logger, issue_id=issue_id)
+                log_step_end(step.name, result.success, issue_id=issue_id)
 
         logger.info("\n=== Workflow completed successfully ===")
         return True

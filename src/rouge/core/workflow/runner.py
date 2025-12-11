@@ -4,15 +4,12 @@ This module provides the public API for executing workflows via the
 pluggable step pipeline architecture.
 """
 
-from logging import Logger
-
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 
 
 def execute_workflow(
     issue_id: int,
     adw_id: str,
-    logger: Logger,
 ) -> bool:
     """Execute complete workflow for an issue using pluggable step pipeline.
 
@@ -34,11 +31,10 @@ def execute_workflow(
     Args:
         issue_id: The Rouge issue ID to process
         adw_id: Workflow ID for tracking
-        logger: Logger instance
 
     Returns:
         True if workflow completed successfully, False otherwise
     """
     pipeline = get_default_pipeline()
     runner = WorkflowRunner(pipeline)
-    return runner.run(issue_id, adw_id, logger)
+    return runner.run(issue_id, adw_id)

@@ -2,7 +2,6 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from logging import Logger
 from typing import TYPE_CHECKING, Any, Dict, Optional
 
 from rouge.core.models import Issue
@@ -18,14 +17,12 @@ class WorkflowContext:
     Attributes:
         issue_id: The Rouge issue ID being processed
         adw_id: Workflow ID for tracking
-        logger: Logger instance for step logging
         issue: The fetched Issue object (set by FetchIssueStep)
         data: Dictionary to store intermediate step data
     """
 
     issue_id: int
     adw_id: str
-    logger: Logger
     issue: Optional[Issue] = None
     data: Dict[str, Any] = field(default_factory=dict)
 

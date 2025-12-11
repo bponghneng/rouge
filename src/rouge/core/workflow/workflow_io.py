@@ -3,17 +3,18 @@
 Centralizes repetitive patterns for logging and progress comments.
 """
 
-from logging import Logger
+import logging
 from typing import Tuple
 
 from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
 
+logger = logging.getLogger(__name__)
+
 
 def emit_progress_comment(
     issue_id: int,
     message: str,
-    logger: Logger,
     raw: dict | None = None,
     comment_type: str = "workflow",
 ) -> Tuple[str, str]:
@@ -24,7 +25,6 @@ def emit_progress_comment(
     Args:
         issue_id: The issue ID
         message: The comment message text
-        logger: Logger instance
         raw: Optional raw data dict for the comment
         comment_type: Type of comment (default: "workflow")
 
@@ -46,12 +46,11 @@ def emit_progress_comment(
     return status, msg
 
 
-def log_step_start(step_name: str, logger: Logger, issue_id: int | None = None) -> None:
+def log_step_start(step_name: str, issue_id: int | None = None) -> None:
     """Log the start of a workflow step and emit progress comment.
 
     Args:
         step_name: Name of the step starting
-        logger: Logger instance
         issue_id: Optional issue ID for progress comment
     """
     logger.info(f"\n=== {step_name} ===")
@@ -59,21 +58,17 @@ def log_step_start(step_name: str, logger: Logger, issue_id: int | None = None) 
         emit_progress_comment(
             issue_id=issue_id,
             message=f"Step {step_name} started",
-            logger=logger,
             raw={"step": step_name, "status": "started"},
             comment_type="workflow",
         )
 
 
-def log_step_end(
-    step_name: str, success: bool, logger: Logger, issue_id: int | None = None
-) -> None:
+def log_step_end(step_name: str, success: bool, issue_id: int | None = None) -> None:
     """Log the end of a workflow step and emit progress comment.
 
     Args:
         step_name: Name of the step ending
         success: Whether the step succeeded
-        logger: Logger instance
         issue_id: Optional issue ID for progress comment
     """
     status_text = "Success" if success else "Failed"
@@ -86,7 +81,6 @@ def log_step_end(
         emit_progress_comment(
             issue_id=issue_id,
             message=f"Step {step_name} completed: {status_text}",
-            logger=logger,
             raw={"step": step_name, "status": "completed", "success": success},
             comment_type="workflow",
         )

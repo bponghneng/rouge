@@ -1,16 +1,18 @@
 """Review generation functionality for workflow orchestration."""
 
+import logging
 import os
 import subprocess
-from logging import Logger
 
 from rouge.core.models import Comment
 from rouge.core.notifications import insert_progress_comment
 from rouge.core.workflow.types import ReviewData, StepResult
 
+logger = logging.getLogger(__name__)
+
 
 def generate_review(
-    review_file: str, working_dir: str, repo_path: str, issue_id: int, logger: Logger
+    review_file: str, working_dir: str, repo_path: str, issue_id: int
 ) -> StepResult[ReviewData]:
     """Generate CodeRabbit review and save to file.
 
@@ -19,7 +21,6 @@ def generate_review(
         working_dir: Working directory for CodeRabbit command
         repo_path: Repository root path
         issue_id: Rouge issue ID for tracking
-        logger: Logger instance
 
     Returns:
         StepResult with ReviewData containing review text and file path
