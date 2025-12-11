@@ -64,9 +64,9 @@ class BuildPlanStep(WorkflowStep):
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
             issue.id,
-            "Implementation plan created",
+            comment_text,
             logger,
-            raw={"text": comment_text},
+            raw={"text": parsed_data},
         )
 
         return StepResult.ok(None)
