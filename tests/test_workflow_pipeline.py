@@ -142,19 +142,34 @@ class TestWorkflowRunner:
 class TestGetDefaultPipeline:
     """Tests for get_default_pipeline factory."""
 
-    def test_returns_correct_step_count(self):
-        """Test default pipeline has 12 steps."""
+    def test_returns_correct_step_count_without_platform(self, monkeypatch):
+        """Test default pipeline has 11 steps when DEV_SEC_OPS_PLATFORM is unset."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_default_pipeline()
+        assert len(pipeline) == 11
+
+    def test_returns_correct_step_count_with_github(self, monkeypatch):
+        """Test default pipeline has 12 steps when DEV_SEC_OPS_PLATFORM=github."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_default_pipeline()
         assert len(pipeline) == 12
 
-    def test_returns_workflow_step_instances(self):
+    def test_returns_correct_step_count_with_gitlab(self, monkeypatch):
+        """Test default pipeline has 12 steps when DEV_SEC_OPS_PLATFORM=gitlab."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_default_pipeline()
+        assert len(pipeline) == 12
+
+    def test_returns_workflow_step_instances(self, monkeypatch):
         """Test all items are WorkflowStep subclasses."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_default_pipeline()
         for step in pipeline:
             assert isinstance(step, WorkflowStep)
 
-    def test_step_order(self):
-        """Test steps are in correct order."""
+    def test_step_order_without_platform(self, monkeypatch):
+        """Test steps are in correct order when no platform is set."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_default_pipeline()
         step_names = [step.name for step in pipeline]
 
@@ -170,10 +185,72 @@ class TestGetDefaultPipeline:
         assert "quality" in step_names[8].lower()
         assert "acceptance" in step_names[9].lower()
         assert "pull request" in step_names[10].lower()
-        assert "pull request" in step_names[11].lower()
 
-    def test_critical_flags(self):
-        """Test critical/best-effort flags are set correctly."""
+    def test_step_order_with_github(self, monkeypatch):
+        """Test steps are in correct order when DEV_SEC_OPS_PLATFORM=github."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_default_pipeline()
+        step_names = [step.name for step in pipeline]
+
+        # Verify key steps are in expected order
+        assert "Fetching" in step_names[0]
+        assert "Classifying" in step_names[1]
+        assert "Building" in step_names[2]
+        assert "plan file" in step_names[3].lower()
+        assert "Implementing" in step_names[4]
+        assert "implemented plan" in step_names[5].lower()
+        assert "review" in step_names[6].lower()
+        assert "review" in step_names[7].lower()
+        assert "quality" in step_names[8].lower()
+        assert "acceptance" in step_names[9].lower()
+        assert "pull request" in step_names[10].lower()
+        assert "github" in step_names[11].lower()
+
+    def test_step_order_with_gitlab(self, monkeypatch):
+        """Test steps are in correct order when DEV_SEC_OPS_PLATFORM=gitlab."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_default_pipeline()
+        step_names = [step.name for step in pipeline]
+
+        # Verify key steps are in expected order
+        assert "Fetching" in step_names[0]
+        assert "Classifying" in step_names[1]
+        assert "Building" in step_names[2]
+        assert "plan file" in step_names[3].lower()
+        assert "Implementing" in step_names[4]
+        assert "implemented plan" in step_names[5].lower()
+        assert "review" in step_names[6].lower()
+        assert "review" in step_names[7].lower()
+        assert "quality" in step_names[8].lower()
+        assert "acceptance" in step_names[9].lower()
+        assert "pull request" in step_names[10].lower()
+        assert "gitlab" in step_names[11].lower()
+
+    def test_critical_flags_without_platform(self, monkeypatch):
+        """Test critical/best-effort flags are set correctly when no platform is set."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_default_pipeline()
+
+        # First 6 steps should be critical
+        for step in pipeline[:6]:
+            assert step.is_critical is True, f"{step.name} should be critical"
+
+        # Review steps are not critical
+        assert pipeline[6].is_critical is False  # GenerateReviewStep
+        assert pipeline[7].is_critical is False  # AddressReviewStep
+
+        # Quality is best-effort
+        assert pipeline[8].is_critical is False  # CodeQualityStep
+
+        # Acceptance is best-effort
+        assert pipeline[9].is_critical is False  # ValidateAcceptanceStep
+
+        # PR step is best-effort
+        assert pipeline[10].is_critical is False  # PreparePullRequestStep
+
+    def test_critical_flags_with_github(self, monkeypatch):
+        """Test critical/best-effort flags with GitHub platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_default_pipeline()
 
         # First 6 steps should be critical
@@ -192,4 +269,85 @@ class TestGetDefaultPipeline:
 
         # PR steps are best-effort
         assert pipeline[10].is_critical is False  # PreparePullRequestStep
-        assert pipeline[11].is_critical is False  # CreatePullRequestStep
+        assert pipeline[11].is_critical is False  # CreateGitHubPullRequestStep
+
+    def test_critical_flags_with_gitlab(self, monkeypatch):
+        """Test critical/best-effort flags with GitLab platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_default_pipeline()
+
+        # First 6 steps should be critical
+        for step in pipeline[:6]:
+            assert step.is_critical is True, f"{step.name} should be critical"
+
+        # Review steps are not critical
+        assert pipeline[6].is_critical is False  # GenerateReviewStep
+        assert pipeline[7].is_critical is False  # AddressReviewStep
+
+        # Quality is best-effort
+        assert pipeline[8].is_critical is False  # CodeQualityStep
+
+        # Acceptance is best-effort
+        assert pipeline[9].is_critical is False  # ValidateAcceptanceStep
+
+        # PR steps are best-effort
+        assert pipeline[10].is_critical is False  # PreparePullRequestStep
+        assert pipeline[11].is_critical is False  # CreateGitLabPullRequestStep
+
+    def test_includes_github_step_when_platform_is_github(self, monkeypatch):
+        """Test pipeline includes CreateGitHubPullRequestStep when DEV_SEC_OPS_PLATFORM=github."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_default_pipeline()
+
+        from rouge.core.workflow.steps.create_github_pr import (
+            CreateGitHubPullRequestStep,
+        )
+
+        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
+
+    def test_includes_gitlab_step_when_platform_is_gitlab(self, monkeypatch):
+        """Test pipeline includes CreateGitLabPullRequestStep when DEV_SEC_OPS_PLATFORM=gitlab."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_default_pipeline()
+
+        from rouge.core.workflow.steps.create_gitlab_pr import (
+            CreateGitLabPullRequestStep,
+        )
+
+        assert isinstance(pipeline[-1], CreateGitLabPullRequestStep)
+
+    def test_excludes_pr_step_when_platform_unset(self, monkeypatch):
+        """Test pipeline excludes PR/MR step when DEV_SEC_OPS_PLATFORM is unset."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_default_pipeline()
+
+        from rouge.core.workflow.steps.create_github_pr import (
+            CreateGitHubPullRequestStep,
+        )
+        from rouge.core.workflow.steps.create_gitlab_pr import (
+            CreateGitLabPullRequestStep,
+        )
+
+        # Verify no PR/MR creation step is in the pipeline
+        for step in pipeline:
+            assert not isinstance(step, CreateGitHubPullRequestStep)
+            assert not isinstance(step, CreateGitLabPullRequestStep)
+
+    def test_platform_env_var_case_insensitive(self, monkeypatch):
+        """Test DEV_SEC_OPS_PLATFORM is handled case-insensitively."""
+        from rouge.core.workflow.steps.create_github_pr import (
+            CreateGitHubPullRequestStep,
+        )
+        from rouge.core.workflow.steps.create_gitlab_pr import (
+            CreateGitLabPullRequestStep,
+        )
+
+        # Test uppercase GITHUB
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "GITHUB")
+        pipeline = get_default_pipeline()
+        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
+
+        # Test mixed case GitLab
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "GitLab")
+        pipeline = get_default_pipeline()
+        assert isinstance(pipeline[-1], CreateGitLabPullRequestStep)
