@@ -485,14 +485,14 @@ def test_address_review_issues_execution_failure(
 # === CreatePullRequestStep Tests ===
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_logger):
     """Test successful PR creation with git push before gh pr create."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     # Mock get_repo_path to return a specific path
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -519,7 +519,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
         "commits": ["abc1234", "def5678"],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
@@ -545,11 +545,11 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     """Test PR creation skipped when GITHUB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     context.data["pr_details"] = {
@@ -558,7 +558,7 @@ def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
@@ -569,16 +569,16 @@ def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     """Test PR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     # No pr_details in context
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
@@ -587,12 +587,12 @@ def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit, mock_logger):
     """Test PR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
     context.data["pr_details"] = {
@@ -601,7 +601,7 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
@@ -610,16 +610,16 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
 ):
     """Test PR creation handles gh command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -642,7 +642,7 @@ def test_create_pr_step_gh_command_failure(
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is False
@@ -651,16 +651,16 @@ def test_create_pr_step_gh_command_failure(
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -682,7 +682,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is False
@@ -691,14 +691,14 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
     """Test PR creation handles gh CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -717,7 +717,7 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is False
@@ -726,16 +726,16 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
 ):
     """Test PR creation continues even when git push fails."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -758,7 +758,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     # PR should succeed even if push failed (branch may already exist on remote)
@@ -768,9 +768,9 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-created"
 
 
-@patch("rouge.core.workflow.steps.create_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
@@ -779,7 +779,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -800,7 +800,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
         "commits": [],
     }
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     # PR should succeed even if push timed out
@@ -811,19 +811,19 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
 
 def test_create_pr_step_is_not_critical():
-    """Test CreatePullRequestStep is not critical."""
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    """Test CreateGitHubPullRequestStep is not critical."""
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    step = CreatePullRequestStep()
+    step = CreateGitHubPullRequestStep()
     assert step.is_critical is False
 
 
 def test_create_pr_step_name():
-    """Test CreatePullRequestStep has correct name."""
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    """Test CreateGitHubPullRequestStep has correct name."""
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    step = CreatePullRequestStep()
-    assert step.name == "Creating pull request"
+    step = CreateGitHubPullRequestStep()
+    assert step.name == "Creating GitHub pull request"
 
 
 # === PreparePullRequestStep JSON parsing Tests ===
