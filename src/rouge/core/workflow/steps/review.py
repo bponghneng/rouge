@@ -1,5 +1,7 @@
 """Review generation and addressing step implementations."""
 
+import logging
+
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.address_review import address_review_issues
 from rouge.core.workflow.review import generate_review
@@ -11,6 +13,8 @@ from rouge.core.workflow.shared import (
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class GenerateReviewStep(WorkflowStep):
@@ -34,7 +38,6 @@ class GenerateReviewStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         implemented_plan_path = context.data.get("implemented_plan_file", "")
 
         if not implemented_plan_path:
@@ -51,9 +54,7 @@ class GenerateReviewStep(WorkflowStep):
         working_dir = get_working_dir()
         repo_path = get_repo_path()
 
-        review_result = generate_review(
-            review_file, working_dir, repo_path, context.issue_id, logger
-        )
+        review_result = generate_review(review_file, working_dir, repo_path, context.issue_id)
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
@@ -74,7 +75,6 @@ class GenerateReviewStep(WorkflowStep):
         emit_progress_comment(
             context.issue_id,
             "CodeRabbit review complete.",
-            logger,
             raw={"text": "CodeRabbit review complete."},
         )
 
@@ -102,7 +102,6 @@ class AddressReviewStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         review_file = context.data.get("review_file", "")
         review_data = context.data.get("review_data")
 
@@ -115,12 +114,11 @@ class AddressReviewStep(WorkflowStep):
             logger.warning("No review file available, skipping address review")
             return StepResult.ok(None)
 
-        review_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
+        review_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
         review_issues_result = address_review_issues(
             review_file,
             context.issue_id,
             context.adw_id,
-            logger,
             stream_handler=review_handler,
         )
 
@@ -134,7 +132,6 @@ class AddressReviewStep(WorkflowStep):
         emit_progress_comment(
             context.issue_id,
             "Review issues addressed.",
-            logger,
             raw={"text": "Review issues addressed."},
         )
 

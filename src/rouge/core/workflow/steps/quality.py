@@ -1,5 +1,7 @@
 """Code quality step implementation."""
 
+import logging
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -8,6 +10,8 @@ from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 # Required fields for code quality output JSON
 CODE_QUALITY_REQUIRED_FIELDS = {
@@ -37,12 +41,8 @@ class CodeQualityStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
-
         try:
-            quality_handler = make_progress_comment_handler(
-                context.issue_id, context.adw_id, logger
-            )
+            quality_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
 
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
@@ -70,7 +70,6 @@ class CodeQualityStep(WorkflowStep):
             parse_result = parse_and_validate_json(
                 response.output,
                 CODE_QUALITY_REQUIRED_FIELDS,
-                logger,
                 step_name="code_quality",
             )
             if not parse_result.success:
@@ -82,7 +81,6 @@ class CodeQualityStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 "Code quality checks completed.",
-                logger,
                 raw={
                     "text": "Code quality checks completed.",
                     "result": parse_result.data,

@@ -1,10 +1,14 @@
 """Implementation step implementations."""
 
+import logging
+
 from rouge.core.workflow.implement import implement_plan
 from rouge.core.workflow.plan_file import get_plan_file
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class ImplementStep(WorkflowStep):
@@ -23,14 +27,13 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         plan_file = context.data.get("plan_file")
 
         if plan_file is None:
             logger.error("Cannot implement: plan_file not available")
             return StepResult.fail("Cannot implement: plan_file not available")
 
-        implement_response = implement_plan(plan_file, context.issue_id, context.adw_id, logger)
+        implement_response = implement_plan(plan_file, context.issue_id, context.adw_id)
 
         if not implement_response.success:
             logger.error(f"Error implementing solution: {implement_response.error}")
@@ -51,7 +54,6 @@ class ImplementStep(WorkflowStep):
         emit_progress_comment(
             context.issue_id,
             "Implementation complete.",
-            logger,
             raw={"text": "Implementation complete."},
         )
 
@@ -76,7 +78,6 @@ class FindImplementedPlanStep(WorkflowStep):
         Returns:
             StepResult (always succeeds with fallback)
         """
-        logger = context.logger
         implement_data = context.data.get("implement_data")
         fallback_path = context.data.get("plan_file", "")
 
@@ -85,9 +86,7 @@ class FindImplementedPlanStep(WorkflowStep):
             context.data["implemented_plan_file"] = fallback_path
             return StepResult.ok(None)
 
-        impl_plan_result = get_plan_file(
-            implement_data.output, context.issue_id, context.adw_id, logger
-        )
+        impl_plan_result = get_plan_file(implement_data.output, context.issue_id, context.adw_id)
 
         if not impl_plan_result.success:
             logger.error(f"Error finding implemented plan file: {impl_plan_result.error}")

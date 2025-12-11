@@ -1,8 +1,12 @@
 """Find plan file step implementation."""
 
+import logging
+
 from rouge.core.workflow.plan_file import get_plan_file
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
+
+logger = logging.getLogger(__name__)
 
 
 class FindPlanFileStep(WorkflowStep):
@@ -21,14 +25,13 @@ class FindPlanFileStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         plan_data = context.data.get("plan_data")
 
         if plan_data is None:
             logger.error("Cannot find plan file: plan_data not available")
             return StepResult.fail("Cannot find plan file: plan_data not available")
 
-        plan_file_result = get_plan_file(plan_data.output, context.issue_id, context.adw_id, logger)
+        plan_file_result = get_plan_file(plan_data.output, context.issue_id, context.adw_id)
 
         if not plan_file_result.success:
             logger.error(f"Error finding plan file: {plan_file_result.error}")
