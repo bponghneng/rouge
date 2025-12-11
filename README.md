@@ -60,6 +60,9 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `ROUGE_ADW_COMMAND` | optional | Override command to run rouge-adw (e.g. `uv run rouge-adw`). |
 | `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
 | `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
+| `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
+| `GITLAB_PAT` | optional | Personal access token for GitLab (api scope). Required for automatic MR creation when `DEV_SEC_OPS_PLATFORM=gitlab`. Requires `glab` CLI. |
+| `DEV_SEC_OPS_PLATFORM` | optional | Platform for PR/MR creation: `"github"` or `"gitlab"`. If not set, PR/MR creation step is skipped. |
 
 Create a `.env` file in the directory where you are running the `rouge` commands from, or set the variables directly in your shell environment.
 
