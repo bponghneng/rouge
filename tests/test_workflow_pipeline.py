@@ -1,6 +1,5 @@
 """Tests for workflow pipeline components."""
 
-import logging
 from unittest.mock import Mock
 
 import pytest
@@ -10,35 +9,26 @@ from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 
-@pytest.fixture
-def mock_logger():
-    """Create a mock logger."""
-    return Mock(spec=logging.Logger)
-
-
 class TestWorkflowContext:
     """Tests for WorkflowContext dataclass."""
 
-    def test_context_initialization(self, mock_logger):
+    def test_context_initialization(self):
         """Test WorkflowContext initializes with required fields."""
         context = WorkflowContext(
             issue_id=123,
             adw_id="adw-456",
-            logger=mock_logger,
         )
 
         assert context.issue_id == 123
         assert context.adw_id == "adw-456"
-        assert context.logger is mock_logger
         assert context.issue is None
         assert context.data == {}
 
-    def test_context_data_storage(self, mock_logger):
+    def test_context_data_storage(self):
         """Test WorkflowContext stores data between steps."""
         context = WorkflowContext(
             issue_id=1,
             adw_id="test",
-            logger=mock_logger,
         )
 
         # Simulate step storing data
@@ -52,7 +42,7 @@ class TestWorkflowContext:
 class TestWorkflowRunner:
     """Tests for WorkflowRunner orchestrator."""
 
-    def test_runner_executes_all_steps(self, mock_logger):
+    def test_runner_executes_all_steps(self):
         """Test runner executes all steps in order."""
         # Create mock steps
         step1 = Mock(spec=WorkflowStep)
@@ -66,13 +56,13 @@ class TestWorkflowRunner:
         step2.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2])
-        result = runner.run(1, "adw123", mock_logger)
+        result = runner.run(1, "adw123")
 
         assert result is True
         step1.run.assert_called_once()
         step2.run.assert_called_once()
 
-    def test_runner_stops_on_critical_failure(self, mock_logger):
+    def test_runner_stops_on_critical_failure(self):
         """Test runner stops when critical step fails."""
         step1 = Mock(spec=WorkflowStep)
         step1.name = "Step 1"
@@ -85,13 +75,13 @@ class TestWorkflowRunner:
         step2.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2])
-        result = runner.run(1, "adw123", mock_logger)
+        result = runner.run(1, "adw123")
 
         assert result is False
         step1.run.assert_called_once()
         step2.run.assert_not_called()  # Not reached
 
-    def test_runner_continues_on_best_effort_failure(self, mock_logger):
+    def test_runner_continues_on_best_effort_failure(self):
         """Test runner continues when best-effort step fails."""
         step1 = Mock(spec=WorkflowStep)
         step1.name = "Critical Step"
@@ -109,14 +99,14 @@ class TestWorkflowRunner:
         step3.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([step1, step2, step3])
-        result = runner.run(1, "adw123", mock_logger)
+        result = runner.run(1, "adw123")
 
         assert result is True  # Overall success
         step1.run.assert_called_once()
         step2.run.assert_called_once()
         step3.run.assert_called_once()  # Still executed
 
-    def test_runner_passes_context_to_steps(self, mock_logger):
+    def test_runner_passes_context_to_steps(self):
         """Test runner passes correct context to each step."""
         captured_context = None
 
@@ -131,12 +121,11 @@ class TestWorkflowRunner:
         step.run.side_effect = capture_context
 
         runner = WorkflowRunner([step])
-        runner.run(42, "adw-test-123", mock_logger)
+        runner.run(42, "adw-test-123")
 
         assert captured_context is not None
         assert captured_context.issue_id == 42
         assert captured_context.adw_id == "adw-test-123"
-        assert captured_context.logger is mock_logger
 
 
 class TestGetDefaultPipeline:

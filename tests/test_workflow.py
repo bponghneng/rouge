@@ -1,6 +1,5 @@
 """Tests for workflow orchestration."""
 
-import logging
 from unittest.mock import Mock, patch
 
 import pytest
@@ -22,36 +21,29 @@ from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture
-def mock_logger():
-    """Create a mock logger."""
-    return Mock(spec=logging.Logger)
-
-
-@pytest.fixture
 def sample_issue():
     """Create a sample issue for testing."""
     return Issue(id=1, description="Fix login bug", status="pending")
 
 
 @patch("rouge.core.workflow.status.update_issue_status")
-def test_update_status_success(mock_update_issue_status, mock_logger):
+def test_update_status_success(mock_update_issue_status):
     """Test successful status update."""
     mock_issue = Mock()
     mock_issue.id = 1
     mock_update_issue_status.return_value = mock_issue
 
-    update_status(1, "started", mock_logger)
-    mock_logger.debug.assert_called_once()
+    update_status(1, "started")
     mock_update_issue_status.assert_called_once_with(1, "started")
 
 
 @patch("rouge.core.workflow.status.update_issue_status")
-def test_update_status_failure(mock_update_issue_status, mock_logger):
+def test_update_status_failure(mock_update_issue_status):
     """Test status update handles errors gracefully."""
     mock_update_issue_status.side_effect = Exception("Database error")
 
-    update_status(1, "started", mock_logger)
-    mock_logger.error.assert_called_once()
+    # Should not raise - best-effort
+    update_status(1, "started")
 
 
 @patch("rouge.core.notifications.comments.create_comment")
@@ -82,7 +74,7 @@ def test_insert_progress_comment_failure(mock_create_comment):
 
 
 @patch("rouge.core.workflow.classify.execute_template")
-def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
+def test_classify_issue_success(mock_execute, sample_issue):
     """Test successful issue classification."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output='{"type": "feature", "level": "simple"}',
@@ -90,7 +82,7 @@ def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
         session_id="test123",
     )
 
-    result = classify_issue(sample_issue, "adw123", mock_logger)
+    result = classify_issue(sample_issue, "adw123")
     assert result.success
     assert result.data.command == "/adw-feature-plan"
     assert result.data.classification == {"type": "feature", "level": "simple"}
@@ -98,20 +90,20 @@ def test_classify_issue_success(mock_execute, mock_logger, sample_issue):
 
 
 @patch("rouge.core.workflow.classify.execute_template")
-def test_classify_issue_failure(mock_execute, mock_logger, sample_issue):
+def test_classify_issue_failure(mock_execute, sample_issue):
     """Test issue classification failure."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output="Error occurred", success=False, session_id=None
     )
 
-    result = classify_issue(sample_issue, "adw123", mock_logger)
+    result = classify_issue(sample_issue, "adw123")
     assert not result.success
     assert result.data is None
     assert result.error == "Error occurred"
 
 
 @patch("rouge.core.workflow.classify.execute_template")
-def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue):
+def test_classify_issue_invalid_command(mock_execute, sample_issue):
     """Test issue classification with invalid command."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output='{"type": "unsupported", "level": "simple"}',
@@ -119,27 +111,27 @@ def test_classify_issue_invalid_command(mock_execute, mock_logger, sample_issue)
         session_id="test123",
     )
 
-    result = classify_issue(sample_issue, "adw123", mock_logger)
+    result = classify_issue(sample_issue, "adw123")
     assert not result.success
     assert result.data is None
     assert "Invalid issue type" in result.error
 
 
 @patch("rouge.core.workflow.classify.execute_template")
-def test_classify_issue_invalid_json(mock_execute, mock_logger, sample_issue):
+def test_classify_issue_invalid_json(mock_execute, sample_issue):
     """Test classification with invalid JSON output."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output="not-json", success=True, session_id="test123"
     )
 
-    result = classify_issue(sample_issue, "adw123", mock_logger)
+    result = classify_issue(sample_issue, "adw123")
     assert not result.success
     assert result.data is None
     assert "Invalid classification JSON" in result.error
 
 
 @patch("rouge.core.workflow.classify.execute_template")
-def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_issue):
+def test_classify_issue_markdown_fenced_json(mock_execute, sample_issue):
     """Test successful classification with JSON wrapped in markdown fences."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output='```json\n{"type": "bug", "level": "average"}\n```',
@@ -147,7 +139,7 @@ def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_i
         session_id="test123",
     )
 
-    result = classify_issue(sample_issue, "adw123", mock_logger)
+    result = classify_issue(sample_issue, "adw123")
     assert result.success
     assert result.data.command == "/adw-bug-plan"
     assert result.data.classification == {"type": "bug", "level": "average"}
@@ -155,7 +147,7 @@ def test_classify_issue_markdown_fenced_json(mock_execute, mock_logger, sample_i
 
 
 @patch("rouge.core.workflow.plan.execute_template")
-def test_build_plan_success(mock_execute, mock_logger, sample_issue):
+def test_build_plan_success(mock_execute, sample_issue):
     """Test successful plan building."""
     plan_json = (
         '{"output": "build_plan", "planPath": "specs/feature-plan.md", '
@@ -165,40 +157,40 @@ def test_build_plan_success(mock_execute, mock_logger, sample_issue):
         output=plan_json, success=True, session_id="test123"
     )
 
-    result = build_plan(sample_issue, "/adw-feature-plan", "adw123", mock_logger)
+    result = build_plan(sample_issue, "/adw-feature-plan", "adw123")
     assert result.success
     assert result.data.output == plan_json
     assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
 
 
 @patch("rouge.core.workflow.plan_file.execute_template")
-def test_get_plan_file_success(mock_execute, mock_logger):
+def test_get_plan_file_success(mock_execute):
     """Test successful plan file extraction."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output="specs/feature-plan.md", success=True, session_id="test123"
     )
 
-    result = get_plan_file("Plan output", 1, "adw123", mock_logger)
+    result = get_plan_file("Plan output", 1, "adw123")
     assert result.success
     assert result.data.file_path == "specs/feature-plan.md"
     assert result.error is None
 
 
 @patch("rouge.core.workflow.plan_file.execute_template")
-def test_get_plan_file_not_found(mock_execute, mock_logger):
+def test_get_plan_file_not_found(mock_execute):
     """Test plan file not found."""
     mock_execute.return_value = ClaudeAgentPromptResponse(
         output="0", success=True, session_id="test123"
     )
 
-    result = get_plan_file("Plan output", 1, "adw123", mock_logger)
+    result = get_plan_file("Plan output", 1, "adw123")
     assert not result.success
     assert result.data is None
     assert "No plan file found" in result.error
 
 
 @patch("rouge.core.workflow.implement.execute_implement_plan")
-def test_implement_plan_success(mock_execute, mock_logger):
+def test_implement_plan_success(mock_execute):
     """Test successful plan implementation."""
     implement_json = (
         '{"files_modified": ["src/main.py"], "git_diff_stat": "1 file changed", '
@@ -211,14 +203,14 @@ def test_implement_plan_success(mock_execute, mock_logger):
         session_id="test123",
     )
 
-    result = implement_plan("specs/plan.md", 1, "adw123", mock_logger)
+    result = implement_plan("specs/plan.md", 1, "adw123")
     assert result.success
     assert result.data.output == implement_json
     assert result.metadata.get("parsed_data", {}).get("status") == "completed"
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_success(mock_get_pipeline, mock_logger):
+def test_execute_workflow_success(mock_get_pipeline):
     """Test successful complete workflow execution via pipeline."""
     # Create mock steps that all succeed
     mock_steps = []
@@ -231,7 +223,7 @@ def test_execute_workflow_success(mock_get_pipeline, mock_logger):
 
     mock_get_pipeline.return_value = mock_steps
 
-    result = execute_workflow(1, "adw123", mock_logger)
+    result = execute_workflow(1, "adw123")
     assert result is True
 
     # Verify all steps were executed
@@ -240,7 +232,7 @@ def test_execute_workflow_success(mock_get_pipeline, mock_logger):
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
+def test_execute_workflow_fetch_failure(mock_get_pipeline):
     """Test workflow handles fetch failure (first step fails)."""
     # Create a mock first step that fails
     mock_fetch_step = Mock()
@@ -250,13 +242,12 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline, mock_logger):
 
     mock_get_pipeline.return_value = [mock_fetch_step]
 
-    result = execute_workflow(999, "adw123", mock_logger)
+    result = execute_workflow(999, "adw123")
     assert result is False
-    mock_logger.error.assert_called()
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_classify_failure(mock_get_pipeline, mock_logger):
+def test_execute_workflow_classify_failure(mock_get_pipeline):
     """Test workflow handles classification failure (second step fails)."""
     # Create mock steps where first succeeds, second fails
     mock_fetch_step = Mock()
@@ -271,7 +262,7 @@ def test_execute_workflow_classify_failure(mock_get_pipeline, mock_logger):
 
     mock_get_pipeline.return_value = [mock_fetch_step, mock_classify_step]
 
-    result = execute_workflow(1, "adw123", mock_logger)
+    result = execute_workflow(1, "adw123")
     assert result is False
 
 
@@ -312,7 +303,6 @@ def test_generate_review_success(
     mock_makedirs,
     mock_insert_comment,
     mock_subprocess,
-    mock_logger,
     tmp_path,
 ):
     """Test successful CodeRabbit review generation."""
@@ -338,7 +328,6 @@ def test_generate_review_success(
         working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
-        logger=mock_logger,
     )
 
     assert result.success
@@ -351,7 +340,7 @@ def test_generate_review_success(
 
 
 @patch("rouge.core.workflow.review.subprocess.run")
-def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
+def test_generate_review_subprocess_failure(mock_subprocess):
     """Test CodeRabbit review generation handles subprocess failures."""
     # Mock subprocess failure
     mock_result = Mock()
@@ -366,16 +355,14 @@ def test_generate_review_subprocess_failure(mock_subprocess, mock_logger):
         working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
-        logger=mock_logger,
     )
 
     assert not result.success
     assert result.data is None
-    mock_logger.error.assert_called()
 
 
 @patch("rouge.core.workflow.review.subprocess.run")
-def test_generate_review_timeout(mock_subprocess, mock_logger):
+def test_generate_review_timeout(mock_subprocess):
     """Test CodeRabbit review generation handles timeout."""
     import subprocess
 
@@ -388,12 +375,10 @@ def test_generate_review_timeout(mock_subprocess, mock_logger):
         working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
-        logger=mock_logger,
     )
 
     assert not result.success
     assert result.data is None
-    mock_logger.error.assert_called_with("CodeRabbit review timed out after 300 seconds")
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
@@ -401,7 +386,7 @@ def test_generate_review_timeout(mock_subprocess, mock_logger):
 @patch("rouge.core.workflow.address_review.os.path.exists")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_success(
-    mock_request_class, mock_exists, mock_insert_comment, mock_execute, mock_logger
+    mock_request_class, mock_exists, mock_insert_comment, mock_execute
 ):
     """Test successful notification of review template."""
     # Mock file exists
@@ -427,7 +412,6 @@ def test_address_review_issues_success(
         review_file="specs/chore-test-review.txt",
         issue_id=123,
         adw_id="adw123",
-        logger=mock_logger,
     )
 
     assert result.success
@@ -437,7 +421,7 @@ def test_address_review_issues_success(
 
 
 @patch("rouge.core.workflow.address_review.os.path.exists")
-def test_address_review_issues_file_not_found(mock_exists, mock_logger):
+def test_address_review_issues_file_not_found(mock_exists):
     """Test notification handles missing review file."""
     mock_exists.return_value = False
 
@@ -445,18 +429,16 @@ def test_address_review_issues_file_not_found(mock_exists, mock_logger):
         review_file="specs/missing-review.txt",
         issue_id=123,
         adw_id="adw123",
-        logger=mock_logger,
     )
 
     assert not result.success
-    mock_logger.error.assert_called_with("Review file does not exist: specs/missing-review.txt")
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
 @patch("rouge.core.workflow.address_review.os.path.exists")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_execution_failure(
-    mock_request_class, mock_exists, mock_execute, mock_logger
+    mock_request_class, mock_exists, mock_execute
 ):
     """Test notification handles template execution failure."""
     mock_exists.return_value = True
@@ -475,11 +457,9 @@ def test_address_review_issues_execution_failure(
         review_file="specs/chore-test-review.txt",
         issue_id=123,
         adw_id="adw123",
-        logger=mock_logger,
     )
 
     assert not result.success
-    mock_logger.error.assert_called()
 
 
 # === CreatePullRequestStep Tests ===
@@ -489,7 +469,7 @@ def test_address_review_issues_execution_failure(
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_logger):
+def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
     """Test successful PR creation with git push before gh pr create."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
@@ -512,7 +492,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
     # Mock emit_progress_comment success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -545,13 +525,13 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
-def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
+@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+def test_create_pr_step_missing_github_pat(mock_emit):
     """Test PR creation skipped when GITHUB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -562,9 +542,6 @@ def test_create_pr_step_missing_github_pat(mock_emit, mock_logger):
     result = step.run(context)
 
     assert result.success is True
-    mock_logger.info.assert_called_with(
-        "PR creation skipped: GITHUB_PAT environment variable not set"
-    )
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
@@ -575,26 +552,25 @@ def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     # No pr_details in context
 
     step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
-    mock_logger.info.assert_called_with("PR creation skipped: no PR details in context")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_empty_title(mock_emit, mock_logger):
+def test_create_pr_step_empty_title(mock_emit):
     """Test PR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "",
         "summary": "Some summary",
@@ -605,7 +581,6 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
     result = step.run(context)
 
     assert result.success is True
-    mock_logger.info.assert_called_with("PR creation skipped: PR title is empty")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
@@ -615,7 +590,7 @@ def test_create_pr_step_empty_title(mock_emit, mock_logger):
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+    mock_subprocess, mock_emit, mock_get_repo_path
 ):
     """Test PR creation handles gh command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
@@ -635,7 +610,7 @@ def test_create_pr_step_gh_command_failure(
 
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -646,7 +621,6 @@ def test_create_pr_step_gh_command_failure(
     result = step.run(context)
 
     assert result.success is False
-    mock_logger.warning.assert_called()
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
@@ -655,7 +629,7 @@ def test_create_pr_step_gh_command_failure(
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
@@ -675,7 +649,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
         subprocess.TimeoutExpired(cmd="gh", timeout=120),
     ]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -686,7 +660,6 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     result = step.run(context)
 
     assert result.success is False
-    mock_logger.warning.assert_called_with("gh pr create timed out after 120 seconds")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
@@ -695,7 +668,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path):
     """Test PR creation handles gh CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
@@ -710,7 +683,7 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
 
     mock_subprocess.side_effect = [mock_push_result, FileNotFoundError("gh not found")]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -721,7 +694,6 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
     result = step.run(context)
 
     assert result.success is False
-    mock_logger.warning.assert_called_with("gh CLI not found, skipping PR creation")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
@@ -731,7 +703,7 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+    mock_subprocess, mock_emit, mock_get_repo_path
 ):
     """Test PR creation continues even when git push fails."""
     from rouge.core.workflow.step_base import WorkflowContext
@@ -751,7 +723,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -773,7 +745,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+    mock_subprocess, mock_emit, mock_get_repo_path
 ):
     """Test PR creation continues even when git push times out."""
     import subprocess
@@ -793,7 +765,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
         mock_pr_result,
     ]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -1173,12 +1145,12 @@ def test_create_gitlab_mr_step_name():
 # === PreparePullRequestStep JSON parsing Tests ===
 
 
-def test_prepare_pr_step_store_pr_details_success(mock_logger):
+def test_prepare_pr_step_store_pr_details_success():
     """Test _store_pr_details stores validated dict correctly."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     step = PreparePullRequestStep()
 
     # Now _store_pr_details expects a dict (pre-validated), not a JSON string
@@ -1187,7 +1159,7 @@ def test_prepare_pr_step_store_pr_details_success(mock_logger):
         "summary": "This adds a feature.",
         "commits": ["abc123", "def456"],
     }
-    step._store_pr_details(pr_data, context, mock_logger)
+    step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
     assert context.data["pr_details"]["title"] == "feat: add feature"
@@ -1195,19 +1167,19 @@ def test_prepare_pr_step_store_pr_details_success(mock_logger):
     assert context.data["pr_details"]["commits"] == ["abc123", "def456"]
 
 
-def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
+def test_prepare_pr_step_store_pr_details_missing_fields():
     """Test _store_pr_details handles missing fields with defaults."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     step = PreparePullRequestStep()
 
     # Dict with only title - note this would normally fail JSON validation
     # but _store_pr_details is now called after validation, so this tests
     # that defaults are still applied for extra safety
     pr_data = {"title": "only title"}
-    step._store_pr_details(pr_data, context, mock_logger)
+    step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
     assert context.data["pr_details"]["title"] == "only title"
@@ -1220,7 +1192,7 @@ def test_prepare_pr_step_store_pr_details_missing_fields(mock_logger):
 @patch("rouge.core.workflow.steps.pr.update_status")
 @patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
 def test_prepare_pr_step_emits_raw_llm_response(
-    mock_handler, mock_update_status, mock_execute, mock_emit, mock_logger
+    mock_handler, mock_update_status, mock_execute, mock_emit
 ):
     """Test PreparePullRequestStep emits raw LLM response for debugging."""
     from rouge.core.workflow.step_base import WorkflowContext
@@ -1239,7 +1211,7 @@ def test_prepare_pr_step_emits_raw_llm_response(
     mock_response.output = pr_json
     mock_execute.return_value = mock_response
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     step = PreparePullRequestStep()
     result = step.run(context)
 
