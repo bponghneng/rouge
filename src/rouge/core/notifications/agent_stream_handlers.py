@@ -19,9 +19,11 @@ from rouge.core.agents.opencode import iter_opencode_items
 from rouge.core.models import Comment
 from rouge.core.notifications.comments import insert_progress_comment
 
+logger = logging.getLogger(__name__)
+
 
 def make_progress_comment_handler(
-    issue_id: int, adw_id: str, logger: logging.Logger, provider: str = "claude"
+    issue_id: int, adw_id: str, provider: str = "claude"
 ) -> Callable[[str], None]:
     """Create a stream handler that parses assistant messages and inserts progress comments.
 
@@ -34,14 +36,13 @@ def make_progress_comment_handler(
     Args:
         issue_id: Issue ID for comment insertion
         adw_id: Workflow ID for logging context
-        logger: Logger instance for error reporting
         provider: Provider name ("claude" or "opencode")
 
     Returns:
         Stream handler function that processes output lines
 
     Example:
-        handler = make_progress_comment_handler(123, "adw-456", logger, "opencode")
+        handler = make_progress_comment_handler(123, "adw-456", "opencode")
         agent.execute_prompt(request, stream_handler=handler)
     """
 
@@ -92,20 +93,17 @@ def make_progress_comment_handler(
     return handler
 
 
-def make_simple_logger_handler(logger: logging.Logger) -> Callable[[str], None]:
+def make_simple_logger_handler() -> Callable[[str], None]:
     """Create a stream handler that logs raw output lines for debugging.
 
     This is a simple handler useful for development and debugging,
     logging each output line at debug level.
 
-    Args:
-        logger: Logger instance
-
     Returns:
         Stream handler function that logs each line
 
     Example:
-        handler = make_simple_logger_handler(logger)
+        handler = make_simple_logger_handler()
         agent.execute_prompt(request, stream_handler=handler)
     """
 

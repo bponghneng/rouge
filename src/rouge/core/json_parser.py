@@ -6,11 +6,13 @@ for agent outputs across all core components and workflow steps.
 
 import codecs
 import json
+import logging
 import re
-from logging import Logger
 from typing import Any, Dict, Generic, Mapping, Optional, TypeVar
 
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 # Generic type parameter for StepResult data payload
 T = TypeVar("T")
@@ -118,7 +120,6 @@ def _sanitize_json_output(output: str) -> str:
 def parse_and_validate_json(
     output: Optional[str],
     required_fields: Mapping[str, type[Any]],
-    logger: Logger,
     step_name: Optional[str] = None,
 ) -> StepResult[Dict[str, Any]]:
     """Parse and validate JSON output from agent responses.
@@ -130,7 +131,6 @@ def parse_and_validate_json(
         output: Raw output string from agent
         required_fields: Dictionary mapping field names to expected types
             (e.g., {"type": str, "level": str})
-        logger: Logger instance for debugging
         step_name: Optional step name for error messages
 
     Returns:
