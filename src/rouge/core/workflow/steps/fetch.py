@@ -1,10 +1,14 @@
 """Fetch issue step implementation."""
 
+import logging
+
 from rouge.core.database import fetch_issue
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class FetchIssueStep(WorkflowStep):
@@ -23,7 +27,6 @@ class FetchIssueStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         issue_id = context.issue_id
 
         try:
@@ -32,13 +35,12 @@ class FetchIssueStep(WorkflowStep):
             context.issue = issue
 
             # Update status to "started" - best-effort, non-blocking
-            update_status(issue_id, "started", logger)
+            update_status(issue_id, "started")
 
             # Insert progress comment - best-effort, non-blocking
             emit_progress_comment(
                 issue_id,
                 "Workflow started. Issue fetched and validated",
-                logger,
                 raw={
                     "issue_id": issue_id,
                     "text": "Workflow started. Issue fetched and validated.",

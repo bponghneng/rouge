@@ -1,5 +1,7 @@
 """Pull request preparation step implementation."""
 
+import logging
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -9,6 +11,8 @@ from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 # Required fields for pull request output JSON
 PR_REQUIRED_FIELDS = {
@@ -40,10 +44,8 @@ class PreparePullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
-
         try:
-            pr_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
+            pr_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
 
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
@@ -68,7 +70,6 @@ class PreparePullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 "PR preparation LLM response received",
-                logger,
                 raw={
                     "output": "pr-preparation-response",
                     "llm_response": response.output,
@@ -83,7 +84,7 @@ class PreparePullRequestStep(WorkflowStep):
 
             # Parse and validate JSON output
             parse_result = parse_and_validate_json(
-                response.output, PR_REQUIRED_FIELDS, logger, step_name="pull_request"
+                response.output, PR_REQUIRED_FIELDS, step_name="pull_request"
             )
             if not parse_result.success:
                 error_msg = parse_result.error or "JSON parsing failed"
@@ -96,13 +97,12 @@ class PreparePullRequestStep(WorkflowStep):
 
             # Store PR details for CreatePullRequestStep using validated data
             if parse_result.data is not None:
-                self._store_pr_details(parse_result.data, context, logger)
+                self._store_pr_details(parse_result.data, context)
 
             # Insert progress comment - best-effort, non-blocking
             emit_progress_comment(
                 context.issue_id,
                 "Pull request prepared.",
-                logger,
                 raw={"text": "Pull request prepared.", "result": parse_result.data},
             )
 
@@ -123,26 +123,22 @@ class PreparePullRequestStep(WorkflowStep):
         Args:
             context: Workflow context
         """
-        logger = context.logger
-
         # Update status to "completed" - best-effort, non-blocking
-        update_status(context.issue_id, "completed", logger)
+        update_status(context.issue_id, "completed")
 
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
             context.issue_id,
             "Solution implemented successfully",
-            logger,
             raw={"text": "Solution implemented successfully."},
         )
 
-    def _store_pr_details(self, pr_data: dict, context: WorkflowContext, logger) -> None:
+    def _store_pr_details(self, pr_data: dict, context: WorkflowContext) -> None:
         """Store validated PR details in context for CreatePullRequestStep.
 
         Args:
             pr_data: The validated parsed PR data dict
             context: Workflow context
-            logger: Logger instance
         """
         # Store PR details for CreatePullRequestStep
         context.data["pr_details"] = {

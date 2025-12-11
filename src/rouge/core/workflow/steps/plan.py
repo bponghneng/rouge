@@ -1,8 +1,14 @@
+"""Plan building step implementation."""
+
+import logging
+
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.plan import build_plan
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class BuildPlanStep(WorkflowStep):
@@ -21,7 +27,6 @@ class BuildPlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         issue = context.issue
 
         if issue is None:
@@ -33,12 +38,11 @@ class BuildPlanStep(WorkflowStep):
             logger.error("Cannot build plan: classify_data not available")
             return StepResult.fail("Cannot build plan: classify_data not available")
 
-        plan_handler = make_progress_comment_handler(issue.id, context.adw_id, logger)
+        plan_handler = make_progress_comment_handler(issue.id, context.adw_id)
         plan_response = build_plan(
             issue,
             classify_data.command,
             context.adw_id,
-            logger,
             stream_handler=plan_handler,
         )
 
@@ -65,7 +69,6 @@ class BuildPlanStep(WorkflowStep):
         emit_progress_comment(
             issue.id,
             comment_text,
-            logger,
             raw={"text": parsed_data},
         )
 

@@ -1,10 +1,14 @@
 """Classify issue step implementation."""
 
+import logging
+
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.classify import classify_issue
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class ClassifyStep(WorkflowStep):
@@ -23,15 +27,14 @@ class ClassifyStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         issue = context.issue
 
         if issue is None:
             logger.error("Cannot classify: issue not fetched")
             return StepResult.fail("Cannot classify: issue not fetched")
 
-        classify_handler = make_progress_comment_handler(issue.id, context.adw_id, logger)
-        result = classify_issue(issue, context.adw_id, logger, stream_handler=classify_handler)
+        classify_handler = make_progress_comment_handler(issue.id, context.adw_id)
+        result = classify_issue(issue, context.adw_id, stream_handler=classify_handler)
 
         if not result.success:
             logger.error(f"Error classifying issue: {result.error}")
@@ -66,7 +69,6 @@ class ClassifyStep(WorkflowStep):
         emit_progress_comment(
             issue.id,
             comment_text,
-            logger,
             raw={"text": comment_text},
         )
 

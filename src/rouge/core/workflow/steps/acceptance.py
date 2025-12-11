@@ -1,10 +1,14 @@
 """Acceptance validation step implementation."""
 
+import logging
+
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.acceptance import notify_plan_acceptance
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class ValidateAcceptanceStep(WorkflowStep):
@@ -28,19 +32,17 @@ class ValidateAcceptanceStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
         plan_path = context.data.get("implemented_plan_file", "")
 
         if not plan_path:
             logger.warning("No plan file available for acceptance validation")
             return StepResult.fail("No plan file available for acceptance validation")
 
-        acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id, logger)
+        acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
         acceptance_result = notify_plan_acceptance(
             plan_path,
             context.issue_id,
             context.adw_id,
-            logger,
             stream_handler=acceptance_handler,
         )
 
@@ -54,7 +56,6 @@ class ValidateAcceptanceStep(WorkflowStep):
         emit_progress_comment(
             context.issue_id,
             "Plan acceptance validation completed",
-            logger,
             raw={"text": "Plan acceptance validation completed."},
         )
 
