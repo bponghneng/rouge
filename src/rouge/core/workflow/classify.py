@@ -1,6 +1,6 @@
 """Issue classification functionality for workflow orchestration."""
 
-from logging import Logger
+import logging
 from typing import Callable, Optional, cast
 
 from rouge.core.agent import execute_template
@@ -9,6 +9,8 @@ from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.types import ClassifyData, ClassifySlashCommand, StepResult
+
+logger = logging.getLogger(__name__)
 
 # Required fields for classification output JSON
 CLASSIFY_REQUIRED_FIELDS = {
@@ -20,7 +22,6 @@ CLASSIFY_REQUIRED_FIELDS = {
 def classify_issue(
     issue: Issue,
     adw_id: str,
-    logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[ClassifyData]:
     """Classify issue and return appropriate slash command.
@@ -28,7 +29,6 @@ def classify_issue(
     Args:
         issue: The issue to classify
         adw_id: Workflow ID for tracking
-        logger: Logger instance
         stream_handler: Optional callback for streaming output
 
     Returns:
@@ -59,7 +59,7 @@ def classify_issue(
 
     # Parse and validate JSON output using the shared helper
     parse_result = parse_and_validate_json(
-        response.output, CLASSIFY_REQUIRED_FIELDS, logger, step_name="classify"
+        response.output, CLASSIFY_REQUIRED_FIELDS, step_name="classify"
     )
     if not parse_result.success:
         return StepResult.fail(f"Invalid classification JSON: {parse_result.error}")

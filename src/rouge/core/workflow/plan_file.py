@@ -1,23 +1,22 @@
 """Plan file path extraction functionality for workflow orchestration."""
 
-from logging import Logger
+import logging
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.workflow.shared import AGENT_PLAN_FINDER
 from rouge.core.workflow.types import PlanFileData, StepResult
 
+logger = logging.getLogger(__name__)
 
-def get_plan_file(
-    plan_output: str, issue_id: int, adw_id: str, logger: Logger
-) -> StepResult[PlanFileData]:
+
+def get_plan_file(plan_output: str, issue_id: int, adw_id: str) -> StepResult[PlanFileData]:
     """Get the path to the plan file that was just created.
 
     Args:
         plan_output: The output from the build_plan step
         issue_id: Rouge issue ID for tracking
         adw_id: Workflow ID for tracking
-        logger: Logger instance
 
     Returns:
         StepResult with PlanFileData containing file path

@@ -1,7 +1,7 @@
 """Review issue addressing functionality for workflow orchestration."""
 
+import logging
 import os
-from logging import Logger
 from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
@@ -12,6 +12,8 @@ from rouge.core.notifications import insert_progress_comment
 from rouge.core.workflow.shared import AGENT_REVIEW_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 # Required fields for address review output JSON
 ADDRESS_REVIEW_REQUIRED_FIELDS = {
@@ -25,7 +27,6 @@ def address_review_issues(
     review_file: str,
     issue_id: int,
     adw_id: str,
-    logger: Logger,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[None]:
     """Execute the /address-review-issues template with the review file.
@@ -34,7 +35,6 @@ def address_review_issues(
         review_file: Path to the review file
         issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
-        logger: Logger instance
         stream_handler: Optional callback for streaming output
 
     Returns:
@@ -75,7 +75,6 @@ def address_review_issues(
         emit_progress_comment(
             issue_id,
             "Address review LLM response received",
-            logger,
             raw={"output": "address-review-response", "llm_response": response.output},
         )
 
@@ -89,7 +88,6 @@ def address_review_issues(
         parse_result = parse_and_validate_json(
             response.output,
             ADDRESS_REVIEW_REQUIRED_FIELDS,
-            logger,
             step_name="address_review",
         )
         if not parse_result.success:
