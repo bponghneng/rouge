@@ -525,7 +525,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 def test_create_pr_step_missing_github_pat(mock_emit):
     """Test PR creation skipped when GITHUB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
@@ -547,7 +547,7 @@ def test_create_pr_step_missing_github_pat(mock_emit):
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
-def test_create_pr_step_missing_pr_details(mock_emit, mock_logger):
+def test_create_pr_step_missing_pr_details(mock_emit):
     """Test PR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
