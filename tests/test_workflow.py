@@ -826,6 +826,350 @@ def test_create_pr_step_name():
     assert step.name == "Creating GitHub pull request"
 
 
+# === CreateGitLabPullRequestStep Tests ===
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_logger):
+    """Test successful MR creation with git push before glab mr create."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    # Mock get_repo_path to return a specific path
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock subprocess success for both git push and glab mr create
+    mock_push_result = Mock()
+    mock_push_result.returncode = 0
+    mock_push_result.stdout = ""
+    mock_push_result.stderr = ""
+
+    mock_mr_result = Mock()
+    mock_mr_result.returncode = 0
+    mock_mr_result.stdout = "https://gitlab.com/owner/repo/-/merge_requests/123\n"
+
+    mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
+
+    # Mock emit_progress_comment success
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": ["abc1234", "def5678"],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    assert mock_subprocess.call_count == 2
+    mock_emit.assert_called_once()
+
+    # Verify git push was called first
+    push_call = mock_subprocess.call_args_list[0]
+    assert push_call[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
+    assert push_call[1]["cwd"] == "/path/to/repo"
+
+    # Verify glab mr create was called second
+    mr_call = mock_subprocess.call_args_list[1]
+    assert mr_call[0][0][0:3] == ["glab", "mr", "create"]
+    assert mr_call[1]["cwd"] == "/path/to/repo"
+
+    # Verify the emit call has correct data
+    call_args = mock_emit.call_args
+    assert call_args[0][0] == 1  # issue_id
+    assert "https://gitlab.com/owner/repo/-/merge_requests/123" in call_args[0][1]
+    assert call_args[1]["raw"]["output"] == "merge-request-created"
+    assert call_args[1]["raw"]["url"] == "https://gitlab.com/owner/repo/-/merge_requests/123"
+
+
+@patch.dict("os.environ", {}, clear=True)
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+def test_create_gitlab_mr_step_missing_gitlab_pat(mock_emit, mock_logger):
+    """Test MR creation skipped when GITLAB_PAT is missing."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    mock_logger.info.assert_called_with(
+        "MR creation skipped: GITLAB_PAT environment variable not set"
+    )
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+def test_create_gitlab_mr_step_missing_pr_details(mock_emit, mock_logger):
+    """Test MR creation skipped when pr_details is missing."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    # No pr_details in context
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    mock_logger.info.assert_called_with("MR creation skipped: no PR details in context")
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_empty_title(mock_emit, mock_logger):
+    """Test MR creation skipped when title is empty."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "",
+        "summary": "Some summary",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    mock_logger.info.assert_called_with("MR creation skipped: MR title is empty")
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_glab_command_failure(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+):
+    """Test MR creation handles glab command failure."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock git push success, glab mr create failure
+    mock_push_result = Mock()
+    mock_push_result.returncode = 0
+    mock_push_result.stdout = ""
+    mock_push_result.stderr = ""
+
+    mock_mr_result = Mock()
+    mock_mr_result.returncode = 1
+    mock_mr_result.stderr = "error: could not create merge request"
+
+    mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is False
+    mock_logger.warning.assert_called()
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+    """Test MR creation handles timeout on glab mr create."""
+    import subprocess
+
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock git push success, glab mr create timeout
+    mock_push_result = Mock()
+    mock_push_result.returncode = 0
+    mock_push_result.stdout = ""
+    mock_push_result.stderr = ""
+
+    mock_subprocess.side_effect = [
+        mock_push_result,
+        subprocess.TimeoutExpired(cmd="glab", timeout=120),
+    ]
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is False
+    mock_logger.warning.assert_called_with("glab mr create timed out after 120 seconds")
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+    """Test MR creation handles glab CLI not found."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock git push success, glab not found
+    mock_push_result = Mock()
+    mock_push_result.returncode = 0
+    mock_push_result.stdout = ""
+    mock_push_result.stderr = ""
+
+    mock_subprocess.side_effect = [mock_push_result, FileNotFoundError("glab not found")]
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is False
+    mock_logger.warning.assert_called_with("glab CLI not found, skipping MR creation")
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_push_failure_continues_to_mr(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+):
+    """Test MR creation continues even when git push fails."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock git push failure, glab mr create success
+    mock_push_result = Mock()
+    mock_push_result.returncode = 1
+    mock_push_result.stdout = ""
+    mock_push_result.stderr = "error: failed to push some refs"
+
+    mock_mr_result = Mock()
+    mock_mr_result.returncode = 0
+    mock_mr_result.stdout = "https://gitlab.com/owner/repo/-/merge_requests/123\n"
+
+    mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    # MR should succeed even if push failed (branch may already exist on remote)
+    assert result.success is True
+    assert mock_subprocess.call_count == 2
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-created"
+
+
+@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
+def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+):
+    """Test MR creation continues even when git push times out."""
+    import subprocess
+
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    # Mock git push timeout, glab mr create success
+    mock_mr_result = Mock()
+    mock_mr_result.returncode = 0
+    mock_mr_result.stdout = "https://gitlab.com/owner/repo/-/merge_requests/123\n"
+
+    mock_subprocess.side_effect = [
+        subprocess.TimeoutExpired(cmd="git", timeout=60),
+        mock_mr_result,
+    ]
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This MR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitLabPullRequestStep()
+    result = step.run(context)
+
+    # MR should succeed even if push timed out
+    assert result.success is True
+    assert mock_subprocess.call_count == 2
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-created"
+
+
+def test_create_gitlab_mr_step_is_not_critical():
+    """Test CreateGitLabPullRequestStep is not critical."""
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    step = CreateGitLabPullRequestStep()
+    assert step.is_critical is False
+
+
+def test_create_gitlab_mr_step_name():
+    """Test CreateGitLabPullRequestStep has correct name."""
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    step = CreateGitLabPullRequestStep()
+    assert step.name == "Creating GitLab merge request"
+
+
 # === PreparePullRequestStep JSON parsing Tests ===
 
 
