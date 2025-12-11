@@ -29,17 +29,11 @@ from rouge.core.notifications import (
     make_progress_comment_handler,
 )
 
+logger = logging.getLogger(__name__)
+
 # Required fields for agent output JSON
 # Agent output must have output
 AGENT_REQUIRED_FIELDS = {"output": str}
-
-_DEFAULT_LOGGER = logging.getLogger(__name__)
-
-
-def _get_issue_logger(adw_id: str) -> logging.Logger:
-    """Return logger bound to a specific workflow or fall back to module logger."""
-    issue_logger = logging.getLogger(f"rouge_{adw_id}")
-    return issue_logger if issue_logger.handlers else _DEFAULT_LOGGER
 
 
 def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptResponse:
@@ -66,8 +60,7 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
     )
 
     # Create progress comment handler
-    logger = _get_issue_logger(request.adw_id)
-    handler = make_progress_comment_handler(request.issue_id, request.adw_id, logger)
+    handler = make_progress_comment_handler(request.issue_id, request.adw_id)
 
     # Get agent and execute
     agent = get_agent("claude")
@@ -115,7 +108,6 @@ def execute_template(
         Claude-specific prompt response
     """
     response = execute_claude_template(request, stream_handler=stream_handler)
-    logger = _get_issue_logger(request.adw_id)
 
     # Import here to avoid circular import
     from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -129,7 +121,6 @@ def execute_template(
             result = parse_and_validate_json(
                 raw_output,
                 AGENT_REQUIRED_FIELDS,
-                logger,
                 step_name=request.slash_command,
             )
             if result.success:
@@ -137,7 +128,6 @@ def execute_template(
                 emit_progress_comment(
                     issue_id=request.issue_id,
                     message=f"Template {request.slash_command} completed",
-                    logger=logger,
                     raw={"template": request.slash_command, "result": result.data},
                     comment_type="workflow",
                 )
@@ -148,7 +138,6 @@ def execute_template(
                 emit_progress_comment(
                     issue_id=request.issue_id,
                     message=f"Template {request.slash_command} returned non-JSON output",
-                    logger=logger,
                     raw={
                         "template": request.slash_command,
                         "error": result.error,
@@ -161,7 +150,6 @@ def execute_template(
             emit_progress_comment(
                 issue_id=request.issue_id,
                 message=f"Template {request.slash_command} completed",
-                logger=logger,
                 raw={"template": request.slash_command, "output": raw_output[:500]},
                 comment_type="workflow",
             )
@@ -200,7 +188,7 @@ def execute_agent_prompt(
             adw_id="adw-456",
             agent_name="implementor"
         )
-        handler = make_progress_comment_handler(123, "adw-456", logger)
+        handler = make_progress_comment_handler(123, "adw-456")
         response = execute_agent_prompt(request, stream_handler=handler)
     """
     agent = get_agent(provider)
@@ -208,7 +196,7 @@ def execute_agent_prompt(
 
 
 def execute_implement_plan(
-    plan_file: str, issue_id: int, adw_id: str, agent_name: str, logger: logging.Logger
+    plan_file: str, issue_id: int, adw_id: str, agent_name: str
 ) -> AgentExecuteResponse:
     """Execute implementation plan using configured provider.
 
@@ -230,7 +218,6 @@ def execute_implement_plan(
         issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
         agent_name: Agent name for directory structure
-        logger: Logger instance for logging
 
     Returns:
         AgentExecuteResponse with execution results
@@ -242,8 +229,7 @@ def execute_implement_plan(
             plan_file="specs/feature-plan.md",
             issue_id=123,
             adw_id="adw-456",
-            agent_name="sdlc_implementor",
-            logger=logger
+            agent_name="sdlc_implementor"
         )
     """
     # Get the configured provider for implementation
@@ -279,7 +265,7 @@ def execute_implement_plan(
     )
 
     # Create progress comment handler
-    handler = make_progress_comment_handler(issue_id, adw_id, logger, provider=provider_name)
+    handler = make_progress_comment_handler(issue_id, adw_id, provider=provider_name)
 
     # Get agent and execute
     agent = get_agent(provider_name)
