@@ -86,10 +86,8 @@ def test_create_from_file_directory(tmp_path):
 
 
 @patch("rouge.cli.cli.execute_workflow")
-@patch("rouge.cli.cli.setup_logger")
-def test_run_command_success(mock_logger, mock_execute):
+def test_run_command_success(mock_execute):
     """Test successful workflow execution."""
-    mock_logger.return_value = Mock()
     mock_execute.return_value = True
 
     result = runner.invoke(app, ["run", "123"])
@@ -98,10 +96,8 @@ def test_run_command_success(mock_logger, mock_execute):
 
 
 @patch("rouge.cli.cli.execute_workflow")
-@patch("rouge.cli.cli.setup_logger")
-def test_run_command_failure(mock_logger, mock_execute):
+def test_run_command_failure(mock_execute):
     """Test workflow execution failure."""
-    mock_logger.return_value = Mock()
     mock_execute.return_value = False
 
     result = runner.invoke(app, ["run", "123"])
@@ -109,17 +105,18 @@ def test_run_command_failure(mock_logger, mock_execute):
 
 
 @patch("rouge.cli.cli.execute_workflow")
-@patch("rouge.cli.cli.setup_logger")
-def test_run_command_with_adw_id(mock_logger, mock_execute):
+@patch("rouge.cli.cli.make_adw_id")
+def test_run_command_with_adw_id(mock_make_adw_id, mock_execute):
     """Test run command with custom ADW ID."""
-    mock_logger.return_value = Mock()
     mock_execute.return_value = True
 
     result = runner.invoke(app, ["run", "123", "--adw-id", "custom123"])
     assert result.exit_code == 0
-    # Verify the custom ADW ID was passed
-    call_args = mock_logger.call_args
-    assert call_args[0][0] == "custom123"
+    # When custom ADW ID is provided, make_adw_id should not be called
+    mock_make_adw_id.assert_not_called()
+    # Verify the custom ADW ID was passed to execute_workflow
+    call_args = mock_execute.call_args
+    assert call_args[0][1] == "custom123"
 
 
 def test_run_command_invalid_issue_id():
