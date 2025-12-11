@@ -1,5 +1,6 @@
 """Pipeline orchestrator for workflow execution."""
 
+import os
 from logging import Logger
 from typing import List
 
@@ -68,7 +69,13 @@ class WorkflowRunner:
 
 
 def get_default_pipeline() -> List[WorkflowStep]:
-    """Create the default workflow pipeline with all 11 steps.
+    """Create the default workflow pipeline.
+
+    The pipeline conditionally includes a PR/MR creation step based on the
+    DEV_SEC_OPS_PLATFORM environment variable:
+    - "github": includes CreateGitHubPullRequestStep
+    - "gitlab": includes CreateGitLabPullRequestStep
+    - unset or other value: no PR/MR step included
 
     Returns:
         List of WorkflowStep instances in execution order
@@ -76,7 +83,8 @@ def get_default_pipeline() -> List[WorkflowStep]:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
     from rouge.core.workflow.steps.classify import ClassifyStep
-    from rouge.core.workflow.steps.create_pr import CreatePullRequestStep
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
     from rouge.core.workflow.steps.find_plan_file import FindPlanFileStep
     from rouge.core.workflow.steps.implement import (
@@ -88,7 +96,7 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
 
-    return [
+    steps: List[WorkflowStep] = [
         FetchIssueStep(),
         ClassifyStep(),
         BuildPlanStep(),
@@ -100,5 +108,13 @@ def get_default_pipeline() -> List[WorkflowStep]:
         CodeQualityStep(),
         ValidateAcceptanceStep(),
         PreparePullRequestStep(),
-        CreatePullRequestStep(),
     ]
+
+    # Conditionally add PR/MR creation step based on platform
+    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
+    if platform == "github":
+        steps.append(CreateGitHubPullRequestStep())
+    elif platform == "gitlab":
+        steps.append(CreateGitLabPullRequestStep())
+
+    return steps
