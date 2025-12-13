@@ -1,6 +1,7 @@
 """Pipeline orchestrator for workflow execution."""
 
 import logging
+import os
 from typing import List
 
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
