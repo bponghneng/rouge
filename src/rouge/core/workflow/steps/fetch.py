@@ -3,6 +3,7 @@
 import logging
 
 from rouge.core.database import fetch_issue
+from rouge.core.workflow.artifacts import IssueArtifact
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -33,6 +34,15 @@ class FetchIssueStep(WorkflowStep):
             issue = fetch_issue(issue_id)
             logger.info(f"Issue fetched: ID={issue.id}, Status={issue.status}")
             context.issue = issue
+
+            # Save artifact if artifact store is available
+            if context.artifacts_enabled and context.artifact_store is not None:
+                artifact = IssueArtifact(
+                    workflow_id=context.adw_id,
+                    issue=issue,
+                )
+                context.artifact_store.write_artifact(artifact)
+                logger.debug("Saved issue artifact for workflow %s", context.adw_id)
 
             # Update status to "started" - best-effort, non-blocking
             update_status(issue_id, "started")

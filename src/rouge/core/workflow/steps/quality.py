@@ -6,6 +6,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.workflow.artifacts import QualityCheckArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -76,6 +77,21 @@ class CodeQualityStep(WorkflowStep):
                 return StepResult.fail(parse_result.error or "JSON parsing failed")
 
             logger.info("Code quality checks completed successfully")
+
+            # Save artifact if artifact store is available
+            if (
+                context.artifacts_enabled
+                and context.artifact_store is not None
+                and parse_result.data is not None
+            ):
+                artifact = QualityCheckArtifact(
+                    workflow_id=context.adw_id,
+                    output=parse_result.data.get("output", ""),
+                    tools=parse_result.data.get("tools", []),
+                    parsed_data=parse_result.data,
+                )
+                context.artifact_store.write_artifact(artifact)
+                logger.debug("Saved quality_check artifact for workflow %s", context.adw_id)
 
             # Insert progress comment - best-effort, non-blocking
             emit_progress_comment(
