@@ -448,9 +448,7 @@ def test_address_review_issues_file_not_found(mock_exists):
 @patch("rouge.core.workflow.address_review.execute_template")
 @patch("rouge.core.workflow.address_review.os.path.exists")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
-def test_address_review_issues_execution_failure(
-    mock_request_class, mock_exists, mock_execute
-):
+def test_address_review_issues_execution_failure(mock_request_class, mock_exists, mock_execute):
     """Test notification handles template execution failure."""
     mock_exists.return_value = True
 
@@ -600,9 +598,7 @@ def test_create_pr_step_empty_title(mock_emit):
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_command_failure(
-    mock_subprocess, mock_emit, mock_get_repo_path
-):
+def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_get_repo_path):
     """Test PR creation handles gh command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
@@ -675,24 +671,16 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_path):
-    """Test PR creation handles gh CLI not found."""
+def test_create_pr_step_gh_not_found(mock_emit, mock_which):
+    """Test PR creation handles gh CLI not found via proactive detection."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 
-    mock_get_repo_path.return_value = "/path/to/repo"
-
-    # Mock git push success, gh not found
-    mock_push_result = Mock()
-    mock_push_result.returncode = 0
-    mock_push_result.stdout = ""
-    mock_push_result.stderr = ""
-
-    mock_subprocess.side_effect = [mock_push_result, FileNotFoundError("gh not found")]
+    # Mock shutil.which to return None (gh not found)
+    mock_which.return_value = None
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -704,9 +692,12 @@ def test_create_pr_step_gh_not_found(mock_subprocess, mock_emit, mock_get_repo_p
     step = CreateGitHubPullRequestStep()
     result = step.run(context)
 
-    assert result.success is False
+    # Should return ok (skip) rather than fail since gh not found is handled proactively
+    assert result.success is True
+    mock_which.assert_called_once_with("gh")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
+    assert "gh CLI not found" in mock_emit.call_args[1]["raw"]["reason"]
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
@@ -1028,7 +1019,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_logger, mock_emit, mock_get_repo_path):
+def test_create_gitlab_mr_step_glab_not_found(
+    mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
+):
     """Test MR creation handles glab CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
