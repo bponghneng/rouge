@@ -2,6 +2,7 @@
 
 import logging
 import os
+import shutil
 import subprocess
 
 from rouge.core.workflow.shared import get_repo_path
@@ -64,6 +65,18 @@ class CreateGitHubPullRequestStep(WorkflowStep):
         if not github_pat:
             skip_msg = "PR creation skipped: GITHUB_PAT environment variable not set"
             logger.info(skip_msg)
+            emit_progress_comment(
+                context.issue_id,
+                skip_msg,
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
+            )
+            return StepResult.ok(None)
+
+        # Proactively check for gh CLI availability
+        if not shutil.which("gh"):
+            skip_msg = "PR creation skipped: gh CLI not found in PATH"
+            logger.info(skip_msg)
+            logger.debug("Current PATH: %s", os.environ.get("PATH", ""))
             emit_progress_comment(
                 context.issue_id,
                 skip_msg,
