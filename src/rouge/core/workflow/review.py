@@ -31,16 +31,21 @@ def generate_review(
         if review_dir:
             os.makedirs(review_dir, exist_ok=True)
 
+        # Build absolute config path and validate it exists
+        config_path = os.path.join(working_dir, ".coderabbit.yaml")
+        if not os.path.exists(config_path):
+            return StepResult.fail(f"CodeRabbit config not found at {config_path}")
+        logger.debug(f"Using CodeRabbit config at {config_path}")
+
         # Build CodeRabbit command
         cmd = [
             "coderabbit",
-            "review",
-            "--config",
-            f"{working_dir}/.coderabbit.yaml",
             "--prompt-only",
+            "--config",
+            config_path,
         ]
 
-        logger.debug(f"Executing CodeRabbit command: {' '.join(cmd)}")
+        logger.info(f"Executing CodeRabbit command: {' '.join(cmd)}")
         logger.debug(f"Running from directory: {repo_path}")
 
         # Execute CodeRabbit review from repo_path
@@ -55,6 +60,7 @@ def generate_review(
         with open(review_file, "w") as f:
             f.write(result.stdout)
 
+        logger.info(f"CodeRabbit review generated ({len(result.stdout)} chars)")
         logger.debug(f"Review written to {review_file}")
 
         # Read back the content
