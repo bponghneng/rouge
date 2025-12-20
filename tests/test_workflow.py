@@ -26,6 +26,12 @@ def sample_issue():
     return Issue(id=1, description="Fix login bug", status="pending")
 
 
+@pytest.fixture
+def mock_logger():
+    """Create a mock logger for testing."""
+    return Mock()
+
+
 @patch("rouge.core.workflow.status.update_issue_status")
 def test_update_status_success(mock_update_issue_status):
     """Test successful status update."""
@@ -294,6 +300,7 @@ def test_derive_paths_from_plan():
     assert result["review_file"] == "specs/chore-review.txt"
 
 
+@patch("rouge.core.workflow.review.os.path.exists")
 @patch("rouge.core.workflow.review.subprocess.run")
 @patch("rouge.core.workflow.review.insert_progress_comment")
 @patch("rouge.core.workflow.review.os.makedirs")
@@ -303,6 +310,7 @@ def test_generate_review_success(
     mock_makedirs,
     mock_insert_comment,
     mock_subprocess,
+    mock_exists,
     tmp_path,
 ):
     """Test successful CodeRabbit review generation."""
@@ -314,6 +322,9 @@ def test_generate_review_success(
 
     # Mock directory name
     mock_dirname.return_value = "specs"
+
+    # Mock config file exists
+    mock_exists.return_value = True
 
     # Mock insert_progress_comment success
     mock_insert_comment.return_value = ("success", "Comment inserted")
@@ -828,7 +839,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
     # Mock emit_progress_comment success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -862,12 +873,13 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
 
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
-def test_create_gitlab_mr_step_missing_gitlab_pat(mock_emit, mock_logger):
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
+def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
     """Test MR creation skipped when GITLAB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -886,12 +898,13 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_emit, mock_logger):
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
-def test_create_gitlab_mr_step_missing_pr_details(mock_emit, mock_logger):
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
+def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     """Test MR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     # No pr_details in context
 
     step = CreateGitLabPullRequestStep()
@@ -904,13 +917,14 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_emit, mock_logger):
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_empty_title(mock_emit, mock_logger):
+def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     """Test MR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "",
         "summary": "Some summary",
@@ -928,10 +942,11 @@ def test_create_gitlab_mr_step_empty_title(mock_emit, mock_logger):
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_command_failure(
-    mock_subprocess, mock_emit, mock_get_repo_path, mock_logger
+    mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
 ):
     """Test MR creation handles glab command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
@@ -951,7 +966,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
 
     mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -969,9 +984,10 @@ def test_create_gitlab_mr_step_glab_command_failure(
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, mock_get_repo_path):
     """Test MR creation handles timeout on glab mr create."""
     import subprocess
 
@@ -991,7 +1007,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_emit, mock_get_repo
         subprocess.TimeoutExpired(cmd="glab", timeout=120),
     ]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1009,9 +1025,10 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_emit, mock_get_repo
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_emit, mock_get_repo_path, mock_logger):
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_logger, mock_emit, mock_get_repo_path):
     """Test MR creation handles glab CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
@@ -1026,7 +1043,7 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_emit, mock_g
 
     mock_subprocess.side_effect = [mock_push_result, FileNotFoundError("glab not found")]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1067,7 +1084,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
 
     mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1109,7 +1126,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
         mock_mr_result,
     ]
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123", logger=mock_logger)
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
