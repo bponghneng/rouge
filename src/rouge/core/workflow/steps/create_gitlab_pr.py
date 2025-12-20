@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 
+from rouge.core.workflow.artifacts import PRMetadataArtifact, PullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -35,6 +36,23 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         """
         # Check for pr_details in context
         pr_details = context.data.get("pr_details")
+
+        # Try to load from artifact if not in context
+        if not pr_details and context.artifacts_enabled and context.artifact_store is not None:
+            try:
+                pr_meta_artifact = context.artifact_store.read_artifact(
+                    "pr_metadata", PRMetadataArtifact
+                )
+                pr_details = {
+                    "title": pr_meta_artifact.title,
+                    "summary": pr_meta_artifact.summary,
+                    "commits": pr_meta_artifact.commits,
+                }
+                context.data["pr_details"] = pr_details
+                logger.debug("Loaded pr_metadata from artifact")
+            except FileNotFoundError:
+                pass
+
         if not pr_details:
             skip_msg = "MR creation skipped: no PR details in context"
             logger.info(skip_msg)
@@ -144,6 +162,16 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             # Parse MR URL from output (glab mr create outputs the URL)
             mr_url = result.stdout.strip()
             logger.info("Merge request created: %s", mr_url)
+
+            # Save artifact if artifact store is available
+            if context.artifacts_enabled and context.artifact_store is not None:
+                artifact = PullRequestArtifact(
+                    workflow_id=context.adw_id,
+                    url=mr_url,
+                    platform="gitlab",
+                )
+                context.artifact_store.write_artifact(artifact)
+                logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
 
             # Emit progress comment with MR details
             comment_data = {

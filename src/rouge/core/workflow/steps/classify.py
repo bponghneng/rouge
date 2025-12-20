@@ -3,6 +3,7 @@
 import logging
 
 from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.workflow.artifacts import ClassificationArtifact, IssueArtifact
 from rouge.core.workflow.classify import classify_issue
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -29,6 +30,16 @@ class ClassifyStep(WorkflowStep):
         """
         issue = context.issue
 
+        # Try to load from artifact if not in context
+        if issue is None and context.artifacts_enabled and context.artifact_store is not None:
+            try:
+                issue_artifact = context.artifact_store.read_artifact("issue", IssueArtifact)
+                issue = issue_artifact.issue
+                context.issue = issue
+                logger.debug("Loaded issue from artifact")
+            except FileNotFoundError:
+                pass
+
         if issue is None:
             logger.error("Cannot classify: issue not fetched")
             return StepResult.fail("Cannot classify: issue not fetched")
@@ -46,6 +57,15 @@ class ClassifyStep(WorkflowStep):
 
         # Store classification data in context
         context.data["classify_data"] = result.data
+
+        # Save artifact if artifact store is available
+        if context.artifacts_enabled and context.artifact_store is not None:
+            artifact = ClassificationArtifact(
+                workflow_id=context.adw_id,
+                classify_data=result.data,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved classification artifact for workflow %s", context.adw_id)
 
         issue_command = result.data.command
         classification_data = result.data.classification

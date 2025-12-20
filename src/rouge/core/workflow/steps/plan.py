@@ -3,6 +3,11 @@
 import logging
 
 from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.workflow.artifacts import (
+    ClassificationArtifact,
+    IssueArtifact,
+    PlanArtifact,
+)
 from rouge.core.workflow.plan import build_plan
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, StepResult
@@ -29,11 +34,38 @@ class BuildPlanStep(WorkflowStep):
         """
         issue = context.issue
 
+        # Try to load from artifact if not in context
+        if issue is None and context.artifacts_enabled and context.artifact_store is not None:
+            try:
+                issue_artifact = context.artifact_store.read_artifact("issue", IssueArtifact)
+                issue = issue_artifact.issue
+                context.issue = issue
+                logger.debug("Loaded issue from artifact")
+            except FileNotFoundError:
+                pass
+
         if issue is None:
             logger.error("Cannot build plan: issue not fetched")
             return StepResult.fail("Cannot build plan: issue not fetched")
 
         classify_data: ClassifyData | None = context.data.get("classify_data")
+
+        # Try to load from artifact if not in context
+        if (
+            classify_data is None
+            and context.artifacts_enabled
+            and context.artifact_store is not None
+        ):
+            try:
+                classification_artifact = context.artifact_store.read_artifact(
+                    "classification", ClassificationArtifact
+                )
+                classify_data = classification_artifact.classify_data
+                context.data["classify_data"] = classify_data
+                logger.debug("Loaded classification from artifact")
+            except FileNotFoundError:
+                pass
+
         if classify_data is None:
             logger.error("Cannot build plan: classify_data not available")
             return StepResult.fail("Cannot build plan: classify_data not available")
@@ -52,6 +84,19 @@ class BuildPlanStep(WorkflowStep):
 
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
+
+        # Save artifact if artifact store is available
+        if (
+            context.artifacts_enabled
+            and context.artifact_store is not None
+            and plan_response.data is not None
+        ):
+            artifact = PlanArtifact(
+                workflow_id=context.adw_id,
+                plan_data=plan_response.data,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved plan artifact for workflow %s", context.adw_id)
 
         # Build progress comment from parsed plan data
         parsed_data = plan_response.metadata.get("parsed_data", {})

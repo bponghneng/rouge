@@ -6,6 +6,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.workflow.artifacts import PRMetadataArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -141,13 +142,25 @@ class PreparePullRequestStep(WorkflowStep):
             context: Workflow context
         """
         # Store PR details for CreatePullRequestStep
-        context.data["pr_details"] = {
+        pr_details = {
             "title": pr_data.get("title", ""),
             "summary": pr_data.get("summary", ""),
             "commits": pr_data.get("commits", []),
         }
+        context.data["pr_details"] = pr_details
         logger.debug(
             "Stored PR details in context: title=%s, commits=%d",
-            context.data["pr_details"]["title"],
-            len(context.data["pr_details"]["commits"]),
+            pr_details["title"],
+            len(pr_details["commits"]),
         )
+
+        # Save artifact if artifact store is available
+        if context.artifacts_enabled and context.artifact_store is not None:
+            artifact = PRMetadataArtifact(
+                workflow_id=context.adw_id,
+                title=pr_details["title"],
+                summary=pr_details["summary"],
+                commits=pr_details["commits"],
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)
