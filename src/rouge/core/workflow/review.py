@@ -38,6 +38,8 @@ def generate_review(
         logger.debug(f"Using CodeRabbit config at {config_path}")
 
         # Build CodeRabbit command
+        # Note: Uses direct 'coderabbit --prompt-only' instead of 'coderabbit review --prompt-only'
+        # This change was made to align with the updated CodeRabbit CLI interface
         cmd = [
             "coderabbit",
             "--prompt-only",
@@ -45,7 +47,7 @@ def generate_review(
             config_path,
         ]
 
-        logger.info(f"Executing CodeRabbit command: {' '.join(cmd)}")
+        logger.debug(f"Executing CodeRabbit command: {' '.join(cmd)}")
         logger.debug(f"Running from directory: {repo_path}")
 
         # Execute CodeRabbit review from repo_path

@@ -26,12 +26,6 @@ def sample_issue():
     return Issue(id=1, description="Fix login bug", status="pending")
 
 
-@pytest.fixture
-def mock_logger():
-    """Create a mock logger for testing."""
-    return Mock()
-
-
 @patch("rouge.core.workflow.status.update_issue_status")
 def test_update_status_success(mock_update_issue_status):
     """Test successful status update."""

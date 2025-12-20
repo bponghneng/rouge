@@ -179,15 +179,6 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 raw={"output": "pull-request-failed", "error": error_msg},
             )
             return StepResult.fail(error_msg)
-        except FileNotFoundError:
-            error_msg = "gh CLI not found, skipping PR creation"
-            logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating pull request: {e}"
             logger.warning(error_msg)
