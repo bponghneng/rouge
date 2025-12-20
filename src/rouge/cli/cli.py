@@ -8,6 +8,8 @@ import typer
 from dotenv import load_dotenv
 
 from rouge import __version__
+from rouge.cli.artifact import app as artifact_app
+from rouge.cli.step import app as step_app
 from rouge.core.database import create_issue
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
@@ -20,6 +22,10 @@ app = typer.Typer(
     no_args_is_help=True,
     help="Rouge CLI - Workflow management",
 )
+
+# Register subcommands
+app.add_typer(step_app, name="step")
+app.add_typer(artifact_app, name="artifact")
 
 
 def version_callback(value: bool):
