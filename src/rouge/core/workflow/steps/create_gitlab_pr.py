@@ -1,5 +1,6 @@
 """Create GitLab merge request step implementation."""
 
+import logging
 import os
 import subprocess
 
@@ -7,6 +8,8 @@ from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
+
+logger = logging.getLogger(__name__)
 
 
 class CreateGitLabPullRequestStep(WorkflowStep):
@@ -30,8 +33,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        logger = context.logger
-
         # Check for pr_details in context
         pr_details = context.data.get("pr_details")
         if not pr_details:
@@ -40,7 +41,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 skip_msg,
-                logger,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
             )
             return StepResult.ok(None)
@@ -55,7 +55,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 skip_msg,
-                logger,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
             )
             return StepResult.ok(None)
@@ -68,7 +67,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 skip_msg,
-                logger,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
             )
             return StepResult.ok(None)
@@ -139,7 +137,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 emit_progress_comment(
                     context.issue_id,
                     error_msg,
-                    logger,
                     raw={"output": "merge-request-failed", "error": error_msg},
                 )
                 return StepResult.fail(error_msg)
@@ -157,7 +154,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 f"Merge request created: {mr_url}",
-                logger,
                 raw=comment_data,
             )
 
@@ -169,7 +165,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 error_msg,
-                logger,
                 raw={"output": "merge-request-failed", "error": error_msg},
             )
             return StepResult.fail(error_msg)
@@ -179,7 +174,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 error_msg,
-                logger,
                 raw={"output": "merge-request-failed", "error": error_msg},
             )
             return StepResult.fail(error_msg)
@@ -189,7 +183,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             emit_progress_comment(
                 context.issue_id,
                 error_msg,
-                logger,
                 raw={"output": "merge-request-failed", "error": error_msg},
             )
             return StepResult.fail(error_msg)
