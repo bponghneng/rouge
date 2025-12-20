@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional
 from rouge.core.models import Issue
 
 if TYPE_CHECKING:
+    from rouge.core.workflow.artifacts import ArtifactStore
     from rouge.core.workflow.types import StepResult
 
 
@@ -19,12 +20,23 @@ class WorkflowContext:
         adw_id: Workflow ID for tracking
         issue: The fetched Issue object (set by FetchIssueStep)
         data: Dictionary to store intermediate step data
+        artifact_store: Optional ArtifactStore for artifact persistence
     """
 
     issue_id: int
     adw_id: str
     issue: Optional[Issue] = None
     data: Dict[str, Any] = field(default_factory=dict)
+    artifact_store: Optional["ArtifactStore"] = None
+
+    @property
+    def artifacts_enabled(self) -> bool:
+        """Check if artifact persistence is enabled.
+
+        Returns:
+            True if an artifact store is available
+        """
+        return self.artifact_store is not None
 
 
 class WorkflowStep(ABC):
