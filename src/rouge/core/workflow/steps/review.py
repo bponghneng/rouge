@@ -4,6 +4,11 @@ import logging
 
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.address_review import address_review_issues
+from rouge.core.workflow.artifacts import (
+    ImplementedPlanFileArtifact,
+    ReviewAddressedArtifact,
+    ReviewArtifact,
+)
 from rouge.core.workflow.review import generate_review
 from rouge.core.workflow.shared import (
     derive_paths_from_plan,
@@ -40,6 +45,22 @@ class GenerateReviewStep(WorkflowStep):
         """
         implemented_plan_path = context.data.get("implemented_plan_file", "")
 
+        # Try to load from artifact if not in context
+        if (
+            not implemented_plan_path
+            and context.artifacts_enabled
+            and context.artifact_store is not None
+        ):
+            try:
+                impl_plan_artifact = context.artifact_store.read_artifact(
+                    "implemented_plan_file", ImplementedPlanFileArtifact
+                )
+                implemented_plan_path = impl_plan_artifact.file_path
+                context.data["implemented_plan_file"] = implemented_plan_path
+                logger.debug("Loaded implemented_plan_file from artifact")
+            except FileNotFoundError:
+                pass
+
         if not implemented_plan_path:
             logger.warning("No implemented plan file, skipping review generation")
             return StepResult.fail("No implemented plan file, skipping review generation")
@@ -70,6 +91,15 @@ class GenerateReviewStep(WorkflowStep):
 
         # Store review data in context
         context.data["review_data"] = review_result.data
+
+        # Save artifact if artifact store is available
+        if context.artifacts_enabled and context.artifact_store is not None:
+            artifact = ReviewArtifact(
+                workflow_id=context.adw_id,
+                review_data=review_result.data,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved review artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
@@ -105,6 +135,19 @@ class AddressReviewStep(WorkflowStep):
         review_file = context.data.get("review_file", "")
         review_data = context.data.get("review_data")
 
+        # Try to load from artifact if not in context
+        if review_data is None and context.artifacts_enabled and context.artifact_store is not None:
+            try:
+                review_artifact = context.artifact_store.read_artifact("review", ReviewArtifact)
+                review_data = review_artifact.review_data
+                context.data["review_data"] = review_data
+                if not review_file:
+                    review_file = review_data.review_file
+                    context.data["review_file"] = review_file
+                logger.debug("Loaded review from artifact")
+            except FileNotFoundError:
+                pass
+
         # Only proceed if we have review data (review generation succeeded)
         if review_data is None:
             logger.warning("No review data available, skipping address review")
@@ -124,9 +167,27 @@ class AddressReviewStep(WorkflowStep):
 
         if not review_issues_result.success:
             logger.error(f"Failed to address review issues: {review_issues_result.error}")
+            # Save artifact even on failure
+            if context.artifacts_enabled and context.artifact_store is not None:
+                artifact = ReviewAddressedArtifact(
+                    workflow_id=context.adw_id,
+                    success=False,
+                    message=review_issues_result.error,
+                )
+                context.artifact_store.write_artifact(artifact)
             return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
         logger.info("Review issues addressed successfully")
+
+        # Save artifact if artifact store is available
+        if context.artifacts_enabled and context.artifact_store is not None:
+            artifact = ReviewAddressedArtifact(
+                workflow_id=context.adw_id,
+                success=True,
+                message="Review issues addressed successfully",
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
         emit_progress_comment(
