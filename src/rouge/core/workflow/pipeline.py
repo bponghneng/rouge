@@ -2,8 +2,9 @@
 
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
+from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
 
@@ -17,13 +18,15 @@ class WorkflowRunner:
     continuing past best-effort step failures.
     """
 
-    def __init__(self, steps: List[WorkflowStep]) -> None:
+    def __init__(self, steps: List[WorkflowStep], enable_artifacts: bool = False) -> None:
         """Initialize the runner with a list of steps.
 
         Args:
             steps: Ordered list of workflow steps to execute
+            enable_artifacts: Whether to enable artifact persistence
         """
         self._steps = steps
+        self._enable_artifacts = enable_artifacts
 
     def run(self, issue_id: int, adw_id: str) -> bool:
         """Execute all workflow steps in sequence.
@@ -35,9 +38,16 @@ class WorkflowRunner:
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
+        # Create artifact store if enabled
+        artifact_store: Optional[ArtifactStore] = None
+        if self._enable_artifacts:
+            artifact_store = ArtifactStore(adw_id)
+            logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
+
         context = WorkflowContext(
             issue_id=issue_id,
             adw_id=adw_id,
+            artifact_store=artifact_store,
         )
 
         logger.info(f"ADW ID: {adw_id}")
@@ -65,6 +75,65 @@ class WorkflowRunner:
                 log_step_end(step.name, result.success, issue_id=issue_id)
 
         logger.info("\n=== Workflow completed successfully ===")
+        return True
+
+    def run_single_step(
+        self,
+        step_name: str,
+        issue_id: int,
+        adw_id: str,
+    ) -> bool:
+        """Execute a single step by name, using artifacts for dependencies.
+
+        This method enables running individual steps independently by loading
+        their dependencies from previously stored artifacts.
+
+        Args:
+            step_name: The name of the step to execute
+            issue_id: The Rouge issue ID to process
+            adw_id: Workflow ID for artifact persistence
+
+        Returns:
+            True if step completed successfully, False otherwise
+
+        Raises:
+            ValueError: If step_name is not found in the pipeline
+        """
+        # Find the step by name
+        target_step: Optional[WorkflowStep] = None
+        for step in self._steps:
+            if step.name == step_name:
+                target_step = step
+                break
+
+        if target_step is None:
+            raise ValueError(f"Step not found: {step_name}")
+
+        # Always enable artifacts for single-step execution
+        artifact_store = ArtifactStore(adw_id)
+        logger.debug("Single-step execution with artifacts at %s", artifact_store.workflow_dir)
+
+        context = WorkflowContext(
+            issue_id=issue_id,
+            adw_id=adw_id,
+            artifact_store=artifact_store,
+        )
+
+        logger.info(f"ADW ID: {adw_id}")
+        logger.info(f"Running single step '{step_name}' for issue ID: {issue_id}")
+
+        log_step_start(target_step.name, issue_id=issue_id)
+        result = target_step.run(context)
+        log_step_end(target_step.name, result.success, issue_id=issue_id)
+
+        if not result.success:
+            error_msg = f"Step '{step_name}' failed"
+            if result.error:
+                error_msg += f": {result.error}"
+            logger.error(error_msg)
+            return False
+
+        logger.info(f"Step '{step_name}' completed successfully")
         return True
 
 
