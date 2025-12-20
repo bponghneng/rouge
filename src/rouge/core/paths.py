@@ -26,6 +26,23 @@ class RougePaths:
         return RougePaths.get_base_dir() / "logs"
 
     @staticmethod
+    def get_workflows_dir() -> Path:
+        """Get workflows directory for artifact storage."""
+        return RougePaths.get_base_dir() / "workflows"
+
+    @staticmethod
+    def get_workflow_dir(workflow_id: str) -> Path:
+        """Get directory for a specific workflow's artifacts.
+
+        Args:
+            workflow_id: The workflow ID
+
+        Returns:
+            Path to the workflow artifact directory
+        """
+        return RougePaths.get_workflows_dir() / workflow_id
+
+    @staticmethod
     def ensure_directories() -> None:
         """
         Ensure all required directories exist with proper permissions.
@@ -34,6 +51,7 @@ class RougePaths:
         """
         directories = [
             RougePaths.get_logs_dir(),
+            RougePaths.get_workflows_dir(),
         ]
 
         for directory in directories:
