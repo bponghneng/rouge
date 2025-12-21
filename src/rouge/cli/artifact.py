@@ -119,7 +119,7 @@ def delete_artifact(
         confirm = typer.confirm(f"Delete artifact '{artifact_type}' from workflow '{adw_id}'?")
         if not confirm:
             typer.echo("Cancelled")
-            raise typer.Exit(0)
+            return
 
     deleted = store.delete_artifact(artifact_type)  # type: ignore
     if deleted:

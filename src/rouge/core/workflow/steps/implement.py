@@ -44,7 +44,8 @@ class ImplementStep(WorkflowStep):
                 context.data["plan_file"] = plan_file
                 logger.debug("Loaded plan_file from artifact")
             except FileNotFoundError:
-                pass
+                # Missing plan_file artifact is acceptable; fall back to handling below.
+                logger.debug("No plan_file artifact found; proceeding without loading from artifacts")
 
         if plan_file is None:
             logger.error("Cannot implement: plan_file not available")
@@ -118,7 +119,8 @@ class FindImplementedPlanStep(WorkflowStep):
                     context.data["implement_data"] = implement_data
                     logger.debug("Loaded implementation from artifact")
                 except FileNotFoundError:
-                    pass
+                    # Missing implementation artifact is acceptable; fall back to checking context below.
+                    logger.debug("No implementation artifact found; proceeding without it")
 
             if not fallback_path:
                 try:
@@ -129,7 +131,8 @@ class FindImplementedPlanStep(WorkflowStep):
                     context.data["plan_file"] = fallback_path
                     logger.debug("Loaded plan_file from artifact for fallback")
                 except FileNotFoundError:
-                    pass
+                    # Missing plan_file artifact is acceptable; fallback_path will remain empty.
+                    logger.debug("No plan_file artifact found for fallback; proceeding without it")
 
         if implement_data is None:
             logger.warning("No implementation data, using fallback plan file")

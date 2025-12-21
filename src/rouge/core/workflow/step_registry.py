@@ -241,12 +241,17 @@ class StepRegistry:
                     )
 
         # Check for circular dependencies
+        detected_circular_deps = set()
         for step_name in self._steps:
             try:
                 self.resolve_dependencies(step_name)
             except ValueError as e:
                 if "Circular dependency" in str(e):
-                    issues.append(str(e))
+                    # Extract the cycle to avoid duplicate reporting
+                    error_msg = str(e)
+                    if error_msg not in detected_circular_deps:
+                        detected_circular_deps.add(error_msg)
+                        issues.append(error_msg)
 
         return issues
 
