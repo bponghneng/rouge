@@ -37,7 +37,6 @@ ArtifactType = Literal[
     "classification",
     "plan",
     "implementation",
-    "implemented_plan_file",
     "review",
     "review_addressed",
     "quality_check",
@@ -103,17 +102,6 @@ class ImplementationArtifact(Artifact):
 
     artifact_type: Literal["implementation"] = "implementation"
     implement_data: ImplementData
-
-
-class ImplementedPlanFileArtifact(Artifact):
-    """Artifact containing the implemented plan file path.
-
-    Attributes:
-        file_path: Path to the implemented plan file
-    """
-
-    artifact_type: Literal["implemented_plan_file"] = "implemented_plan_file"
-    file_path: str
 
 
 class ReviewArtifact(Artifact):
@@ -202,7 +190,6 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "classification": ClassificationArtifact,
     "plan": PlanArtifact,
     "implementation": ImplementationArtifact,
-    "implemented_plan_file": ImplementedPlanFileArtifact,
     "review": ReviewArtifact,
     "review_addressed": ReviewAddressedArtifact,
     "quality_check": QualityCheckArtifact,

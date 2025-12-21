@@ -4,7 +4,7 @@ import logging
 
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.acceptance import notify_plan_acceptance
-from rouge.core.workflow.artifacts import AcceptanceArtifact, ImplementedPlanFileArtifact
+from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -28,29 +28,26 @@ class ValidateAcceptanceStep(WorkflowStep):
         """Validate implementation against plan.
 
         Args:
-            context: Workflow context with implemented_plan_file
+            context: Workflow context with plan artifact
 
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load implemented_plan_file from artifact if not in context
-        plan_path = (
-            context.load_artifact_if_missing(
-                "implemented_plan_file",
-                "implemented_plan_file",
-                ImplementedPlanFileArtifact,
-                lambda a: a.file_path,
-            )
-            or ""
+        # Load plan content from artifact
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
         )
 
-        if not plan_path:
-            logger.warning("No plan file available for acceptance validation")
-            return StepResult.fail("No plan file available for acceptance validation")
+        if plan_data is None:
+            logger.warning("No plan available for acceptance validation")
+            return StepResult.fail("No plan available for acceptance validation")
 
         acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
         acceptance_result = notify_plan_acceptance(
-            plan_path,
+            plan_data.plan,
             context.issue_id,
             context.adw_id,
             stream_handler=acceptance_handler,
