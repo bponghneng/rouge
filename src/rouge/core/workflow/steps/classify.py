@@ -38,7 +38,8 @@ class ClassifyStep(WorkflowStep):
                 context.issue = issue
                 logger.debug("Loaded issue from artifact")
             except FileNotFoundError:
-                pass
+                # Artifact for the issue does not exist; fall back to handling a missing issue below.
+                logger.debug("No existing issue artifact found; proceeding without artifact")
 
         if issue is None:
             logger.error("Cannot classify: issue not fetched")

@@ -111,7 +111,17 @@ class WorkflowRunner:
 
         # Always enable artifacts for single-step execution
         artifact_store = ArtifactStore(adw_id)
-        logger.debug("Single-step execution with artifacts at %s", artifact_store.workflow_dir)
+        workflow_dir = artifact_store.workflow_dir
+        
+        # Ensure the workflow directory exists and contains artifacts from a prior run
+        if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
+            logger.error(
+                "Workflow directory '%s' does not exist or contains no artifacts. "
+                "Run the full workflow before executing individual steps.",
+                workflow_dir,
+            )
+            return False
+        logger.debug("Single-step execution with artifacts at %s", workflow_dir)
 
         context = WorkflowContext(
             issue_id=issue_id,

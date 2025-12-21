@@ -47,7 +47,7 @@ class RougePaths:
         """
         Ensure all required directories exist with proper permissions.
 
-        Creates directories atomically with 0755 permissions.
+        Creates directories atomically with 0700 permissions.
         """
         directories = [
             RougePaths.get_logs_dir(),
@@ -55,4 +55,4 @@ class RougePaths:
         ]
 
         for directory in directories:
-            directory.mkdir(parents=True, exist_ok=True, mode=0o755)
+            directory.mkdir(parents=True, exist_ok=True, mode=0o700)

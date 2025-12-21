@@ -3,7 +3,6 @@
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
@@ -12,9 +11,7 @@ from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import (
     ARTIFACT_MODELS,
     AcceptanceArtifact,
-    Artifact,
     ArtifactStore,
-    ArtifactType,
     ClassificationArtifact,
     ImplementationArtifact,
     ImplementedPlanFileArtifact,

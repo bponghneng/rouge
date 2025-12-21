@@ -62,7 +62,7 @@ def run_step(
         success = runner.run_single_step(step_name, issue_id, adw_id)
         if success:
             typer.echo(f"Step '{step_name}' completed successfully")
-            raise typer.Exit(0)
+            return
         else:
             typer.echo(f"Step '{step_name}' failed", err=True)
             raise typer.Exit(1)
@@ -110,7 +110,7 @@ def validate_registry() -> None:
 
     if not issues:
         typer.echo("Step registry is valid - no issues found")
-        raise typer.Exit(0)
+        return
 
     typer.echo("Step registry validation issues:\n", err=True)
     for issue in issues:
