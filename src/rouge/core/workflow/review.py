@@ -18,8 +18,8 @@ def generate_review(
 
     Args:
         review_file: Path where review should be saved
-        working_dir: Working directory for CodeRabbit command
-        repo_path: Repository root path
+        working_dir: Working directory (unused, kept for backward compatibility)
+        repo_path: Repository root path where .coderabbit.yaml config is located
         issue_id: Rouge issue ID for tracking
 
     Returns:
@@ -31,8 +31,8 @@ def generate_review(
         if review_dir:
             os.makedirs(review_dir, exist_ok=True)
 
-        # Build absolute config path and validate it exists
-        config_path = os.path.join(working_dir, ".coderabbit.yaml")
+        # Build absolute config path and validate it exists (config must be in repo root)
+        config_path = os.path.join(repo_path, ".coderabbit.yaml")
         if not os.path.exists(config_path):
             return StepResult.fail(f"CodeRabbit config not found at {config_path}")
         logger.debug(f"Using CodeRabbit config at {config_path}")
