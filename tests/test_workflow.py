@@ -168,7 +168,7 @@ def test_implement_plan_success(mock_execute):
     """Test successful plan implementation."""
     implement_json = (
         '{"files_modified": ["src/main.py"], "git_diff_stat": "1 file changed", '
-        '"output": "implement", "planPath": "specs/plan.md", '
+        '"output": "implement", '
         '"status": "completed", "summary": "Implementation complete"}'
     )
     mock_execute.return_value = Mock(
