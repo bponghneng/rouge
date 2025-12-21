@@ -1,8 +1,5 @@
 """Tests for step CLI commands."""
 
-import os
-from unittest.mock import patch
-
 from typer.testing import CliRunner
 
 from rouge.cli.cli import app
@@ -110,6 +107,7 @@ class TestStepRunCommand:
         result = runner.invoke(app, ["step", "run", "Test Step"])
         assert result.exit_code != 0
         # Should show error about missing required option
+        assert "Missing option" in result.stdout or "required" in result.stdout.lower()
 
     def test_step_run_unknown_step(self):
         """Test step run command with unknown step name."""

@@ -252,7 +252,7 @@ class ArtifactStore:
 
     def _ensure_workflow_dir(self) -> None:
         """Ensure the workflow directory exists."""
-        self._workflow_dir.mkdir(parents=True, exist_ok=True, mode=0o755)
+        self._workflow_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     def _get_artifact_path(self, artifact_type: ArtifactType) -> Path:
         """Get the file path for an artifact type.
@@ -335,10 +335,10 @@ class ArtifactStore:
             return artifact
         except json.JSONDecodeError as e:
             logger.error("Failed to parse artifact %s: %s", artifact_type, e)
-            raise ValueError(f"Corrupted artifact JSON for {artifact_type}: {e}")
+            raise ValueError(f"Corrupted artifact JSON for {artifact_type}: {e}") from e
         except Exception as e:
             logger.error("Failed to read artifact %s: %s", artifact_type, e)
-            raise ValueError(f"Failed to validate artifact {artifact_type}: {e}")
+            raise ValueError(f"Failed to validate artifact {artifact_type}: {e}") from e
 
     def artifact_exists(self, artifact_type: ArtifactType) -> bool:
         """Check if an artifact exists.

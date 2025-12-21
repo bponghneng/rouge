@@ -45,7 +45,8 @@ class ValidateAcceptanceStep(WorkflowStep):
                 context.data["implemented_plan_file"] = plan_path
                 logger.debug("Loaded implemented_plan_file from artifact")
             except FileNotFoundError:
-                pass
+                # Artifact for implemented plan is not required; fall back to checking for a plan file in context.
+                logger.debug("No implemented_plan_file artifact found; proceeding without artifact-backed plan file")
 
         if not plan_path:
             logger.warning("No plan file available for acceptance validation")

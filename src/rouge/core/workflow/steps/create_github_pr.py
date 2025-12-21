@@ -52,7 +52,8 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.data["pr_details"] = pr_details
                 logger.debug("Loaded pr_metadata from artifact")
             except FileNotFoundError:
-                pass
+                # Artifact with PR metadata was not found; continue without it.
+                logger.debug("No pr_metadata artifact found; proceeding without it")
 
         if not pr_details:
             skip_msg = "PR creation skipped: no PR details in context"

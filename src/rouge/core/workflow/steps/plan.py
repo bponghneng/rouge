@@ -42,7 +42,8 @@ class BuildPlanStep(WorkflowStep):
                 context.issue = issue
                 logger.debug("Loaded issue from artifact")
             except FileNotFoundError:
-                pass
+                # Missing issue artifact is acceptable; fall back to checking context below.
+                logger.debug("No existing issue artifact found; proceeding without artifact")
 
         if issue is None:
             logger.error("Cannot build plan: issue not fetched")
@@ -64,7 +65,8 @@ class BuildPlanStep(WorkflowStep):
                 context.data["classify_data"] = classify_data
                 logger.debug("Loaded classification from artifact")
             except FileNotFoundError:
-                pass
+                # Missing classification artifact is acceptable; fall back to checking context below.
+                logger.debug("No existing classification artifact found; proceeding without artifact")
 
         if classify_data is None:
             logger.error("Cannot build plan: classify_data not available")

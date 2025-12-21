@@ -36,7 +36,8 @@ class FindPlanFileStep(WorkflowStep):
                 context.data["plan_data"] = plan_data
                 logger.debug("Loaded plan from artifact")
             except FileNotFoundError:
-                pass
+                # Missing plan artifact is acceptable; fall back to handling absent plan_data.
+                logger.debug("Plan artifact not found; proceeding without loaded plan_data")
 
         if plan_data is None:
             logger.error("Cannot find plan file: plan_data not available")

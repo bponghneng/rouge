@@ -58,7 +58,8 @@ class GenerateReviewStep(WorkflowStep):
                 context.data["implemented_plan_file"] = implemented_plan_path
                 logger.debug("Loaded implemented_plan_file from artifact")
             except FileNotFoundError:
-                pass
+                # Implemented plan artifact not found; handled below when checking implemented_plan_path.
+                logger.debug("No implemented_plan_file artifact found; proceeding without it")
 
         if not implemented_plan_path:
             logger.warning("No implemented plan file, skipping review generation")
@@ -144,7 +145,8 @@ class AddressReviewStep(WorkflowStep):
                     context.data["review_file"] = review_file
                 logger.debug("Loaded review from artifact")
             except FileNotFoundError:
-                pass
+                # Missing review artifact is acceptable; fall back to "no review data" behavior.
+                logger.debug("No review artifact found; proceeding without preloaded review data")
 
         # Only proceed if we have review data (review generation succeeded)
         if review_data is None:
