@@ -112,7 +112,7 @@ class WorkflowRunner:
         # Always enable artifacts for single-step execution
         artifact_store = ArtifactStore(adw_id)
         workflow_dir = artifact_store.workflow_dir
-        
+
         # Ensure the workflow directory exists and contains artifacts from a prior run
         if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
             logger.error(
