@@ -193,6 +193,29 @@ Workflows can be executed directly using:
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 
+## Artifact-Based Workflow
+
+Rouge supports typed workflow artifacts that persist step inputs/outputs to disk.
+Artifacts are stored under `~/.rouge/workflows/<workflow-id>/` by default, or
+`$ROUGE_DATA_DIR/workflows/<workflow-id>/` when `ROUGE_DATA_DIR` is set.
+
+Artifact-focused commands:
+
+- `rouge step list` - List registered workflow steps and dependencies.
+- `rouge step run <step-name> --issue-id <id> --adw-id <workflow-id>` - Run a single step using stored artifacts.
+- `rouge step deps <step-name>` - Show dependency chain.
+- `rouge step validate` - Validate step registry for missing producers or cycles.
+- `rouge artifact list <workflow-id>` - List artifacts for a workflow.
+- `rouge artifact show <workflow-id> <artifact-type>` - Display artifact JSON.
+- `rouge artifact delete <workflow-id> <artifact-type>` - Remove a stored artifact.
+- `rouge artifact types` - List available artifact types.
+- `rouge artifact path <workflow-id>` - Show the artifact directory path.
+
+Single-step execution requires artifacts from a prior run (or manually created
+files in the workflow directory). Full workflow execution (`rouge run`,
+`rouge-adw`, `rouge-worker`) does not enable artifacts by default; use the
+step/artifact commands after a run that generated artifacts.
+
 ## Worker Features
 
 - Polls `cape_issues` for `status='pending'`, locks the next row via a
