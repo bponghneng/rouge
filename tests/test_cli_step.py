@@ -106,8 +106,8 @@ class TestStepRunCommand:
         """Test step run command requires issue-id and adw-id."""
         result = runner.invoke(app, ["step", "run", "Test Step"])
         assert result.exit_code != 0
-        # Should show error about missing required option
-        assert "Missing option" in result.stdout or "required" in result.stdout.lower()
+        # Should show error about missing required option (check output, which includes stderr)
+        assert "Missing option" in result.output or "required" in result.output.lower()
 
     def test_step_run_unknown_step(self):
         """Test step run command with unknown step name."""

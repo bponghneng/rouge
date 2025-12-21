@@ -330,7 +330,6 @@ def test_generate_review_success(
 
     result = generate_review(
         review_file=str(review_file),
-        working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
     )
@@ -357,7 +356,6 @@ def test_generate_review_subprocess_failure(mock_subprocess):
 
     result = generate_review(
         review_file="specs/chore-test-review.txt",
-        working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
     )
@@ -377,7 +375,6 @@ def test_generate_review_timeout(mock_subprocess):
 
     result = generate_review(
         review_file="specs/chore-test-review.txt",
-        working_dir="/working/dir",
         repo_path="/repo/path",
         issue_id=123,
     )
