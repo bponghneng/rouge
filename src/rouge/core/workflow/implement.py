@@ -15,7 +15,6 @@ IMPLEMENT_REQUIRED_FIELDS = {
     "files_modified": list,
     "git_diff_stat": str,
     "output": str,
-    "planPath": str,
     "status": str,
     "summary": str,
 }

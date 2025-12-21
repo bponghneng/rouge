@@ -1,7 +1,6 @@
 """Plan acceptance validation functionality for workflow orchestration."""
 
 import logging
-import os
 from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
@@ -25,17 +24,15 @@ ACCEPTANCE_REQUIRED_FIELDS = {
 
 
 def notify_plan_acceptance(
-    plan_path: str,
+    plan_content: str,
     issue_id: int,
     adw_id: str,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[None]:
-    """Notify the /plan-acceptance template with the plan file to validate.
-
-    Validates implementation against plan.
+    """Validate implementation against plan content.
 
     Args:
-        plan_path: Path to the plan file to validate
+        plan_content: The plan content (markdown) to validate against
         issue_id: Rouge issue ID for tracking
         adw_id: Workflow ID for tracking
         stream_handler: Optional callback for streaming output
@@ -44,18 +41,17 @@ def notify_plan_acceptance(
         StepResult with None data (success/failure only)
     """
     try:
-        # Validate plan file exists
-        if not os.path.exists(plan_path):
-            logger.error(f"Plan file does not exist: {plan_path}")
-            return StepResult.fail(f"Plan file does not exist: {plan_path}")
+        if not plan_content:
+            logger.error("Plan content is empty")
+            return StepResult.fail("Plan content is empty")
 
-        logger.debug(f"Invoking /adw-acceptance template with plan file: {plan_path}")
+        logger.debug("Invoking /adw-acceptance template with plan content")
 
-        # Create template request
+        # Create template request with plan content as argument
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_VALIDATOR,
             slash_command="/adw-acceptance",
-            args=[plan_path],
+            args=[plan_content],
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",

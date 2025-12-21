@@ -285,7 +285,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
-    from rouge.core.workflow.steps.implement import FindImplementedPlanStep, ImplementStep
+    from rouge.core.workflow.steps.implement import ImplementStep
     from rouge.core.workflow.steps.plan import BuildPlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
@@ -323,15 +323,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Execute the implementation plan",
     )
 
-    # 5. FindImplementedPlanStep: requires implementation, produces implemented_plan_file
-    registry.register(
-        FindImplementedPlanStep,
-        dependencies=["implementation"],
-        outputs=["implemented_plan_file"],
-        description="Extract the implemented plan file path from output",
-    )
-
-    # 6. GenerateReviewStep: requires plan, produces review
+    # 5. GenerateReviewStep: requires plan, produces review
     registry.register(
         GenerateReviewStep,
         dependencies=["plan"],
@@ -355,10 +347,10 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Run code quality checks (linting, type checking)",
     )
 
-    # 9. ValidateAcceptanceStep: requires implemented_plan_file, produces acceptance
+    # 9. ValidateAcceptanceStep: requires plan, produces acceptance
     registry.register(
         ValidateAcceptanceStep,
-        dependencies=["implemented_plan_file"],
+        dependencies=["plan"],
         outputs=["acceptance"],
         description="Validate implementation against acceptance criteria",
     )
