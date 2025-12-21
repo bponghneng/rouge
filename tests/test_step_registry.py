@@ -434,5 +434,5 @@ class TestGlobalRegistry:
 
         deps = registry.resolve_dependencies(implement_step_name)
 
-        # Should have at least fetch, classify, plan, find_plan_file
-        assert len(deps) >= 4
+        # Should have at least fetch, classify, plan
+        assert len(deps) >= 3

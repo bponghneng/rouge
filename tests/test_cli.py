@@ -1,6 +1,6 @@
 """Tests for CLI commands."""
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 from typer.testing import CliRunner
 

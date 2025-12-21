@@ -1,7 +1,5 @@
 """Tests for JSON parsing helper module."""
 
-import pytest
-
 from rouge.core.json_parser import _sanitize_json_output, parse_and_validate_json
 
 
@@ -156,9 +154,7 @@ class TestParseAndValidateJson:
     def test_json_with_surrounding_prose(self):
         """Test parsing JSON with surrounding prose."""
         output = (
-            "Here is the result:\n"
-            '{"status": "completed", "summary": "Task done"}\n'
-            "Hope this helps!"
+            'Here is the result:\n{"status": "completed", "summary": "Task done"}\nHope this helps!'
         )
         required_fields = {"status": str, "summary": str}
 
