@@ -14,7 +14,6 @@ from rouge.core.workflow.artifacts import (
     ArtifactStore,
     ClassificationArtifact,
     ImplementationArtifact,
-    ImplementedPlanFileArtifact,
     IssueArtifact,
     PlanArtifact,
     PRMetadataArtifact,
@@ -88,16 +87,6 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "implementation"
         assert artifact.implement_data.output == "Implementation output"
-
-    def test_implemented_plan_file_artifact_creation(self):
-        """Test ImplementedPlanFileArtifact can be created with valid data."""
-        artifact = ImplementedPlanFileArtifact(
-            workflow_id="adw-123",
-            file_path="specs/feature-plan.md",
-        )
-
-        assert artifact.artifact_type == "implemented_plan_file"
-        assert artifact.file_path == "specs/feature-plan.md"
 
     def test_review_artifact_creation(self):
         """Test ReviewArtifact can be created with valid data."""
@@ -184,7 +173,6 @@ class TestArtifactModels:
             "classification",
             "plan",
             "implementation",
-            "implemented_plan_file",
             "review",
             "review_addressed",
             "quality_check",
@@ -498,12 +486,7 @@ class TestArtifactStoreIntegration:
             ImplementationArtifact(workflow_id=workflow_id, implement_data=implement_data)
         )
 
-        # 5. Implemented plan file artifact
-        store.write_artifact(
-            ImplementedPlanFileArtifact(workflow_id=workflow_id, file_path="specs/feature-plan.md")
-        )
-
-        # 6. Review artifact
+        # 5. Review artifact
         review_data = ReviewData(review_text="Code looks good")
         store.write_artifact(ReviewArtifact(workflow_id=workflow_id, review_data=review_data))
 
@@ -539,9 +522,9 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # Verify all 11 artifacts exist
+        # Verify all 10 artifacts exist
         artifacts = store.list_artifacts()
-        assert len(artifacts) == 11
+        assert len(artifacts) == 10
 
         # Verify each type is present
         expected_types = [
@@ -549,7 +532,6 @@ class TestArtifactStoreIntegration:
             "classification",
             "plan",
             "implementation",
-            "implemented_plan_file",
             "review",
             "review_addressed",
             "quality_check",
