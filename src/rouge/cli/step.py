@@ -1,7 +1,10 @@
 """CLI commands for workflow step management."""
 
+from typing import Optional
+
 import typer
 
+from rouge.core.utils import make_adw_id
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 from rouge.core.workflow.step_registry import get_step_registry
 
@@ -43,25 +46,60 @@ def list_steps() -> None:
 def run_step(
     step_name: str = typer.Argument(..., help="Name of the step to run"),
     issue_id: int = typer.Option(..., "--issue-id", "-i", help="Issue ID to process"),
-    adw_id: str = typer.Option(..., "--adw-id", "-a", help="Workflow ID for artifacts"),
+    adw_id: Optional[str] = typer.Option(
+        None,
+        "--adw-id",
+        "-a",
+        help="Workflow ID for artifacts (auto-generated for dependency-free steps)",
+    ),
 ) -> None:
     """Run a single workflow step using artifacts for dependencies.
 
     This command runs a single step independently by loading any required
     dependencies from previously stored artifacts in the workflow directory.
 
+    For steps with no dependencies (e.g., 'Fetching issue from Supabase'),
+    the --adw-id is optional and will be auto-generated if not provided.
+
     Example:
-        rouge step run "Classifying issue" --issue-id 123 --adw-id adw-xyz123
+        rouge step run "Fetching issue from Supabase" --issue-id 123
+        rouge step run "Classifying issue" --issue-id 123 --adw-id abc12345
     """
+    # Query the step registry to check dependencies
+    registry = get_step_registry()
+    step_metadata = registry.get_step_metadata(step_name)
+
+    if step_metadata is None:
+        typer.echo(f"Error: Step '{step_name}' not found in registry", err=True)
+        raise typer.Exit(1)
+
+    has_dependencies = len(step_metadata.dependencies) > 0
+
+    # Validate adw_id based on dependencies
+    if adw_id is None:
+        if has_dependencies:
+            deps_list = ", ".join(step_metadata.dependencies)
+            typer.echo(
+                f"Error: Step '{step_name}' requires dependencies: {deps_list}. "
+                "Please provide --adw-id.",
+                err=True,
+            )
+            raise typer.Exit(1)
+        # Auto-generate workflow ID for dependency-free steps
+        adw_id = make_adw_id()
+
     typer.echo(f"Running step '{step_name}' for issue {issue_id} (workflow: {adw_id})")
 
     pipeline = get_default_pipeline()
     runner = WorkflowRunner(pipeline, enable_artifacts=True)
 
     try:
-        success = runner.run_single_step(step_name, issue_id, adw_id)
+        success = runner.run_single_step(
+            step_name, issue_id, adw_id, has_dependencies=has_dependencies
+        )
         if success:
             typer.echo(f"Step '{step_name}' completed successfully")
+            typer.echo(f"Workflow ID: {adw_id}")
             return
         else:
             typer.echo(f"Step '{step_name}' failed", err=True)

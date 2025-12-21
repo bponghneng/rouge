@@ -82,6 +82,7 @@ class WorkflowRunner:
         step_name: str,
         issue_id: int,
         adw_id: str,
+        has_dependencies: bool = True,
     ) -> bool:
         """Execute a single step by name, using artifacts for dependencies.
 
@@ -92,6 +93,7 @@ class WorkflowRunner:
             step_name: The name of the step to execute
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for artifact persistence
+            has_dependencies: Whether the step has dependencies (if False, skip artifact dir check)
 
         Returns:
             True if step completed successfully, False otherwise
@@ -113,15 +115,19 @@ class WorkflowRunner:
         artifact_store = ArtifactStore(adw_id)
         workflow_dir = artifact_store.workflow_dir
 
-        # Ensure the workflow directory exists and contains artifacts from a prior run
-        if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
-            logger.error(
-                "Workflow directory '%s' does not exist or contains no artifacts. "
-                "Run the full workflow before executing individual steps.",
-                workflow_dir,
-            )
-            return False
-        logger.debug("Single-step execution with artifacts at %s", workflow_dir)
+        # For steps with dependencies, ensure the workflow directory exists with artifacts
+        # For dependency-free steps, skip this check (artifacts will be created by this step)
+        if has_dependencies:
+            if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
+                logger.error(
+                    "Workflow directory '%s' does not exist or contains no artifacts. "
+                    "Run the full workflow or prior steps before executing this step.",
+                    workflow_dir,
+                )
+                return False
+            logger.debug("Single-step execution with artifacts at %s", workflow_dir)
+        else:
+            logger.debug("Dependency-free step execution, workflow dir: %s", workflow_dir)
 
         context = WorkflowContext(
             issue_id=issue_id,
