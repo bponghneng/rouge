@@ -28,18 +28,8 @@ class ClassifyStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        issue = context.issue
-
-        # Try to load from artifact if not in context
-        if issue is None and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                issue_artifact = context.artifact_store.read_artifact("issue", IssueArtifact)
-                issue = issue_artifact.issue
-                context.issue = issue
-                logger.debug("Loaded issue from artifact")
-            except FileNotFoundError:
-                # Artifact for the issue does not exist; fall back to handling a missing issue below.
-                logger.debug("No existing issue artifact found; proceeding without artifact")
+        # Try to load issue from artifact if not in context
+        issue = context.load_issue_artifact_if_missing(IssueArtifact, lambda a: a.issue)
 
         if issue is None:
             logger.error("Cannot classify: issue not fetched")

@@ -26,18 +26,13 @@ class FindPlanFileStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        plan_data = context.data.get("plan_data")
-
-        # Try to load from artifact if not in context
-        if plan_data is None and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                plan_artifact = context.artifact_store.read_artifact("plan", PlanArtifact)
-                plan_data = plan_artifact.plan_data
-                context.data["plan_data"] = plan_data
-                logger.debug("Loaded plan from artifact")
-            except FileNotFoundError:
-                # Missing plan artifact is acceptable; fall back to handling absent plan_data.
-                logger.debug("Plan artifact not found; proceeding without loaded plan_data")
+        # Try to load plan_data from artifact if not in context
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
+        )
 
         if plan_data is None:
             logger.error("Cannot find plan file: plan_data not available")

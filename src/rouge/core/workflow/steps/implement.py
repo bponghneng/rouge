@@ -32,20 +32,13 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        plan_file = context.data.get("plan_file")
-
-        # Try to load from artifact if not in context
-        if plan_file is None and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                plan_file_artifact = context.artifact_store.read_artifact(
-                    "plan_file", PlanFileArtifact
-                )
-                plan_file = plan_file_artifact.plan_file_data.file_path
-                context.data["plan_file"] = plan_file
-                logger.debug("Loaded plan_file from artifact")
-            except FileNotFoundError:
-                # Missing plan_file artifact is acceptable; fall back to handling below.
-                logger.debug("No plan_file artifact found; proceeding without loading from artifacts")
+        # Try to load plan_file from artifact if not in context
+        plan_file = context.load_artifact_if_missing(
+            "plan_file",
+            "plan_file",
+            PlanFileArtifact,
+            lambda a: a.plan_file_data.file_path,
+        )
 
         if plan_file is None:
             logger.error("Cannot implement: plan_file not available")
@@ -105,34 +98,22 @@ class FindImplementedPlanStep(WorkflowStep):
         Returns:
             StepResult (always succeeds with fallback)
         """
-        implement_data = context.data.get("implement_data")
-        fallback_path = context.data.get("plan_file", "")
-
         # Try to load from artifacts if not in context
-        if context.artifacts_enabled and context.artifact_store is not None:
-            if implement_data is None:
-                try:
-                    impl_artifact = context.artifact_store.read_artifact(
-                        "implementation", ImplementationArtifact
-                    )
-                    implement_data = impl_artifact.implement_data
-                    context.data["implement_data"] = implement_data
-                    logger.debug("Loaded implementation from artifact")
-                except FileNotFoundError:
-                    # Missing implementation artifact is acceptable; fall back to checking context below.
-                    logger.debug("No implementation artifact found; proceeding without it")
-
-            if not fallback_path:
-                try:
-                    plan_file_artifact = context.artifact_store.read_artifact(
-                        "plan_file", PlanFileArtifact
-                    )
-                    fallback_path = plan_file_artifact.plan_file_data.file_path
-                    context.data["plan_file"] = fallback_path
-                    logger.debug("Loaded plan_file from artifact for fallback")
-                except FileNotFoundError:
-                    # Missing plan_file artifact is acceptable; fallback_path will remain empty.
-                    logger.debug("No plan_file artifact found for fallback; proceeding without it")
+        implement_data = context.load_artifact_if_missing(
+            "implement_data",
+            "implementation",
+            ImplementationArtifact,
+            lambda a: a.implement_data,
+        )
+        fallback_path = (
+            context.load_artifact_if_missing(
+                "plan_file",
+                "plan_file",
+                PlanFileArtifact,
+                lambda a: a.plan_file_data.file_path,
+            )
+            or ""
+        )
 
         if implement_data is None:
             logger.warning("No implementation data, using fallback plan file")

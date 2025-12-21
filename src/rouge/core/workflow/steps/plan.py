@@ -32,41 +32,20 @@ class BuildPlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        issue = context.issue
-
-        # Try to load from artifact if not in context
-        if issue is None and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                issue_artifact = context.artifact_store.read_artifact("issue", IssueArtifact)
-                issue = issue_artifact.issue
-                context.issue = issue
-                logger.debug("Loaded issue from artifact")
-            except FileNotFoundError:
-                # Missing issue artifact is acceptable; fall back to checking context below.
-                logger.debug("No existing issue artifact found; proceeding without artifact")
+        # Try to load issue from artifact if not in context
+        issue = context.load_issue_artifact_if_missing(IssueArtifact, lambda a: a.issue)
 
         if issue is None:
             logger.error("Cannot build plan: issue not fetched")
             return StepResult.fail("Cannot build plan: issue not fetched")
 
-        classify_data: ClassifyData | None = context.data.get("classify_data")
-
-        # Try to load from artifact if not in context
-        if (
-            classify_data is None
-            and context.artifacts_enabled
-            and context.artifact_store is not None
-        ):
-            try:
-                classification_artifact = context.artifact_store.read_artifact(
-                    "classification", ClassificationArtifact
-                )
-                classify_data = classification_artifact.classify_data
-                context.data["classify_data"] = classify_data
-                logger.debug("Loaded classification from artifact")
-            except FileNotFoundError:
-                # Missing classification artifact is acceptable; fall back to checking context below.
-                logger.debug("No existing classification artifact found; proceeding without artifact")
+        # Try to load classification from artifact if not in context
+        classify_data: ClassifyData | None = context.load_artifact_if_missing(
+            "classify_data",
+            "classification",
+            ClassificationArtifact,
+            lambda a: a.classify_data,
+        )
 
         if classify_data is None:
             logger.error("Cannot build plan: classify_data not available")

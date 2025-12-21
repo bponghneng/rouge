@@ -33,20 +33,16 @@ class ValidateAcceptanceStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        plan_path = context.data.get("implemented_plan_file", "")
-
-        # Try to load from artifact if not in context
-        if not plan_path and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                impl_plan_artifact = context.artifact_store.read_artifact(
-                    "implemented_plan_file", ImplementedPlanFileArtifact
-                )
-                plan_path = impl_plan_artifact.file_path
-                context.data["implemented_plan_file"] = plan_path
-                logger.debug("Loaded implemented_plan_file from artifact")
-            except FileNotFoundError:
-                # Artifact for implemented plan is not required; fall back to checking for a plan file in context.
-                logger.debug("No implemented_plan_file artifact found; proceeding without artifact-backed plan file")
+        # Try to load implemented_plan_file from artifact if not in context
+        plan_path = (
+            context.load_artifact_if_missing(
+                "implemented_plan_file",
+                "implemented_plan_file",
+                ImplementedPlanFileArtifact,
+                lambda a: a.file_path,
+            )
+            or ""
+        )
 
         if not plan_path:
             logger.warning("No plan file available for acceptance validation")
