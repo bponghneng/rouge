@@ -1,14 +1,19 @@
 """Abstract base class for workflow steps and context management."""
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type, TypeVar
 
 from rouge.core.models import Issue
 
 if TYPE_CHECKING:
-    from rouge.core.workflow.artifacts import ArtifactStore
+    from rouge.core.workflow.artifacts import Artifact, ArtifactStore, ArtifactType
     from rouge.core.workflow.types import StepResult
+
+logger = logging.getLogger(__name__)
+
+T = TypeVar("T", bound="Artifact")
 
 
 @dataclass
@@ -37,6 +42,92 @@ class WorkflowContext:
             True if an artifact store is available
         """
         return self.artifact_store is not None
+
+    def load_artifact_if_missing(
+        self,
+        context_key: str,
+        artifact_type: "ArtifactType",
+        artifact_class: Type[T],
+        extract_fn: Callable[[T], Any],
+    ) -> Optional[Any]:
+        """Load artifact data into context if not already present.
+
+        This helper encapsulates the common pattern of conditionally loading
+        artifact data when it's missing from context. It handles:
+        - Checking if data already exists in context
+        - Checking if artifacts are enabled
+        - Reading the artifact and extracting the data
+        - Silent FileNotFoundError handling (missing artifacts are acceptable)
+        - Updating context.data with the loaded value
+        - Consistent debug logging
+
+        Args:
+            context_key: The key to store/check in context.data
+            artifact_type: The artifact type identifier for read_artifact
+            artifact_class: The artifact class to deserialize into
+            extract_fn: Function to extract the desired value from the artifact
+
+        Returns:
+            The loaded value (from context or artifact), or None if not available
+        """
+        # Check if already in context
+        existing = self.data.get(context_key)
+        if existing is not None:
+            return existing
+
+        # Check if artifacts are enabled
+        if not self.artifacts_enabled or self.artifact_store is None:
+            return None
+
+        # Try to load from artifact
+        try:
+            artifact = self.artifact_store.read_artifact(artifact_type, artifact_class)
+            value = extract_fn(artifact)
+            self.data[context_key] = value
+            logger.debug("Loaded %s from artifact", artifact_type)
+            return value
+        except FileNotFoundError:
+            logger.debug(
+                "No existing %s artifact found; proceeding without artifact",
+                artifact_type,
+            )
+            return None
+
+    def load_issue_artifact_if_missing(
+        self,
+        artifact_class: Type[T],
+        extract_fn: Callable[[T], Issue],
+    ) -> Optional[Issue]:
+        """Load issue from artifact if not already set on context.
+
+        Similar to load_artifact_if_missing, but specifically for the issue
+        attribute which lives on context directly rather than in context.data.
+
+        Args:
+            artifact_class: The artifact class to deserialize into (e.g., IssueArtifact)
+            extract_fn: Function to extract Issue from the artifact
+
+        Returns:
+            The loaded Issue (from context or artifact), or None if not available
+        """
+        # Check if already set
+        if self.issue is not None:
+            return self.issue
+
+        # Check if artifacts are enabled
+        if not self.artifacts_enabled or self.artifact_store is None:
+            return None
+
+        # Try to load from artifact
+        try:
+            artifact = self.artifact_store.read_artifact("issue", artifact_class)
+            issue = extract_fn(artifact)
+            self.issue = issue
+            logger.debug("Loaded issue from artifact")
+            return issue
+        except FileNotFoundError:
+            logger.debug("No existing issue artifact found; proceeding without artifact")
+            return None
 
 
 class WorkflowStep(ABC):

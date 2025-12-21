@@ -42,24 +42,16 @@ class GenerateReviewStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        implemented_plan_path = context.data.get("implemented_plan_file", "")
-
-        # Try to load from artifact if not in context
-        if (
-            not implemented_plan_path
-            and context.artifacts_enabled
-            and context.artifact_store is not None
-        ):
-            try:
-                impl_plan_artifact = context.artifact_store.read_artifact(
-                    "implemented_plan_file", ImplementedPlanFileArtifact
-                )
-                implemented_plan_path = impl_plan_artifact.file_path
-                context.data["implemented_plan_file"] = implemented_plan_path
-                logger.debug("Loaded implemented_plan_file from artifact")
-            except FileNotFoundError:
-                # Implemented plan artifact not found; handled below when checking implemented_plan_path.
-                logger.debug("No implemented_plan_file artifact found; proceeding without it")
+        # Try to load implemented_plan_file from artifact if not in context
+        implemented_plan_path = (
+            context.load_artifact_if_missing(
+                "implemented_plan_file",
+                "implemented_plan_file",
+                ImplementedPlanFileArtifact,
+                lambda a: a.file_path,
+            )
+            or ""
+        )
 
         if not implemented_plan_path:
             logger.warning("No implemented plan file, skipping review generation")
@@ -132,21 +124,19 @@ class AddressReviewStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         review_file = context.data.get("review_file", "")
-        review_data = context.data.get("review_data")
 
-        # Try to load from artifact if not in context
-        if review_data is None and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                review_artifact = context.artifact_store.read_artifact("review", ReviewArtifact)
-                review_data = review_artifact.review_data
-                context.data["review_data"] = review_data
-                if not review_file:
-                    review_file = review_data.review_file
-                    context.data["review_file"] = review_file
-                logger.debug("Loaded review from artifact")
-            except FileNotFoundError:
-                # Missing review artifact is acceptable; fall back to "no review data" behavior.
-                logger.debug("No review artifact found; proceeding without preloaded review data")
+        # Try to load review_data from artifact if not in context
+        review_data = context.load_artifact_if_missing(
+            "review_data",
+            "review",
+            ReviewArtifact,
+            lambda a: a.review_data,
+        )
+
+        # If review_file not set but we loaded review_data, derive it
+        if not review_file and review_data is not None:
+            review_file = review_data.review_file
+            context.data["review_file"] = review_file
 
         # Only proceed if we have review data (review generation succeeded)
         if review_data is None:

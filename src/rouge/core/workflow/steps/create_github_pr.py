@@ -35,25 +35,13 @@ class CreateGitHubPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Check for pr_details in context
-        pr_details = context.data.get("pr_details")
-
-        # Try to load from artifact if not in context
-        if not pr_details and context.artifacts_enabled and context.artifact_store is not None:
-            try:
-                pr_meta_artifact = context.artifact_store.read_artifact(
-                    "pr_metadata", PRMetadataArtifact
-                )
-                pr_details = {
-                    "title": pr_meta_artifact.title,
-                    "summary": pr_meta_artifact.summary,
-                    "commits": pr_meta_artifact.commits,
-                }
-                context.data["pr_details"] = pr_details
-                logger.debug("Loaded pr_metadata from artifact")
-            except FileNotFoundError:
-                # Artifact with PR metadata was not found; continue without it.
-                logger.debug("No pr_metadata artifact found; proceeding without it")
+        # Try to load pr_details from artifact if not in context
+        pr_details = context.load_artifact_if_missing(
+            "pr_details",
+            "pr_metadata",
+            PRMetadataArtifact,
+            lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
+        )
 
         if not pr_details:
             skip_msg = "PR creation skipped: no PR details in context"
