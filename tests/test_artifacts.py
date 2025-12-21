@@ -17,7 +17,6 @@ from rouge.core.workflow.artifacts import (
     ImplementedPlanFileArtifact,
     IssueArtifact,
     PlanArtifact,
-    PlanFileArtifact,
     PRMetadataArtifact,
     PullRequestArtifact,
     QualityCheckArtifact,
@@ -28,7 +27,6 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    PlanFileData,
     ReviewData,
 )
 
@@ -67,26 +65,18 @@ class TestArtifactModels:
 
     def test_plan_artifact_creation(self):
         """Test PlanArtifact can be created with valid data."""
-        plan_data = PlanData(output="Plan content here", session_id="session-456")
+        plan_data = PlanData(
+            plan="Plan content here", summary="Plan summary", session_id="session-456"
+        )
         artifact = PlanArtifact(
             workflow_id="adw-123",
             plan_data=plan_data,
         )
 
         assert artifact.artifact_type == "plan"
-        assert artifact.plan_data.output == "Plan content here"
+        assert artifact.plan_data.plan == "Plan content here"
+        assert artifact.plan_data.summary == "Plan summary"
         assert artifact.plan_data.session_id == "session-456"
-
-    def test_plan_file_artifact_creation(self):
-        """Test PlanFileArtifact can be created with valid data."""
-        plan_file_data = PlanFileData(file_path="specs/plan.md")
-        artifact = PlanFileArtifact(
-            workflow_id="adw-123",
-            plan_file_data=plan_file_data,
-        )
-
-        assert artifact.artifact_type == "plan_file"
-        assert artifact.plan_file_data.file_path == "specs/plan.md"
 
     def test_implementation_artifact_creation(self):
         """Test ImplementationArtifact can be created with valid data."""
@@ -113,7 +103,6 @@ class TestArtifactModels:
         """Test ReviewArtifact can be created with valid data."""
         review_data = ReviewData(
             review_text="Code review content",
-            review_file=".rouge/reviews/review.md",
         )
         artifact = ReviewArtifact(
             workflow_id="adw-123",
@@ -122,7 +111,6 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "review"
         assert artifact.review_data.review_text == "Code review content"
-        assert artifact.review_data.review_file == ".rouge/reviews/review.md"
 
     def test_review_addressed_artifact_creation(self):
         """Test ReviewAddressedArtifact can be created with valid data."""
@@ -195,7 +183,6 @@ class TestArtifactModels:
             "issue",
             "classification",
             "plan",
-            "plan_file",
             "implementation",
             "implemented_plan_file",
             "review",
@@ -448,7 +435,7 @@ class TestArtifactStore:
             ClassificationArtifact(workflow_id="adw-multi-type", classify_data=classify_data)
         )
 
-        plan_data = PlanData(output="Plan output")
+        plan_data = PlanData(plan="Plan output", summary="Summary")
         store.write_artifact(PlanArtifact(workflow_id="adw-multi-type", plan_data=plan_data))
 
         # Verify all artifacts can be read back
@@ -458,7 +445,7 @@ class TestArtifactStore:
 
         assert issue_artifact.issue.id == 1
         assert classification_artifact.classify_data.command == "/adw-chore-plan"
-        assert plan_artifact.plan_data.output == "Plan output"
+        assert plan_artifact.plan_data.plan == "Plan output"
 
     def test_store_overwrites_existing_artifact(self, tmp_path):
         """Test writing an artifact overwrites existing one."""
@@ -500,46 +487,40 @@ class TestArtifactStoreIntegration:
         )
 
         # 3. Plan artifact
-        plan_data = PlanData(output="# Feature Plan\n...", session_id="sess-123")
+        plan_data = PlanData(
+            plan="# Feature Plan\n...", summary="Feature summary", session_id="sess-123"
+        )
         store.write_artifact(PlanArtifact(workflow_id=workflow_id, plan_data=plan_data))
 
-        # 4. Plan file artifact
-        plan_file_data = PlanFileData(file_path="specs/feature-plan.md")
-        store.write_artifact(
-            PlanFileArtifact(workflow_id=workflow_id, plan_file_data=plan_file_data)
-        )
-
-        # 5. Implementation artifact
+        # 4. Implementation artifact
         implement_data = ImplementData(output="Implementation complete")
         store.write_artifact(
             ImplementationArtifact(workflow_id=workflow_id, implement_data=implement_data)
         )
 
-        # 6. Implemented plan file artifact
+        # 5. Implemented plan file artifact
         store.write_artifact(
             ImplementedPlanFileArtifact(workflow_id=workflow_id, file_path="specs/feature-plan.md")
         )
 
-        # 7. Review artifact
-        review_data = ReviewData(
-            review_text="Code looks good", review_file=".rouge/reviews/review.md"
-        )
+        # 6. Review artifact
+        review_data = ReviewData(review_text="Code looks good")
         store.write_artifact(ReviewArtifact(workflow_id=workflow_id, review_data=review_data))
 
-        # 8. Review addressed artifact
+        # 7. Review addressed artifact
         store.write_artifact(ReviewAddressedArtifact(workflow_id=workflow_id, success=True))
 
-        # 9. Quality check artifact
+        # 8. Quality check artifact
         store.write_artifact(
             QualityCheckArtifact(
                 workflow_id=workflow_id, output="All checks passed", tools=["ruff", "mypy"]
             )
         )
 
-        # 10. Acceptance artifact
+        # 9. Acceptance artifact
         store.write_artifact(AcceptanceArtifact(workflow_id=workflow_id, success=True))
 
-        # 11. PR metadata artifact
+        # 10. PR metadata artifact
         store.write_artifact(
             PRMetadataArtifact(
                 workflow_id=workflow_id,
@@ -549,7 +530,7 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # 12. Pull request artifact
+        # 11. Pull request artifact
         store.write_artifact(
             PullRequestArtifact(
                 workflow_id=workflow_id,
@@ -558,16 +539,15 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # Verify all 12 artifacts exist
+        # Verify all 11 artifacts exist
         artifacts = store.list_artifacts()
-        assert len(artifacts) == 12
+        assert len(artifacts) == 11
 
         # Verify each type is present
         expected_types = [
             "issue",
             "classification",
             "plan",
-            "plan_file",
             "implementation",
             "implemented_plan_file",
             "review",

@@ -11,7 +11,6 @@ from rouge.core.workflow import (
     build_plan,
     classify_issue,
     execute_workflow,
-    get_plan_file,
     implement_plan,
     update_status,
 )
@@ -150,7 +149,7 @@ def test_classify_issue_markdown_fenced_json(mock_execute, sample_issue):
 def test_build_plan_success(mock_execute, sample_issue):
     """Test successful plan building."""
     plan_json = (
-        '{"output": "build_plan", "planPath": "specs/feature-plan.md", '
+        '{"output": "build_plan", "plan": "# Feature Plan\\n...", '
         '"summary": "Plan created successfully"}'
     )
     mock_execute.return_value = ClaudeAgentPromptResponse(
@@ -159,34 +158,9 @@ def test_build_plan_success(mock_execute, sample_issue):
 
     result = build_plan(sample_issue, "/adw-feature-plan", "adw123")
     assert result.success
-    assert result.data.output == plan_json
+    assert result.data.plan == "# Feature Plan\n..."
+    assert result.data.summary == "Plan created successfully"
     assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
-
-
-@patch("rouge.core.workflow.plan_file.execute_template")
-def test_get_plan_file_success(mock_execute):
-    """Test successful plan file extraction."""
-    mock_execute.return_value = ClaudeAgentPromptResponse(
-        output="specs/feature-plan.md", success=True, session_id="test123"
-    )
-
-    result = get_plan_file("Plan output", 1, "adw123")
-    assert result.success
-    assert result.data.file_path == "specs/feature-plan.md"
-    assert result.error is None
-
-
-@patch("rouge.core.workflow.plan_file.execute_template")
-def test_get_plan_file_not_found(mock_execute):
-    """Test plan file not found."""
-    mock_execute.return_value = ClaudeAgentPromptResponse(
-        output="0", success=True, session_id="test123"
-    )
-
-    result = get_plan_file("Plan output", 1, "adw123")
-    assert not result.success
-    assert result.data is None
-    assert "No plan file found" in result.error
 
 
 @patch("rouge.core.workflow.implement.execute_implement_plan")
@@ -203,7 +177,7 @@ def test_implement_plan_success(mock_execute):
         session_id="test123",
     )
 
-    result = implement_plan("specs/plan.md", 1, "adw123")
+    result = implement_plan("# Feature Plan\n...", 1, "adw123")
     assert result.success
     assert result.data.output == implement_json
     assert result.metadata.get("parsed_data", {}).get("status") == "completed"
@@ -297,15 +271,10 @@ def test_derive_paths_from_plan():
 @patch("rouge.core.workflow.review.os.path.exists")
 @patch("rouge.core.workflow.review.subprocess.run")
 @patch("rouge.core.workflow.review.insert_progress_comment")
-@patch("rouge.core.workflow.review.os.makedirs")
-@patch("rouge.core.workflow.review.os.path.dirname")
 def test_generate_review_success(
-    mock_dirname,
-    mock_makedirs,
     mock_insert_comment,
     mock_subprocess,
     mock_exists,
-    tmp_path,
 ):
     """Test successful CodeRabbit review generation."""
     # Mock subprocess result
@@ -313,9 +282,6 @@ def test_generate_review_success(
     mock_result.returncode = 0
     mock_result.stdout = "CodeRabbit review output"
     mock_subprocess.return_value = mock_result
-
-    # Mock directory name
-    mock_dirname.return_value = "specs"
 
     # Mock config file exists
     mock_exists.return_value = True
@@ -325,11 +291,7 @@ def test_generate_review_success(
 
     from rouge.core.workflow.review import generate_review
 
-    # Use a temporary file for the test
-    review_file = tmp_path / "chore-test-review.txt"
-
     result = generate_review(
-        review_file=str(review_file),
         repo_path="/repo/path",
         issue_id=123,
     )
@@ -337,10 +299,6 @@ def test_generate_review_success(
     assert result.success
     assert result.data.review_text == "CodeRabbit review output"
     mock_subprocess.assert_called_once()
-
-    # Verify the file was written
-    assert review_file.exists()
-    assert review_file.read_text() == "CodeRabbit review output"
 
 
 @patch("rouge.core.workflow.review.subprocess.run")
@@ -355,7 +313,6 @@ def test_generate_review_subprocess_failure(mock_subprocess):
     from rouge.core.workflow.review import generate_review
 
     result = generate_review(
-        review_file="specs/chore-test-review.txt",
         repo_path="/repo/path",
         issue_id=123,
     )
@@ -374,7 +331,6 @@ def test_generate_review_timeout(mock_subprocess):
     from rouge.core.workflow.review import generate_review
 
     result = generate_review(
-        review_file="specs/chore-test-review.txt",
         repo_path="/repo/path",
         issue_id=123,
     )
@@ -385,15 +341,9 @@ def test_generate_review_timeout(mock_subprocess):
 
 @patch("rouge.core.workflow.address_review.execute_template")
 @patch("rouge.core.workflow.address_review.insert_progress_comment")
-@patch("rouge.core.workflow.address_review.os.path.exists")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
-def test_address_review_issues_success(
-    mock_request_class, mock_exists, mock_insert_comment, mock_execute
-):
+def test_address_review_issues_success(mock_request_class, mock_insert_comment, mock_execute):
     """Test successful notification of review template."""
-    # Mock file exists
-    mock_exists.return_value = True
-
     # Mock the request object
     mock_request = Mock()
     mock_request_class.return_value = mock_request
@@ -411,24 +361,20 @@ def test_address_review_issues_success(
     mock_insert_comment.return_value = ("success", "Comment inserted")
 
     result = address_review_issues(
-        review_file="specs/chore-test-review.txt",
+        review_text="Review content",
         issue_id=123,
         adw_id="adw123",
     )
 
     assert result.success
-    mock_exists.assert_called_once_with("specs/chore-test-review.txt")
     mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
     mock_insert_comment.assert_called_once()
 
 
-@patch("rouge.core.workflow.address_review.os.path.exists")
-def test_address_review_issues_file_not_found(mock_exists):
-    """Test notification handles missing review file."""
-    mock_exists.return_value = False
-
+def test_address_review_issues_empty_review_text():
+    """Test notification handles missing review content."""
     result = address_review_issues(
-        review_file="specs/missing-review.txt",
+        review_text="",
         issue_id=123,
         adw_id="adw123",
     )
@@ -437,12 +383,9 @@ def test_address_review_issues_file_not_found(mock_exists):
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
-@patch("rouge.core.workflow.address_review.os.path.exists")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
-def test_address_review_issues_execution_failure(mock_request_class, mock_exists, mock_execute):
+def test_address_review_issues_execution_failure(mock_request_class, mock_execute):
     """Test notification handles template execution failure."""
-    mock_exists.return_value = True
-
     # Mock the request object
     mock_request = Mock()
     mock_request_class.return_value = mock_request
@@ -454,7 +397,7 @@ def test_address_review_issues_execution_failure(mock_request_class, mock_exists
     mock_execute.return_value = mock_response
 
     result = address_review_issues(
-        review_file="specs/chore-test-review.txt",
+        review_text="Review content",
         issue_id=123,
         adw_id="adw123",
     )
@@ -465,14 +408,18 @@ def test_address_review_issues_execution_failure(mock_request_class, mock_exists
 # === CreatePullRequestStep Tests ===
 
 
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
+def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_which):
     """Test successful PR creation with git push before gh pr create."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock shutil.which to indicate gh CLI is available
+    mock_which.return_value = "/usr/bin/gh"
 
     # Mock get_repo_path to return a specific path
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -585,14 +532,20 @@ def test_create_pr_step_empty_title(mock_emit):
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
 
 
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_get_repo_path):
+def test_create_pr_step_gh_command_failure(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_which
+):
     """Test PR creation handles gh command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock shutil.which to indicate gh CLI is available
+    mock_which.return_value = "/usr/bin/gh"
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -623,16 +576,20 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_get_
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
 
 
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path):
+def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_which):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock shutil.which to indicate gh CLI is available
+    mock_which.return_value = "/usr/bin/gh"
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -691,16 +648,20 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     assert "gh CLI not found" in mock_emit.call_args[1]["raw"]["reason"]
 
 
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
-    mock_subprocess, mock_emit, mock_get_repo_path
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation continues even when git push fails."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock shutil.which to indicate gh CLI is available
+    mock_which.return_value = "/usr/bin/gh"
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -733,18 +694,22 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-created"
 
 
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
-    mock_subprocess, mock_emit, mock_get_repo_path
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation continues even when git push times out."""
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock shutil.which to indicate gh CLI is available
+    mock_which.return_value = "/usr/bin/gh"
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -1229,7 +1194,7 @@ def test_prepare_pr_step_emits_raw_llm_response(
             llm_response_call = call
             break
 
-    assert (
-        llm_response_call is not None
-    ), "Expected emit_progress_comment call with pr-preparation-response"
+    assert llm_response_call is not None, (
+        "Expected emit_progress_comment call with pr-preparation-response"
+    )
     assert llm_response_call[1]["raw"]["llm_response"] == pr_json
