@@ -164,7 +164,10 @@ class FindImplementedPlanStep(WorkflowStep):
 
     def _save_implemented_plan_artifact(self, context: WorkflowContext, file_path: str) -> None:
         """Save the implemented plan file artifact if store is available."""
-        if context.artifacts_enabled and context.artifact_store is not None and file_path:
+        if context.artifacts_enabled and context.artifact_store is not None:
+            if not file_path:
+                logger.warning("Skipping artifact save: file_path is empty")
+                return
             artifact = ImplementedPlanFileArtifact(
                 workflow_id=context.adw_id,
                 file_path=file_path,
