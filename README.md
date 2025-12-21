@@ -193,6 +193,32 @@ Workflows can be executed directly using:
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 
+### Database Migrations
+
+The `rouge db` commands provide a convenient interface for managing database
+migrations via yoyo-migrations. These commands automatically use `DATABASE_URL`
+(or `SUPABASE_URL` as fallback) from your environment.
+
+```bash
+# Apply all pending migrations
+rouge db migrate
+
+# Roll back the most recent migration
+rouge db rollback
+
+# Roll back multiple migrations
+rouge db rollback --count 3
+
+# Show migration status (applied/unapplied)
+rouge db status
+
+# Create a new migration file
+rouge db new add_users_table
+```
+
+For detailed migration documentation including schema overview and environment
+setup, see [migrations/README.md](migrations/README.md).
+
 ## Artifact-Based Workflow
 
 Rouge supports typed workflow artifacts that persist step inputs/outputs to disk.

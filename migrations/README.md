@@ -5,29 +5,55 @@ This project uses [yoyo-migrations](https://ollycope.com/software/yoyo/latest/) 
 ## Prerequisites
 
 - PostgreSQL database (e.g., Supabase, local Postgres)
-- Database password for your Supabase project
+- `DATABASE_URL` or `SUPABASE_URL` environment variable set (can be in `.env` file)
 
-## Running Migrations
+## CLI Commands
+
+The `rouge db` CLI provides convenient wrappers for common migration operations:
 
 ### Apply Migrations
 
 ```bash
-# Set DATABASE_URL inline and apply migrations
-DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo apply --database "$DATABASE_URL"
+rouge db migrate
 ```
+
+Applies all pending migrations from the `migrations/` directory.
 
 ### Rollback Migrations
 
 ```bash
 # Roll back the most recent migration
-DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo rollback --database "$DATABASE_URL"
+rouge db rollback
+
+# Roll back multiple migrations
+rouge db rollback --count 2
 ```
 
 ### Show Migration Status
 
 ```bash
-DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres' && uv run yoyo show --database "$DATABASE_URL"
+rouge db status
 ```
+
+Lists all migrations and their applied/unapplied status.
+
+### Create New Migration
+
+```bash
+rouge db new add_users_table
+```
+
+Creates a new migration file in the `migrations/` directory.
+
+## Environment Setup
+
+Set `DATABASE_URL` in your environment or `.env` file:
+
+```bash
+DATABASE_URL='postgresql://postgres.[SUPABASE_PROJECT]:[DATABASE_PASSWORD]@aws-0-us-west-2.pooler.supabase.com:5432/postgres'
+```
+
+The CLI will also fall back to `SUPABASE_URL` if `DATABASE_URL` is not set.
 
 ## Configuration
 
