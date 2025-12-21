@@ -11,14 +11,11 @@ from rouge.core.workflow.types import ReviewData, StepResult
 logger = logging.getLogger(__name__)
 
 
-def generate_review(
-    review_file: str, working_dir: str, repo_path: str, issue_id: int
-) -> StepResult[ReviewData]:
+def generate_review(review_file: str, repo_path: str, issue_id: int) -> StepResult[ReviewData]:
     """Generate CodeRabbit review and save to file.
 
     Args:
         review_file: Path where review should be saved
-        working_dir: Working directory (unused, kept for backward compatibility)
         repo_path: Repository root path where .coderabbit.yaml config is located
         issue_id: Rouge issue ID for tracking
 
