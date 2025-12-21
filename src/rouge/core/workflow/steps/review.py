@@ -8,7 +8,6 @@ from rouge.core.workflow.review import generate_review
 from rouge.core.workflow.shared import (
     derive_paths_from_plan,
     get_repo_path,
-    get_working_dir,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -51,10 +50,9 @@ class GenerateReviewStep(WorkflowStep):
         # Store for later steps
         context.data["review_file"] = review_file
 
-        working_dir = get_working_dir()
         repo_path = get_repo_path()
 
-        review_result = generate_review(review_file, working_dir, repo_path, context.issue_id)
+        review_result = generate_review(review_file, repo_path, context.issue_id)
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
