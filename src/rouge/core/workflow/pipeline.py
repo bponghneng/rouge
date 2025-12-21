@@ -171,7 +171,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
-    from rouge.core.workflow.steps.find_plan_file import FindPlanFileStep
     from rouge.core.workflow.steps.implement import (
         FindImplementedPlanStep,
         ImplementStep,
@@ -185,7 +184,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
         FetchIssueStep(),
         ClassifyStep(),
         BuildPlanStep(),
-        FindPlanFileStep(),
         ImplementStep(),
         FindImplementedPlanStep(),
         GenerateReviewStep(),

@@ -21,14 +21,14 @@ IMPLEMENT_REQUIRED_FIELDS = {
 }
 
 
-def implement_plan(plan_file: str, issue_id: int, adw_id: str) -> StepResult[ImplementData]:
+def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[ImplementData]:
     """Implement the plan using configured provider.
 
     Uses the provider configured via ROUGE_IMPLEMENT_PROVIDER environment variable.
     Defaults to Claude if not set.
 
     Args:
-        plan_file: Path to the plan file to implement
+        plan_content: The plan content (markdown) to implement
         issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
 
@@ -37,7 +37,7 @@ def implement_plan(plan_file: str, issue_id: int, adw_id: str) -> StepResult[Imp
     """
     # Use new execute_implement_plan helper which handles provider selection
     response: AgentExecuteResponse = execute_implement_plan(
-        plan_file=plan_file,
+        plan_content=plan_content,
         issue_id=issue_id,
         adw_id=adw_id,
         agent_name=AGENT_PLAN_IMPLEMENTOR,

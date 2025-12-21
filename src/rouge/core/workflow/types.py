@@ -81,22 +81,14 @@ class PlanData(BaseModel):
     """Data payload for plan building results.
 
     Attributes:
-        output: The plan output text
+        plan: The parsed plan content (markdown)
+        summary: Summary of the plan
         session_id: Optional session ID for continuation
     """
 
-    output: str
+    plan: str
+    summary: str
     session_id: Optional[str] = None
-
-
-class PlanFileData(BaseModel):
-    """Data payload for plan file discovery results.
-
-    Attributes:
-        file_path: Path to the discovered plan file
-    """
-
-    file_path: str
 
 
 class ImplementData(BaseModel):
@@ -116,8 +108,6 @@ class ReviewData(BaseModel):
 
     Attributes:
         review_text: The generated review content
-        review_file: Path where review was saved
     """
 
     review_text: str
-    review_file: str

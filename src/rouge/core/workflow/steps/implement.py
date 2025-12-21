@@ -5,10 +5,9 @@ import logging
 from rouge.core.workflow.artifacts import (
     ImplementationArtifact,
     ImplementedPlanFileArtifact,
-    PlanFileArtifact,
+    PlanArtifact,
 )
 from rouge.core.workflow.implement import implement_plan
-from rouge.core.workflow.plan_file import get_plan_file
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -27,24 +26,24 @@ class ImplementStep(WorkflowStep):
         """Implement the plan and store result in context.
 
         Args:
-            context: Workflow context with plan_file
+            context: Workflow context with plan artifact
 
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load plan_file from artifact if not in context
-        plan_file = context.load_artifact_if_missing(
-            "plan_file",
-            "plan_file",
-            PlanFileArtifact,
-            lambda a: a.plan_file_data.file_path,
+        # Load plan content from artifact
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
         )
 
-        if plan_file is None:
-            logger.error("Cannot implement: plan_file not available")
-            return StepResult.fail("Cannot implement: plan_file not available")
+        if plan_data is None:
+            logger.error("Cannot implement: plan not available")
+            return StepResult.fail("Cannot implement: plan not available")
 
-        implement_response = implement_plan(plan_file, context.issue_id, context.adw_id)
+        implement_response = implement_plan(plan_data.plan, context.issue_id, context.adw_id)
 
         if not implement_response.success:
             logger.error(f"Error implementing solution: {implement_response.error}")
@@ -81,22 +80,23 @@ class ImplementStep(WorkflowStep):
 
 
 class FindImplementedPlanStep(WorkflowStep):
-    """Find the implemented plan file with fallback to original."""
+    """Extract the implemented plan file path from implementation output."""
 
     @property
     def name(self) -> str:
         return "Finding implemented plan file"
 
     def run(self, context: WorkflowContext) -> StepResult:
-        """Find implemented plan file and store in context.
+        """Extract implemented plan file path from implementation output.
 
-        Always succeeds (uses fallback to original plan file).
+        The implementation step output includes a 'planPath' field that
+        contains the path to the implemented plan file.
 
         Args:
-            context: Workflow context with implement_data and plan_file
+            context: Workflow context with implement_data
 
         Returns:
-            StepResult (always succeeds with fallback)
+            StepResult (always succeeds, may have empty path)
         """
         # Try to load from artifacts if not in context
         implement_data = context.load_artifact_if_missing(
@@ -105,41 +105,29 @@ class FindImplementedPlanStep(WorkflowStep):
             ImplementationArtifact,
             lambda a: a.implement_data,
         )
-        fallback_path = (
-            context.load_artifact_if_missing(
-                "plan_file",
-                "plan_file",
-                PlanFileArtifact,
-                lambda a: a.plan_file_data.file_path,
-            )
-            or ""
-        )
 
         if implement_data is None:
-            logger.warning("No implementation data, using fallback plan file")
-            context.data["implemented_plan_file"] = fallback_path
-            self._save_implemented_plan_artifact(context, fallback_path)
+            logger.warning("No implementation data available")
+            context.data["implemented_plan_file"] = ""
             return StepResult.ok(None)
 
-        impl_plan_result = get_plan_file(implement_data.output, context.issue_id, context.adw_id)
+        # Extract planPath from the implementation output JSON
+        import json
 
-        if not impl_plan_result.success:
-            logger.error(f"Error finding implemented plan file: {impl_plan_result.error}")
-            logger.warning(f"Falling back to original plan file: {fallback_path}")
-            context.data["implemented_plan_file"] = fallback_path
-            self._save_implemented_plan_artifact(context, fallback_path)
-            return StepResult.ok(None)
+        try:
+            parsed = json.loads(implement_data.output)
+            plan_path = parsed.get("planPath", "")
+        except json.JSONDecodeError:
+            logger.warning("Could not parse implementation output as JSON")
+            plan_path = ""
 
-        if impl_plan_result.data is None:
-            logger.warning("Could not determine implemented plan file, using original")
-            context.data["implemented_plan_file"] = fallback_path
-            self._save_implemented_plan_artifact(context, fallback_path)
-            return StepResult.ok(None)
+        if plan_path:
+            logger.info(f"Implemented plan file: {plan_path}")
+        else:
+            logger.warning("No planPath found in implementation output")
 
-        implemented_plan_path = impl_plan_result.data.file_path
-        logger.info(f"Implemented plan file: {implemented_plan_path}")
-        context.data["implemented_plan_file"] = implemented_plan_path
-        self._save_implemented_plan_artifact(context, implemented_plan_path)
+        context.data["implemented_plan_file"] = plan_path
+        self._save_implemented_plan_artifact(context, plan_path)
 
         return StepResult.ok(None)
 

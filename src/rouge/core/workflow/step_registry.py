@@ -285,7 +285,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
-    from rouge.core.workflow.steps.find_plan_file import FindPlanFileStep
     from rouge.core.workflow.steps.implement import FindImplementedPlanStep, ImplementStep
     from rouge.core.workflow.steps.plan import BuildPlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
@@ -316,39 +315,31 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Build implementation plan for the issue",
     )
 
-    # 4. FindPlanFileStep: requires plan, produces plan_file
-    registry.register(
-        FindPlanFileStep,
-        dependencies=["plan"],
-        outputs=["plan_file"],
-        description="Locate the generated plan file path",
-    )
-
-    # 5. ImplementStep: requires plan_file, produces implementation
+    # 4. ImplementStep: requires plan, produces implementation
     registry.register(
         ImplementStep,
-        dependencies=["plan_file"],
+        dependencies=["plan"],
         outputs=["implementation"],
         description="Execute the implementation plan",
     )
 
-    # 6. FindImplementedPlanStep: requires implementation, produces implemented_plan_file
+    # 5. FindImplementedPlanStep: requires implementation, produces implemented_plan_file
     registry.register(
         FindImplementedPlanStep,
         dependencies=["implementation"],
         outputs=["implemented_plan_file"],
-        description="Locate the implemented plan file path",
+        description="Extract the implemented plan file path from output",
     )
 
-    # 7. GenerateReviewStep: requires implemented_plan_file, produces review
+    # 6. GenerateReviewStep: requires plan, produces review
     registry.register(
         GenerateReviewStep,
-        dependencies=["implemented_plan_file"],
+        dependencies=["plan"],
         outputs=["review"],
         description="Generate code review for implementation",
     )
 
-    # 8. AddressReviewStep: requires review, produces review_addressed
+    # 7. AddressReviewStep: requires review, produces review_addressed
     registry.register(
         AddressReviewStep,
         dependencies=["review"],
@@ -356,7 +347,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Address review issues and suggestions",
     )
 
-    # 9. CodeQualityStep: requires implementation, produces quality_check
+    # 8. CodeQualityStep: requires implementation, produces quality_check
     registry.register(
         CodeQualityStep,
         dependencies=["implementation"],
@@ -364,7 +355,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Run code quality checks (linting, type checking)",
     )
 
-    # 10. ValidateAcceptanceStep: requires implemented_plan_file, produces acceptance
+    # 9. ValidateAcceptanceStep: requires implemented_plan_file, produces acceptance
     registry.register(
         ValidateAcceptanceStep,
         dependencies=["implemented_plan_file"],
@@ -372,7 +363,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Validate implementation against acceptance criteria",
     )
 
-    # 11. PreparePullRequestStep: requires acceptance, produces pr_metadata
+    # 10. PreparePullRequestStep: requires acceptance, produces pr_metadata
     registry.register(
         PreparePullRequestStep,
         dependencies=["acceptance"],
@@ -380,7 +371,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Prepare pull request metadata and commits",
     )
 
-    # 12. CreateGitHubPullRequestStep: requires pr_metadata, produces pull_request
+    # 11. CreateGitHubPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
         CreateGitHubPullRequestStep,
         dependencies=["pr_metadata"],
@@ -388,7 +379,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Create GitHub pull request via gh CLI",
     )
 
-    # 13. CreateGitLabPullRequestStep: requires pr_metadata, produces pull_request
+    # 12. CreateGitLabPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
         CreateGitLabPullRequestStep,
         dependencies=["pr_metadata"],
