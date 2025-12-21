@@ -7,7 +7,7 @@ worker_id enum type, indexes, triggers, and the get_and_lock_next_issue function
 
 from yoyo import step
 
-__depends__ = {}
+__depends__: dict[str, str] = {}
 
 # Create worker_id enum type with all 12 worker values
 step(
