@@ -11,23 +11,17 @@ from rouge.core.workflow.types import ReviewData, StepResult
 logger = logging.getLogger(__name__)
 
 
-def generate_review(review_file: str, repo_path: str, issue_id: int) -> StepResult[ReviewData]:
-    """Generate CodeRabbit review and save to file.
+def generate_review(repo_path: str, issue_id: int) -> StepResult[ReviewData]:
+    """Generate CodeRabbit review output.
 
     Args:
-        review_file: Path where review should be saved
         repo_path: Repository root path where .coderabbit.yaml config is located
         issue_id: Rouge issue ID for tracking
 
     Returns:
-        StepResult with ReviewData containing review text and file path
+        StepResult with ReviewData containing review text
     """
     try:
-        # Ensure specs directory exists
-        review_dir = os.path.dirname(review_file)
-        if review_dir:
-            os.makedirs(review_dir, exist_ok=True)
-
         # Build absolute config path and validate it exists (config must be in repo root)
         config_path = os.path.join(repo_path, ".coderabbit.yaml")
         if not os.path.exists(config_path):
@@ -55,23 +49,14 @@ def generate_review(review_file: str, repo_path: str, issue_id: int) -> StepResu
             logger.error(f"stderr: {result.stderr}")
             return StepResult.fail(f"CodeRabbit review failed with code {result.returncode}")
 
-        # Write review to file
-        with open(review_file, "w") as f:
-            f.write(result.stdout)
+        review_text = result.stdout
+        logger.info(f"CodeRabbit review generated ({len(review_text)} chars)")
 
-        logger.info(f"CodeRabbit review generated ({len(result.stdout)} chars)")
-        logger.debug(f"Review written to {review_file}")
-
-        # Read back the content
-        with open(review_file, "r") as f:
-            review_text = f.read()
-
-        # Insert progress comment with artifact
+        # Insert progress comment with artifact preview
         comment = Comment(
             issue_id=issue_id,
-            comment=f"CodeRabbit review generated at {review_file}",
+            comment="CodeRabbit review generated",
             raw={
-                "review_file": review_file,
                 "review_text": review_text[:500],
             },  # First 500 chars for preview
             source="system",
@@ -83,7 +68,7 @@ def generate_review(review_file: str, repo_path: str, issue_id: int) -> StepResu
         else:
             logger.debug(f"Review artifact comment inserted: {msg}")
 
-        return StepResult.ok(ReviewData(review_text=review_text, review_file=review_file))
+        return StepResult.ok(ReviewData(review_text=review_text))
 
     except subprocess.TimeoutExpired:
         logger.error("CodeRabbit review timed out after 300 seconds")

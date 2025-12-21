@@ -196,7 +196,7 @@ def execute_agent_prompt(
 
 
 def execute_implement_plan(
-    plan_file: str, issue_id: int, adw_id: str, agent_name: str
+    plan_content: str, issue_id: int, adw_id: str, agent_name: str
 ) -> AgentExecuteResponse:
     """Execute implementation plan using configured provider.
 
@@ -209,12 +209,8 @@ def execute_implement_plan(
     2. ROUGE_AGENT_PROVIDER environment variable (fallback)
     3. Default to "claude"
 
-    Provider-specific behavior:
-    - Claude: Uses /implement slash command with file path
-    - OpenCode: Reads file content and passes directly with --command implement
-
     Args:
-        plan_file: Path to the plan file to implement
+        plan_content: The plan content (markdown) to implement
         issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
         agent_name: Agent name for directory structure
@@ -226,7 +222,7 @@ def execute_implement_plan(
         from rouge.core.agent import execute_implement_plan
 
         response = execute_implement_plan(
-            plan_file="specs/feature-plan.md",
+            plan_content="# Feature Plan\\n...",
             issue_id=123,
             adw_id="adw-456",
             agent_name="sdlc_implementor"
@@ -238,23 +234,11 @@ def execute_implement_plan(
 
     # Provider-specific prompt construction
     if provider_name == "claude":
-        # Claude uses /adw-implement-plan with file path (template reads file)
-        prompt = f"/adw-implement-plan {plan_file}"
+        # Claude uses /adw-implement-plan with plan content directly
+        prompt = f"/adw-implement-plan\n\n{plan_content}"
     else:
-        # Other providers (e.g., OpenCode) need file content directly
-        try:
-            with open(plan_file, "r") as f:
-                prompt = f.read()
-        except Exception as e:
-            error_msg = f"Failed to read plan file {plan_file}: {e}"
-            logger.error(error_msg)
-            return AgentExecuteResponse(
-                output=error_msg,
-                success=False,
-                session_id=None,
-                raw_output_path=None,
-                error_detail=str(e),
-            )
+        # Other providers (e.g., OpenCode) get plan content directly
+        prompt = plan_content
 
     # Create AgentExecuteRequest
     request = AgentExecuteRequest(

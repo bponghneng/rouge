@@ -4,16 +4,9 @@ import logging
 
 from rouge.core.notifications import make_progress_comment_handler
 from rouge.core.workflow.address_review import address_review_issues
-from rouge.core.workflow.artifacts import (
-    ImplementedPlanFileArtifact,
-    ReviewAddressedArtifact,
-    ReviewArtifact,
-)
+from rouge.core.workflow.artifacts import PlanArtifact, ReviewAddressedArtifact, ReviewArtifact
 from rouge.core.workflow.review import generate_review
-from rouge.core.workflow.shared import (
-    derive_paths_from_plan,
-    get_repo_path,
-)
+from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -37,48 +30,35 @@ class GenerateReviewStep(WorkflowStep):
         """Generate review and store result in context.
 
         Args:
-            context: Workflow context with implemented_plan_file
+            context: Workflow context with plan artifact
 
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load implemented_plan_file from artifact if not in context
-        implemented_plan_path = (
-            context.load_artifact_if_missing(
-                "implemented_plan_file",
-                "implemented_plan_file",
-                ImplementedPlanFileArtifact,
-                lambda a: a.file_path,
-            )
-            or ""
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
         )
 
-        if not implemented_plan_path:
-            logger.warning("No implemented plan file, skipping review generation")
-            return StepResult.fail("No implemented plan file, skipping review generation")
-
-        # Derive paths from the implemented plan file
-        paths = derive_paths_from_plan(implemented_plan_path)
-        review_file = paths["review_file"]
-
-        # Store for later steps
-        context.data["review_file"] = review_file
+        if plan_data is None:
+            logger.warning("No plan data available, skipping review generation")
+            return StepResult.fail("No plan data available, skipping review generation")
 
         repo_path = get_repo_path()
 
-        review_result = generate_review(review_file, repo_path, context.issue_id)
+        review_result = generate_review(repo_path, context.issue_id)
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
             return StepResult.fail(f"Failed to generate CodeRabbit review: {review_result.error}")
 
         if review_result.data is None:
-            logger.warning("CodeRabbit review succeeded but no data/review_file was returned")
-            return StepResult.fail(
-                "CodeRabbit review succeeded but no data/review_file was returned"
-            )
+            logger.warning("CodeRabbit review succeeded but no data was returned")
+            return StepResult.fail("CodeRabbit review succeeded but no data was returned")
 
-        logger.info(f"CodeRabbit review generated successfully at {review_result.data.review_file}")
+        logger.info("CodeRabbit review generated successfully")
 
         # Store review data in context
         context.data["review_data"] = review_result.data
@@ -118,13 +98,11 @@ class AddressReviewStep(WorkflowStep):
         """Address review issues.
 
         Args:
-            context: Workflow context with review_file
+            context: Workflow context with review_data
 
         Returns:
             StepResult with success status and optional error message
         """
-        review_file = context.data.get("review_file", "")
-
         # Try to load review_data from artifact if not in context
         review_data = context.load_artifact_if_missing(
             "review_data",
@@ -133,23 +111,19 @@ class AddressReviewStep(WorkflowStep):
             lambda a: a.review_data,
         )
 
-        # If review_file not set but we loaded review_data, derive it
-        if not review_file and review_data is not None:
-            review_file = review_data.review_file
-            context.data["review_file"] = review_file
-
         # Only proceed if we have review data (review generation succeeded)
         if review_data is None:
             logger.warning("No review data available, skipping address review")
             return StepResult.ok(None)  # Not a failure - just nothing to do
 
-        if not review_file:
-            logger.warning("No review file available, skipping address review")
+        review_text = review_data.review_text.strip()
+        if not review_text:
+            logger.warning("No review text available, skipping address review")
             return StepResult.ok(None)
 
         review_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
         review_issues_result = address_review_issues(
-            review_file,
+            review_text,
             context.issue_id,
             context.adw_id,
             stream_handler=review_handler,

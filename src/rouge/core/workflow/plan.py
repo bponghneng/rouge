@@ -13,10 +13,10 @@ from rouge.core.workflow.types import ClassifySlashCommand, PlanData, StepResult
 logger = logging.getLogger(__name__)
 
 # Required fields for plan output JSON
-# Plan output must have output, planPath, summary
+# Plan output must have output, plan (inline content), summary
 PLAN_REQUIRED_FIELDS = {
     "output": str,
-    "planPath": str,
+    "plan": str,
     "summary": str,
 }
 
@@ -66,7 +66,12 @@ def build_plan(
     if not parse_result.success:
         return StepResult.fail(parse_result.error or "JSON parsing failed")
 
+    parsed_data = parse_result.data or {}
     return StepResult.ok(
-        PlanData(output=response.output, session_id=response.session_id),
-        parsed_data=parse_result.data,
+        PlanData(
+            plan=parsed_data.get("plan", ""),
+            summary=parsed_data.get("summary", ""),
+            session_id=response.session_id,
+        ),
+        parsed_data=parsed_data,
     )

@@ -1,7 +1,6 @@
 """Review issue addressing functionality for workflow orchestration."""
 
 import logging
-import os
 from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
@@ -24,15 +23,15 @@ ADDRESS_REVIEW_REQUIRED_FIELDS = {
 
 
 def address_review_issues(
-    review_file: str,
+    review_text: str,
     issue_id: int,
     adw_id: str,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[None]:
-    """Execute the /address-review-issues template with the review file.
+    """Execute the /address-review-issues template with the review content.
 
     Args:
-        review_file: Path to the review file
+        review_text: Full review content to address
         issue_id: Issue ID for tracking
         adw_id: Workflow ID for tracking
         stream_handler: Optional callback for streaming output
@@ -41,18 +40,17 @@ def address_review_issues(
         StepResult with None data (success/failure only)
     """
     try:
-        # Validate review file exists
-        if not os.path.exists(review_file):
-            logger.error(f"Review file does not exist: {review_file}")
-            return StepResult.fail(f"Review file does not exist: {review_file}")
+        review_text = review_text.strip()
+        if not review_text:
+            return StepResult.fail("Review text is empty")
 
-        logger.debug(f"Invoking /adw-implement-review template with review file: {review_file}")
+        logger.debug("Invoking /adw-implement-review template with review content")
 
-        # Call execute_template with the review file
+        # Call execute_template with the review content
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_REVIEW_IMPLEMENTOR,
             slash_command="/adw-implement-review",
-            args=[review_file],
+            args=[review_text],
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",

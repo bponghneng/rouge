@@ -17,7 +17,6 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    PlanFileData,
     ReviewData,
 )
 
@@ -37,7 +36,6 @@ ArtifactType = Literal[
     "issue",
     "classification",
     "plan",
-    "plan_file",
     "implementation",
     "implemented_plan_file",
     "review",
@@ -96,17 +94,6 @@ class PlanArtifact(Artifact):
     plan_data: PlanData
 
 
-class PlanFileArtifact(Artifact):
-    """Artifact containing the discovered plan file path.
-
-    Attributes:
-        plan_file_data: The plan file path data
-    """
-
-    artifact_type: Literal["plan_file"] = "plan_file"
-    plan_file_data: PlanFileData
-
-
 class ImplementationArtifact(Artifact):
     """Artifact containing implementation results.
 
@@ -133,7 +120,7 @@ class ReviewArtifact(Artifact):
     """Artifact containing code review results.
 
     Attributes:
-        review_data: The review content and file path
+        review_data: The review content
     """
 
     artifact_type: Literal["review"] = "review"
@@ -214,7 +201,6 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "issue": IssueArtifact,
     "classification": ClassificationArtifact,
     "plan": PlanArtifact,
-    "plan_file": PlanFileArtifact,
     "implementation": ImplementationArtifact,
     "implemented_plan_file": ImplementedPlanFileArtifact,
     "review": ReviewArtifact,
