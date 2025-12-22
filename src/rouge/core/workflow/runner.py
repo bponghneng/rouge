@@ -36,5 +36,5 @@ def execute_workflow(
         True if workflow completed successfully, False otherwise
     """
     pipeline = get_default_pipeline()
-    runner = WorkflowRunner(pipeline, enable_artifacts=True)
+    runner = WorkflowRunner(pipeline)
     return runner.run(issue_id, adw_id)

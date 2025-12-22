@@ -18,15 +18,13 @@ class WorkflowRunner:
     continuing past best-effort step failures.
     """
 
-    def __init__(self, steps: List[WorkflowStep], enable_artifacts: bool = False) -> None:
+    def __init__(self, steps: List[WorkflowStep]) -> None:
         """Initialize the runner with a list of steps.
 
         Args:
             steps: Ordered list of workflow steps to execute
-            enable_artifacts: Whether to enable artifact persistence
         """
         self._steps = steps
-        self._enable_artifacts = enable_artifacts
 
     def run(self, issue_id: int, adw_id: str) -> bool:
         """Execute all workflow steps in sequence.
@@ -38,11 +36,9 @@ class WorkflowRunner:
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
-        # Create artifact store if enabled
-        artifact_store: Optional[ArtifactStore] = None
-        if self._enable_artifacts:
-            artifact_store = ArtifactStore(adw_id)
-            logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
+        # Create artifact store unconditionally
+        artifact_store = ArtifactStore(adw_id)
+        logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
 
         context = WorkflowContext(
             issue_id=issue_id,
