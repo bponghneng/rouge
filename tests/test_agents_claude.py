@@ -122,6 +122,32 @@ def test_iter_assistant_items_non_assistant():
     assert len(items) == 0
 
 
+def test_iter_assistant_items_includes_task_tool_use():
+    """Test extracting Task tool_use items from JSONL line."""
+    line = json.dumps(
+        {
+            "type": "assistant",
+            "message": {
+                "content": [
+                    {"type": "text", "text": "Starting implementation"},
+                    {
+                        "type": "tool_use",
+                        "name": "Task",
+                        "input": {"action": "create", "task_id": "task-123"},
+                    },
+                    {"type": "tool_use", "name": "OtherTool", "input": {}},
+                ]
+            },
+        }
+    )
+    items = list(iter_assistant_items(line))
+    assert len(items) == 2
+    assert items[0]["type"] == "text"
+    assert items[1]["type"] == "tool_use"
+    assert items[1]["name"] == "Task"
+    assert items[1]["input"] == {"action": "create", "task_id": "task-123"}
+
+
 def test_save_prompt(tmp_path, monkeypatch):
     """Test saving prompt to file."""
     monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
