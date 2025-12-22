@@ -176,7 +176,7 @@ def test_fetch_all_issues_success(mock_get_client):
 
 @patch("rouge.core.database.get_client")
 def test_create_comment_success(mock_get_client):
-    """Test successful comment creation."""
+    """Test successful comment creation without adw_id (backward compatibility)."""
     mock_client = Mock()
     mock_table = Mock()
     mock_insert = Mock()
@@ -192,6 +192,7 @@ def test_create_comment_success(mock_get_client):
             "raw": {"test": "data"},
             "source": "test",
             "type": "unit",
+            "adw_id": None,
         }
     ]
     mock_insert.execute.return_value = mock_execute
@@ -211,6 +212,59 @@ def test_create_comment_success(mock_get_client):
     assert comment.raw == {"test": "data"}
     assert comment.source == "test"
     assert comment.type == "unit"
+    assert comment.adw_id is None
+
+    # Verify that adw_id was included in the insert data
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert "adw_id" in insert_call_args
+    assert insert_call_args["adw_id"] is None
+
+
+@patch("rouge.core.database.get_client")
+def test_create_comment_with_adw_id(mock_get_client):
+    """Test successful comment creation with adw_id."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 1,
+            "issue_id": 1,
+            "comment": "Test comment with ADW ID",
+            "raw": {"test": "data"},
+            "source": "test",
+            "type": "unit",
+            "adw_id": "test-adw-123",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comment_payload = Comment(
+        issue_id=1,
+        comment="Test comment with ADW ID",
+        raw={"test": "data"},
+        source="test",
+        type="unit",
+        adw_id="test-adw-123",
+    )
+
+    comment = create_comment(comment_payload)
+    assert comment.issue_id == 1
+    assert comment.comment == "Test comment with ADW ID"
+    assert comment.raw == {"test": "data"}
+    assert comment.source == "test"
+    assert comment.type == "unit"
+    assert comment.adw_id == "test-adw-123"
+
+    # Verify that adw_id was included in the insert data
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert "adw_id" in insert_call_args
+    assert insert_call_args["adw_id"] == "test-adw-123"
 
 
 @patch("rouge.core.database.get_client")

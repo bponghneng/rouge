@@ -81,6 +81,7 @@ class ClassifyStep(WorkflowStep):
             issue.id,
             comment_text,
             raw={"text": comment_text},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)

@@ -101,6 +101,7 @@ class CodeQualityStep(WorkflowStep):
                     "text": "Code quality checks completed.",
                     "result": parse_result.data,
                 },
+                adw_id=context.adw_id,
             )
 
             return StepResult.ok(None, parsed_data=parse_result.data)

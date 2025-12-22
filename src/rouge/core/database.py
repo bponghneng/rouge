@@ -172,6 +172,7 @@ def create_comment(comment: Comment) -> Comment:
         "raw": comment.raw or {},
         "source": comment.source,
         "type": comment.type,
+        "adw_id": comment.adw_id,
     }
 
     try:

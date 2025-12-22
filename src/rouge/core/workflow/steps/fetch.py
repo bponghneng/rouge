@@ -55,6 +55,7 @@ class FetchIssueStep(WorkflowStep):
                     "issue_id": issue_id,
                     "text": "Workflow started. Issue fetched and validated.",
                 },
+                adw_id=context.adw_id,
             )
 
             return StepResult.ok(None)

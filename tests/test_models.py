@@ -69,6 +69,46 @@ def test_comment_empty_validation():
         Comment(issue_id=1, comment="")
 
 
+def test_comment_with_adw_id():
+    """Test Comment creation with adw_id field."""
+    comment = Comment(
+        issue_id=1,
+        comment="Test comment with ADW ID",
+        adw_id="test-adw-123",
+    )
+    assert comment.issue_id == 1
+    assert comment.comment == "Test comment with ADW ID"
+    assert comment.adw_id == "test-adw-123"
+
+
+def test_comment_default_adw_id():
+    """Test Comment defaults adw_id to None when not provided."""
+    comment = Comment(issue_id=1, comment="Test comment")
+    assert comment.issue_id == 1
+    assert comment.comment == "Test comment"
+    assert comment.adw_id is None
+
+
+def test_comment_with_all_fields_including_adw_id():
+    """Test Comment with all fields including adw_id."""
+    comment = Comment(
+        id=42,
+        issue_id=1,
+        comment="Full comment test",
+        raw={"key": "value"},
+        source="agent",
+        type="workflow",
+        adw_id="adw-xyz-456",
+    )
+    assert comment.id == 42
+    assert comment.issue_id == 1
+    assert comment.comment == "Full comment test"
+    assert comment.raw == {"key": "value"}
+    assert comment.source == "agent"
+    assert comment.type == "workflow"
+    assert comment.adw_id == "adw-xyz-456"
+
+
 def test_agent_prompt_request():
     """Test ClaudeAgentPromptRequest creation."""
     request = ClaudeAgentPromptRequest(

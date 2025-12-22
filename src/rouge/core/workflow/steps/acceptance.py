@@ -82,6 +82,7 @@ class ValidateAcceptanceStep(WorkflowStep):
             context.issue_id,
             "Plan acceptance validation completed",
             raw={"text": "Plan acceptance validation completed."},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)

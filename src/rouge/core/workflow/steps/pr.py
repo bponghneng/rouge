@@ -75,6 +75,7 @@ class PreparePullRequestStep(WorkflowStep):
                     "output": "pr-preparation-response",
                     "llm_response": response.output,
                 },
+                adw_id=context.adw_id,
             )
 
             if not response.success:
@@ -105,6 +106,7 @@ class PreparePullRequestStep(WorkflowStep):
                 context.issue_id,
                 "Pull request prepared.",
                 raw={"text": "Pull request prepared.", "result": parse_result.data},
+                adw_id=context.adw_id,
             )
 
             # Finalize workflow
@@ -132,6 +134,7 @@ class PreparePullRequestStep(WorkflowStep):
             context.issue_id,
             "Solution implemented successfully",
             raw={"text": "Solution implemented successfully."},
+            adw_id=context.adw_id,
         )
 
     def _store_pr_details(self, pr_data: dict, context: WorkflowContext) -> None:

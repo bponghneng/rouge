@@ -11,12 +11,15 @@ from rouge.core.workflow.types import ReviewData, StepResult
 logger = logging.getLogger(__name__)
 
 
-def generate_review(repo_path: str, issue_id: int) -> StepResult[ReviewData]:
+def generate_review(
+    repo_path: str, issue_id: int, adw_id: str | None = None
+) -> StepResult[ReviewData]:
     """Generate CodeRabbit review output.
 
     Args:
         repo_path: Repository root path where .coderabbit.yaml config is located
         issue_id: Rouge issue ID for tracking
+        adw_id: Optional ADW ID for associating comment with workflow
 
     Returns:
         StepResult with ReviewData containing review text
@@ -61,6 +64,7 @@ def generate_review(repo_path: str, issue_id: int) -> StepResult[ReviewData]:
             },  # First 500 chars for preview
             source="system",
             type="artifact",
+            adw_id=adw_id,
         )
         status, msg = insert_progress_comment(comment)
         if status != "success":

@@ -17,6 +17,7 @@ def emit_progress_comment(
     message: str,
     raw: dict | None = None,
     comment_type: str = "workflow",
+    adw_id: str | None = None,
 ) -> Tuple[str, str]:
     """Insert a progress comment for an issue.
 
@@ -27,6 +28,7 @@ def emit_progress_comment(
         message: The comment message text
         raw: Optional raw data dict for the comment
         comment_type: Type of comment (default: "workflow")
+        adw_id: Optional ADW ID for associating comment with workflow
 
     Returns:
         Tuple of (status, message) from insert_progress_comment
@@ -37,6 +39,7 @@ def emit_progress_comment(
         raw=raw or {"text": message},
         source="system",
         type=comment_type,
+        adw_id=adw_id,
     )
     status, msg = insert_progress_comment(comment)
     if status == "success":
