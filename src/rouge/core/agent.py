@@ -235,7 +235,7 @@ def execute_implement_plan(
     # Provider-specific prompt construction
     if provider_name == "claude":
         # Claude uses /adw-implement-plan with plan content directly
-        prompt = f"/adw-implement-plan\n\n{plan_content}"
+        prompt = f"/adw-implement-plan {plan_content.lstrip()}"
     else:
         # Other providers (e.g., OpenCode) get plan content directly
         prompt = plan_content
