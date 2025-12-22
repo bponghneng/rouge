@@ -5,17 +5,23 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from dotenv import load_dotenv
-
 from rouge import __version__
 from rouge.cli.artifact import app as artifact_app
 from rouge.cli.step import app as step_app
-from rouge.core.database import create_issue
+from rouge.core.database import create_issue, init_db_env
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
 
 # Load environment variables
-load_dotenv()
+env_file_path = Path.cwd() / ".env"
+if env_file_path.exists():
+    init_db_env(dotenv_path=str(env_file_path))
+else:
+    parent_env_file_path = Path.cwd().parent / ".env"
+    if parent_env_file_path.exists():
+        init_db_env(dotenv_path=str(parent_env_file_path))
+    else:
+        init_db_env()
 
 app = typer.Typer(
     invoke_without_command=True,

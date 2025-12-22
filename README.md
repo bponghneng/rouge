@@ -216,6 +216,10 @@ files in the workflow directory). Full workflow execution (`rouge run`,
 `rouge-adw`, `rouge-worker`) does not enable artifacts by default; use the
 step/artifact commands after a run that generated artifacts.
 
+If you run `rouge step run` outside the project directory, pass `--working-dir`
+to load `.env` from that directory (or its parent), matching the worker's
+`--working-dir` behavior.
+
 ## Worker Features
 
 - Polls `cape_issues` for `status='pending'`, locks the next row via a
