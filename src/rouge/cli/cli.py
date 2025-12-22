@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+
 from rouge import __version__
 from rouge.cli.artifact import app as artifact_app
 from rouge.cli.step import app as step_app
