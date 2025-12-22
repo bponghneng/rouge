@@ -116,7 +116,7 @@ def run_step(
     typer.echo(f"Running step '{step_name}' for issue {issue_id} (workflow: {adw_id})")
 
     pipeline = get_default_pipeline()
-    runner = WorkflowRunner(pipeline, enable_artifacts=True)
+    runner = WorkflowRunner(pipeline)
 
     try:
         success = runner.run_single_step(

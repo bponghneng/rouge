@@ -213,8 +213,8 @@ Artifact-focused commands:
 
 Single-step execution requires artifacts from a prior run (or manually created
 files in the workflow directory). Full workflow execution (`rouge run`,
-`rouge-adw`, `rouge-worker`) does not enable artifacts by default; use the
-step/artifact commands after a run that generated artifacts.
+`rouge-adw`, `rouge-worker`) always enables artifacts; use the step/artifact
+commands to inspect or modify artifacts after a run.
 
 If you run `rouge step run` outside the project directory, pass `--working-dir`
 to load `.env` from that directory (or its parent), matching the worker's
