@@ -140,7 +140,7 @@ def convert_jsonl_to_json(jsonl_file: str) -> str:
 
 
 def iter_assistant_items(line: str) -> Iterable[Dict[str, Any]]:
-    """Yield assistant text/TodoWrite items parsed from a Claude CLI stdout line.
+    """Yield assistant text/TodoWrite/Task items parsed from a Claude CLI stdout line.
 
     This function is critical for real-time streaming progress comments.
     It parses JSONL lines and extracts relevant content items from assistant messages.
@@ -173,8 +173,9 @@ def iter_assistant_items(line: str) -> Iterable[Dict[str, Any]]:
         item_type = item.get("type")
         is_text = item_type == "text"
         is_todo = item_type == "tool_use" and item.get("name") == "TodoWrite"
+        is_task = item_type == "tool_use" and item.get("name") == "Task"
 
-        if is_text or is_todo:
+        if is_text or is_todo or is_task:
             selected.append(item)
     return selected
 
