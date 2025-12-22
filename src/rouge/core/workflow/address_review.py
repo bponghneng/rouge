@@ -74,6 +74,7 @@ def address_review_issues(
             issue_id,
             "Address review LLM response received",
             raw={"output": "address-review-response", "llm_response": response.output},
+            adw_id=adw_id,
         )
 
         if not response.success:
@@ -98,6 +99,7 @@ def address_review_issues(
             raw={"template_output": parse_result.data},
             source="system",
             type="artifact",
+            adw_id=adw_id,
         )
         status, msg = insert_progress_comment(comment)
         if status != "success":

@@ -73,6 +73,7 @@ class ImplementStep(WorkflowStep):
             context.issue_id,
             "Implementation complete.",
             raw={"text": "Implementation complete."},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)

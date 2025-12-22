@@ -49,6 +49,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -63,6 +64,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -75,6 +77,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "merge-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -145,6 +148,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                     context.issue_id,
                     error_msg,
                     raw={"output": "merge-request-failed", "error": error_msg},
+                    adw_id=context.adw_id,
                 )
                 return StepResult.fail(error_msg)
 
@@ -172,6 +176,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 f"Merge request created: {mr_url}",
                 raw=comment_data,
+                adw_id=context.adw_id,
             )
 
             return StepResult.ok(None)
@@ -183,6 +188,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
         except FileNotFoundError:
@@ -192,6 +198,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
         except Exception as e:
@@ -201,5 +208,6 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 context.issue_id,
                 error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)

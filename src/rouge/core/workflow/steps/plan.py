@@ -96,6 +96,7 @@ class BuildPlanStep(WorkflowStep):
             issue.id,
             comment_text,
             raw={"text": parsed_data},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)

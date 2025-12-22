@@ -72,6 +72,7 @@ class Comment(BaseModel):
     raw: dict = Field(default_factory=dict)
     source: Optional[str] = None
     type: Optional[str] = None
+    adw_id: Optional[str] = None
     created_at: Optional[datetime] = None
 
     @field_validator("comment")

@@ -74,6 +74,7 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
             raw={},
             source="agent",
             type="claude",
+            adw_id=request.adw_id,
         )
         status, msg = insert_progress_comment(comment)
         logger.debug(msg) if status == "success" else logger.error(msg)
@@ -130,6 +131,7 @@ def execute_template(
                     message=f"Template {request.slash_command} completed",
                     raw={"template": request.slash_command, "result": result.data},
                     comment_type="workflow",
+                    adw_id=request.adw_id,
                 )
                 logger.debug("Template output parsed as JSON successfully")
             else:
@@ -144,6 +146,7 @@ def execute_template(
                         "output": raw_output[:500],
                     },
                     comment_type="workflow",
+                    adw_id=request.adw_id,
                 )
         else:
             # Skip JSON validation for plain text output (FindPlanFileStep, GenerateReviewStep)
@@ -152,6 +155,7 @@ def execute_template(
                 message=f"Template {request.slash_command} completed",
                 raw={"template": request.slash_command, "output": raw_output[:500]},
                 comment_type="workflow",
+                adw_id=request.adw_id,
             )
             logger.debug("Template output accepted as plain text (require_json=False)")
 

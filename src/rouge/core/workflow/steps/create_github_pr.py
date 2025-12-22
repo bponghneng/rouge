@@ -50,6 +50,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -64,6 +65,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -76,6 +78,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -88,6 +91,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.ok(None)
 
@@ -156,6 +160,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                     context.issue_id,
                     error_msg,
                     raw={"output": "pull-request-failed", "error": error_msg},
+                    adw_id=context.adw_id,
                 )
                 return StepResult.fail(error_msg)
 
@@ -183,6 +188,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 f"Pull request created: {pr_url}",
                 raw=comment_data,
+                adw_id=context.adw_id,
             )
 
             return StepResult.ok(None)
@@ -194,6 +200,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 error_msg,
                 raw={"output": "pull-request-failed", "error": error_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
         except Exception as e:
@@ -203,5 +210,6 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 context.issue_id,
                 error_msg,
                 raw={"output": "pull-request-failed", "error": error_msg},
+                adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)

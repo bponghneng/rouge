@@ -48,7 +48,7 @@ class GenerateReviewStep(WorkflowStep):
 
         repo_path = get_repo_path()
 
-        review_result = generate_review(repo_path, context.issue_id)
+        review_result = generate_review(repo_path, context.issue_id, context.adw_id)
 
         if not review_result.success:
             logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
@@ -77,6 +77,7 @@ class GenerateReviewStep(WorkflowStep):
             context.issue_id,
             "CodeRabbit review complete.",
             raw={"text": "CodeRabbit review complete."},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)
@@ -158,6 +159,7 @@ class AddressReviewStep(WorkflowStep):
             context.issue_id,
             "Review issues addressed.",
             raw={"text": "Review issues addressed."},
+            adw_id=context.adw_id,
         )
 
         return StepResult.ok(None)

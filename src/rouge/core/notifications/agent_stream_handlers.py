@@ -72,6 +72,7 @@ def make_progress_comment_handler(
                         raw=item,  # Store the raw parsed dict
                         source="agent",
                         type=provider,  # "claude" or "opencode"
+                        adw_id=adw_id,
                     )
 
                     # Insert progress comment (best-effort)
