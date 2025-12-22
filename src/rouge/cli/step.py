@@ -1,9 +1,12 @@
 """CLI commands for workflow step management."""
 
+import os
+from pathlib import Path
 from typing import Optional
 
 import typer
 
+from rouge.core.database import init_db_env
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 from rouge.core.workflow.step_registry import get_step_registry
@@ -52,6 +55,11 @@ def run_step(
         "-a",
         help="Workflow ID for artifacts (auto-generated for dependency-free steps)",
     ),
+    working_dir: Optional[Path] = typer.Option(
+        None,
+        "--working-dir",
+        help="Absolute directory to switch into before loading .env and running the step.",
+    ),
 ) -> None:
     """Run a single workflow step using artifacts for dependencies.
 
@@ -65,6 +73,23 @@ def run_step(
         rouge step run "Fetching issue from Supabase" --issue-id 123
         rouge step run "Classifying issue" --issue-id 123 --adw-id abc12345
     """
+    if working_dir:
+        target_dir = working_dir.expanduser()
+        if not target_dir.is_absolute():
+            typer.echo("Error: --working-dir must be an absolute path", err=True)
+            raise typer.Exit(1)
+        target_dir = target_dir.resolve()
+        os.chdir(target_dir)
+        env_file_path = target_dir / ".env"
+        if env_file_path.exists():
+            init_db_env(dotenv_path=str(env_file_path))
+        else:
+            parent_env_file_path = target_dir.parent / ".env"
+            if parent_env_file_path.exists():
+                init_db_env(dotenv_path=str(parent_env_file_path))
+            else:
+                init_db_env()
+
     # Query the step registry to check dependencies
     registry = get_step_registry()
     step_metadata = registry.get_step_metadata(step_name)
