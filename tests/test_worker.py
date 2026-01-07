@@ -1,5 +1,6 @@
 """Tests for the CAPE issue worker daemon."""
 
+import os
 import subprocess
 from unittest.mock import Mock, patch
 
@@ -394,9 +395,140 @@ class TestCommandLineInterface:
                 assert config.log_level == "DEBUG"
                 mock_worker.run.assert_called_once()
 
+    def test_workflow_timeout_from_cli(self, mock_env):
+        """Test workflow-timeout flag is parsed and passed to WorkerConfig."""
+        test_args = [
+            "rouge-worker",
+            "--worker-id",
+            "test-worker",
+            "--workflow-timeout",
+            "7200",
+        ]
+
+        with patch("sys.argv", test_args):
+            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+                mock_worker = Mock()
+                mock_worker_class.return_value = mock_worker
+
+                from rouge.worker.cli import main
+
+                main()
+
+                # Verify WorkerConfig was created with the specified workflow_timeout
+                assert mock_worker_class.call_count == 1
+                config = mock_worker_class.call_args[0][0]
+                assert isinstance(config, WorkerConfig)
+                assert config.workflow_timeout == 7200
+                mock_worker.run.assert_called_once()
+
+    def test_workflow_timeout_from_env_var(self, mock_env, monkeypatch):
+        """Test ROUGE_WORKFLOW_TIMEOUT_SECONDS env var is used as default.
+
+        This test verifies that the CLI correctly reads the environment variable
+        to set the default value for --workflow-timeout when the flag is not
+        provided on the command line. We use subprocess to get a clean process
+        where the environment variable is evaluated fresh.
+        """
+        # Run a subprocess that imports the CLI and prints the parsed timeout
+        test_script = """
+import os
+import sys
+os.environ["SUPABASE_URL"] = "https://test.supabase.co"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
+sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
+
+# Import after setting env var so the default is evaluated with our value
+from rouge.worker.cli import main
+import argparse
+
+# Patch argparse to capture the parsed args instead of running the worker
+original_parse = argparse.ArgumentParser.parse_args
+parsed = None
+def capture_parse(self, *args, **kwargs):
+    global parsed
+    parsed = original_parse(self, *args, **kwargs)
+    return parsed
+
+argparse.ArgumentParser.parse_args = capture_parse
+
+# Mock IssueWorker to prevent actual execution
+from unittest.mock import Mock, patch
+with patch("rouge.worker.cli.IssueWorker") as mock_worker:
+    mock_worker.return_value = Mock()
+    main()
+    print(parsed.workflow_timeout)
+"""
+        result = subprocess.run(
+            ["python", "-c", test_script],
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "ROUGE_WORKFLOW_TIMEOUT_SECONDS": "1800",
+                "SUPABASE_URL": "https://test.supabase.co",
+                "SUPABASE_SERVICE_ROLE_KEY": "test_key",
+            },
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        assert result.stdout.strip() == "1800"
+
+    def test_workflow_timeout_cli_overrides_env(self, mock_env, monkeypatch):
+        """Test CLI flag takes precedence over environment variable.
+
+        We use subprocess to ensure the environment variable is evaluated
+        in a fresh process, then verify the CLI flag overrides it.
+        """
+        test_script = """
+import os
+import sys
+os.environ["SUPABASE_URL"] = "https://test.supabase.co"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
+sys.argv = ["rouge-worker", "--worker-id", "test-worker", "--workflow-timeout", "5400"]
+
+from rouge.worker.cli import main
+import argparse
+
+original_parse = argparse.ArgumentParser.parse_args
+parsed = None
+def capture_parse(self, *args, **kwargs):
+    global parsed
+    parsed = original_parse(self, *args, **kwargs)
+    return parsed
+
+argparse.ArgumentParser.parse_args = capture_parse
+
+from unittest.mock import Mock, patch
+with patch("rouge.worker.cli.IssueWorker") as mock_worker:
+    mock_worker.return_value = Mock()
+    main()
+    print(parsed.workflow_timeout)
+"""
+        result = subprocess.run(
+            ["python", "-c", test_script],
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "ROUGE_WORKFLOW_TIMEOUT_SECONDS": "1800",  # This should be overridden
+                "SUPABASE_URL": "https://test.supabase.co",
+                "SUPABASE_SERVICE_ROLE_KEY": "test_key",
+            },
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        # CLI value (5400) should take precedence over env var (1800)
+        assert result.stdout.strip() == "5400"
+
 
 class TestWorkerConfig:
     """Tests for WorkerConfig."""
+
+    def test_config_invalid_workflow_timeout(self):
+        """Test configuration with invalid workflow_timeout."""
+        with pytest.raises(ValueError, match="workflow_timeout must be positive"):
+            WorkerConfig(worker_id="test", poll_interval=10, workflow_timeout=0)
+
+        with pytest.raises(ValueError, match="workflow_timeout must be positive"):
+            WorkerConfig(worker_id="test", poll_interval=10, workflow_timeout=-1)
 
     def test_config_validation_success(self):
         """Test valid configuration."""
