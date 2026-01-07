@@ -7,7 +7,8 @@ This step prepares the git environment for a workflow by:
 
 WARNING: This step uses destructive git operations (git reset --hard) which
 will discard any uncommitted changes. This is acceptable for worker environments
-but should be used with caution in development environments.
+but requires explicit opt-in via ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS environment
+variable in development environments to prevent accidental data loss.
 """
 
 import logging
@@ -33,6 +34,9 @@ class SetupStep(WorkflowStep):
     Environment Variables:
         DEFAULT_GIT_BRANCH: The default branch to checkout (defaults to "main")
         REPO_PATH: The repository path (defaults to current directory)
+        ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS: Set to "true" to allow destructive git
+            operations (git reset --hard). Required for non-worker environments
+            to prevent accidental data loss.
     """
 
     @property
@@ -55,13 +59,26 @@ class SetupStep(WorkflowStep):
         default_branch = os.environ.get("DEFAULT_GIT_BRANCH", "main")
         repo_path = get_repo_path()
         adw_id = context.adw_id
+        
+        # Check if destructive git operations are allowed
+        allow_destructive = os.environ.get("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "").lower() == "true"
 
         logger.info(
-            "Setting up git environment: default_branch=%s, repo_path=%s, adw_id=%s",
+            "Setting up git environment: default_branch=%s, repo_path=%s, adw_id=%s, allow_destructive=%s",
             default_branch,
             repo_path,
             adw_id,
+            allow_destructive,
         )
+        
+        if not allow_destructive:
+            error_msg = (
+                "Destructive git operations not allowed. "
+                "Set ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true to enable git reset --hard. "
+                "WARNING: This will discard any uncommitted changes."
+            )
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
 
         try:
             # Step 1: Checkout default branch
