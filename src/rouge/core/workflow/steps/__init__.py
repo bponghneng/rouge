@@ -12,6 +12,7 @@ from rouge.core.workflow.steps.plan import BuildPlanStep
 from rouge.core.workflow.steps.pr import PreparePullRequestStep
 from rouge.core.workflow.steps.quality import CodeQualityStep
 from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+from rouge.core.workflow.steps.setup import SetupStep
 
 __all__ = [
     "FetchIssueStep",
@@ -23,4 +24,5 @@ __all__ = [
     "CodeQualityStep",
     "ValidateAcceptanceStep",
     "PreparePullRequestStep",
+    "SetupStep",
 ]

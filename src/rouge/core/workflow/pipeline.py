@@ -172,8 +172,10 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.setup import SetupStep
 
     steps: List[WorkflowStep] = [
+        SetupStep(),
         FetchIssueStep(),
         ClassifyStep(),
         BuildPlanStep(),
