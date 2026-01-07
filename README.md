@@ -63,6 +63,7 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
 | `GITLAB_PAT` | optional | Personal access token for GitLab (api scope). Required for automatic MR creation when `DEV_SEC_OPS_PLATFORM=gitlab`. Requires `glab` CLI. |
 | `DEV_SEC_OPS_PLATFORM` | optional | Platform for PR/MR creation: `"github"` or `"gitlab"`. If not set, PR/MR creation step is skipped. |
+| `ROUGE_WORKFLOW_TIMEOUT_SECONDS` | optional | Workflow execution timeout in seconds (default: 3600). |
 
 Create a `.env` file in the directory where you are running the `rouge` commands from, or set the variables directly in your shell environment.
 
@@ -142,6 +143,7 @@ Optional flags:
 - `--poll-interval` – seconds between Supabase polls (default `10`).
 - `--log-level` – `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default `INFO`).
 - `--working-dir` – absolute directory to switch into before polling (default: current directory). This is where `rouge-adw` will execute its operations.
+- `--workflow-timeout` – workflow execution timeout in seconds (default `3600`).
 
 ### Environment Variables for ADW Execution
 
