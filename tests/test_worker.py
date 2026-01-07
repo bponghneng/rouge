@@ -520,7 +520,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker:
 
     def test_workflow_timeout_invalid_env_var(self, mock_env):
         """Test invalid environment variable values are handled gracefully.
-        
+
         This test verifies that non-numeric and non-positive values in
         ROUGE_WORKFLOW_TIMEOUT_SECONDS trigger a warning and fall back to
         the default timeout value of 3600 seconds.
