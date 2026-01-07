@@ -1,6 +1,8 @@
 """Command-line interface for the Rouge Worker."""
 
 import argparse
+import os
+import sys
 from pathlib import Path
 
 from .config import WorkerConfig
@@ -9,6 +11,19 @@ from .worker import IssueWorker
 
 def main():
     """Parse command line arguments and start the worker."""
+    # Safely parse ROUGE_WORKFLOW_TIMEOUT_SECONDS env var
+    default_timeout = 3600
+    timeout_env = os.environ.get("ROUGE_WORKFLOW_TIMEOUT_SECONDS")
+    if timeout_env:
+        try:
+            default_timeout = int(timeout_env)
+        except ValueError:
+            print(
+                f"Warning: Invalid value for ROUGE_WORKFLOW_TIMEOUT_SECONDS "
+                f"'{timeout_env}', using default {default_timeout} seconds",
+                file=sys.stderr,
+            )
+
     parser = argparse.ArgumentParser(
         description="Rouge Issue Worker Daemon",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -46,6 +61,13 @@ Examples:
         help="Absolute directory the worker should switch to before starting.",
     )
 
+    parser.add_argument(
+        "--workflow-timeout",
+        type=int,
+        default=default_timeout,
+        help="Timeout in seconds for workflow execution (default: 3600)",
+    )
+
     args = parser.parse_args()
 
     # Create configuration
@@ -54,6 +76,7 @@ Examples:
         poll_interval=args.poll_interval,
         log_level=args.log_level,
         working_dir=args.working_dir,
+        workflow_timeout=args.workflow_timeout,
     )
 
     # Create and start the worker
