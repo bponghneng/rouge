@@ -16,7 +16,15 @@ def main():
     timeout_env = os.environ.get("ROUGE_WORKFLOW_TIMEOUT_SECONDS")
     if timeout_env:
         try:
-            default_timeout = int(timeout_env)
+            parsed_timeout = int(timeout_env)
+            if parsed_timeout <= 0:
+                print(
+                    f"Warning: ROUGE_WORKFLOW_TIMEOUT_SECONDS must be positive, "
+                    f"got '{timeout_env}', using default {default_timeout} seconds",
+                    file=sys.stderr,
+                )
+            else:
+                default_timeout = parsed_timeout
         except ValueError:
             print(
                 f"Warning: Invalid value for ROUGE_WORKFLOW_TIMEOUT_SECONDS "
