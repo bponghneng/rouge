@@ -518,6 +518,99 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker:
         # CLI value (5400) should take precedence over env var (1800)
         assert result.stdout.strip() == "5400"
 
+    def test_workflow_timeout_invalid_env_var(self, mock_env):
+        """Test invalid environment variable values are handled gracefully.
+        
+        This test verifies that non-numeric and non-positive values in
+        ROUGE_WORKFLOW_TIMEOUT_SECONDS trigger a warning and fall back to
+        the default timeout value of 3600 seconds.
+        """
+        # Test non-numeric value
+        test_script_non_numeric = """
+import os
+import sys
+os.environ["SUPABASE_URL"] = "https://test.supabase.co"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
+sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
+
+from rouge.worker.cli import main
+import argparse
+
+original_parse = argparse.ArgumentParser.parse_args
+parsed = None
+def capture_parse(self, *args, **kwargs):
+    global parsed
+    parsed = original_parse(self, *args, **kwargs)
+    return parsed
+
+argparse.ArgumentParser.parse_args = capture_parse
+
+from unittest.mock import Mock, patch
+with patch("rouge.worker.cli.IssueWorker") as mock_worker:
+    mock_worker.return_value = Mock()
+    main()
+    print(parsed.workflow_timeout)
+"""
+        result = subprocess.run(
+            ["python", "-c", test_script_non_numeric],
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "ROUGE_WORKFLOW_TIMEOUT_SECONDS": "invalid",
+                "SUPABASE_URL": "https://test.supabase.co",
+                "SUPABASE_SERVICE_ROLE_KEY": "test_key",
+            },
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        # Should fall back to default 3600
+        assert result.stdout.strip() == "3600"
+        # Should have warning in stderr
+        assert "Warning: Invalid value for ROUGE_WORKFLOW_TIMEOUT_SECONDS" in result.stderr
+
+        # Test negative value
+        test_script_negative = """
+import os
+import sys
+os.environ["SUPABASE_URL"] = "https://test.supabase.co"
+os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
+sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
+
+from rouge.worker.cli import main
+import argparse
+
+original_parse = argparse.ArgumentParser.parse_args
+parsed = None
+def capture_parse(self, *args, **kwargs):
+    global parsed
+    parsed = original_parse(self, *args, **kwargs)
+    return parsed
+
+argparse.ArgumentParser.parse_args = capture_parse
+
+from unittest.mock import Mock, patch
+with patch("rouge.worker.cli.IssueWorker") as mock_worker:
+    mock_worker.return_value = Mock()
+    main()
+    print(parsed.workflow_timeout)
+"""
+        result = subprocess.run(
+            ["python", "-c", test_script_negative],
+            capture_output=True,
+            text=True,
+            env={
+                **os.environ,
+                "ROUGE_WORKFLOW_TIMEOUT_SECONDS": "-100",
+                "SUPABASE_URL": "https://test.supabase.co",
+                "SUPABASE_SERVICE_ROLE_KEY": "test_key",
+            },
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        # Should fall back to default 3600
+        assert result.stdout.strip() == "3600"
+        # Should have warning in stderr
+        assert "Warning: ROUGE_WORKFLOW_TIMEOUT_SECONDS must be positive" in result.stderr
+
 
 class TestWorkerConfig:
     """Tests for WorkerConfig."""
