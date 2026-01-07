@@ -290,6 +290,15 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.setup import SetupStep
+
+    # 0. SetupStep: no dependencies, no outputs (prerequisite step, critical)
+    registry.register(
+        SetupStep,
+        dependencies=[],
+        outputs=[],
+        description="Set up git environment for workflow execution",
+    )
 
     # 1. FetchIssueStep: no dependencies, produces issue artifact
     registry.register(
