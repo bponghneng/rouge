@@ -1,3 +1,475 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# =============================================================================
+# CodeRabbit Configuration for rouge
+# =============================================================================
+# Python workflow automation stack with Typer CLIs and background worker daemon.
+# Built on Supabase with shared core utilities for issue tracking & orchestration.
+#
+# Project: rouge - AI coding agent workflow automation
+# Stack: Python 3.12+, Typer, Supabase, Pydantic, pytest
+# Architecture: CLI tools + background worker + shared core
+# =============================================================================
+
+language: en-US
+
+# Optimized for AI coding tool consumption via --prompt-only CLI flag
+tone_instructions: "AI agent format: [SEVERITY] file:line - title | Problem: description | Fix: exact code. Prioritize CRITICAL>HIGH>MEDIUM. Skip style nits. Be direct, actionable, copy-pasteable."
+
+early_access: false
+enable_free_tier: true
+
 reviews:
-  profile: "assertive"
+  # Use assertive profile for comprehensive Python/Typer CLI feedback
+  profile: assertive
+
+  # Standard PR workflow settings (adjust based on your GitHub workflow)
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_in_walkthrough: false
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: false
+  changed_files_summary: true
   
+  # Features appropriate for Python CLI project
+  sequence_diagrams: false  # Not typically useful for CLI tools
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  poem: false  # Disabled - not useful for AI agent consumption
+  in_progress_fortune: false  # Disabled - not useful for AI agent consumption
+  
+  # CRITICAL: Enable AI agent prompts for --prompt-only CLI integration
+  # This formats output for AI coding tools (Claude Code, Cursor, Gemini, etc.)
+  enable_prompt_for_ai_agents: true
+
+  # Files to exclude from review
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!**/.pytest_cache/**"
+    - "!**/.mypy_cache/**"
+    - "!**/.ruff_cache/**"
+    - "!**/uv.lock"
+    - "!**/*.egg-info/**"
+    - "!**/.git/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.lock"
+    - "!**/migrations/**"  # Database migrations - review manually
+    - "!**/ops/daemons/**"  # System daemon configs - review manually
+
+  # Path-specific review instructions optimized for AI coding tool consumption
+  # Output format: Structured, actionable findings with exact file:line references
+  # Consumed by: AI agents via `coderabbit --prompt-only` CLI command
+  path_instructions:
+    - path: "**/*.py"
+      instructions: |
+        Python code review for rouge workflow automation.
+        Output structured findings for AI agent implementation.
+
+        CRITICAL - Fix immediately:
+        - Security vulnerabilities (SQL injection, hardcoded secrets, unsafe deserialization)
+        - Unhandled exceptions that could crash the CLI or worker daemon
+        - Race conditions in async code (worker polling, Supabase operations)
+        - Resource leaks (unclosed database connections, file handles)
+        - Authentication/authorization bypasses in Supabase client usage
+
+        HIGH - Should fix:
+        - Missing type hints on function signatures (parameters and return types)
+        - Bare except clauses (should catch specific exceptions)
+        - Missing null/None checks before accessing attributes
+        - Improper async/await usage (blocking calls in async functions)
+        - Typer command parameters without proper validation
+        - Missing error handling for Supabase API calls
+
+        MEDIUM - Recommend fixing:
+        - Missing docstrings on public functions/classes
+        - Complex functions that should be broken down (>50 lines)
+        - Duplicate code that could be refactored
+        - Inconsistent error messages or logging
+        - Missing user-friendly CLI help text
+
+        AI agent output format (for --prompt-only consumption):
+        ```
+        [SEVERITY] file.py:123 - Brief issue title
+        Problem: One-sentence explanation
+        Impact: What breaks if not fixed
+        Fix: Exact code to change (include before/after)
+        Context: Why this matters for rouge workflow
+        ```
+        
+        Focus on issues that can be automatically fixed.
+        Provide copy-pasteable code snippets.
+
+    - path: "src/rouge/cli/**/*.py"
+      instructions: |
+        Typer CLI review for rouge - structured for AI agent fixes.
+        Focus on issues AI can implement automatically:
+
+        CRITICAL:
+        - Commands without proper error handling (should use typer.Exit or raise typer.Abort)
+        - Missing validation on user input parameters
+        - Unsafe file operations without permission checks
+        - Commands that could damage data without confirmation prompts
+
+        HIGH:
+        - Missing help text on commands and options (use help= parameter)
+        - Commands without proper type annotations
+        - Inconsistent exit codes (use standard 0=success, 1=error)
+        - Missing progress indicators for long-running operations
+        - Options without clear default values or examples
+
+        MEDIUM:
+        - Inconsistent use of typer.echo vs print vs rich Console
+        - Missing --help examples in docstrings
+        - Options that should be prompted for if not provided
+        - Missing autocompletion support for enum/choice parameters
+        - Subcommands that don't follow consistent naming patterns
+
+        Typer best practices to enforce:
+        - Use `typer.Option()` with help text, show_default=True for all options
+        - Use `typer.Argument()` for required positional args with metavar
+        - Use `typer.confirm()` for destructive operations
+        - Use `typer.style()` or Rich for colored/formatted output
+        - Use `raise typer.Exit(code=1)` for error exits, not sys.exit()
+        - Group related commands using `typer.Typer()` instances
+        - Provide clear examples in command docstrings
+        - Use callback functions for parameter validation
+        - Use enums for choice parameters with autocompletion
+
+    - path: "src/rouge/adw/**/*.py"
+      instructions: |
+        ADW workflow review - structured findings for AI consumption.
+        Agent Development Workflow patterns:
+
+        CRITICAL:
+        - Agent execution failures without proper error reporting
+        - Workflow state inconsistencies (not persisted to Supabase)
+        - Missing rollback logic for failed workflow steps
+        - Agent credentials or secrets exposed in logs
+
+        HIGH:
+        - Missing validation of workflow configuration
+        - Improper agent state transitions
+        - Missing timeout handling for long-running agent tasks
+        - Workflow steps without idempotency guarantees
+
+        MEDIUM:
+        - Missing progress reporting for multi-step workflows
+        - Insufficient logging for debugging agent behavior
+        - Missing workflow cancellation support
+
+        Patterns to enforce:
+        - Each workflow step should be idempotent
+        - Use structured logging with context (issue_id, step_name)
+        - Persist workflow state after each significant operation
+        - Validate agent responses before proceeding
+
+    - path: "src/rouge/worker/**/*.py"
+      instructions: |
+        Worker daemon review - output format optimized for AI agent fixes.
+        Background processing patterns for rouge:
+
+        CRITICAL:
+        - Infinite loops without proper sleep/backoff
+        - Missing graceful shutdown handling (SIGTERM, SIGINT)
+        - Database connection pool exhaustion
+        - Unhandled exceptions that crash the worker
+
+        HIGH:
+        - Missing health check endpoint or mechanism
+        - Improper async task management (memory leaks from uncompleted tasks)
+        - Missing retry logic with exponential backoff
+        - Polling intervals that are too aggressive
+
+        MEDIUM:
+        - Missing metrics/monitoring for worker performance
+        - Insufficient logging for diagnosing issues
+        - Missing dead letter queue for failed tasks
+
+        Patterns to enforce:
+        - Use asyncio.Event or similar for graceful shutdown
+        - Implement exponential backoff for failed operations
+        - Log at appropriate levels (DEBUG for polling, INFO for processing, ERROR for failures)
+        - Use connection pooling with proper timeout/retry settings
+    - path: "src/rouge/core/**/*.py"
+      instructions: |
+        Core utilities review - AI agent actionable format.
+        Shared modules for rouge automation:
+
+        CRITICAL:
+        - Supabase client connections not properly managed (use context managers)
+        - Missing transaction handling for multi-step database operations
+        - Unvalidated user input passed to database queries
+        - Authentication tokens or secrets hardcoded or logged
+
+        HIGH:
+        - Pydantic models missing field validators for critical fields
+        - Async database operations without proper error handling
+        - Missing retry logic for transient Supabase API errors
+        - Database schema changes without migration scripts
+
+        MEDIUM:
+        - Business logic mixed with database operations (violates separation)
+        - Missing logging for important operations
+        - Overly broad exception handling that masks issues
+        - Missing type hints on model fields or return values
+
+        Patterns to enforce:
+        - Use Pydantic `Field()` with descriptions, examples, and validation
+        - Use async context managers for Supabase operations
+        - Separate data models (Pydantic) from database operations (repository pattern)
+        - Use typed exceptions for different error scenarios
+        - Implement retry decorators for Supabase operations
+
+    - path: "tests/**/*.py"
+      instructions: |
+        Test review - structured for AI agent test generation.
+        Rouge project testing patterns:
+
+        CRITICAL:
+        - Tests that could affect production data (missing mocks)
+        - Tests with actual Supabase credentials instead of mocks
+
+        HIGH:
+        - Tests without assertions (test does nothing)
+        - Missing pytest.mark.asyncio on async test functions
+        - Tests that depend on execution order (not isolated)
+        - Missing mocks for external services (Supabase, GitHub API, AI agents)
+        - Flaky tests that fail intermittently
+
+        MEDIUM:
+        - Missing edge case tests (empty input, None, errors, boundary conditions)
+        - Duplicate test setup that should be fixtures
+        - Assertions without descriptive messages
+        - Missing parametrized tests for similar test cases
+        - Test names that don't clearly describe what they test
+
+        Patterns to enforce:
+        - Use `@pytest.fixture` for reusable test setup (autouse sparingly)
+        - Use `@pytest.mark.parametrize` for data-driven tests
+        - Use `pytest.raises(ExceptionType)` for exception testing
+        - Mock external dependencies with `unittest.mock` or `pytest-mock`
+        - Use descriptive test names: `test_<function>_<scenario>_<expected_result>`
+        - Test both success and failure paths
+        - Use `pytest-asyncio` for async code
+        - Mock Supabase client completely in unit tests
+
+    - path: "pyproject.toml"
+      instructions: |
+        Configuration review for Python project:
+        
+        CRITICAL:
+        - Python version requirement must match code features (check async, match statements, etc.)
+        - Security vulnerabilities in dependencies
+        
+        HIGH:
+        - Dependency version constraints too loose (security risk) or too tight (update pain)
+        - Missing or incorrect project metadata (name, version, description, authors)
+        - Tool configurations that conflict (ruff vs black, mypy strictness)
+        - Missing development dependencies (pytest, ruff, mypy)
+        
+        MEDIUM:
+        - Missing optional dependency groups [dev], [test], [docs]
+        - Entry points not properly configured for CLI commands
+        - Missing project URLs (homepage, repository, issues)
+        
+        Patterns to enforce:
+        - Use proper semantic versioning
+        - Pin major versions, allow minor/patch updates: "package>=1.2.0,<2.0.0"
+        - Include all tool configs in pyproject.toml (ruff, pytest, mypy, etc.)
+        - Configure entry points for Typer CLIs: [project.scripts]
+
+    - path: "migrations/**/*.py"
+      instructions: |
+        Database migration review (Yoyo migrations):
+        
+        CRITICAL:
+        - Missing rollback steps for destructive operations
+        - SQL injection vulnerabilities in migration scripts
+        - Migrations that could cause data loss without backups
+        
+        HIGH:
+        - Missing indexes on frequently queried columns
+        - Schema changes not backward compatible
+        - Migrations without proper error handling
+        - Missing migration dependencies (order issues)
+        
+        MEDIUM:
+        - Missing comments explaining complex migrations
+        - Performance impact not considered for large tables
+        
+        Patterns to enforce:
+        - Every step() should have corresponding rollback()
+        - Test migrations on copy of production data first
+        - Use transactions for data migrations
+        - Add descriptive docstrings to migration modules
+  abort_on_close: true
+  disable_cache: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    ignore_title_keywords: ["WIP", "wip", "draft"]
+    labels: []
+    drafts: false  # Don't review draft PRs automatically
+    base_branches:
+      - main
+    ignore_usernames: []
+
+  finishing_touches:
+    docstrings:
+      enabled: true  # Enable for Python projects - docstrings are important
+    unit_tests:
+      enabled: true  # Enable suggestions for missing tests
+  
+  pre_merge_checks:
+    docstrings:
+      mode: warning
+      threshold: 70  # Reasonable threshold for CLI tools
+    title:
+      mode: warning
+      requirements: "Use conventional commits format (feat:, fix:, docs:, etc.)"
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+
+  # Tool configuration - enable Python-relevant linters
+  # Note: Ruff automatically detects pyproject.toml, ruff.toml, or .ruff.toml in repo root
+  tools:
+    # Python linting - ruff auto-detects config from pyproject.toml
+    ruff:
+      enabled: true
+
+    # Type checking - mypy (if you want CodeRabbit to run it)
+    # Note: Not in default tool list, but worth considering for Python projects
+    
+    # Security scanning - critical for workflow automation
+    gitleaks:
+      enabled: true
+
+    # YAML validation - important for config files
+    yamllint:
+      enabled: true
+
+    # Markdown linting - for documentation
+    markdownlint:
+      enabled: true
+
+    # Python-specific tools
+    pylint:
+      enabled: false  # Ruff is sufficient and faster
+    flake8:
+      enabled: false  # Ruff replaces flake8
+    
+    # Disable tools not relevant for Python CLI project
+    github-checks:
+      enabled: true  # Keep enabled for PR workflow
+    languagetool:
+      enabled: false  # Not needed for code
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    swiftlint:
+      enabled: false
+    phpstan:
+      enabled: false
+    golangci-lint:
+      enabled: false
+    rubocop:
+      enabled: false
+    detekt:
+      enabled: false
+    clippy:
+      enabled: false
+    shellcheck:
+      enabled: true  # Keep for any shell scripts in ops/
+
+chat:
+  auto_reply: true  # Enable for AI agent interaction
+  art: false  # Disabled - not useful for AI agent consumption
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true  # Finds Python/Typer/AI agent best practices
+  code_guidelines:
+    enabled: true  # Scans AGENTS.md, CLAUDE.md, etc. for AI agent instructions
+  learnings:
+    scope: auto  # Use repo learnings for public, org for private
+  issues:
+    scope: local  # Focus on this repo's issues
+  pull_requests:
+    scope: local  # Focus on this repo's PRs
+
+code_generation:
+  # Optimized for AI coding tool consumption via --prompt-only
+  # AI agents can use these patterns to generate missing docstrings
+  docstrings:
+    language: en-US
+    path_instructions:
+      - path: "**/*.py"
+        instructions: |
+          Generate Google-style docstrings (AI agent implementable format).
+          
+          Required sections:
+          - Brief one-line summary
+          - Args: All parameters with types and descriptions
+          - Returns: Return type and description
+          - Raises: All exceptions that can be raised
+          - Examples: For complex functions or CLI commands
+          
+          For Typer commands, include usage examples showing:
+          - Basic usage with required arguments
+          - Common option combinations
+          - Example output
+          
+          Keep descriptions concise but complete.
+          Use proper type hints in signatures, not in docstrings.
+
+  unit_tests:
+    # AI agents can auto-generate these test patterns
+    path_instructions:
+      - path: "src/**/*.py"
+        instructions: |
+          Generate pytest unit tests (structured for AI agent implementation).
+          Rouge project test patterns:
+          
+          Structure:
+          - Use fixtures for common test setup (Supabase mocks, test data)
+          - Group related tests in classes (TestCommandName)
+          - Use descriptive test names: test_<function>_<scenario>_<expected>
+          
+          Mocking:
+          - Mock all Supabase client calls
+          - Mock AI agent responses
+          - Mock GitHub API calls
+          - Use pytest-mock or unittest.mock
+          
+          Coverage:
+          - Test success path
+          - Test error handling (missing data, API failures, invalid input)
+          - Test edge cases (empty lists, None values, boundary conditions)
+          - Test async code with pytest-asyncio
+          
+          Assertions:
+          - Use specific assertions (not just assert result)
+          - Add descriptive messages to assertions
+          - Verify side effects (Supabase calls made, logs written)
+          
+          For Typer CLI tests:
+          - Use typer.testing.CliRunner
+          - Test exit codes
+          - Test output formatting
+          - Test interactive prompts
+          - Test error messages
