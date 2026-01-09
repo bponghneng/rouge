@@ -150,8 +150,9 @@ def test_setup_step_default_branch_fallback(
 # === Safety Check Tests ===
 
 
-def test_setup_step_destructive_ops_not_allowed_by_default(context):
+def test_setup_step_destructive_ops_not_allowed_by_default(context, monkeypatch):
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is not set."""
+    monkeypatch.delenv("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", raising=False)
     step = SetupStep()
     result = step.run(context)
 
@@ -160,9 +161,9 @@ def test_setup_step_destructive_ops_not_allowed_by_default(context):
     assert "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true" in result.error
 
 
-@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"})
-def test_setup_step_destructive_ops_explicitly_disabled(context):
+def test_setup_step_destructive_ops_explicitly_disabled(context, monkeypatch):
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is explicitly set to false."""
+    monkeypatch.setenv("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "false")
     step = SetupStep()
     result = step.run(context)
 
