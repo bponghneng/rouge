@@ -6,8 +6,8 @@ Centralizes repetitive patterns for logging and progress comments.
 import logging
 from typing import Tuple
 
-from rouge.core.models import Comment
-from rouge.core.notifications import insert_progress_comment
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 
 logger = logging.getLogger(__name__)
 
@@ -33,15 +33,15 @@ def emit_progress_comment(
     Returns:
         Tuple of (status, message) from insert_progress_comment
     """
-    comment = Comment(
+    payload = CommentPayload(
         issue_id=issue_id,
-        comment=message,
+        adw_id=adw_id or "",
+        text=message,
         raw=raw or {"text": message},
         source="system",
-        type=comment_type,
-        adw_id=adw_id,
+        kind=comment_type,
     )
-    status, msg = insert_progress_comment(comment)
+    status, msg = emit_comment_from_payload(payload)
     if status == "success":
         logger.debug(msg)
     else:
