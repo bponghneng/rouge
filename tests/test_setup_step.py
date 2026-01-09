@@ -89,7 +89,9 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, context):
     assert branch_call[1]["timeout"] == GIT_TIMEOUT
 
 
-@patch.dict("os.environ", {"DEFAULT_GIT_BRANCH": "develop", "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
+@patch.dict(
+    "os.environ", {"DEFAULT_GIT_BRANCH": "develop", "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"}
+)
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_custom_default_branch(mock_subprocess, mock_get_repo_path, context):
@@ -150,6 +152,7 @@ def test_setup_step_default_branch_fallback(
 # === Safety Check Tests ===
 
 
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": ""})
 def test_setup_step_destructive_ops_not_allowed_by_default(context):
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is not set."""
     step = SetupStep()
@@ -173,9 +176,7 @@ def test_setup_step_destructive_ops_explicitly_disabled(context):
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "True"})
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
-def test_setup_step_destructive_ops_case_insensitive(
-    mock_subprocess, mock_get_repo_path, context
-):
+def test_setup_step_destructive_ops_case_insensitive(mock_subprocess, mock_get_repo_path, context):
     """Test setup accepts 'True' (capital T) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -196,9 +197,7 @@ def test_setup_step_destructive_ops_case_insensitive(
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "TRUE"})
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
-def test_setup_step_destructive_ops_uppercase(
-    mock_subprocess, mock_get_repo_path, context
-):
+def test_setup_step_destructive_ops_uppercase(mock_subprocess, mock_get_repo_path, context):
     """Test setup accepts 'TRUE' (all caps) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
