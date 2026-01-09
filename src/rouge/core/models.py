@@ -82,6 +82,41 @@ class Comment(BaseModel):
         return v.strip()
 
 
+# Source types for comment payloads
+CommentSource = Literal["system", "agent"]
+
+
+class CommentPayload(BaseModel):
+    """Payload model for creating comments.
+
+    This model is used for constructing comments before persistence.
+    The Comment model represents the Supabase persistence shape.
+    """
+
+    issue_id: int
+    adw_id: str
+    text: str = Field(..., min_length=1)
+    raw: Optional[dict] = None
+    source: CommentSource = "system"
+    kind: str = Field(..., min_length=1)
+    context: Optional[dict] = None
+
+    @field_validator("text")
+    @classmethod
+    def trim_text(cls, v: str) -> str:
+        """Trim whitespace from text and ensure non-empty."""
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("text must be non-empty after trimming")
+        return trimmed
+
+    @field_validator("kind")
+    @classmethod
+    def trim_kind(cls, v: str) -> str:
+        """Trim whitespace from kind."""
+        return v.strip()
+
+
 # Backward compatibility aliases
 CapeIssue = Issue
 CapeComment = Comment
