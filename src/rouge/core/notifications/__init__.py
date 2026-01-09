@@ -24,9 +24,10 @@ from rouge.core.notifications.agent_stream_handlers import (
     make_progress_comment_handler,
     make_simple_logger_handler,
 )
-from rouge.core.notifications.comments import insert_progress_comment
+from rouge.core.notifications.comments import emit_comment_from_payload, insert_progress_comment
 
 __all__ = [
+    "emit_comment_from_payload",
     "insert_progress_comment",
     "make_progress_comment_handler",
     "make_simple_logger_handler",
