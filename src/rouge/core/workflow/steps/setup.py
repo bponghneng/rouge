@@ -59,18 +59,19 @@ class SetupStep(WorkflowStep):
         default_branch = os.environ.get("DEFAULT_GIT_BRANCH", "main")
         repo_path = get_repo_path()
         adw_id = context.adw_id
-        
+
         # Check if destructive git operations are allowed
         allow_destructive = os.environ.get("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "").lower() == "true"
 
         logger.info(
-            "Setting up git environment: default_branch=%s, repo_path=%s, adw_id=%s, allow_destructive=%s",
+            "Setting up git environment: default_branch=%s, repo_path=%s, adw_id=%s, "
+            "allow_destructive=%s",
             default_branch,
             repo_path,
             adw_id,
             allow_destructive,
         )
-        
+
         if not allow_destructive:
             error_msg = (
                 "Destructive git operations not allowed. "
