@@ -270,9 +270,9 @@ def test_derive_paths_from_plan():
 
 @patch("rouge.core.workflow.review.os.path.exists")
 @patch("rouge.core.workflow.review.subprocess.run")
-@patch("rouge.core.workflow.review.insert_progress_comment")
+@patch("rouge.core.workflow.review.emit_comment_from_payload")
 def test_generate_review_success(
-    mock_insert_comment,
+    mock_emit_comment,
     mock_subprocess,
     mock_exists,
 ):
@@ -286,8 +286,8 @@ def test_generate_review_success(
     # Mock config file exists
     mock_exists.return_value = True
 
-    # Mock insert_progress_comment success
-    mock_insert_comment.return_value = ("success", "Comment inserted")
+    # Mock emit_comment_from_payload success
+    mock_emit_comment.return_value = ("success", "Comment inserted")
 
     from rouge.core.workflow.review import generate_review
 
@@ -340,9 +340,9 @@ def test_generate_review_timeout(mock_subprocess):
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
-@patch("rouge.core.workflow.address_review.insert_progress_comment")
+@patch("rouge.core.workflow.address_review.emit_comment_from_payload")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
-def test_address_review_issues_success(mock_request_class, mock_insert_comment, mock_execute):
+def test_address_review_issues_success(mock_request_class, mock_emit_comment, mock_execute):
     """Test successful notification of review template."""
     # Mock the request object
     mock_request = Mock()
@@ -357,8 +357,8 @@ def test_address_review_issues_success(mock_request_class, mock_insert_comment, 
     mock_response.output = address_review_json
     mock_execute.return_value = mock_response
 
-    # Mock insert_progress_comment success
-    mock_insert_comment.return_value = ("success", "Comment inserted")
+    # Mock emit_comment_from_payload success
+    mock_emit_comment.return_value = ("success", "Comment inserted")
 
     result = address_review_issues(
         review_text="Review content",
@@ -368,7 +368,7 @@ def test_address_review_issues_success(mock_request_class, mock_insert_comment, 
 
     assert result.success
     mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
-    mock_insert_comment.assert_called_once()
+    mock_emit_comment.assert_called_once()
 
 
 def test_address_review_issues_empty_review_text():
