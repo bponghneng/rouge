@@ -23,9 +23,9 @@ from rouge.core.agents.claude import (
     execute_claude_template,
 )
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import Comment
+from rouge.core.models import CommentPayload
 from rouge.core.notifications import (
-    insert_progress_comment,
+    emit_comment_from_payload,
     make_progress_comment_handler,
 )
 
@@ -68,15 +68,14 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
 
     # Insert final progress comment if successful
     if response.success and response.raw_output_path:
-        comment = Comment(
+        payload = CommentPayload(
             issue_id=request.issue_id,
-            comment=f"Output saved to: {response.raw_output_path}",
-            raw={},
+            adw_id=request.adw_id or "",
+            text=f"Output saved to: {response.raw_output_path}",
             source="agent",
-            type="claude",
-            adw_id=request.adw_id,
+            kind="claude",
         )
-        status, msg = insert_progress_comment(comment)
+        status, msg = emit_comment_from_payload(payload)
         logger.debug(msg) if status == "success" else logger.error(msg)
 
     # Map AgentExecuteResponse to ClaudeAgentPromptResponse

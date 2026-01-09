@@ -16,8 +16,8 @@ from typing import Any, Callable, Dict, Iterable
 
 from rouge.core.agents.claude import iter_assistant_items
 from rouge.core.agents.opencode import iter_opencode_items
-from rouge.core.models import Comment
-from rouge.core.notifications.comments import insert_progress_comment
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 
 logger = logging.getLogger(__name__)
 
@@ -65,18 +65,18 @@ def make_progress_comment_handler(
                     # Serialize item to JSON for comment
                     text = json.dumps(item, indent=2)
 
-                    # Create Comment object with metadata
-                    comment = Comment(
+                    # Create CommentPayload with metadata
+                    payload = CommentPayload(
                         issue_id=issue_id,
-                        comment=text,
+                        adw_id=adw_id,
+                        text=text,
                         raw=item,  # Store the raw parsed dict
                         source="agent",
-                        type=provider,  # "claude" or "opencode"
-                        adw_id=adw_id,
+                        kind=provider,  # "claude" or "opencode"
                     )
 
                     # Insert progress comment (best-effort)
-                    status, msg = insert_progress_comment(comment)
+                    status, msg = emit_comment_from_payload(payload)
                     if status == "success":
                         logger.debug("Progress comment inserted: ADW=%s - %s", adw_id, msg)
                     else:

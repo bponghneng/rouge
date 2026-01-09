@@ -4,8 +4,8 @@ import logging
 import os
 import subprocess
 
-from rouge.core.models import Comment
-from rouge.core.notifications import insert_progress_comment
+from rouge.core.models import CommentPayload
+from rouge.core.notifications import emit_comment_from_payload
 from rouge.core.workflow.types import ReviewData, StepResult
 
 logger = logging.getLogger(__name__)
@@ -56,17 +56,17 @@ def generate_review(
         logger.info(f"CodeRabbit review generated ({len(review_text)} chars)")
 
         # Insert progress comment with artifact preview
-        comment = Comment(
+        payload = CommentPayload(
             issue_id=issue_id,
-            comment="CodeRabbit review generated",
+            adw_id=adw_id or "",
+            text="CodeRabbit review generated",
             raw={
                 "review_text": review_text[:500],
             },  # First 500 chars for preview
             source="system",
-            type="artifact",
-            adw_id=adw_id,
+            kind="artifact",
         )
-        status, msg = insert_progress_comment(comment)
+        status, msg = emit_comment_from_payload(payload)
         if status != "success":
             logger.error(f"Failed to insert review artifact comment: {msg}")
         else:

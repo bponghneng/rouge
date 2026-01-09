@@ -6,8 +6,8 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import Comment
-from rouge.core.notifications import insert_progress_comment
+from rouge.core.models import CommentPayload
+from rouge.core.notifications import emit_comment_from_payload
 from rouge.core.workflow.shared import AGENT_REVIEW_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -93,15 +93,15 @@ def address_review_issues(
             return StepResult.fail(parse_result.error or "JSON parsing failed")
 
         # Insert progress comment with parsed template output
-        comment = Comment(
+        payload = CommentPayload(
             issue_id=issue_id,
-            comment="Review issues template executed successfully",
+            adw_id=adw_id,
+            text="Review issues template executed successfully",
             raw={"template_output": parse_result.data},
             source="system",
-            type="artifact",
-            adw_id=adw_id,
+            kind="artifact",
         )
-        status, msg = insert_progress_comment(comment)
+        status, msg = emit_comment_from_payload(payload)
         if status != "success":
             logger.error(f"Failed to insert template notification comment: {msg}")
         else:
