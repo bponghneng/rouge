@@ -86,7 +86,6 @@ Apply these principles when evaluating whether complex patterns, or advanced opt
 - `src/rouge/core/agents/` - AI agent integrations (Claude, OpenCode)
 - `src/rouge/tui/` - Textual-based terminal user interface components
 - `tests/` - Unit tests for all modules
-- `ops/daemons/worker/` - systemd and launchd service templates
 
 **Key Dependencies**:
 
