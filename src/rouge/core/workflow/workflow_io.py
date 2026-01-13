@@ -35,7 +35,7 @@ def emit_progress_comment(
     """
     payload = CommentPayload(
         issue_id=issue_id,
-        adw_id=adw_id or "",
+        adw_id=adw_id,
         text=message,
         raw=raw or {"text": message},
         source="system",

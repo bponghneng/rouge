@@ -94,12 +94,11 @@ class CommentPayload(BaseModel):
     """
 
     issue_id: int
-    adw_id: str
+    adw_id: Optional[str] = ""
     text: str = Field(..., min_length=1)
     raw: Optional[dict] = None
     source: CommentSource = "system"
     kind: str = Field(..., min_length=1)
-    context: Optional[dict] = None
 
     @field_validator("text")
     @classmethod
@@ -113,8 +112,11 @@ class CommentPayload(BaseModel):
     @field_validator("kind")
     @classmethod
     def trim_kind(cls, v: str) -> str:
-        """Trim whitespace from kind."""
-        return v.strip()
+        """Trim whitespace from kind and ensure non-empty."""
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("kind must be non-empty after trimming")
+        return trimmed
 
 
 # Backward compatibility aliases
