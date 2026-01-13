@@ -9,7 +9,13 @@ Example:
     from rouge.core.notifications.comments import emit_comment_from_payload
 
     # Insert a manual progress comment
-    payload = CommentPayload(issue_id=123, adw_id="example-adw-id", kind="progress", text="Starting implementation", source="system")
+    payload = CommentPayload(
+        issue_id=123,
+        adw_id="example-adw-id",
+        kind="progress",
+        text="Starting implementation",
+        source="system",
+    )
     status, msg = emit_comment_from_payload(payload)
     logger.debug(msg) if status == "success" else logger.error(msg)
 
