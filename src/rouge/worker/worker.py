@@ -16,7 +16,6 @@ Example:
 
 import logging
 import os
-import shlex
 import shutil
 import signal
 import subprocess
@@ -134,12 +133,8 @@ class IssueWorker:
             # Note: Options must come before positional arguments in Typer/Click
 
             # Determine command to run
-            # Check for explicit override
-            adw_cmd = os.environ.get("ROUGE_ADW_COMMAND")
-            if adw_cmd:
-                base_cmd = shlex.split(adw_cmd)
             # Check if rouge-adw is in PATH (e.g. global install)
-            elif shutil.which("rouge-adw"):
+            if shutil.which("rouge-adw"):
                 base_cmd = ["rouge-adw"]
             # Fallback to uv run (development mode)
             else:
@@ -153,12 +148,10 @@ class IssueWorker:
 
             # Execute the workflow with a timeout
             # Note: Not capturing output allows real-time logging from rouge-adw
-            app_root = Path(os.environ.get("ROUGE_APP_ROOT", Path.cwd()))
-
             result = subprocess.run(
                 cmd,
                 timeout=self.config.workflow_timeout,
-                cwd=app_root,
+                cwd=Path.cwd(),
             )
 
             if result.returncode == 0:
