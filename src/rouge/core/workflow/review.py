@@ -58,7 +58,7 @@ def generate_review(
         # Insert progress comment with artifact preview
         payload = CommentPayload(
             issue_id=issue_id,
-            adw_id=adw_id or "",
+            adw_id=adw_id,
             text="CodeRabbit review generated",
             raw={
                 "review_text": review_text[:500],

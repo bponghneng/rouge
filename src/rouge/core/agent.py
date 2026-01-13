@@ -68,7 +68,7 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
     if response.success and response.raw_output_path:
         payload = CommentPayload(
             issue_id=request.issue_id,
-            adw_id=request.adw_id or "",
+            adw_id=request.adw_id,
             text=f"Output saved to: {response.raw_output_path}",
             source="agent",
             kind="claude",
