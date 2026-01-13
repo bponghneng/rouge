@@ -1,6 +1,6 @@
 [project]
 name = "rouge"
-version = "0.2.0"
+version = "0.3.0"
 description = "Unified CLI, ADW runner, and worker tooling for the Rouge workflow"
 readme = "README.md"
 authors = [{ name = "Robert Pratt", email = "robert@bpong.me" }]
