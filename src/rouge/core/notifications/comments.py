@@ -7,7 +7,13 @@ Example:
     from rouge.core.notifications.comments import emit_comment_from_payload
     from rouge.core.models import CommentPayload
 
-    payload = CommentPayload(issue_id=1, text="Starting implementation", source="system")
+    payload = CommentPayload(
+        issue_id=1,
+        text="Starting implementation",
+        source="system",
+        adw_id="example-adw-id",
+        kind="status",
+    )
     status, msg = emit_comment_from_payload(payload)
     logger.debug(msg) if status == "success" else logger.error(msg)
 """
