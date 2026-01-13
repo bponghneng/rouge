@@ -31,7 +31,7 @@ def emit_progress_comment(
         adw_id: Optional ADW ID for associating comment with workflow
 
     Returns:
-        Tuple of (status, message) from insert_progress_comment
+        Tuple of (status, message) from emit_comment_from_payload
     """
     payload = CommentPayload(
         issue_id=issue_id,

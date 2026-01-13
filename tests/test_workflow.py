@@ -5,8 +5,8 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.agents.claude import ClaudeAgentPromptResponse
-from rouge.core.models import Comment, Issue
-from rouge.core.notifications.comments import insert_progress_comment
+from rouge.core.models import CommentPayload, Issue
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import (
     build_plan,
     classify_issue,
@@ -46,27 +46,44 @@ def test_update_status_failure(mock_update_issue_status):
 
 
 @patch("rouge.core.notifications.comments.create_comment")
-def test_insert_progress_comment_success(mock_create_comment):
+def test_emit_comment_from_payload_success(mock_create_comment):
     """Test successful progress comment insertion."""
     mock_comment = Mock()
     mock_comment.id = 1
     mock_create_comment.return_value = mock_comment
 
-    comment = Comment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
-    status, msg = insert_progress_comment(comment)
+    payload = CommentPayload(
+        issue_id=1,
+        adw_id="",
+        text="Test comment",
+        source="system",
+        kind="comment",
+    )
+    status, msg = emit_comment_from_payload(payload)
     assert status == "success"
     assert "Comment inserted: ID=1" in msg
     assert "Test comment" in msg
-    mock_create_comment.assert_called_once_with(comment)
+    mock_create_comment.assert_called_once()
+    created_comment = mock_create_comment.call_args[0][0]
+    assert created_comment.issue_id == 1
+    assert created_comment.comment == "Test comment"
+    assert created_comment.source == "system"
+    assert created_comment.type == "comment"
 
 
 @patch("rouge.core.notifications.comments.create_comment")
-def test_insert_progress_comment_failure(mock_create_comment):
+def test_emit_comment_from_payload_failure(mock_create_comment):
     """Test progress comment insertion handles errors gracefully."""
     mock_create_comment.side_effect = Exception("Database error")
 
-    comment = Comment(issue_id=1, comment="Test comment", raw={}, source="test", type="comment")
-    status, msg = insert_progress_comment(comment)
+    payload = CommentPayload(
+        issue_id=1,
+        adw_id="",
+        text="Test comment",
+        source="system",
+        kind="comment",
+    )
+    status, msg = emit_comment_from_payload(payload)
     assert status == "error"
     assert "Failed to insert comment on issue 1" in msg
     assert "Database error" in msg
