@@ -41,10 +41,8 @@ uv run rouge-worker --worker-id alleycat-1
 uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rouge"
 ```
 
-> **Note:** The worker shells out to `uv run rouge-adw`. If you execute the worker
-> outside of the `rouge/` directory, set `ROUGE_APP_ROOT=/absolute/path/to/rouge`
-> so it knows where to run the workflow command. Combine this with the
-> `--working-dir` flag if you want the worker process itself to `chdir` elsewhere.
+> **Note:** The worker shells out to `uv run rouge-adw`. Use the `--working-dir`
+> flag to specify the directory where the worker should execute workflow operations.
 
 ## Environment & Configuration
 
@@ -56,8 +54,6 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `ROUGE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
 | `ROUGE_AGENTS_DIR` | optional | Override for `.rouge/logs/agents` directory. |
 | `ROUGE_DATA_DIR` / `ROUGE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
-| `ROUGE_APP_ROOT` | optional | Root directory the worker uses when launching `uv run rouge-adw`. |
-| `ROUGE_ADW_COMMAND` | optional | Override command to run rouge-adw (e.g. `uv run rouge-adw`). |
 | `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
 | `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
 | `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
@@ -99,7 +95,7 @@ uv run rouge-adw 123
 - `claude` - Claude Code CLI (default, requires `ANTHROPIC_API_KEY`)
 - `opencode` - OpenCode CLI (requires `OPENCODE_API_KEY`)
 
-## Worker Installation & Operation
+## Worker Operation
 
 The `rouge-worker` daemon is designed to run in the background, processing issues from Supabase. It can be installed globally or run from the project directory.
 
@@ -145,47 +141,6 @@ Optional flags:
 - `--working-dir` – absolute directory to switch into before polling (default: current directory). This is where `rouge-adw` will execute its operations.
 - `--workflow-timeout` – workflow execution timeout in seconds (default `3600`).
 
-### Environment Variables for ADW Execution
-
-The `rouge-worker` executes the `rouge-adw` command. You can control how `rouge-adw` is found and run using the following environment variables:
-
--   **`.env` file loading:** The worker attempts to load environment variables from a `.env` file. If `--working-dir` is specified, it will first look for `.env` in the directory specified by `--working-dir`, and then in its parent directory. If `--working-dir` is not specified, the worker will use the default behavior of searching for `.env` in the current directory and walking up the directory tree.
--   `ROUGE_APP_ROOT`: (Optional) Specifies the root directory of the `rouge` application. This is used as the `cwd` when spawning the `rouge-adw` command. It's crucial if `rouge-adw` isn't globally installed and the worker is run from outside the `rouge/` directory.
--   `ROUGE_ADW_COMMAND`: (Optional) Explicitly sets the command to execute for `rouge-adw` (e.g., `"/usr/local/bin/rouge-adw"` or `"uv run rouge-adw"`). If not set, the worker first checks if `rouge-adw` is in the system PATH, then falls back to `uv run rouge-adw`.
-
-### System Service (Linux / systemd)
-
-Service templates live in `ops/daemons/worker/`. To install:
-
-```bash
-# copy and customize the template (set ROUGE_APP_ROOT, worker id, etc.)
-sudo cp ops/daemons/worker/rouge-worker.service \
-  /etc/systemd/system/rouge-worker-alleycat-1.service
-sudo systemctl daemon-reload
-sudo systemctl enable rouge-worker-alleycat-1.service
-sudo systemctl start rouge-worker-alleycat-1.service
-
-# helpful commands
-sudo systemctl status rouge-worker-alleycat-1.service
-sudo journalctl -u rouge-worker-alleycat-1.service -f
-```
-
-### System Service (macOS / launchd)
-
-```bash
-cp ops/daemons/worker/com.rouge.worker.plist \
-  ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
-launchctl load ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
-launchctl start com.rouge.worker.alleycat-1
-
-# manage service
-launchctl stop com.rouge.worker.alleycat-1
-launchctl list | grep com.rouge.worker
-launchctl unload ~/Library/LaunchAgents/com.rouge.worker.alleycat-1.plist
-```
-
-Both service definitions assume `uv` is on the PATH (for local development setups), `ROUGE_APP_ROOT` points to the absolute path to the `rouge` project, and the `.env` contains Supabase + Anthropic credentials.
-
 ## CLI Commands
 
 Workflows can be executed directly using:
@@ -228,12 +183,9 @@ to load `.env` from that directory (or its parent), matching the worker's
   PostgreSQL function, and marks it `started` while recording the `worker_id`.
 - Spawns `uv run rouge-adw <issue-id> --adw-id <workflow-id>` with clear logging
   so you can tail progress or read log files directly.
-- Supports multiple concurrent instances (systemd service files live in
-  `ops/daemons/worker/` for Linux and launchd plists for macOS).
+- Supports multiple concurrent instances with unique `--worker-id` values.
 - Logs to `.rouge/logs/agents/{workflow_id}/adw_plan_build/execution.log` for
   tracking workflow progress.
-
-Example service install scripts for systemd/launchd are in `ops/daemons/`.
 
 ## Database Requirements
 
@@ -281,9 +233,6 @@ rouge/
 ├── src/rouge/            # Python packages (core, cli, adw, worker)
 └── tests/                # consolidated unit tests
 ```
-
-Service templates and installation helpers for the worker live under
-`ops/daemons`.
 
 For the broader methodology, specs, and AI-agent prompts, see the workspace
 README (`../README.md`).
