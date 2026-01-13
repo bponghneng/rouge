@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.workflow.artifacts import (
     ClassificationArtifact,
     IssueArtifact,

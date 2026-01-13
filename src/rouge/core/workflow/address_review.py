@@ -7,7 +7,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications import emit_comment_from_payload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.shared import AGENT_REVIEW_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment

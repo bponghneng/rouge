@@ -24,10 +24,8 @@ from rouge.core.agents.claude import (
 )
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications import (
-    emit_comment_from_payload,
-    make_progress_comment_handler,
-)
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +181,7 @@ def execute_agent_prompt(
     Example:
         from rouge.core.agent import execute_agent_prompt
         from rouge.core.agents import AgentExecuteRequest
-        from rouge.core.notifications import make_progress_comment_handler
+        from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 
         request = AgentExecuteRequest(
             prompt="/implement plan.md",

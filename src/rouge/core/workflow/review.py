@@ -5,7 +5,7 @@ import os
 import subprocess
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications import emit_comment_from_payload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.types import ReviewData, StepResult
 
 logger = logging.getLogger(__name__)
