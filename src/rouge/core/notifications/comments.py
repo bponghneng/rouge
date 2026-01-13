@@ -4,7 +4,7 @@ This module provides utilities for inserting progress comments during
 workflow execution.
 
 Example:
-    from rouge.core.notifications import insert_progress_comment
+    from rouge.core.notifications.comments import insert_progress_comment
     from rouge.core.models import Comment
 
     comment = Comment(issue_id=1, comment="Starting implementation")

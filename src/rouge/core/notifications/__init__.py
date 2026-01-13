@@ -5,10 +5,8 @@ workflow execution and creating stream handlers for agent output processing.
 
 Example:
     from rouge.core.models import Comment
-    from rouge.core.notifications import (
-        insert_progress_comment,
-        make_progress_comment_handler
-    )
+    from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+    from rouge.core.notifications.comments import insert_progress_comment
 
     # Insert a manual progress comment
     comment = Comment(issue_id=123, comment="Starting implementation")
@@ -19,16 +17,3 @@ Example:
     handler = make_progress_comment_handler(issue_id, adw_id, logger)
     agent.execute_prompt(request, stream_handler=handler)
 """
-
-from rouge.core.notifications.agent_stream_handlers import (
-    make_progress_comment_handler,
-    make_simple_logger_handler,
-)
-from rouge.core.notifications.comments import emit_comment_from_payload, insert_progress_comment
-
-__all__ = [
-    "emit_comment_from_payload",
-    "insert_progress_comment",
-    "make_progress_comment_handler",
-    "make_simple_logger_handler",
-]

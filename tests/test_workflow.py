@@ -6,7 +6,7 @@ import pytest
 
 from rouge.core.agents.claude import ClaudeAgentPromptResponse
 from rouge.core.models import Comment, Issue
-from rouge.core.notifications import insert_progress_comment
+from rouge.core.notifications.comments import insert_progress_comment
 from rouge.core.workflow import (
     build_plan,
     classify_issue,

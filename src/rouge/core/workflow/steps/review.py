@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.workflow.address_review import address_review_issues
 from rouge.core.workflow.artifacts import PlanArtifact, ReviewAddressedArtifact, ReviewArtifact
 from rouge.core.workflow.review import generate_review

@@ -5,7 +5,7 @@ import logging
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.notifications import make_progress_comment_handler
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.workflow.artifacts import QualityCheckArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
