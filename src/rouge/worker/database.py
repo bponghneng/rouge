@@ -18,19 +18,22 @@ def get_client():
 def get_next_issue(
     worker_id: str,
     logger: Optional[logging.Logger] = None,
-) -> Optional[Tuple[int, str]]:
+) -> Optional[Tuple[int, str, str]]:
     """
-    Retrieve and lock the next pending issue from the database.
+    Retrieve and lock the next pending or patch pending issue from the database.
 
     Uses the PostgreSQL function get_and_lock_next_issue to atomically
-    retrieve and lock an issue, preventing race conditions.
+    retrieve and lock an issue, preventing race conditions. Selects issues
+    where status is 'pending' or 'patch pending' and assigned to the worker.
 
     Args:
         worker_id: Unique identifier for the worker requesting the issue
         logger: Optional logger for logging operations
 
     Returns:
-        Tuple of (issue_id, description) if an issue is available, None otherwise
+        Tuple of (issue_id, description, status) if an issue is available,
+        None otherwise. Status allows the worker to route correctly between
+        new issue processing and patch application.
     """
     try:
         client = get_client()
@@ -42,9 +45,10 @@ def get_next_issue(
             issue = response.data[0]
             issue_id = issue["issue_id"]
             description = issue["issue_description"]
+            status = issue["issue_status"]
             if logger:
-                logger.info(f"Locked issue {issue_id} for processing")
-            return (issue_id, description)
+                logger.info(f"Locked issue {issue_id} (status: {status}) for processing")
+            return (issue_id, description, status)
 
         return None
 
@@ -64,10 +68,10 @@ def update_issue_status(
 
     Args:
         issue_id: The ID of the issue to update
-        status: The new status ('pending', 'started', or 'completed')
+        status: The new status ('pending', 'started', 'completed', 'patch pending', or 'patched')
         logger: Optional logger for logging operations
     """
-    valid_statuses = {"pending", "started", "completed"}
+    valid_statuses = {"pending", "started", "completed", "patch pending", "patched"}
     if status not in valid_statuses:
         error_message = (
             f"Invalid status '{status}' for issue {issue_id}. "
