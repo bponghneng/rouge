@@ -24,17 +24,22 @@ def main(
         "--adw-id",
         help="Optional workflow identifier (auto-generated if omitted)",
     ),
+    patch_mode: bool = typer.Option(
+        False,
+        "--patch-mode",
+        help="Use patch pipeline instead of default pipeline",
+    ),
 ) -> None:
     """
     Rouge ADW - Agent Development Workflow runner.
     """
     if issue_id is None:
-        typer.echo("Usage: rouge-adw <issue_id> [--adw-id <workflow-id>]")
+        typer.echo("Usage: rouge-adw <issue_id> [--adw-id <workflow-id>] [--patch-mode]")
         typer.echo("Use 'rouge-adw --help' for more information")
         raise typer.Exit()
 
     try:
-        success, workflow_id = execute_adw_workflow(issue_id, adw_id)
+        success, workflow_id = execute_adw_workflow(issue_id, adw_id, patch_mode)
         if success:
             typer.echo(f"Workflow {workflow_id} completed successfully")
         else:
