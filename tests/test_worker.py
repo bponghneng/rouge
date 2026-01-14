@@ -61,13 +61,15 @@ class TestGetNextIssue:
         """Test successfully retrieving next issue."""
         mock_client = Mock()
         mock_response = Mock()
-        mock_response.data = [{"issue_id": 123, "issue_description": "Test issue"}]
+        mock_response.data = [
+            {"issue_id": 123, "issue_description": "Test issue", "issue_status": "pending"}
+        ]
         mock_client.rpc.return_value.execute.return_value = mock_response
 
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
-            assert result == (123, "Test issue")
+            assert result == (123, "Test issue", "pending")
             mock_client.rpc.assert_called_once_with(
                 "get_and_lock_next_issue", {"p_worker_id": "test-worker"}
             )
@@ -107,7 +109,7 @@ class TestExecuteWorkflow:
 
         with patch("subprocess.run", return_value=mock_result):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue")
+                result = worker.execute_workflow(123, "Test issue", "pending")
 
                 assert result is True
                 mock_update.assert_called_once_with(123, "completed", worker.logger)
@@ -121,7 +123,7 @@ class TestExecuteWorkflow:
 
         with patch("subprocess.run", return_value=mock_result):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue")
+                result = worker.execute_workflow(123, "Test issue", "pending")
 
                 assert result is False
                 mock_update.assert_called_once_with(123, "pending", worker.logger)
@@ -130,7 +132,7 @@ class TestExecuteWorkflow:
         """Test workflow execution timeout."""
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue")
+                result = worker.execute_workflow(123, "Test issue", "pending")
 
                 assert result is False
                 mock_update.assert_called_once_with(123, "pending", worker.logger)
@@ -139,7 +141,7 @@ class TestExecuteWorkflow:
         """Test workflow execution with unexpected exception."""
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue")
+                result = worker.execute_workflow(123, "Test issue", "pending")
 
                 assert result is False
                 mock_update.assert_called_once_with(123, "pending", worker.logger)
@@ -156,7 +158,7 @@ class TestExecuteWorkflow:
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     # Mock shutil.which to return None so it falls back to uv run
                     with patch("shutil.which", return_value=None):
-                        worker.execute_workflow(456, "Test description")
+                        worker.execute_workflow(456, "Test description", "pending")
 
                     # Verify the command was called with correct arguments
                     call_args = mock_run.call_args
@@ -179,7 +181,7 @@ class TestExecuteWorkflow:
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     # Mock shutil.which to return a path, simulating global install
                     with patch("shutil.which", return_value="/usr/local/bin/rouge-adw"):
-                        worker.execute_workflow(456, "Test description")
+                        worker.execute_workflow(456, "Test description", "pending")
 
                     # Verify the command uses rouge-adw directly
                     call_args = mock_run.call_args
@@ -199,7 +201,7 @@ class TestExecuteWorkflow:
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
-                    worker.execute_workflow(456, "Test description")
+                    worker.execute_workflow(456, "Test description", "pending")
 
                     # Verify the command uses the custom command
                     call_args = mock_run.call_args
@@ -265,7 +267,7 @@ class TestWorkerRun:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Test issue")
+                return (123, "Test issue", "pending")
             worker.running = False
             return None
 
@@ -273,7 +275,7 @@ class TestWorkerRun:
             with patch.object(worker, "execute_workflow") as mock_execute:
                 worker.run()
 
-                mock_execute.assert_called_once_with(123, "Test issue")
+                mock_execute.assert_called_once_with(123, "Test issue", "pending")
 
     @pytest.mark.skip(reason="Flaky sleep timing on CI runners; revisit later.")
     def test_run_sleeps_when_no_issues(self, worker):
