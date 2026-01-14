@@ -25,7 +25,7 @@ class Issue(BaseModel):
     id: int
     title: Optional[str] = None
     description: str = Field(..., min_length=1)
-    status: Literal["pending", "started", "completed"] = "pending"
+    status: Literal["pending", "started", "completed", "patch pending", "patched"] = "pending"
     assigned_to: Optional[
         Literal[
             "alleycat-1",
@@ -117,6 +117,42 @@ class CommentPayload(BaseModel):
         if not trimmed:
             raise ValueError("kind must be non-empty after trimming")
         return trimmed
+
+
+class Patch(BaseModel):
+    """Patch model matching Supabase schema.
+
+    Represents a patch request for an issue. Patches can only be created
+    when the issue status is 'completed' or 'patched'. Only one pending
+    patch per issue is allowed at a time (FIFO processing).
+    """
+
+    id: int
+    issue_id: int
+    status: Literal["pending", "completed", "failed"] = "pending"
+    description: str = Field(..., min_length=1)
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_validator("description")
+    @classmethod
+    def trim_description(cls, v: str) -> str:
+        """Trim whitespace from description and ensure non-empty."""
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("description must be non-empty after trimming")
+        return trimmed
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def default_status(cls, v):
+        """Default missing status to pending."""
+        return v if v else "pending"
+
+    @classmethod
+    def from_supabase(cls, row: dict) -> "Patch":
+        """Create Patch from Supabase row."""
+        return cls(**row)
 
 
 # Backward compatibility aliases
