@@ -22,11 +22,11 @@ import subprocess
 import time
 from pathlib import Path
 
-from rouge.core.database import init_db_env
-from rouge.core.utils import make_adw_id
+from rouge.core.database import fetch_pending_patch, init_db_env, update_patch_status
+from rouge.core.utils import make_adw_id, make_patch_workflow_id
 
 from .config import WorkerConfig
-from .database import get_next_issue, update_issue_status
+from .database import get_client, get_next_issue, update_issue_status
 
 
 class IssueWorker:
@@ -113,70 +113,184 @@ class IssueWorker:
         self.logger.info(f"Received signal {signum}, shutting down gracefully...")
         self.running = False
 
-    def execute_workflow(self, issue_id: int, description: str) -> bool:
+    def _get_base_cmd(self) -> list:
+        """Get the base command for running rouge-adw.
+
+        Returns:
+            List of command components to execute rouge-adw
         """
-        Execute the rouge-adw workflow for the given issue.
+        # Check if rouge-adw is in PATH (e.g. global install)
+        if shutil.which("rouge-adw"):
+            return ["rouge-adw"]
+        # Fallback to uv run (development mode)
+        return ["uv", "run", "rouge-adw"]
+
+    def _execute_main_workflow(self, issue_id: int, description: str) -> tuple[str, bool]:
+        """Execute the main rouge-adw workflow for a new issue.
 
         Args:
             issue_id: The ID of the issue to process
             description: The issue description
 
         Returns:
-            True if workflow executed successfully, False otherwise
+            Tuple of (workflow_id, success) where success is True if workflow completed
+
+        Raises:
+            subprocess.TimeoutExpired: If workflow times out
+            Exception: If workflow execution fails
         """
-        self.logger.info(f"Executing workflow for issue {issue_id}")
+        workflow_id = make_adw_id()
+        self.logger.info(f"Executing main workflow {workflow_id} for issue {issue_id}")
         self.logger.debug(f"Issue description: {description}")
 
-        try:
-            workflow_id = make_adw_id()
-            # Build the command to execute
-            # Note: Options must come before positional arguments in Typer/Click
+        cmd = self._get_base_cmd() + [
+            "--adw-id",
+            workflow_id,
+            str(issue_id),
+        ]
 
-            # Determine command to run
-            # Check if rouge-adw is in PATH (e.g. global install)
-            if shutil.which("rouge-adw"):
-                base_cmd = ["rouge-adw"]
-            # Fallback to uv run (development mode)
-            else:
-                base_cmd = ["uv", "run", "rouge-adw"]
+        # Execute the workflow with a timeout
+        # Note: Not capturing output allows real-time logging from rouge-adw
+        # Use configured working directory if set; otherwise fall back to current cwd
+        result = subprocess.run(
+            cmd,
+            timeout=self.config.workflow_timeout,
+            cwd=self.config.working_dir or Path.cwd(),
+        )
 
-            cmd = base_cmd + [
-                "--adw-id",
-                workflow_id,
-                str(issue_id),
-            ]
-
-            # Execute the workflow with a timeout
-            # Note: Not capturing output allows real-time logging from rouge-adw
-            # Use configured working directory if set; otherwise fall back to current cwd
-            result = subprocess.run(
-                cmd,
-                timeout=self.config.workflow_timeout,
-                cwd=self.config.working_dir or Path.cwd(),
+        if result.returncode == 0:
+            self.logger.info(f"Successfully completed issue {issue_id} (workflow {workflow_id})")
+            update_issue_status(issue_id, "completed", self.logger)
+            return workflow_id, True
+        else:
+            self.logger.error(
+                f"Workflow {workflow_id} failed for issue {issue_id} "
+                f"with exit code {result.returncode}"
             )
+            update_issue_status(issue_id, "pending", self.logger)
+            return workflow_id, False
 
-            if result.returncode == 0:
-                self.logger.info(
-                    f"Successfully completed issue {issue_id} (workflow {workflow_id})"
-                )
-                update_issue_status(issue_id, "completed", self.logger)
-                return True
+    def _fetch_main_adw_id(self, issue_id: int) -> str:
+        """Fetch the main ADW ID from the most recent workflow_completed comment.
+
+        Args:
+            issue_id: The issue ID to fetch the ADW ID for
+
+        Returns:
+            The adw_id from the most recent workflow_completed comment
+
+        Raises:
+            ValueError: If no workflow_completed comment found for the issue
+        """
+        client = get_client()
+        response = (
+            client.table("comments")
+            .select("adw_id")
+            .eq("issue_id", issue_id)
+            .eq("type", "workflow_completed")
+            .order("created_at", desc=True)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+
+        if response.data is None or response.data.get("adw_id") is None:
+            raise ValueError(f"No workflow_completed comment found for issue {issue_id}")
+
+        return response.data["adw_id"]
+
+    def _execute_patch_workflow(self, issue_id: int, description: str) -> tuple[str, bool]:
+        """Execute the patch workflow for an issue with pending patches.
+
+        Args:
+            issue_id: The ID of the issue to process
+            description: The issue description
+
+        Returns:
+            Tuple of (patch_workflow_id, success) where success is True if completed
+
+        Raises:
+            ValueError: If no pending patch or workflow_completed comment found
+            subprocess.TimeoutExpired: If workflow times out
+            Exception: If workflow execution fails
+        """
+        # Fetch the pending patch to get its ID for status updates
+        patch = fetch_pending_patch(issue_id)
+        patch_id = patch.id
+
+        # Get the main ADW ID from the most recent workflow_completed comment
+        main_adw_id = self._fetch_main_adw_id(issue_id)
+        patch_wf_id = make_patch_workflow_id(main_adw_id)
+
+        self.logger.info(
+            f"Executing patch workflow {patch_wf_id} for issue {issue_id} "
+            f"(patch {patch_id}, derived from {main_adw_id})"
+        )
+        self.logger.debug(f"Patch description: {patch.description}")
+
+        cmd = self._get_base_cmd() + [
+            "--adw-id",
+            patch_wf_id,
+            "--patch-mode",
+            str(issue_id),
+        ]
+
+        # Execute the workflow with a timeout
+        result = subprocess.run(
+            cmd,
+            timeout=self.config.workflow_timeout,
+            cwd=self.config.working_dir or Path.cwd(),
+        )
+
+        if result.returncode == 0:
+            self.logger.info(
+                f"Successfully completed patch {patch_id} for issue {issue_id} "
+                f"(workflow {patch_wf_id})"
+            )
+            update_patch_status(patch_id, "completed", self.logger)
+            update_issue_status(issue_id, "patched", self.logger)
+            return patch_wf_id, True
+        else:
+            self.logger.error(
+                f"Patch workflow {patch_wf_id} failed for issue {issue_id} "
+                f"with exit code {result.returncode}"
+            )
+            update_patch_status(patch_id, "failed", self.logger)
+            update_issue_status(issue_id, "patch pending", self.logger)
+            return patch_wf_id, False
+
+    def execute_workflow(self, issue_id: int, description: str, status: str) -> bool:
+        """
+        Execute the appropriate workflow for the given issue based on status.
+
+        Routes to either main workflow (for pending issues) or patch workflow
+        (for patch pending issues).
+
+        Args:
+            issue_id: The ID of the issue to process
+            description: The issue description
+            status: The issue status (determines workflow routing)
+
+        Returns:
+            True if workflow executed successfully, False otherwise
+        """
+        try:
+            if status == "patch pending":
+                _, success = self._execute_patch_workflow(issue_id, description)
             else:
-                self.logger.error(
-                    f"Workflow {workflow_id} failed for issue {issue_id} "
-                    f"with exit code {result.returncode}"
-                )
-                update_issue_status(issue_id, "pending", self.logger)
-                return False
+                _, success = self._execute_main_workflow(issue_id, description)
+            return success
 
         except subprocess.TimeoutExpired:
             self.logger.error(f"Workflow timed out for issue {issue_id}")
-            update_issue_status(issue_id, "pending", self.logger)
+            fallback_status = "patch pending" if status == "patch pending" else "pending"
+            update_issue_status(issue_id, fallback_status, self.logger)
             return False
 
         except Exception as e:
             self.logger.error(f"Error executing workflow for issue {issue_id}: {e}")
-            update_issue_status(issue_id, "pending", self.logger)
+            fallback_status = "patch pending" if status == "patch pending" else "pending"
+            update_issue_status(issue_id, fallback_status, self.logger)
             return False
 
     def run(self) -> None:
@@ -190,12 +304,12 @@ class IssueWorker:
 
         while self.running:
             try:
-                # Get next issue
+                # Get next issue (returns tuple of issue_id, description, status)
                 issue = get_next_issue(self.config.worker_id, self.logger)
 
                 if issue:
-                    issue_id, description = issue
-                    self.execute_workflow(issue_id, description)
+                    issue_id, description, status = issue
+                    self.execute_workflow(issue_id, description, status)
                 else:
                     # No issues available, sleep for poll interval
                     self.logger.debug(
