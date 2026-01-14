@@ -179,6 +179,7 @@ class TestArtifactModels:
             "acceptance",
             "pr_metadata",
             "pull_request",
+            "patch",
         }
 
         assert set(ARTIFACT_MODELS.keys()) == expected_types
