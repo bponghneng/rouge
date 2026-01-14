@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field
 
-from rouge.core.models import Issue
+from rouge.core.models import Issue, Patch
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
@@ -43,6 +43,7 @@ ArtifactType = Literal[
     "acceptance",
     "pr_metadata",
     "pull_request",
+    "patch",
 ]
 
 
@@ -184,6 +185,17 @@ class PullRequestArtifact(Artifact):
     platform: Literal["github", "gitlab"]
 
 
+class PatchArtifact(Artifact):
+    """Artifact containing the fetched Patch data.
+
+    Attributes:
+        patch: The Patch model from the database
+    """
+
+    artifact_type: Literal["patch"] = "patch"
+    patch: Patch
+
+
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "issue": IssueArtifact,
@@ -196,6 +208,7 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "acceptance": AcceptanceArtifact,
     "pr_metadata": PRMetadataArtifact,
     "pull_request": PullRequestArtifact,
+    "patch": PatchArtifact,
 }
 
 

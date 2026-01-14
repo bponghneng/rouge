@@ -11,7 +11,7 @@ from postgrest.exceptions import APIError
 from supabase import Client, create_client
 from supabase.lib.client_options import SyncClientOptions
 
-from rouge.core.models import Comment, Issue
+from rouge.core.models import Comment, Issue, Patch
 
 logger = logging.getLogger(__name__)
 
@@ -462,3 +462,85 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
     except APIError as e:
         logger.error(f"Database error updating issue {issue_id} assignment: {e}")
         raise ValueError(f"Failed to update issue {issue_id} assignment: {e}") from e
+
+
+# ============================================================================
+# Patch Operations
+# ============================================================================
+
+
+def fetch_pending_patch(issue_id: int) -> Patch:
+    """Fetch the oldest pending patch for an issue.
+
+    Args:
+        issue_id: The ID of the issue to fetch patches for.
+
+    Returns:
+        Patch: The oldest pending patch (ordered by created_at ASC).
+
+    Raises:
+        ValueError: If no pending patch exists for the issue or database operation fails.
+    """
+    client = get_client()
+
+    try:
+        response = (
+            client.table("patches")
+            .select("*")
+            .eq("issue_id", issue_id)
+            .eq("status", "pending")
+            .order("created_at", desc=False)
+            .limit(1)
+            .maybe_single()
+            .execute()
+        )
+
+        if response is None:
+            raise ValueError(f"Empty response when fetching pending patch for issue {issue_id}")
+
+        response_data = cast(Optional[SupabaseRow], response.data)
+        if response_data is None:
+            raise ValueError(f"No pending patch found for issue {issue_id}")
+
+        return Patch.from_supabase(response_data)
+
+    except APIError as e:
+        logger.error(f"Database error fetching pending patch for issue {issue_id}: {e}")
+        raise ValueError(f"Failed to fetch pending patch for issue {issue_id}: {e}") from e
+
+
+def update_patch_status(patch_id: int, status: str, log: Optional[logging.Logger] = None) -> None:
+    """Update the status of an existing patch.
+
+    Args:
+        patch_id: The ID of the patch to update.
+        status: The new status value. Must be one of: "pending", "completed", "failed".
+        log: Optional logger instance to use. Falls back to module logger if not provided.
+
+    Raises:
+        ValueError: If status is invalid, patch not found, or database operation fails.
+    """
+    _log = log or logger
+
+    valid_statuses = ["pending", "completed", "failed"]
+    if status not in valid_statuses:
+        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
+
+    client = get_client()
+
+    update_data: SupabaseRow = {
+        "status": status,
+    }
+
+    try:
+        response = client.table("patches").update(update_data).eq("id", patch_id).execute()
+
+        rows = cast(Optional[SupabaseRows], response.data)
+        if not rows:
+            raise ValueError(f"Patch with id {patch_id} not found")
+
+        _log.info(f"Updated patch {patch_id} status to '{status}'")
+
+    except APIError as e:
+        _log.error(f"Database error updating patch {patch_id} status: {e}")
+        raise ValueError(f"Failed to update patch {patch_id} status: {e}") from e
