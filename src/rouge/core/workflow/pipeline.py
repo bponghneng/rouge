@@ -195,3 +195,41 @@ def get_default_pipeline() -> List[WorkflowStep]:
         steps.append(CreateGitLabPullRequestStep())
 
     return steps
+
+
+def get_patch_pipeline() -> List[WorkflowStep]:
+    """Create the patch workflow pipeline.
+
+    The patch workflow is a subset of the default workflow, designed to process
+    patches against an existing issue that has already been through the main
+    workflow. It assumes:
+
+    - SetupStep is NOT needed: The repository is already set up from the main workflow
+    - ClassifyStep/BuildPlanStep are NOT needed: The plan already exists in the main
+      workflow artifacts at <main_adw_id> directory
+    - PR/MR creation steps are NOT needed: Patch commits will be added to the
+      existing PR/MR created by the main workflow
+
+    The patch workflow starts by fetching the patch, then proceeds through
+    implementation, review, quality checks, and acceptance validation.
+
+    Returns:
+        List of WorkflowStep instances in execution order for patch processing
+    """
+    # Import here to avoid circular imports
+    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+    from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
+    from rouge.core.workflow.steps.implement import ImplementStep
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+
+    steps: List[WorkflowStep] = [
+        FetchPatchStep(),
+        ImplementStep(),
+        GenerateReviewStep(),
+        AddressReviewStep(),
+        CodeQualityStep(),
+        ValidateAcceptanceStep(),
+    ]
+
+    return steps
