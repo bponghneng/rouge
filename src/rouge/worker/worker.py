@@ -148,10 +148,11 @@ class IssueWorker:
 
             # Execute the workflow with a timeout
             # Note: Not capturing output allows real-time logging from rouge-adw
+            # Use configured working directory if set; otherwise fall back to current cwd
             result = subprocess.run(
                 cmd,
                 timeout=self.config.workflow_timeout,
-                cwd=Path.cwd(),
+                cwd=self.config.working_dir or Path.cwd(),
             )
 
             if result.returncode == 0:
