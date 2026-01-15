@@ -87,10 +87,10 @@ def test_make_patch_workflow_id_with_different_ids():
     """Test that different main ADW IDs produce different patch workflow IDs."""
     id1 = make_adw_id()
     id2 = make_adw_id()
-    
+
     patch_id1 = make_patch_workflow_id(id1)
     patch_id2 = make_patch_workflow_id(id2)
-    
+
     assert patch_id1 != patch_id2
     assert patch_id1 == f"{id1}-patch"
     assert patch_id2 == f"{id2}-patch"

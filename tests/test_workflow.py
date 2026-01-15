@@ -1279,7 +1279,7 @@ def test_transition_to_patched_success(mock_get_client, mock_update_patch):
 
     # Should not raise
     transition_to_patched(1, 10)
-    
+
     # Verify patch status was updated
     mock_update_patch.assert_called_once()
 
@@ -1296,7 +1296,7 @@ def test_transition_to_patched_patch_update_failure(mock_get_client, mock_update
 
     # Should not raise - best-effort
     transition_to_patched(1, 10)
-    
+
     # Verify issue update was not called (client.table not called)
     mock_client.table.assert_not_called()
 
@@ -1318,6 +1318,6 @@ def test_transition_to_patched_issue_update_failure(mock_get_client, mock_update
 
     # Should not raise - best-effort
     transition_to_patched(1, 10)
-    
+
     # Verify patch status was updated first
     mock_update_patch.assert_called_once()
