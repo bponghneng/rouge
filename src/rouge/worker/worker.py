@@ -24,6 +24,7 @@ from pathlib import Path
 
 from rouge.core.database import fetch_pending_patch, init_db_env, update_patch_status
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
+from rouge.core.workflow.status import transition_to_patch_pending, transition_to_patched
 
 from .config import WorkerConfig
 from .database import get_client, get_next_issue, update_issue_status
@@ -214,50 +215,65 @@ class IssueWorker:
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
-        # Fetch the pending patch to get its ID for status updates
-        patch = fetch_pending_patch(issue_id)
-        patch_id = patch.id
+        patch_id = None
+        try:
+            # Fetch the pending patch to get its ID for status updates
+            patch = fetch_pending_patch(issue_id)
+            patch_id = patch.id
 
-        # Get the main ADW ID from the most recent workflow_completed comment
-        main_adw_id = self._fetch_main_adw_id(issue_id)
-        patch_wf_id = make_patch_workflow_id(main_adw_id)
+            # Get the main ADW ID from the most recent workflow_completed comment
+            main_adw_id = self._fetch_main_adw_id(issue_id)
+            patch_wf_id = make_patch_workflow_id(main_adw_id)
 
-        self.logger.info(
-            f"Executing patch workflow {patch_wf_id} for issue {issue_id} "
-            f"(patch {patch_id}, derived from {main_adw_id})"
-        )
-        self.logger.debug(f"Patch description: {patch.description}")
-
-        cmd = self._get_base_cmd() + [
-            "--adw-id",
-            patch_wf_id,
-            "--patch-mode",
-            str(issue_id),
-        ]
-
-        # Execute the workflow with a timeout
-        result = subprocess.run(
-            cmd,
-            timeout=self.config.workflow_timeout,
-            cwd=self.config.working_dir or Path.cwd(),
-        )
-
-        if result.returncode == 0:
             self.logger.info(
-                f"Successfully completed patch {patch_id} for issue {issue_id} "
-                f"(workflow {patch_wf_id})"
+                f"Executing patch workflow {patch_wf_id} for issue {issue_id} "
+                f"(patch {patch_id}, derived from {main_adw_id})"
             )
-            update_patch_status(patch_id, "completed", self.logger)
-            update_issue_status(issue_id, "patched", self.logger)
-            return patch_wf_id, True
-        else:
-            self.logger.error(
-                f"Patch workflow {patch_wf_id} failed for issue {issue_id} "
-                f"with exit code {result.returncode}"
+            self.logger.debug(f"Patch description: {patch.description}")
+
+            cmd = self._get_base_cmd() + [
+                "--adw-id",
+                patch_wf_id,
+                "--patch-mode",
+                str(issue_id),
+            ]
+
+            # Execute the workflow with a timeout
+            result = subprocess.run(
+                cmd,
+                timeout=self.config.workflow_timeout,
+                cwd=self.config.working_dir or Path.cwd(),
             )
-            update_patch_status(patch_id, "failed", self.logger)
-            update_issue_status(issue_id, "patch pending", self.logger)
-            return patch_wf_id, False
+
+            if result.returncode == 0:
+                self.logger.info(
+                    f"Successfully completed patch {patch_id} for issue {issue_id} "
+                    f"(workflow {patch_wf_id})"
+                )
+                transition_to_patched(issue_id, patch_id)
+                return patch_wf_id, True
+            else:
+                self.logger.error(
+                    f"Patch workflow {patch_wf_id} failed for issue {issue_id} "
+                    f"with exit code {result.returncode}"
+                )
+                update_patch_status(patch_id, "failed", self.logger)
+                transition_to_patch_pending(issue_id)
+                return patch_wf_id, False
+
+        except (ValueError, subprocess.TimeoutExpired, Exception) as e:
+            # If we have a patch_id, mark the patch as failed
+            if patch_id is not None:
+                self.logger.error(
+                    f"Patch workflow failed for issue {issue_id}, patch {patch_id}: {e}"
+                )
+                update_patch_status(patch_id, "failed", self.logger)
+            else:
+                self.logger.error(
+                    f"Failed to initialize patch workflow for issue {issue_id}: {e}"
+                )
+            # Re-raise to be handled by execute_workflow
+            raise
 
     def execute_workflow(self, issue_id: int, description: str, status: str) -> bool:
         """
@@ -283,14 +299,18 @@ class IssueWorker:
 
         except subprocess.TimeoutExpired:
             self.logger.error(f"Workflow timed out for issue {issue_id}")
-            fallback_status = "patch pending" if status == "patch pending" else "pending"
-            update_issue_status(issue_id, fallback_status, self.logger)
+            if status == "patch pending":
+                transition_to_patch_pending(issue_id)
+            else:
+                update_issue_status(issue_id, "pending", self.logger)
             return False
 
         except Exception as e:
             self.logger.error(f"Error executing workflow for issue {issue_id}: {e}")
-            fallback_status = "patch pending" if status == "patch pending" else "pending"
-            update_issue_status(issue_id, fallback_status, self.logger)
+            if status == "patch pending":
+                transition_to_patch_pending(issue_id)
+            else:
+                update_issue_status(issue_id, "pending", self.logger)
             return False
 
     def run(self) -> None:
