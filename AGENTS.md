@@ -44,6 +44,12 @@ Your guidance is directed by these core principles:
 
 Apply these principles when evaluating whether complex patterns, or advanced optimizations are truly needed or if simpler solutions would suffice.
 
+## Code Style Rules
+
+- **Unused Arguments**: Prefix unused arguments in functions and methods with an underscore (`_`).
+  - Example: `def handler(event, _context):` instead of `def handler(event, context):`.
+  - This rule is enforced by the linter (ruff) via the `ARG` check.
+
 ## Development Commands
 
 **Package Management**: uv (fast Python package manager)
