@@ -122,9 +122,12 @@ class CommentPayload(BaseModel):
 class Patch(BaseModel):
     """Patch model matching Supabase schema.
 
-    Represents a patch request for an issue. Patches can only be created
-    when the issue status is 'completed' or 'patched'. Only one pending
-    patch per issue is allowed at a time (FIFO processing).
+    Represents a patch request for an issue.
+
+    Business rules enforced by the database:
+    - Patches can only be created when the related issue status is
+      'completed' or 'patched' (enforced by trigger).
+    - Only one patch per issue is allowed (enforced by unique index).
     """
 
     id: int

@@ -24,10 +24,11 @@ class FetchPatchStep(WorkflowStep):
         return True
 
     def run(self, context: WorkflowContext) -> StepResult:
-        """Fetch pending patch and store in context.
+        """Fetch pending patch and issue from database.
 
-        Loads the issue from IssueArtifact if available, otherwise fetches
-        from database as fallback. Then fetches the pending patch for the issue.
+        Fetches both the issue and its pending patch directly from the database.
+        The patch workflow uses a different workflow_id than the main workflow,
+        so artifacts from the main workflow are not accessible here.
 
         Args:
             context: Workflow context to update
@@ -38,17 +39,9 @@ class FetchPatchStep(WorkflowStep):
         issue_id = context.issue_id
 
         try:
-            # Try to load issue from artifact first (main workflow may have fetched it)
-            issue = context.load_issue_artifact_if_missing(
-                IssueArtifact,
-                lambda artifact: artifact.issue,
-            )
-
-            # Fallback: fetch issue from database if not in artifact
-            if issue is None:
-                logger.debug("Issue not in artifact, fetching from database")
-                issue = fetch_issue(issue_id)
-                context.issue = issue
+            # Fetch issue from database
+            issue = fetch_issue(issue_id)
+            context.issue = issue
 
             # Fetch the pending patch for this issue
             patch = fetch_pending_patch(issue_id)
