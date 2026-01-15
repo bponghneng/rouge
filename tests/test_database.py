@@ -672,3 +672,134 @@ def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
     for worker_id in invalid_workers:
         with pytest.raises(ValueError, match="Invalid worker ID"):
             update_issue_assignment(1, worker_id)
+
+
+# Patch database operations tests
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_pending_patch_success(mock_get_client):
+    """Test successful pending patch fetch."""
+    from rouge.core.database import fetch_pending_patch
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq1 = Mock()
+    mock_eq2 = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_maybe_single = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq1
+    mock_eq1.eq.return_value = mock_eq2
+    mock_eq2.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.maybe_single.return_value = mock_maybe_single
+    mock_execute.data = {
+        "id": 1,
+        "issue_id": 10,
+        "description": "Fix typo",
+        "status": "pending",
+    }
+    mock_maybe_single.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    patch = fetch_pending_patch(10)
+    assert patch.id == 1
+    assert patch.issue_id == 10
+    assert patch.description == "Fix typo"
+    assert patch.status == "pending"
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_pending_patch_not_found(mock_get_client):
+    """Test fetch_pending_patch raises ValueError when no pending patch exists."""
+    from rouge.core.database import fetch_pending_patch
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq1 = Mock()
+    mock_eq2 = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_maybe_single = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq1
+    mock_eq1.eq.return_value = mock_eq2
+    mock_eq2.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.maybe_single.return_value = mock_maybe_single
+    mock_execute.data = None
+    mock_maybe_single.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="No pending patch found"):
+        fetch_pending_patch(10)
+
+
+@patch("rouge.core.database.get_client")
+def test_update_patch_status_success(mock_get_client):
+    """Test successful patch status update."""
+    from rouge.core.database import update_patch_status
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq
+    mock_execute.data = [
+        {
+            "id": 1,
+            "issue_id": 10,
+            "description": "Fix typo",
+            "status": "completed",
+        }
+    ]
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    # Should not raise
+    update_patch_status(1, "completed")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_patch_status_invalid_status(mock_get_client):
+    """Test update_patch_status raises ValueError for invalid status."""
+    from rouge.core.database import update_patch_status
+
+    with pytest.raises(ValueError, match="Invalid status"):
+        update_patch_status(1, "invalid")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_patch_status_not_found(mock_get_client):
+    """Test update_patch_status raises ValueError when patch not found."""
+    from rouge.core.database import update_patch_status
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq
+    mock_execute.data = []
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="not found"):
+        update_patch_status(999, "completed")

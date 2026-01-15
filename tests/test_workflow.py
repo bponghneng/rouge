@@ -1215,3 +1215,109 @@ def test_prepare_pr_step_emits_raw_llm_response(
         "Expected emit_progress_comment call with pr-preparation-response"
     )
     assert llm_response_call[1]["raw"]["llm_response"] == pr_json
+
+
+# Patch status transition tests
+
+
+@patch("rouge.core.workflow.status.get_client")
+def test_transition_to_patch_pending_success(mock_get_client):
+    """Test successful transition to patch pending status."""
+    from rouge.core.workflow.status import transition_to_patch_pending
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    # Should not raise
+    transition_to_patch_pending(1)
+
+
+@patch("rouge.core.workflow.status.get_client")
+def test_transition_to_patch_pending_failure(mock_get_client):
+    """Test transition to patch pending handles errors gracefully."""
+    from rouge.core.workflow.status import transition_to_patch_pending
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.side_effect = Exception("Database error")
+    mock_get_client.return_value = mock_client
+
+    # Should not raise - best-effort
+    transition_to_patch_pending(1)
+
+
+@patch("rouge.core.workflow.status.update_patch_status")
+@patch("rouge.core.workflow.status.get_client")
+def test_transition_to_patched_success(mock_get_client, mock_update_patch):
+    """Test successful transition to patched status."""
+    from rouge.core.workflow.status import transition_to_patched
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    # Should not raise
+    transition_to_patched(1, 10)
+    
+    # Verify patch status was updated
+    mock_update_patch.assert_called_once()
+
+
+@patch("rouge.core.workflow.status.update_patch_status")
+@patch("rouge.core.workflow.status.get_client")
+def test_transition_to_patched_patch_update_failure(mock_get_client, mock_update_patch):
+    """Test transition to patched skips issue update if patch update fails."""
+    from rouge.core.workflow.status import transition_to_patched
+
+    mock_client = Mock()
+    mock_update_patch.side_effect = Exception("Database error")
+    mock_get_client.return_value = mock_client
+
+    # Should not raise - best-effort
+    transition_to_patched(1, 10)
+    
+    # Verify issue update was not called (client.table not called)
+    mock_client.table.assert_not_called()
+
+
+@patch("rouge.core.workflow.status.update_patch_status")
+@patch("rouge.core.workflow.status.get_client")
+def test_transition_to_patched_issue_update_failure(mock_get_client, mock_update_patch):
+    """Test transition to patched handles issue update errors gracefully."""
+    from rouge.core.workflow.status import transition_to_patched
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_update = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.side_effect = Exception("Database error")
+    mock_get_client.return_value = mock_client
+
+    # Should not raise - best-effort
+    transition_to_patched(1, 10)
+    
+    # Verify patch status was updated first
+    mock_update_patch.assert_called_once()
