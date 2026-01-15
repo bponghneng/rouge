@@ -140,3 +140,98 @@ def test_agent_template_request():
     assert request.adw_id == "test123"
     assert request.issue_id == 42
     assert request.model == "sonnet"
+
+
+# Patch model tests
+
+
+def test_patch_creation():
+    """Test basic Patch creation."""
+    from rouge.core.models import Patch
+
+    patch = Patch(id=1, issue_id=10, description="Fix typo in README")
+    assert patch.id == 1
+    assert patch.issue_id == 10
+    assert patch.description == "Fix typo in README"
+    assert patch.status == "pending"
+
+
+def test_patch_trim_description():
+    """Test description whitespace trimming."""
+    from rouge.core.models import Patch
+
+    patch = Patch(id=1, issue_id=10, description="  Fix typo  ")
+    assert patch.description == "Fix typo"
+
+
+def test_patch_empty_description_validation():
+    """Test that empty description raises validation error."""
+    from rouge.core.models import Patch
+
+    with pytest.raises(ValueError):
+        Patch(id=1, issue_id=10, description="")
+
+
+def test_patch_default_status():
+    """Test default status is set to pending."""
+    from rouge.core.models import Patch
+
+    patch = Patch(id=1, issue_id=10, description="Test patch")
+    assert patch.status == "pending"
+
+
+def test_patch_status_validation():
+    """Test that patch accepts valid statuses."""
+    from rouge.core.models import Patch
+
+    # Test all valid statuses
+    valid_statuses = ["pending", "completed", "failed"]
+    for status in valid_statuses:
+        patch = Patch(id=1, issue_id=10, description="Test", status=status)
+        assert patch.status == status
+
+
+def test_patch_from_supabase():
+    """Test creating Patch from Supabase row."""
+    from rouge.core.models import Patch
+
+    row = {
+        "id": 1,
+        "issue_id": 10,
+        "description": "Test patch",
+        "status": "pending",
+        "created_at": "2024-01-01T00:00:00",
+        "updated_at": "2024-01-01T00:00:00",
+    }
+    patch = Patch.from_supabase(row)
+    assert patch.id == 1
+    assert patch.issue_id == 10
+    assert patch.description == "Test patch"
+    assert patch.status == "pending"
+
+
+def test_patch_status_before_validation():
+    """Test that patch status defaults to pending when missing."""
+    from rouge.core.models import Patch
+
+    # Simulate Supabase row with missing status
+    row = {
+        "id": 1,
+        "issue_id": 10,
+        "description": "Test patch",
+        "status": None,
+    }
+    patch = Patch.from_supabase(row)
+    assert patch.status == "pending"
+
+
+def test_issue_patch_statuses():
+    """Test that Issue accepts patch-related statuses."""
+    # Test patch pending status
+    issue = Issue(id=1, description="Test", status="patch pending")
+    assert issue.status == "patch pending"
+
+    # Test patched status
+    issue = Issue(id=1, description="Test", status="patched")
+    assert issue.status == "patched"
+

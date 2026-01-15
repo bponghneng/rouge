@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.utils import get_logger, make_adw_id, setup_logger
+from rouge.core.utils import get_logger, make_adw_id, make_patch_workflow_id, setup_logger
 
 
 def test_make_adw_id():
@@ -74,3 +74,24 @@ def test_get_logger():
     logger = logging.getLogger(f"rouge_{adw_id}")
     retrieved = get_logger(adw_id)
     assert retrieved is logger
+
+
+def test_make_patch_workflow_id():
+    """Test patch workflow ID generation."""
+    main_adw_id = "abc12345"
+    patch_wf_id = make_patch_workflow_id(main_adw_id)
+    assert patch_wf_id == "abc12345-patch"
+
+
+def test_make_patch_workflow_id_with_different_ids():
+    """Test that different main ADW IDs produce different patch workflow IDs."""
+    id1 = make_adw_id()
+    id2 = make_adw_id()
+    
+    patch_id1 = make_patch_workflow_id(id1)
+    patch_id2 = make_patch_workflow_id(id2)
+    
+    assert patch_id1 != patch_id2
+    assert patch_id1 == f"{id1}-patch"
+    assert patch_id2 == f"{id2}-patch"
+
