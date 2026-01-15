@@ -345,17 +345,17 @@ def test_get_patch_pipeline():
     from rouge.core.workflow.pipeline import get_patch_pipeline
 
     pipeline = get_patch_pipeline()
-    
+
     # Verify pipeline contains expected steps
     step_names = [step.name for step in pipeline]
-    
+
     # Check for patch-specific steps
     assert "Fetching pending patch" in step_names
-    
+
     # Check for implementation and review steps
     assert "Implementing solution" in step_names
     assert "Generating CodeRabbit review" in step_names
-    
+
     # Verify setup and classify steps are NOT in patch pipeline
     assert "Fetching issue" not in step_names
     assert "Classifying issue" not in step_names
