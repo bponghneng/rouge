@@ -3,6 +3,9 @@ name: Agent Environment Setup
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   copilot-setup-steps:
     name: Setup Agent Environment
