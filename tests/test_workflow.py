@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from postgrest.exceptions import APIError
 
 from rouge.core.agents.claude import ClaudeAgentPromptResponse
 from rouge.core.models import CommentPayload, Issue
@@ -39,7 +40,7 @@ def test_update_status_success(mock_update_issue_status):
 @patch("rouge.core.workflow.status.update_issue_status")
 def test_update_status_failure(mock_update_issue_status):
     """Test status update handles errors gracefully."""
-    mock_update_issue_status.side_effect = Exception("Database error")
+    mock_update_issue_status.side_effect = APIError({"message": "Database error"})
 
     # Should not raise - best-effort
     update_status(1, "started")
@@ -1257,7 +1258,7 @@ def test_transition_to_patch_pending_failure(mock_get_client):
 
     mock_client.table.return_value = mock_table
     mock_table.update.return_value = mock_update
-    mock_update.eq.side_effect = Exception("Database error")
+    mock_update.eq.side_effect = APIError({"message": "Database error"})
     mock_get_client.return_value = mock_client
 
     # Should not raise - best-effort
@@ -1296,7 +1297,7 @@ def test_transition_to_patched_patch_update_failure(mock_get_client, mock_update
     from rouge.core.workflow.status import transition_to_patched
 
     mock_client = Mock()
-    mock_update_patch.side_effect = Exception("Database error")
+    mock_update_patch.side_effect = APIError({"message": "Database error"})
     mock_get_client.return_value = mock_client
 
     # Should not raise - best-effort
@@ -1318,7 +1319,7 @@ def test_transition_to_patched_issue_update_failure(mock_get_client, mock_update
 
     mock_client.table.return_value = mock_table
     mock_table.update.return_value = mock_update
-    mock_update.eq.side_effect = Exception("Database error")
+    mock_update.eq.side_effect = APIError({"message": "Database error"})
     mock_get_client.return_value = mock_client
 
     # Should not raise - best-effort
