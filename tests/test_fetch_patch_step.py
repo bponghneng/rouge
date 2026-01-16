@@ -152,3 +152,30 @@ def test_fetch_patch_step_name():
     """Test FetchPatchStep has correct name."""
     step = FetchPatchStep()
     assert step.name == "Fetching pending patch"
+
+
+@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
+@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+def test_fetch_patch_step_unexpected_error(
+    mock_fetch_issue,
+    mock_fetch_pending_patch,
+    mock_emit_progress_comment,
+    mock_context,
+    sample_issue,
+):
+    """Test FetchPatchStep handles unexpected errors gracefully."""
+    # Setup: fetch_issue succeeds but fetch_pending_patch raises RuntimeError
+    mock_fetch_issue.return_value = sample_issue
+    mock_fetch_pending_patch.side_effect = RuntimeError("Unexpected DB error")
+
+    # Execute
+    step = FetchPatchStep()
+    result = step.run(mock_context)
+
+    # Verify
+    assert result.success is False
+    assert "Unexpected error" in result.error
+    mock_fetch_issue.assert_called_once_with(10)
+    mock_fetch_pending_patch.assert_called_once_with(10)
+    mock_emit_progress_comment.assert_not_called()

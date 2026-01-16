@@ -774,8 +774,7 @@ def test_update_patch_status_success(mock_get_client):
     update_patch_status(1, "completed")
 
 
-@patch("rouge.core.database.get_client")
-def test_update_patch_status_invalid_status(mock_get_client):
+def test_update_patch_status_invalid_status():
     """Test update_patch_status raises ValueError for invalid status."""
     from rouge.core.database import update_patch_status
 

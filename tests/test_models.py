@@ -6,7 +6,7 @@ from rouge.core.agents.claude import (
     ClaudeAgentPromptRequest,
     ClaudeAgentTemplateRequest,
 )
-from rouge.core.models import Comment, Issue
+from rouge.core.models import Comment, Issue, Patch
 
 
 def test_issue_creation():
@@ -147,8 +147,6 @@ def test_agent_template_request():
 
 def test_patch_creation():
     """Test basic Patch creation."""
-    from rouge.core.models import Patch
-
     patch = Patch(id=1, issue_id=10, description="Fix typo in README")
     assert patch.id == 1
     assert patch.issue_id == 10
@@ -158,24 +156,18 @@ def test_patch_creation():
 
 def test_patch_trim_description():
     """Test description whitespace trimming."""
-    from rouge.core.models import Patch
-
     patch = Patch(id=1, issue_id=10, description="  Fix typo  ")
     assert patch.description == "Fix typo"
 
 
 def test_patch_empty_description_validation():
     """Test that empty description raises validation error."""
-    from rouge.core.models import Patch
-
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="description must be non-empty"):
         Patch(id=1, issue_id=10, description="")
 
 
 def test_patch_default_status():
     """Test default status is set to pending."""
-    from rouge.core.models import Patch
-
     patch = Patch(id=1, issue_id=10, description="Test patch")
     assert patch.status == "pending"
 
