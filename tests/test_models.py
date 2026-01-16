@@ -162,7 +162,9 @@ def test_patch_trim_description():
 
 def test_patch_empty_description_validation():
     """Test that empty description raises validation error."""
-    with pytest.raises(ValueError, match="description must be non-empty"):
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError, match="String should have at least 1 character"):
         Patch(id=1, issue_id=10, description="")
 
 
