@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue, Patch
-from rouge.core.workflow.artifacts import PatchArtifact
+from rouge.core.workflow.artifacts import IssueArtifact, PatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
 from rouge.core.workflow.types import StepResult
@@ -67,11 +67,18 @@ def test_fetch_patch_step_success(
     assert mock_context.issue == sample_issue
     assert mock_context.data["patch"] == sample_patch
 
-    # Verify artifact was saved
-    mock_context.artifact_store.write_artifact.assert_called_once()
-    artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
-    assert isinstance(artifact, PatchArtifact)
-    assert artifact.patch == sample_patch
+    # Verify both issue and patch artifacts were saved
+    assert mock_context.artifact_store.write_artifact.call_count == 2
+    
+    # Check first call was IssueArtifact
+    first_call = mock_context.artifact_store.write_artifact.call_args_list[0][0][0]
+    assert isinstance(first_call, IssueArtifact)
+    assert first_call.issue == sample_issue
+    
+    # Check second call was PatchArtifact
+    second_call = mock_context.artifact_store.write_artifact.call_args_list[1][0][0]
+    assert isinstance(second_call, PatchArtifact)
+    assert second_call.patch == sample_patch
 
     # Verify progress comment was emitted
     mock_emit.assert_called_once()
