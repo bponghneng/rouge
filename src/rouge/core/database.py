@@ -495,9 +495,6 @@ def fetch_pending_patch(issue_id: int) -> Patch:
             .execute()
         )
 
-        if response is None:
-            raise ValueError(f"Empty response when fetching pending patch for issue {issue_id}")
-
         response_data = cast(Optional[SupabaseRow], response.data)
         if response_data is None:
             raise ValueError(f"No pending patch found for issue {issue_id}")
@@ -505,7 +502,7 @@ def fetch_pending_patch(issue_id: int) -> Patch:
         return Patch.from_supabase(response_data)
 
     except APIError as e:
-        logger.error(f"Database error fetching pending patch for issue {issue_id}: {e}")
+        logger.exception(f"Database error fetching pending patch for issue {issue_id}: {e}")
         raise ValueError(f"Failed to fetch pending patch for issue {issue_id}: {e}") from e
 
 
