@@ -2,6 +2,8 @@
 
 import logging
 
+from postgrest.exceptions import APIError
+
 from rouge.core.database import get_client, update_issue_status, update_patch_status
 
 logger = logging.getLogger(__name__)
@@ -21,7 +23,7 @@ def update_status(issue_id: int, status: str) -> None:
     try:
         update_issue_status(issue_id, status)
         logger.debug(f"Issue {issue_id} status updated to '{status}'")
-    except Exception as e:
+    except APIError as e:
         logger.error(f"Failed to update issue {issue_id} status to '{status}': {e}")
 
 
@@ -39,7 +41,7 @@ def transition_to_patch_pending(issue_id: int) -> None:
         client = get_client()
         client.table("issues").update({"status": "patch pending"}).eq("id", issue_id).execute()
         logger.debug(f"Issue {issue_id} status updated to 'patch pending'")
-    except Exception as e:
+    except APIError as e:
         logger.error(f"Failed to update issue {issue_id} status to 'patch pending': {e}")
 
 
@@ -58,7 +60,7 @@ def transition_to_patched(issue_id: int, patch_id: int) -> None:
     try:
         update_patch_status(patch_id, "completed", logger)
         logger.debug(f"Patch {patch_id} status updated to 'completed'")
-    except Exception as e:
+    except APIError as e:
         logger.error(f"Failed to update patch {patch_id} status to 'completed': {e}")
         return  # Don't update issue if patch update failed
 
@@ -66,5 +68,5 @@ def transition_to_patched(issue_id: int, patch_id: int) -> None:
         client = get_client()
         client.table("issues").update({"status": "patched"}).eq("id", issue_id).execute()
         logger.debug(f"Issue {issue_id} status updated to 'patched'")
-    except Exception as e:
+    except APIError as e:
         logger.error(f"Failed to update issue {issue_id} status to 'patched': {e}")
