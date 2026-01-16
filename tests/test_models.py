@@ -187,8 +187,6 @@ def test_patch_status_validation():
 
 def test_patch_from_supabase():
     """Test creating Patch from Supabase row."""
-    from rouge.core.models import Patch
-
     row = {
         "id": 1,
         "issue_id": 10,
@@ -228,4 +226,3 @@ def test_issue_patch_statuses():
     # Test patched status
     issue = Issue(id=1, description="Test", status="patched")
     assert issue.status == "patched"
-
