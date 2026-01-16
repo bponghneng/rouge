@@ -21,6 +21,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from typing import Optional
 
 from rouge.core.database import fetch_pending_patch, init_db_env, update_patch_status
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
@@ -184,21 +185,40 @@ class IssueWorker:
             ValueError: If no workflow_completed comment found for the issue
         """
         client = get_client()
-        response = (
-            client.table("comments")
-            .select("adw_id")
-            .eq("issue_id", issue_id)
-            .eq("type", "workflow_completed")
-            .order("created_at", desc=True)
-            .limit(1)
-            .maybe_single()
-            .execute()
-        )
+        try:
+            response = (
+                client.table("comments")
+                .select("adw_id")
+                .eq("issue_id", issue_id)
+                .eq("type", "workflow_completed")
+                .order("created_at", desc=True)
+                .limit(1)
+                .maybe_single()
+                .execute()
+            )
+        except Exception as e:
+            raise ValueError(
+                f"Failed to fetch workflow_completed comment for issue {issue_id}: {e}"
+            ) from e
 
         if response.data is None or response.data.get("adw_id") is None:
             raise ValueError(f"No workflow_completed comment found for issue {issue_id}")
 
         return response.data["adw_id"]
+
+    def _handle_patch_failure(self, issue_id: int, patch_id: Optional[int], reason: str) -> None:
+        """Handle patch workflow failure by logging and updating status.
+
+        Args:
+            issue_id: The ID of the issue
+            patch_id: The ID of the patch (None if not yet initialized)
+            reason: Description of the failure reason
+        """
+        if patch_id is not None:
+            self.logger.exception(f"Patch workflow failed for issue {issue_id}, patch {patch_id}")
+            update_patch_status(patch_id, "failed", self.logger)
+        else:
+            self.logger.exception(f"Failed to initialize patch workflow for issue {issue_id}")
 
     def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
         """Execute the patch workflow for an issue with pending patches.
@@ -260,18 +280,14 @@ class IssueWorker:
                 transition_to_patch_pending(issue_id)
                 return patch_wf_id, False
 
-        except (ValueError, subprocess.TimeoutExpired, Exception) as e:
-            # If we have a patch_id, mark the patch as failed
-            if patch_id is not None:
-                self.logger.exception(
-                    f"Patch workflow failed for issue {issue_id}, patch {patch_id}: {e}"
-                )
-                update_patch_status(patch_id, "failed", self.logger)
-            else:
-                self.logger.exception(
-                    f"Failed to initialize patch workflow for issue {issue_id}: {e}"
-                )
-            # Re-raise to be handled by execute_workflow
+        except ValueError as e:
+            self._handle_patch_failure(issue_id, patch_id, "ValueError during patch workflow")
+            raise
+        except subprocess.TimeoutExpired as e:
+            self._handle_patch_failure(issue_id, patch_id, "Patch workflow timed out")
+            raise
+        except Exception as e:
+            self._handle_patch_failure(issue_id, patch_id, "Unexpected error in patch workflow")
             raise
 
     def execute_workflow(self, issue_id: int, description: str, status: str) -> bool:
@@ -305,7 +321,7 @@ class IssueWorker:
             return False
 
         except Exception as e:
-            self.logger.exception(f"Error executing workflow for issue {issue_id}: {e}")
+            self.logger.exception(f"Error executing workflow for issue {issue_id}")
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)
             else:
