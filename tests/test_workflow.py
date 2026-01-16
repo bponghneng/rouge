@@ -1240,6 +1240,11 @@ def test_transition_to_patch_pending_success(mock_get_client):
     # Should not raise
     transition_to_patch_pending(1)
 
+    # Verify the update chain was invoked with correct parameters
+    mock_table.update.assert_called_once_with({"status": "patch pending"})
+    mock_update.eq.assert_called_once_with("id", 1)
+    mock_eq.execute.assert_called_once()
+
 
 @patch("rouge.core.workflow.status.get_client")
 def test_transition_to_patch_pending_failure(mock_get_client):
