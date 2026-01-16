@@ -1,0 +1,467 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# =============================================================================
+# CodeRabbit Configuration for GitHub Repository Reviews
+# Adapted from rouge/.coderabbit.yaml for human-centric PR feedback.
+# =============================================================================
+
+language: en-US
+early_access: false
+enable_free_tier: true
+
+# Instructions for AI tone and style in PR summaries and reviews
+tone_instructions: "Provide professional, constructive, and concise feedback. Avoid flowery language."
+
+reviews:
+  # "chill" profile is recommended for GitHub PRs to reduce noise and keep feedback constructive
+  profile: chill
+
+  # Standard PR workflow settings
+  request_changes_workflow: false
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+  high_level_summary_in_walkthrough: true
+  high_level_summary_instructions: |
+    Generate the PR summary strictly adhering to this Markdown format. Fill placeholders with architecturally-aware content.
+
+    ## Description
+    <describe the change and any issue fixed. include relevant motivation and context. list any dependencies required for the change.>
+
+    ## Type of Change
+    - [ ] Bug fix (non-breaking change which fixes an issue)
+    - [ ] Chore (non-breaking change for tech debt or devx improvements)
+    - [ ] Feature (non-breaking change which adds functionality)
+    - [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+    - [ ] This change requires a documentation update
+
+    ## What Changed
+    - <concise summary of change no. 1>
+    - <concise summary of change no. 2>
+
+    ## How to Test
+    - [ ] <concise description of test no. 1>
+    - [ ] <concise description of test no. 2>
+  review_status: true
+  commit_status: true
+  fail_commit_status: false
+  collapse_walkthrough: false
+  changed_files_summary: true
+
+  # GitHub-friendly features
+  sequence_diagrams: true  # Visual aids are helpful for human reviewers
+  estimate_code_review_effort: true
+  assess_linked_issues: true
+  related_issues: true
+  related_prs: true
+  suggested_labels: true
+  auto_apply_labels: false
+  suggested_reviewers: true
+  auto_assign_reviewers: false
+  poem: true  # Fun feature for GitHub reviews
+  in_progress_fortune: false
+
+  # Disable AI agent specific formatting
+  enable_prompt_for_ai_agents: false
+
+  # Files to exclude from review
+  path_filters:
+    - "!**/__pycache__/**"
+    - "!**/*.pyc"
+    - "!**/.pytest_cache/**"
+    - "!**/.mypy_cache/**"
+    - "!**/.ruff_cache/**"
+    - "!**/*.egg-info/**"
+    - "!**/.git/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.lock"
+    - "!**/migrations/**"  # Database migrations - review manually
+    - "!**/ops/daemons/**"  # System daemon configs - review manually
+
+  # Path-specific review instructions adapted for human context
+  # Focus: Provide educational, prioritized feedback to help developers improve code quality
+  # Audience: Human PR reviewers and contributors
+  path_instructions:
+    - path: "**/*.py"
+      instructions: |
+        Python code review for rouge workflow automation stack.
+        Prioritize feedback that prevents bugs and improves maintainability.
+
+        🚨 CRITICAL - Security & Reliability:
+        - Security vulnerabilities (SQL injection, hardcoded secrets, unsafe deserialization)
+        - Unhandled exceptions that could crash the CLI or worker daemon
+        - Race conditions in async code (worker polling, Supabase operations)
+        - Resource leaks (unclosed database connections, file handles)
+        - Authentication/authorization issues in Supabase client usage
+        
+        Explain the security impact and suggest defensive patterns.
+
+        ⚠️ HIGH PRIORITY - Code Quality:
+        - Missing type hints on function signatures (helps catch bugs early)
+        - Bare except clauses (should catch specific exceptions for better debugging)
+        - Missing null/None checks before accessing attributes
+        - Improper async/await usage (blocking calls in async functions)
+        - Typer command parameters without validation
+        - Missing error handling for Supabase API calls
+        
+        Explain why type safety and specific error handling matter for this project.
+
+        💡 SUGGESTIONS - Nice to Have:
+        - Missing docstrings on public functions/classes
+        - Complex functions that could be broken down (>50 lines guideline)
+        - Duplicate code that could be refactored into shared utilities
+        - Inconsistent error messages or logging styles
+        - CLI commands missing helpful --help text
+        
+        Focus on improvements that make the codebase easier to understand and maintain.
+        
+        When reviewing, provide context on how the issue affects rouge's workflow automation use cases.
+
+    - path: "src/rouge/cli/**/*.py"
+      instructions: |
+        Typer CLI review - focus on user experience and robustness.
+        
+        🚨 CRITICAL - User Safety:
+        - Commands without proper error handling (should provide clear error messages)
+        - Missing validation on user input that could cause data corruption
+        - Unsafe file operations without permission checks
+        - Destructive operations without confirmation prompts (use typer.confirm())
+        
+        CLI tools should fail gracefully with helpful error messages.
+
+        ⚠️ HIGH PRIORITY - Usability:
+        - Commands missing --help text (users need to know what options do)
+        - Missing type annotations (reduces IDE support and causes runtime errors)
+        - Inconsistent exit codes (should use 0 for success, non-zero for errors)
+        - Long-running operations without progress indicators
+        - Options without clear default values or examples in help text
+        
+        Good CLI UX makes rouge easier to use for developers.
+
+        💡 SUGGESTIONS - Polish:
+        - Inconsistent output formatting (consider standardizing on Rich library)
+        - Missing interactive prompts for required but unspecified options
+        - Autocompletion support could be added for enum/choice parameters
+        - Subcommand naming could be more intuitive
+        
+        Consider Typer best practices:
+        - Always include help text with examples
+        - Use typer.confirm() before destructive actions
+        - Provide sensible defaults and show them in help
+        - Use Rich for colored output and better UX
+        - Group related commands logically
+
+    - path: "src/rouge/adw/**/*.py"
+      instructions: |
+        Agent Development Workflow (ADW) review - workflow orchestration patterns.
+        
+        🚨 CRITICAL - Workflow Integrity:
+        - Agent execution failures without proper error reporting to users
+        - Workflow state not properly persisted to Supabase (could lose work)
+        - Missing rollback logic for failed workflow steps
+        - Agent credentials or secrets exposed in logs or error messages
+        
+        ADW workflows handle potentially long-running agent tasks - failures must be recoverable.
+
+        ⚠️ HIGH PRIORITY - Reliability:
+        - Missing validation of workflow configuration before execution
+        - Agent state transitions that could leave workflows in inconsistent state
+        - Missing timeout handling for agent tasks (prevent indefinite hangs)
+        - Workflow steps that aren't idempotent (can't safely retry)
+        
+        Each workflow step should be safe to retry without side effects.
+
+        💡 SUGGESTIONS - Observability:
+        - Insufficient progress reporting (users need visibility into long workflows)
+        - Missing structured logging with context (issue_id, step_name for debugging)
+        - No workflow cancellation support for stuck or unwanted tasks
+        
+        Good workflow systems keep users informed and provide escape hatches.
+        Suggest improvements that make debugging easier or give users more control.
+
+    - path: "src/rouge/worker/**/*.py"
+      instructions: |
+        Background worker daemon review - long-running process reliability.
+        
+        🚨 CRITICAL - Process Stability:
+        - Infinite loops without proper sleep/backoff (will max out CPU)
+        - Missing graceful shutdown handling for SIGTERM/SIGINT signals
+        - Database connection pool exhaustion (needs proper pooling/limits)
+        - Unhandled exceptions that crash the entire worker daemon
+        
+        The worker runs 24/7 - crashes mean lost automation. Explain stability patterns.
+
+        ⚠️ HIGH PRIORITY - Operational Health:
+        - Missing health check mechanism (how to know if worker is alive?)
+        - Async task management issues (memory leaks from uncompleted tasks)
+        - Missing retry logic with exponential backoff for transient failures
+        - Polling intervals that are too aggressive (strain on Supabase)
+        
+        Workers should be self-healing and observable.
+
+        💡 SUGGESTIONS - Monitoring & Debugging:
+        - Missing metrics or logging for worker performance visibility
+        - Insufficient logging detail for diagnosing failures
+        - No dead letter queue or retry limit for persistently failing tasks
+        
+        Suggest patterns like:
+        - asyncio.Event for graceful shutdown coordination
+        - Structured logging with context (worker_id, task_id)
+        - Exponential backoff with jitter for retries
+        - Connection pooling with sensible timeout/retry settings
+    - path: "src/rouge/core/**/*.py"
+      instructions: |
+        Core utilities and shared modules review - foundation layer.
+        
+        🚨 CRITICAL - Data Integrity & Security:
+        - Supabase client connections not properly managed (use context managers)
+        - Missing transaction handling for multi-step database operations
+        - Unvalidated user input passed to database queries (SQL injection risk)
+        - Authentication tokens or secrets hardcoded or logged
+        
+        Core modules are used everywhere - bugs here affect the entire system.
+
+        ⚠️ HIGH PRIORITY - Robustness:
+        - Pydantic models missing field validators for critical data
+        - Async database operations without proper error handling
+        - Missing retry logic for transient Supabase API errors (network blips)
+        - Database schema changes without corresponding migration scripts
+        
+        Explain patterns like:
+        - Pydantic validators for business logic constraints
+        - Retry decorators with exponential backoff
+        - Transaction context managers for atomic operations
+
+        💡 SUGGESTIONS - Architecture:
+        - Business logic mixed with database operations (suggest separation)
+        - Overly broad exception handling that masks root causes
+        - Missing type hints on model fields or return values
+        
+        Good architecture keeps concerns separated:
+        - Data models (Pydantic) separate from database operations (repository pattern)
+        - Typed exceptions for different error scenarios
+        - Logging at appropriate abstraction level
+
+    - path: "tests/**/*.py"
+      instructions: |
+        Test suite review - ensure tests are maintainable and effective.
+        
+        🚨 CRITICAL - Test Safety:
+        - Tests that could affect production data (must use mocks!)
+        - Tests with actual credentials instead of mocks (security & isolation issue)
+        
+        Tests should never touch real systems. Explain mocking strategies.
+
+        ⚠️ HIGH PRIORITY - Test Effectiveness:
+        - Tests without assertions (they don't actually verify anything)
+        - Missing @pytest.mark.asyncio on async test functions (tests won't run)
+        - Tests that depend on execution order (breaks isolation, causes flakiness)
+        - Missing mocks for external services (Supabase, GitHub API, AI agents)
+        - Flaky tests that fail intermittently (undermine confidence)
+        
+        Good tests are isolated, deterministic, and fast.
+
+        💡 SUGGESTIONS - Coverage & Maintainability:
+        - Missing edge case tests (null input, empty lists, error conditions)
+        - Duplicate test setup that should be refactored into fixtures
+        - Assertions without descriptive messages (hard to debug failures)
+        - Missing parametrized tests for similar test cases (reduces duplication)
+        - Test names that don't clearly describe what they verify
+        
+        Suggest improvements:
+        - Use descriptive test names: test_<function>_<scenario>_<expected_result>
+        - Extract common setup into fixtures
+        - Test both happy path and error cases
+        - Use pytest.raises() with specific exception types
+        - Mock all I/O and external dependencies
+
+    - path: "pyproject.toml"
+      instructions: |
+        Python project configuration review.
+        
+        🚨 CRITICAL - Project Integrity:
+        - Python version requirement must match actual code features used
+        - Known security vulnerabilities in dependencies (check CVE databases)
+        
+        Dependencies affect security and stability.
+
+        ⚠️ HIGH PRIORITY - Dependency Management:
+        - Version constraints too loose (security/stability risk) or too tight (update pain)
+        - Missing or incomplete project metadata (name, version, description, authors)
+        - Tool configurations that conflict (e.g., ruff vs black settings)
+        - Missing development dependencies needed for contribution (pytest, ruff, mypy)
+        
+        Good dependency hygiene:
+        - Pin major versions, allow minor/patch: "package>=1.2.0,<2.0.0"
+        - Document why any version is pinned exactly
+        - Keep dev dependencies separate from runtime
+
+        💡 SUGGESTIONS - Project Setup:
+        - Consider organizing optional dependency groups ([dev], [test], [docs])
+        - Ensure CLI entry points are properly configured for all commands
+        - Add project URLs (homepage, repository, issues) for discoverability
+        
+        Consolidate tool configs in pyproject.toml when possible (reduces file clutter).
+
+    - path: "migrations/**/*.py"
+      instructions: |
+        Database migration review (Yoyo migrations) - schema evolution.
+        
+        🚨 CRITICAL - Data Safety:
+        - Missing or incomplete rollback steps for any schema changes
+        - SQL injection vulnerabilities in migration scripts
+        - Migrations that could cause data loss without backup strategy
+        
+        Migrations modify production data - mistakes can be catastrophic.
+        Every migration should be reversible and tested.
+
+        ⚠️ HIGH PRIORITY - Schema Design:
+        - Missing indexes on columns that will be frequently queried
+        - Schema changes that break backward compatibility
+        - Migrations without proper error handling or transactions
+        - Migration dependency/ordering issues
+        
+        Consider performance impact:
+        - Adding indexes to large tables locks them during migration
+        - Data type changes may require table rewrites
+        - Suggest breaking large migrations into smaller incremental steps
+
+        💡 SUGGESTIONS - Documentation & Testing:
+        - Complex migrations need comments explaining the why
+        - Large table migrations should document expected duration/impact
+        
+        Migration best practices:
+        - Every step() must have corresponding rollback()
+        - Test on production-like data volumes first
+        - Use transactions for data migrations
+        - Add descriptive module docstrings
+        - Consider blue-green deployment for breaking changes
+  abort_on_close: true
+  disable_cache: false
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    ignore_title_keywords: ["WIP", "wip", "draft"]
+    labels: []
+    drafts: false
+    base_branches:
+      - main
+    ignore_usernames: []
+
+  finishing_touches:
+    docstrings:
+      enabled: true
+    unit_tests:
+      enabled: true
+  
+  pre_merge_checks:
+    docstrings:
+      mode: warning
+      threshold: 70
+    title:
+      mode: warning
+      requirements: "Use conventional commits format (feat:, fix:, docs:, etc.)"
+    description:
+      mode: warning
+    issue_assessment:
+      mode: warning
+
+  # Tool configuration
+  tools:
+    ruff:
+      enabled: true
+    gitleaks:
+      enabled: true
+    yamllint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    shellcheck:
+      enabled: true
+    
+    # Disable tools replaced by Ruff or not relevant
+    pylint:
+      enabled: false
+    flake8:
+      enabled: false
+    languagetool:
+      enabled: false
+    eslint:
+      enabled: false
+    biome:
+      enabled: false
+    swiftlint:
+      enabled: false
+    phpstan:
+      enabled: false
+    golangci-lint:
+      enabled: false
+    rubocop:
+      enabled: false
+    detekt:
+      enabled: false
+    clippy:
+      enabled: false
+
+chat:
+  auto_reply: true
+  art: true  # Enabled for human interaction
+
+knowledge_base:
+  opt_out: false
+  web_search:
+    enabled: true
+  code_guidelines:
+    enabled: true
+  learnings:
+    scope: auto
+  issues:
+    scope: local
+  pull_requests:
+    scope: local
+
+code_generation:
+  docstrings:
+    language: en-US
+    path_instructions:
+      - path: "vault/scripts/**/*.py"
+        instructions: |
+          Generate Google-style docstrings.
+          
+          Required sections:
+          - Brief one-line summary
+          - Args: All parameters with types and descriptions
+          - Returns: Return type and description
+          - Raises: All exceptions that can be raised
+          
+          For Typer commands, include usage examples.
+          
+      - path: "vault/hooks/**/*.py"
+        instructions: |
+          Generate concise Google-style docstrings.
+          
+          Focus on:
+          - Trigger conditions
+          - Environment state
+          - Side effects
+
+  unit_tests:
+    path_instructions:
+      - path: "vault/scripts/**/*.py"
+        instructions: |
+          Generate pytest unit tests for Typer CLIs.
+          
+          Patterns:
+          - Use typer.testing.CliRunner
+          - Mock filesystem operations
+          - Test success/error paths
+          - Mock external calls (e.g. uv, git)
+
+      - path: "vault/hooks/**/*.py"
+        instructions: |
+          Generate pytest unit tests for Lifecycle Hooks.
+          
+          Patterns:
+          - Mock environment variables
+          - Mock filesystem side effects
+          - Graceful exception handling
