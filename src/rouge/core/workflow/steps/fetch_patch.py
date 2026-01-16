@@ -85,8 +85,8 @@ class FetchPatchStep(WorkflowStep):
             return StepResult.ok(None)
 
         except ValueError as e:
-            logger.exception(f"Error fetching patch: {e}")
+            logger.exception("Error fetching patch")
             return StepResult.fail(f"Error fetching patch: {e}")
         except Exception as e:
-            logger.exception(f"Unexpected error fetching patch: {e}")
+            logger.exception("Unexpected error fetching patch")
             return StepResult.fail(f"Unexpected error fetching patch: {e}")
