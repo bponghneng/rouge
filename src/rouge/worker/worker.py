@@ -200,12 +200,11 @@ class IssueWorker:
 
         return response.data["adw_id"]
 
-    def _execute_patch_workflow(self, issue_id: int, description: str) -> tuple[str, bool]:
+    def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
         """Execute the patch workflow for an issue with pending patches.
 
         Args:
             issue_id: The ID of the issue to process
-            description: The issue description
 
         Returns:
             Tuple of (patch_workflow_id, success) where success is True if completed
@@ -264,12 +263,12 @@ class IssueWorker:
         except (ValueError, subprocess.TimeoutExpired, Exception) as e:
             # If we have a patch_id, mark the patch as failed
             if patch_id is not None:
-                self.logger.error(
+                self.logger.exception(
                     f"Patch workflow failed for issue {issue_id}, patch {patch_id}: {e}"
                 )
                 update_patch_status(patch_id, "failed", self.logger)
             else:
-                self.logger.error(
+                self.logger.exception(
                     f"Failed to initialize patch workflow for issue {issue_id}: {e}"
                 )
             # Re-raise to be handled by execute_workflow
@@ -292,13 +291,13 @@ class IssueWorker:
         """
         try:
             if status == "patch pending":
-                _, success = self._execute_patch_workflow(issue_id, description)
+                _, success = self._execute_patch_workflow(issue_id)
             else:
                 _, success = self._execute_main_workflow(issue_id, description)
             return success
 
         except subprocess.TimeoutExpired:
-            self.logger.error(f"Workflow timed out for issue {issue_id}")
+            self.logger.exception(f"Workflow timed out for issue {issue_id}")
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)
             else:
@@ -306,7 +305,7 @@ class IssueWorker:
             return False
 
         except Exception as e:
-            self.logger.error(f"Error executing workflow for issue {issue_id}: {e}")
+            self.logger.exception(f"Error executing workflow for issue {issue_id}: {e}")
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)
             else:

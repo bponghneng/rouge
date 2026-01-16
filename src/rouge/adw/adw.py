@@ -10,6 +10,7 @@ from rouge.core.workflow.pipeline import get_patch_pipeline
 def execute_adw_workflow(
     issue_id: int,
     adw_id: Optional[str] = None,
+    *,
     patch_mode: bool = False,
 ) -> tuple[bool, str]:
     """

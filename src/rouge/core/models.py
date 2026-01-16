@@ -148,7 +148,7 @@ class Patch(BaseModel):
 
     @field_validator("status", mode="before")
     @classmethod
-    def default_status(cls, v):
+    def default_status(cls, v) -> str:
         """Default missing status to pending."""
         return v if v else "pending"
 

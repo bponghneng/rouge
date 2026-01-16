@@ -54,6 +54,15 @@ class FetchPatchStep(WorkflowStep):
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
+                # Save issue artifact
+                issue_artifact = IssueArtifact(
+                    workflow_id=context.adw_id,
+                    issue=issue,
+                )
+                context.artifact_store.write_artifact(issue_artifact)
+                logger.debug("Saved issue artifact for workflow %s", context.adw_id)
+
+                # Save patch artifact
                 artifact = PatchArtifact(
                     workflow_id=context.adw_id,
                     patch=patch,
@@ -76,8 +85,8 @@ class FetchPatchStep(WorkflowStep):
             return StepResult.ok(None)
 
         except ValueError as e:
-            logger.error(f"Error fetching patch: {e}")
+            logger.exception(f"Error fetching patch: {e}")
             return StepResult.fail(f"Error fetching patch: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error fetching patch: {e}")
+            logger.exception(f"Unexpected error fetching patch: {e}")
             return StepResult.fail(f"Unexpected error fetching patch: {e}")

@@ -4,7 +4,7 @@ This module provides the public API for executing workflows via the
 pluggable step pipeline architecture.
 """
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 def execute_workflow(
     issue_id: int,
     adw_id: str,
-    pipeline: Optional[List["WorkflowStep"]] = None,
+    pipeline: Optional[list["WorkflowStep"]] = None,
 ) -> bool:
     """Execute complete workflow for an issue using pluggable step pipeline.
 

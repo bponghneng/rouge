@@ -39,7 +39,7 @@ def main(
         raise typer.Exit()
 
     try:
-        success, workflow_id = execute_adw_workflow(issue_id, adw_id, patch_mode)
+        success, workflow_id = execute_adw_workflow(issue_id, adw_id, patch_mode=patch_mode)
         if success:
             typer.echo(f"Workflow {workflow_id} completed successfully")
         else:
