@@ -58,4 +58,3 @@ def test_execute_adw_workflow_patch_mode_with_invalid_id(monkeypatch):
 
     with pytest.raises(ValueError, match="Invalid patch workflow ID: 'invalid-id'"):
         execute_adw_workflow(789, adw_id="invalid-id", patch_mode=True)
-

@@ -17,6 +17,8 @@ from rouge.core.workflow.artifacts import (
     ClassificationArtifact,
     ImplementationArtifact,
     IssueArtifact,
+    PatchAcceptanceArtifact,
+    PatchPlanArtifact,
     PlanArtifact,
     PRMetadataArtifact,
     PullRequestArtifact,
@@ -27,6 +29,7 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
+    PatchPlanData,
     PlanData,
     ReviewData,
 )
@@ -168,6 +171,48 @@ class TestArtifactModels:
         assert artifact.url == "https://github.com/org/repo/pull/42"
         assert artifact.platform == "github"
 
+    def test_patch_plan_artifact_creation(self):
+        """Test PatchPlanArtifact can be created with valid data."""
+        patch_plan_data = PatchPlanData(
+            patch_description="Fix failing tests",
+            original_plan_reference="plan-abc123",
+            patch_plan_content="# Patch Plan\n\n1. Update test fixtures",
+        )
+        artifact = PatchPlanArtifact(
+            workflow_id="adw-123",
+            patch_plan_data=patch_plan_data,
+        )
+
+        assert artifact.artifact_type == "patch_plan"
+        assert artifact.patch_plan_data.patch_description == "Fix failing tests"
+        assert artifact.patch_plan_data.original_plan_reference == "plan-abc123"
+        assert (
+            artifact.patch_plan_data.patch_plan_content == "# Patch Plan\n\n1. Update test fixtures"
+        )
+
+    def test_patch_acceptance_artifact_creation(self):
+        """Test PatchAcceptanceArtifact can be created with valid data."""
+        artifact = PatchAcceptanceArtifact(
+            workflow_id="adw-123",
+            success=True,
+            message="Patch implementation accepted",
+        )
+
+        assert artifact.artifact_type == "patch_acceptance"
+        assert artifact.success is True
+        assert artifact.message == "Patch implementation accepted"
+
+    def test_patch_acceptance_artifact_creation_without_message(self):
+        """Test PatchAcceptanceArtifact can be created without optional message."""
+        artifact = PatchAcceptanceArtifact(
+            workflow_id="adw-123",
+            success=False,
+        )
+
+        assert artifact.artifact_type == "patch_acceptance"
+        assert artifact.success is False
+        assert artifact.message is None
+
     def test_artifact_models_mapping_complete(self):
         """Test ARTIFACT_MODELS contains all expected types."""
         expected_types = {
@@ -182,6 +227,8 @@ class TestArtifactModels:
             "pr_metadata",
             "pull_request",
             "patch",
+            "patch_plan",
+            "patch_acceptance",
         }
 
         assert set(ARTIFACT_MODELS.keys()) == expected_types
@@ -222,6 +269,56 @@ class TestArtifactSerialization:
 
         assert restored.classify_data.command == "/adw-bug-plan"
         assert restored.classify_data.classification["type"] == "bug"
+
+    def test_patch_plan_artifact_round_trip(self):
+        """Test PatchPlanArtifact can be serialized and deserialized."""
+        patch_plan_data = PatchPlanData(
+            patch_description="Address review feedback",
+            original_plan_reference="plan-xyz789",
+            patch_plan_content="# Patch Plan\n\n- Fix formatting issues\n- Add missing tests",
+        )
+        artifact = PatchPlanArtifact(
+            workflow_id="adw-test",
+            patch_plan_data=patch_plan_data,
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = PatchPlanArtifact.model_validate_json(json_str)
+
+        assert restored.workflow_id == "adw-test"
+        assert restored.artifact_type == "patch_plan"
+        assert restored.patch_plan_data.patch_description == "Address review feedback"
+        assert restored.patch_plan_data.original_plan_reference == "plan-xyz789"
+        assert "Fix formatting issues" in restored.patch_plan_data.patch_plan_content
+
+    def test_patch_acceptance_artifact_round_trip(self):
+        """Test PatchAcceptanceArtifact can be serialized and deserialized."""
+        artifact = PatchAcceptanceArtifact(
+            workflow_id="adw-test",
+            success=True,
+            message="All patch requirements satisfied",
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = PatchAcceptanceArtifact.model_validate_json(json_str)
+
+        assert restored.workflow_id == "adw-test"
+        assert restored.artifact_type == "patch_acceptance"
+        assert restored.success is True
+        assert restored.message == "All patch requirements satisfied"
+
+    def test_patch_acceptance_artifact_round_trip_without_message(self):
+        """Test PatchAcceptanceArtifact round trip without optional message."""
+        artifact = PatchAcceptanceArtifact(
+            workflow_id="adw-test",
+            success=False,
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = PatchAcceptanceArtifact.model_validate_json(json_str)
+
+        assert restored.success is False
+        assert restored.message is None
 
     def test_artifact_json_is_valid(self):
         """Test artifact JSON is valid and human-readable."""
@@ -612,6 +709,8 @@ class TestArtifactStoreParentWorkflow:
         """Test PATCH_SPECIFIC_ARTIFACT_TYPES includes expected artifact types."""
         expected_patch_specific = {
             "patch",
+            "patch_plan",
+            "patch_acceptance",
             "implementation",
             "review",
             "review_addressed",

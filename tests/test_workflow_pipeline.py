@@ -341,26 +341,160 @@ class TestGetDefaultPipeline:
 # Patch workflow pipeline tests
 
 
-def test_get_patch_pipeline():
-    """Test get_patch_pipeline returns correct steps."""
-    from rouge.core.workflow.pipeline import get_patch_pipeline
+class TestGetPatchPipeline:
+    """Tests for get_patch_pipeline factory."""
 
-    pipeline = get_patch_pipeline()
+    def test_returns_correct_step_count(self):
+        """Test patch pipeline has 8 steps."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
 
-    # Verify pipeline contains expected steps
-    step_names = [step.name for step in pipeline]
+        pipeline = get_patch_pipeline()
+        assert len(pipeline) == 8
 
-    # Check for patch-specific steps
-    assert "Fetching pending patch" in step_names
+    def test_returns_workflow_step_instances(self):
+        """Test all items are WorkflowStep subclasses."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
 
-    # Check for implementation and review steps
-    assert "Implementing solution" in step_names
-    assert "Generating CodeRabbit review" in step_names
+        pipeline = get_patch_pipeline()
+        for step in pipeline:
+            assert isinstance(step, WorkflowStep)
 
-    # Verify setup and classify steps are NOT in patch pipeline
-    assert "Fetching issue" not in step_names
-    assert "Classifying issue" not in step_names
-    assert "Building plan" not in step_names
+    def test_includes_all_expected_steps_in_correct_order(self):
+        """Test patch pipeline includes all expected steps in the correct order.
+
+        Expected order:
+        FetchPatchStep -> BuildPatchPlanStep -> ImplementStep -> GenerateReviewStep ->
+        AddressReviewStep -> CodeQualityStep -> ValidatePatchAcceptanceStep -> UpdatePRCommitsStep
+        """
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+
+        pipeline = get_patch_pipeline()
+        step_names = [step.name for step in pipeline]
+
+        expected_order = [
+            "Fetching pending patch",
+            "Building patch plan",
+            "Implementing solution",
+            "Generating CodeRabbit review",
+            "Addressing review issues",
+            "Running code quality checks",
+            "Validating patch acceptance",
+            "Updating pull request with patch commits",
+        ]
+
+        assert step_names == expected_order
+
+    def test_build_patch_plan_step_after_fetch_patch_step(self):
+        """Test that BuildPatchPlanStep is correctly positioned after FetchPatchStep."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+        from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
+        from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
+
+        pipeline = get_patch_pipeline()
+
+        # Find indices of both steps
+        fetch_patch_index = None
+        build_patch_plan_index = None
+
+        for i, step in enumerate(pipeline):
+            if isinstance(step, FetchPatchStep):
+                fetch_patch_index = i
+            elif isinstance(step, BuildPatchPlanStep):
+                build_patch_plan_index = i
+
+        # Verify both steps exist
+        assert fetch_patch_index is not None, "FetchPatchStep not found in pipeline"
+        assert build_patch_plan_index is not None, "BuildPatchPlanStep not found in pipeline"
+
+        # Verify BuildPatchPlanStep comes immediately after FetchPatchStep
+        assert build_patch_plan_index == fetch_patch_index + 1, (
+            f"BuildPatchPlanStep (index {build_patch_plan_index}) should be "
+            f"immediately after FetchPatchStep (index {fetch_patch_index})"
+        )
+
+    def test_update_pr_commits_step_is_final_step(self):
+        """Test that UpdatePRCommitsStep is the final step in the pipeline."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+        from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+
+        pipeline = get_patch_pipeline()
+
+        # Verify the last step is UpdatePRCommitsStep
+        assert isinstance(pipeline[-1], UpdatePRCommitsStep), (
+            f"Expected UpdatePRCommitsStep as final step, got {type(pipeline[-1]).__name__}"
+        )
+
+    def test_excludes_default_pipeline_steps(self):
+        """Test patch pipeline excludes steps that are only in the default pipeline."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+
+        pipeline = get_patch_pipeline()
+        step_names = [step.name for step in pipeline]
+
+        # Verify setup, fetch issue, classify, and default plan steps are NOT present
+        excluded_steps = [
+            "Setting up git environment",
+            "Fetching issue from Supabase",
+            "Classifying issue",
+            "Building implementation plan",
+            "Validating plan acceptance",
+            "Preparing pull request",
+        ]
+
+        for excluded in excluded_steps:
+            assert excluded not in step_names, f"'{excluded}' should not be in patch pipeline"
+
+    def test_critical_flags(self):
+        """Test critical/best-effort flags are set correctly for patch pipeline."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+
+        pipeline = get_patch_pipeline()
+
+        # First 3 steps should be critical (fetch_patch, build_patch_plan, implement)
+        for step in pipeline[:3]:
+            assert step.is_critical is True, f"{step.name} should be critical"
+
+        # Review steps are not critical
+        assert pipeline[3].is_critical is False  # GenerateReviewStep
+        assert pipeline[4].is_critical is False  # AddressReviewStep
+
+        # Quality is best-effort
+        assert pipeline[5].is_critical is False  # CodeQualityStep
+
+        # Patch acceptance is best-effort
+        assert pipeline[6].is_critical is False  # ValidatePatchAcceptanceStep
+
+        # Update PR commits is best-effort
+        assert pipeline[7].is_critical is False  # UpdatePRCommitsStep
+
+    def test_step_types_match_expected_classes(self):
+        """Test each step is an instance of the expected class."""
+        from rouge.core.workflow.pipeline import get_patch_pipeline
+        from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
+        from rouge.core.workflow.steps.implement import ImplementStep
+        from rouge.core.workflow.steps.patch_acceptance import ValidatePatchAcceptanceStep
+        from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
+        from rouge.core.workflow.steps.quality import CodeQualityStep
+        from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+        from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+
+        pipeline = get_patch_pipeline()
+
+        expected_types = [
+            FetchPatchStep,
+            BuildPatchPlanStep,
+            ImplementStep,
+            GenerateReviewStep,
+            AddressReviewStep,
+            CodeQualityStep,
+            ValidatePatchAcceptanceStep,
+            UpdatePRCommitsStep,
+        ]
+
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types)):
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
 
 class TestPatchWorkflowArtifactIsolation:

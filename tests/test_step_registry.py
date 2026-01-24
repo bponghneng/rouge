@@ -436,3 +436,121 @@ class TestGlobalRegistry:
 
         # Should have at least fetch, classify, plan
         assert len(deps) >= 3
+
+    def test_build_patch_plan_step_registration(self):
+        """Test BuildPatchPlanStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        # Find the patch plan step - exact name is "Building patch plan"
+        patch_plan_step_name = None
+        for name in registry.list_all_steps():
+            if "Building patch plan" in name:
+                patch_plan_step_name = name
+                break
+
+        assert patch_plan_step_name is not None, "BuildPatchPlanStep should be registered"
+
+        metadata = registry.get_step_metadata(patch_plan_step_name)
+        assert metadata is not None
+        assert metadata.dependencies == ["issue", "patch", "plan"]
+        assert metadata.outputs == ["patch_plan"]
+        assert metadata.is_critical is True
+
+    def test_validate_patch_acceptance_step_registration(self):
+        """Test ValidatePatchAcceptanceStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        # Find the patch acceptance step - exact name is "Validating patch acceptance"
+        patch_acceptance_step_name = None
+        for name in registry.list_all_steps():
+            if "Validating patch acceptance" in name:
+                patch_acceptance_step_name = name
+                break
+
+        assert patch_acceptance_step_name is not None, (
+            "ValidatePatchAcceptanceStep should be registered"
+        )
+
+        metadata = registry.get_step_metadata(patch_acceptance_step_name)
+        assert metadata is not None
+        assert metadata.dependencies == ["patch_plan"]
+        assert metadata.outputs == ["patch_acceptance"]
+        assert metadata.is_critical is False
+
+    def test_update_pr_commits_step_registration(self):
+        """Test UpdatePRCommitsStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        # Find the update PR commits step - exact name is "Updating pull request with patch commits"
+        update_pr_commits_step_name = None
+        for name in registry.list_all_steps():
+            if "Updating pull request with patch commits" in name:
+                update_pr_commits_step_name = name
+                break
+
+        assert update_pr_commits_step_name is not None, "UpdatePRCommitsStep should be registered"
+
+        metadata = registry.get_step_metadata(update_pr_commits_step_name)
+        assert metadata is not None
+        assert metadata.dependencies == ["pull_request"]
+        assert metadata.outputs == []
+        assert metadata.is_critical is False
+
+    def test_validate_registry_passes(self):
+        """Test that validate_registry passes with no issues."""
+        registry = get_step_registry()
+
+        issues = registry.validate_registry()
+
+        # Filter out expected issues for artifacts without producers
+        # (patch is fetched externally, not produced by a step)
+        filtered_issues = [
+            issue
+            for issue in issues
+            if "patch" not in issue.lower() or "patch_plan" in issue.lower()
+        ]
+
+        # Should have no critical issues
+        assert filtered_issues == [], f"Registry validation issues: {filtered_issues}"
+
+    def test_patch_plan_dependency_resolution(self):
+        """Test dependency resolution for BuildPatchPlanStep."""
+        registry = get_step_registry()
+
+        # Find the patch plan step - exact name is "Building patch plan"
+        patch_plan_step_name = None
+        for name in registry.list_all_steps():
+            if "Building patch plan" in name:
+                patch_plan_step_name = name
+                break
+
+        assert patch_plan_step_name is not None
+
+        deps = registry.resolve_dependencies(patch_plan_step_name)
+
+        # Should include steps that produce issue and plan
+        # (patch is an external artifact, not produced by a step)
+        assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
+        assert any("Building implementation plan" in dep for dep in deps), (
+            "Should depend on BuildPlanStep"
+        )
+
+    def test_patch_acceptance_dependency_resolution(self):
+        """Test dependency resolution for ValidatePatchAcceptanceStep."""
+        registry = get_step_registry()
+
+        # Find the patch acceptance step - exact name is "Validating patch acceptance"
+        patch_acceptance_step_name = None
+        for name in registry.list_all_steps():
+            if "Validating patch acceptance" in name:
+                patch_acceptance_step_name = name
+                break
+
+        assert patch_acceptance_step_name is not None
+
+        deps = registry.resolve_dependencies(patch_acceptance_step_name)
+
+        # Should include BuildPatchPlanStep and its dependencies
+        assert any("Building patch plan" in dep for dep in deps), (
+            "Should depend on BuildPatchPlanStep"
+        )
