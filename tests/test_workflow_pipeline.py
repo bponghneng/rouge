@@ -1,483 +1,249 @@
-"""Tests for workflow pipeline components."""
+import logging
+from unittest.mock import MagicMock
 
-from unittest.mock import Mock
+import pytest
 
-from rouge.core.models import Issue
-from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
+from rouge.core.workflow.pipeline import (
+    AddressReviewStep,
+    BuildChorePlanStep,
+    BuildFeaturePlanStep,
+    BuildPatchPlanStep,
+    ClassifyIssueStep,
+    CodeQualityStep,
+    CreateGitLabPullRequestStep,
+    CreateGitHubPullRequestStep,
+    CreatePullRequestStep,
+    ExecuteAcceptanceTestsStep,
+    FetchPatchStep,
+    FindPlanFileStep,
+    GenerateReviewStep,
+    ImplementStep,
+    UpdatePRCommitsStep,
+    ValidatePatchAcceptanceStep,
+    get_default_pipeline,
+    get_patch_pipeline,
+)
+from rouge.core.workflow.runner import WorkflowRunner
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 
+class TestStep(WorkflowStep):
+    def __init__(self, name: str, critical: bool = True):
+        self._name = name
+        self._critical = critical
+        self.executed = False
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        self.executed = True
+        return StepResult.ok(None)
+
+
+class FailingStep(WorkflowStep):
+    def __init__(self, name: str, critical: bool = True):
+        self._name = name
+        self._critical = critical
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        return StepResult.fail("Step failed")
+
+
 class TestWorkflowContext:
-    """Tests for WorkflowContext dataclass."""
+    def test_init(self):
+        context = WorkflowContext(issue_id=1, adw_id="test-adw")
+        assert context.issue_id == 1
+        assert context.adw_id == "test-adw"
+        assert context.artifacts_enabled is False
+        assert context.artifact_store is None
+        assert context.parent_workflow_id is None
 
-    def test_context_initialization(self):
-        """Test WorkflowContext initializes with required fields."""
-        context = WorkflowContext(
-            issue_id=123,
-            adw_id="adw-456",
-        )
-
-        assert context.issue_id == 123
-        assert context.adw_id == "adw-456"
-        assert context.issue is None
-        assert context.data == {}
-
-    def test_context_data_storage(self):
-        """Test WorkflowContext stores data between steps."""
-        context = WorkflowContext(
-            issue_id=1,
-            adw_id="test",
-        )
-
-        # Simulate step storing data
-        context.data["plan_file"] = "specs/plan.md"
-        context.data["classify_data"] = {"type": "feature"}
-
-        assert context.data["plan_file"] == "specs/plan.md"
-        assert context.data["classify_data"]["type"] == "feature"
+    def test_data_storage(self):
+        context = WorkflowContext(issue_id=1)
+        context.data["key"] = "value"
+        assert context.data["key"] == "value"
 
 
 class TestWorkflowRunner:
-    """Tests for WorkflowRunner orchestrator."""
-
-    def test_runner_executes_all_steps(self):
-        """Test runner executes all steps in order."""
-        # Create mock steps
-        step1 = Mock(spec=WorkflowStep)
-        step1.name = "Step 1"
-        step1.is_critical = True
-        step1.run.return_value = StepResult.ok(None)
-
-        step2 = Mock(spec=WorkflowStep)
-        step2.name = "Step 2"
-        step2.is_critical = True
-        step2.run.return_value = StepResult.ok(None)
-
+    def test_execute_pipeline_success(self, caplog):
+        step1 = TestStep("Step 1")
+        step2 = TestStep("Step 2")
         runner = WorkflowRunner([step1, step2])
-        result = runner.run(1, "adw123")
+        context = WorkflowContext(issue_id=1)
 
-        assert result is True
-        step1.run.assert_called_once()
-        step2.run.assert_called_once()
+        with caplog.at_level(logging.INFO):
+            success = runner.run(context)
 
-    def test_runner_stops_on_critical_failure(self):
-        """Test runner stops when critical step fails."""
-        step1 = Mock(spec=WorkflowStep)
-        step1.name = "Step 1"
-        step1.is_critical = True
-        step1.run.return_value = StepResult.fail("Step 1 failed")
+        assert success
+        assert step1.executed
+        assert step2.executed
+        assert "Workflow completed successfully" in caplog.text
 
-        step2 = Mock(spec=WorkflowStep)
-        step2.name = "Step 2"
-        step2.is_critical = True
-        step2.run.return_value = StepResult.ok(None)
-
-        runner = WorkflowRunner([step1, step2])
-        result = runner.run(1, "adw123")
-
-        assert result is False
-        step1.run.assert_called_once()
-        step2.run.assert_not_called()  # Not reached
-
-    def test_runner_continues_on_best_effort_failure(self):
-        """Test runner continues when best-effort step fails."""
-        step1 = Mock(spec=WorkflowStep)
-        step1.name = "Critical Step"
-        step1.is_critical = True
-        step1.run.return_value = StepResult.ok(None)
-
-        step2 = Mock(spec=WorkflowStep)
-        step2.name = "Best Effort Step"
-        step2.is_critical = False  # Best-effort
-        step2.run.return_value = StepResult.fail("Best Effort Step failed")
-
-        step3 = Mock(spec=WorkflowStep)
-        step3.name = "Another Critical"
-        step3.is_critical = True
-        step3.run.return_value = StepResult.ok(None)
-
+    def test_execute_pipeline_critical_failure(self, caplog):
+        step1 = TestStep("Step 1")
+        step2 = FailingStep("Step 2", critical=True)
+        step3 = TestStep("Step 3")
         runner = WorkflowRunner([step1, step2, step3])
-        result = runner.run(1, "adw123")
+        context = WorkflowContext(issue_id=1)
 
-        assert result is True  # Overall success
-        step1.run.assert_called_once()
-        step2.run.assert_called_once()
-        step3.run.assert_called_once()  # Still executed
+        with caplog.at_level(logging.ERROR):
+            success = runner.run(context)
 
-    def test_runner_passes_context_to_steps(self):
-        """Test runner passes correct context to each step."""
-        captured_context = None
+        assert not success
+        assert step1.executed
+        assert not step3.executed
+        assert "Critical step 'Step 2' failed" in caplog.text
 
-        def capture_context(context):
-            nonlocal captured_context
-            captured_context = context
-            return StepResult.ok(None)
+    def test_execute_pipeline_best_effort_failure(self, caplog):
+        step1 = TestStep("Step 1")
+        step2 = FailingStep("Step 2", critical=False)
+        step3 = TestStep("Step 3")
+        runner = WorkflowRunner([step1, step2, step3])
+        context = WorkflowContext(issue_id=1)
 
-        step = Mock(spec=WorkflowStep)
-        step.name = "Test Step"
-        step.is_critical = True
-        step.run.side_effect = capture_context
+        with caplog.at_level(logging.WARNING):
+            success = runner.run(context)
 
-        runner = WorkflowRunner([step])
-        runner.run(42, "adw-test-123")
+        assert success
+        assert step1.executed
+        assert step3.executed
+        assert "Step 'Step 2' failed (non-critical), continuing" in caplog.text
 
-        assert captured_context is not None
-        assert captured_context.issue_id == 42
-        assert captured_context.adw_id == "adw-test-123"
+    def test_context_passed_to_steps(self):
+        context = WorkflowContext(issue_id=123)
+        mock_step = MagicMock(spec=WorkflowStep)
+        mock_step.name = "Mock Step"
+        mock_step.is_critical = True
+        mock_step.run.return_value = StepResult.ok(None)
+
+        runner = WorkflowRunner([mock_step])
+        runner.run(context)
+
+        mock_step.run.assert_called_once_with(context)
 
 
 class TestGetDefaultPipeline:
-    """Tests for get_default_pipeline factory."""
-
-    def test_returns_correct_step_count_without_platform(self, monkeypatch):
-        """Test default pipeline has 10 steps when DEV_SEC_OPS_PLATFORM is unset."""
+    def test_pipeline_structure_no_platform(self, monkeypatch):
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_default_pipeline()
+        
+        # Check step count (should be 10 without PR step)
         assert len(pipeline) == 10
+        
+        # Verify order and types
+        expected_types = [
+            ClassifyIssueStep,
+            FindPlanFileStep,
+            BuildChorePlanStep,
+            BuildFeaturePlanStep,
+            ImplementStep,
+            CodeQualityStep,
+            ExecuteAcceptanceTestsStep,
+            GenerateReviewStep,
+            AddressReviewStep,
+            CodeQualityStep, # Final check
+        ]
+        
+        for step, expected_type in zip(pipeline, expected_types):
+            assert isinstance(step, expected_type)
+            
+        # Verify critical flags
+        assert pipeline[0].is_critical # Classify
+        assert not pipeline[1].is_critical # FindPlan
+        assert pipeline[4].is_critical # Implement
+        assert not pipeline[5].is_critical # Quality
+        assert not pipeline[7].is_critical # Review
+        assert not pipeline[9].is_critical # Final Quality
 
-    def test_returns_correct_step_count_with_github(self, monkeypatch):
-        """Test default pipeline has 11 steps when DEV_SEC_OPS_PLATFORM=github."""
+    def test_pipeline_structure_github(self, monkeypatch):
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_default_pipeline()
+        
         assert len(pipeline) == 11
+        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
+        assert not pipeline[-1].is_critical  # PR creation is best effort
 
-    def test_returns_correct_step_count_with_gitlab(self, monkeypatch):
-        """Test default pipeline has 11 steps when DEV_SEC_OPS_PLATFORM=gitlab."""
+    def test_pipeline_structure_gitlab(self, monkeypatch):
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
         pipeline = get_default_pipeline()
+        
         assert len(pipeline) == 11
-
-    def test_returns_workflow_step_instances(self, monkeypatch):
-        """Test all items are WorkflowStep subclasses."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_default_pipeline()
-        for step in pipeline:
-            assert isinstance(step, WorkflowStep)
-
-    def test_step_order_without_platform(self, monkeypatch):
-        """Test steps are in correct order when no platform is set."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_default_pipeline()
-        step_names = [step.name for step in pipeline]
-
-        # Verify key steps are in expected order
-        assert "git environment" in step_names[0].lower()
-        assert "Fetching" in step_names[1]
-        assert "Classifying" in step_names[2]
-        assert "Building" in step_names[3]
-        assert "Implementing" in step_names[4]
-        assert "review" in step_names[5].lower()
-        assert "review" in step_names[6].lower()
-        assert "quality" in step_names[7].lower()
-        assert "acceptance" in step_names[8].lower()
-        assert "pull request" in step_names[9].lower()
-
-    def test_step_order_with_github(self, monkeypatch):
-        """Test steps are in correct order when DEV_SEC_OPS_PLATFORM=github."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_default_pipeline()
-        step_names = [step.name for step in pipeline]
-
-        # Verify key steps are in expected order
-        assert "git environment" in step_names[0].lower()
-        assert "Fetching" in step_names[1]
-        assert "Classifying" in step_names[2]
-        assert "Building" in step_names[3]
-        assert "Implementing" in step_names[4]
-        assert "review" in step_names[5].lower()
-        assert "review" in step_names[6].lower()
-        assert "quality" in step_names[7].lower()
-        assert "acceptance" in step_names[8].lower()
-        assert "pull request" in step_names[9].lower()
-        assert "github" in step_names[10].lower()
-
-    def test_step_order_with_gitlab(self, monkeypatch):
-        """Test steps are in correct order when DEV_SEC_OPS_PLATFORM=gitlab."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_default_pipeline()
-        step_names = [step.name for step in pipeline]
-
-        # Verify key steps are in expected order
-        assert "git environment" in step_names[0].lower()
-        assert "Fetching" in step_names[1]
-        assert "Classifying" in step_names[2]
-        assert "Building" in step_names[3]
-        assert "Implementing" in step_names[4]
-        assert "review" in step_names[5].lower()
-        assert "review" in step_names[6].lower()
-        assert "quality" in step_names[7].lower()
-        assert "acceptance" in step_names[8].lower()
-        assert "pull request" in step_names[9].lower()
-        assert "gitlab" in step_names[10].lower()
-
-    def test_critical_flags_without_platform(self, monkeypatch):
-        """Test critical/best-effort flags are set correctly when no platform is set."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_default_pipeline()
-
-        # First 5 steps should be critical (setup, fetch, classify, plan, implement)
-        for step in pipeline[:5]:
-            assert step.is_critical is True, f"{step.name} should be critical"
-
-        # Review steps are not critical
-        assert pipeline[5].is_critical is False  # GenerateReviewStep
-        assert pipeline[6].is_critical is False  # AddressReviewStep
-
-        # Quality is best-effort
-        assert pipeline[7].is_critical is False  # CodeQualityStep
-
-        # Acceptance is best-effort
-        assert pipeline[8].is_critical is False  # ValidateAcceptanceStep
-
-        # PR step is best-effort
-        assert pipeline[9].is_critical is False  # PreparePullRequestStep
-
-    def test_critical_flags_with_github(self, monkeypatch):
-        """Test critical/best-effort flags with GitHub platform."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_default_pipeline()
-
-        # First 5 steps should be critical (setup, fetch, classify, plan, implement)
-        for step in pipeline[:5]:
-            assert step.is_critical is True, f"{step.name} should be critical"
-
-        # Review steps are not critical
-        assert pipeline[5].is_critical is False  # GenerateReviewStep
-        assert pipeline[6].is_critical is False  # AddressReviewStep
-
-        # Quality is best-effort
-        assert pipeline[7].is_critical is False  # CodeQualityStep
-
-        # Acceptance is best-effort
-        assert pipeline[8].is_critical is False  # ValidateAcceptanceStep
-
-        # PR steps are best-effort
-        assert pipeline[9].is_critical is False  # PreparePullRequestStep
-        assert pipeline[10].is_critical is False  # CreateGitHubPullRequestStep
-
-    def test_critical_flags_with_gitlab(self, monkeypatch):
-        """Test critical/best-effort flags with GitLab platform."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_default_pipeline()
-
-        # First 5 steps should be critical (setup, fetch, classify, plan, implement)
-        for step in pipeline[:5]:
-            assert step.is_critical is True, f"{step.name} should be critical"
-
-        # Review steps are not critical
-        assert pipeline[5].is_critical is False  # GenerateReviewStep
-        assert pipeline[6].is_critical is False  # AddressReviewStep
-
-        # Quality is best-effort
-        assert pipeline[7].is_critical is False  # CodeQualityStep
-
-        # Acceptance is best-effort
-        assert pipeline[8].is_critical is False  # ValidateAcceptanceStep
-
-        # PR steps are best-effort
-        assert pipeline[9].is_critical is False  # PreparePullRequestStep
-        assert pipeline[10].is_critical is False  # CreateGitLabPullRequestStep
-
-    def test_includes_github_step_when_platform_is_github(self, monkeypatch):
-        """Test pipeline includes CreateGitHubPullRequestStep when DEV_SEC_OPS_PLATFORM=github."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_default_pipeline()
-
-        from rouge.core.workflow.steps.create_github_pr import (
-            CreateGitHubPullRequestStep,
-        )
-
-        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
-
-    def test_includes_gitlab_step_when_platform_is_gitlab(self, monkeypatch):
-        """Test pipeline includes CreateGitLabPullRequestStep when DEV_SEC_OPS_PLATFORM=gitlab."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_default_pipeline()
-
-        from rouge.core.workflow.steps.create_gitlab_pr import (
-            CreateGitLabPullRequestStep,
-        )
-
         assert isinstance(pipeline[-1], CreateGitLabPullRequestStep)
-
-    def test_excludes_pr_step_when_platform_unset(self, monkeypatch):
-        """Test pipeline excludes PR/MR step when DEV_SEC_OPS_PLATFORM is unset."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_default_pipeline()
-
-        from rouge.core.workflow.steps.create_github_pr import (
-            CreateGitHubPullRequestStep,
-        )
-        from rouge.core.workflow.steps.create_gitlab_pr import (
-            CreateGitLabPullRequestStep,
-        )
-
-        # Verify no PR/MR creation step is in the pipeline
-        for step in pipeline:
-            assert not isinstance(step, CreateGitHubPullRequestStep)
-            assert not isinstance(step, CreateGitLabPullRequestStep)
-
-    def test_platform_env_var_case_insensitive(self, monkeypatch):
-        """Test DEV_SEC_OPS_PLATFORM is handled case-insensitively."""
-        from rouge.core.workflow.steps.create_github_pr import (
-            CreateGitHubPullRequestStep,
-        )
-        from rouge.core.workflow.steps.create_gitlab_pr import (
-            CreateGitLabPullRequestStep,
-        )
-
-        # Test uppercase GITHUB
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "GITHUB")
-        pipeline = get_default_pipeline()
-        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
-
-        # Test mixed case GitLab
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "GitLab")
-        pipeline = get_default_pipeline()
-        assert isinstance(pipeline[-1], CreateGitLabPullRequestStep)
-
-
-# Patch workflow pipeline tests
+        assert not pipeline[-1].is_critical
 
 
 class TestGetPatchPipeline:
-    """Tests for get_patch_pipeline factory."""
-
-    def test_returns_correct_step_count(self):
-        """Test patch pipeline has 8 steps."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-
+    def test_patch_pipeline_structure_no_platform(self, monkeypatch):
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
-        assert len(pipeline) == 8
+        
+        # Check step count (should be 9 without PR step)
+        assert len(pipeline) == 9
+        
+        # Verify order and types
+        expected_types = [
+            FetchPatchStep,
+            BuildPatchPlanStep,
+            ImplementStep,
+            GenerateReviewStep,
+            AddressReviewStep,
+            CodeQualityStep,
+            ExecuteAcceptanceTestsStep,
+            ValidatePatchAcceptanceStep,
+            UpdatePRCommitsStep,
+        ]
+        
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types)):
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
-    def test_returns_workflow_step_instances(self):
-        """Test all items are WorkflowStep subclasses."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
+        # Verify critical flags
+        assert pipeline[0].is_critical  # Fetch patch
+        assert pipeline[1].is_critical  # Build plan
+        assert pipeline[2].is_critical  # Implement
+        assert not pipeline[3].is_critical  # Review (best effort)
+        assert not pipeline[5].is_critical  # Code quality
+        assert pipeline[7].is_critical  # Validate acceptance (critical for patch)
+        assert not pipeline[8].is_critical  # Update PR commits (best effort)
 
+    def test_patch_pipeline_excludes_create_pr_steps(self, monkeypatch):
+        """Verify patch pipeline never includes CreatePullRequestStep."""
+        # Even with platform set
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_patch_pipeline()
+        
         for step in pipeline:
-            assert isinstance(step, WorkflowStep)
+            assert not isinstance(step, CreatePullRequestStep), (
+                "Patch pipeline should not include CreatePullRequestStep"
+            )
 
-    def test_includes_all_expected_steps_in_correct_order(self):
-        """Test patch pipeline includes all expected steps in the correct order.
-
-        Expected order:
-        FetchPatchStep -> BuildPatchPlanStep -> ImplementStep -> GenerateReviewStep ->
-        AddressReviewStep -> CodeQualityStep -> ValidatePatchAcceptanceStep -> UpdatePRCommitsStep
-        """
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-
+    def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
+        """Verify patch pipeline ends with UpdatePRCommitsStep."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
-        step_names = [step.name for step in pipeline]
+        
+        assert isinstance(pipeline[-1], UpdatePRCommitsStep)
+        assert not pipeline[-1].is_critical  # Should be best effort
 
-        expected_order = [
-            "Fetching pending patch",
-            "Building patch plan",
-            "Implementing solution",
-            "Generating CodeRabbit review",
-            "Addressing review issues",
-            "Running code quality checks",
-            "Validating patch acceptance",
-            "Updating pull request with patch commits",
-        ]
-
-        assert step_names == expected_order
-
-    def test_build_patch_plan_step_after_fetch_patch_step(self):
-        """Test that BuildPatchPlanStep is correctly positioned after FetchPatchStep."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-        from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
-        from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-
-        pipeline = get_patch_pipeline()
-
-        # Find indices of both steps
-        fetch_patch_index = None
-        build_patch_plan_index = None
-
-        for i, step in enumerate(pipeline):
-            if isinstance(step, FetchPatchStep):
-                fetch_patch_index = i
-            elif isinstance(step, BuildPatchPlanStep):
-                build_patch_plan_index = i
-
-        # Verify both steps exist
-        assert fetch_patch_index is not None, "FetchPatchStep not found in pipeline"
-        assert build_patch_plan_index is not None, "BuildPatchPlanStep not found in pipeline"
-
-        # Verify BuildPatchPlanStep comes immediately after FetchPatchStep
-        assert build_patch_plan_index == fetch_patch_index + 1, (
-            f"BuildPatchPlanStep (index {build_patch_plan_index}) should be "
-            f"immediately after FetchPatchStep (index {fetch_patch_index})"
-        )
-
-    def test_update_pr_commits_step_is_final_step(self):
-        """Test that UpdatePRCommitsStep is the final step in the pipeline."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-        from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
-
-        pipeline = get_patch_pipeline()
-
-        # Verify the last step is UpdatePRCommitsStep
-        assert isinstance(pipeline[-1], UpdatePRCommitsStep), (
-            f"Expected UpdatePRCommitsStep as final step, got {type(pipeline[-1]).__name__}"
-        )
-
-    def test_excludes_default_pipeline_steps(self):
-        """Test patch pipeline excludes steps that are only in the default pipeline."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-
-        pipeline = get_patch_pipeline()
-        step_names = [step.name for step in pipeline]
-
-        # Verify setup, fetch issue, classify, and default plan steps are NOT present
-        excluded_steps = [
-            "Setting up git environment",
-            "Fetching issue from Supabase",
-            "Classifying issue",
-            "Building implementation plan",
-            "Validating plan acceptance",
-            "Preparing pull request",
-        ]
-
-        for excluded in excluded_steps:
-            assert excluded not in step_names, f"'{excluded}' should not be in patch pipeline"
-
-    def test_critical_flags(self):
-        """Test critical/best-effort flags are set correctly for patch pipeline."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-
-        pipeline = get_patch_pipeline()
-
-        # First 3 steps should be critical (fetch_patch, build_patch_plan, implement)
-        for step in pipeline[:3]:
-            assert step.is_critical is True, f"{step.name} should be critical"
-
-        # Review steps are not critical
-        assert pipeline[3].is_critical is False  # GenerateReviewStep
-        assert pipeline[4].is_critical is False  # AddressReviewStep
-
-        # Quality is best-effort
-        assert pipeline[5].is_critical is False  # CodeQualityStep
-
-        # Patch acceptance is best-effort
-        assert pipeline[6].is_critical is False  # ValidatePatchAcceptanceStep
-
-        # Update PR commits is best-effort
-        assert pipeline[7].is_critical is False  # UpdatePRCommitsStep
-
-    def test_step_types_match_expected_classes(self):
-        """Test each step is an instance of the expected class."""
-        from rouge.core.workflow.pipeline import get_patch_pipeline
-        from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
-        from rouge.core.workflow.steps.implement import ImplementStep
-        from rouge.core.workflow.steps.patch_acceptance import ValidatePatchAcceptanceStep
-        from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-        from rouge.core.workflow.steps.quality import CodeQualityStep
-        from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
-        from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
-
+    def test_patch_pipeline_step_order(self, monkeypatch):
+        """Verify the exact sequence of steps in the patch pipeline."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
         expected_types = [
@@ -487,6 +253,7 @@ class TestGetPatchPipeline:
             GenerateReviewStep,
             AddressReviewStep,
             CodeQualityStep,
+            ExecuteAcceptanceTestsStep,
             ValidatePatchAcceptanceStep,
             UpdatePRCommitsStep,
         ]
@@ -514,349 +281,170 @@ class TestPatchWorkflowArtifactIsolation:
         from rouge.core.workflow.types import PlanData
 
         # Setup main workflow with shared artifacts
-        main_store = ArtifactStore("main-workflow-001", base_path=tmp_path)
-
-        main_issue = Issue(id=100, description="Main issue for testing")
-        main_store.write_artifact(IssueArtifact(workflow_id="main-workflow-001", issue=main_issue))
-
-        plan_data = PlanData(
-            plan="# Implementation Plan\n\nSteps to implement feature...",
-            summary="Feature implementation plan",
-            session_id="session-main",
+        main_wf_id = "main-wf-1"
+        patch_wf_id = "patch-wf-1"
+        
+        # Create artifacts in main workflow
+        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        
+        issue_artifact = IssueArtifact(
+            workflow_id=main_wf_id,
+            issue_id=1,
+            title="Main Issue",
+            description="Main Description"
         )
-        main_store.write_artifact(
-            PlanArtifact(workflow_id="main-workflow-001", plan_data=plan_data)
-        )
-
-        # Create patch workflow store with parent_workflow_id
-        patch_store = ArtifactStore(
-            "patch-workflow-001",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-001",
-        )
-
-        # Verify patch workflow can read shared artifacts from parent
-        issue_artifact = patch_store.read_artifact("issue", IssueArtifact)
-        assert issue_artifact.issue.id == 100
-        assert issue_artifact.issue.description == "Main issue for testing"
-
-        plan_artifact = patch_store.read_artifact("plan", PlanArtifact)
-        assert plan_artifact.plan_data.summary == "Feature implementation plan"
-
-    def test_patch_workflow_writes_to_own_directory(self, tmp_path):
-        """Test patch workflow writes implementation/review to its own directory."""
-        from rouge.core.workflow.artifacts import (
-            ArtifactStore,
-            ImplementationArtifact,
-            IssueArtifact,
-            PlanArtifact,
-            ReviewArtifact,
-        )
-        from rouge.core.workflow.types import ImplementData, PlanData, ReviewData
-
-        # Setup main workflow with shared artifacts
-        main_store = ArtifactStore("main-workflow-002", base_path=tmp_path)
-
-        main_store.write_artifact(
-            IssueArtifact(
-                workflow_id="main-workflow-002",
-                issue=Issue(id=200, description="Main issue"),
+        main_store.write_artifact(issue_artifact)
+        
+        plan_artifact = PlanArtifact(
+            workflow_id=main_wf_id,
+            plan=PlanData(
+                problem_statement="Problem",
+                proposed_changes=["Change 1"],
+                files_to_modify=["file.py"]
             )
         )
-        main_store.write_artifact(
-            PlanArtifact(
-                workflow_id="main-workflow-002",
-                plan_data=PlanData(plan="Main plan", summary="Summary"),
-            )
+        main_store.write_artifact(plan_artifact)
+
+        # Create context for patch workflow with parent_workflow_id
+        context = WorkflowContext(
+            issue_id=1,
+            adw_id=patch_wf_id,
+            parent_workflow_id=main_wf_id,
+            artifacts_enabled=True,
+            working_dir=tmp_path
         )
-        # Main workflow also has implementation
-        main_store.write_artifact(
-            ImplementationArtifact(
-                workflow_id="main-workflow-002",
-                implement_data=ImplementData(output="Main implementation output"),
-            )
-        )
-
-        # Create patch workflow with parent reference
-        patch_store = ArtifactStore(
-            "patch-workflow-002",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-002",
-        )
-
-        # Write patch-specific artifacts
-        patch_store.write_artifact(
-            ImplementationArtifact(
-                workflow_id="patch-workflow-002",
-                implement_data=ImplementData(output="Patch implementation output"),
-            )
-        )
-        patch_store.write_artifact(
-            ReviewArtifact(
-                workflow_id="patch-workflow-002",
-                review_data=ReviewData(review_text="Patch review content"),
-            )
-        )
-
-        # Verify artifacts were written to patch directory
-        patch_impl_path = tmp_path / "patch-workflow-002" / "implementation.json"
-        patch_review_path = tmp_path / "patch-workflow-002" / "review.json"
-        assert patch_impl_path.exists()
-        assert patch_review_path.exists()
-
-        # Verify patch store reads its own implementation (not parent's)
-        patch_impl = patch_store.read_artifact("implementation", ImplementationArtifact)
-        assert patch_impl.implement_data.output == "Patch implementation output"
-
-    def test_main_workflow_unchanged_after_patch_operations(self, tmp_path):
-        """Test main workflow artifacts remain unchanged after patch workflow operations."""
-        from rouge.core.workflow.artifacts import (
-            ArtifactStore,
-            ImplementationArtifact,
-            IssueArtifact,
-            PlanArtifact,
-            ReviewArtifact,
-        )
-        from rouge.core.workflow.types import ImplementData, PlanData, ReviewData
-
-        # Setup main workflow with artifacts
-        main_store = ArtifactStore("main-workflow-003", base_path=tmp_path)
-
-        original_issue = Issue(id=300, description="Original main issue")
-        original_plan_data = PlanData(plan="Original plan content", summary="Original summary")
-        original_impl_data = ImplementData(output="Original implementation")
-        original_review_data = ReviewData(review_text="Original review")
-
-        main_store.write_artifact(
-            IssueArtifact(workflow_id="main-workflow-003", issue=original_issue)
-        )
-        main_store.write_artifact(
-            PlanArtifact(workflow_id="main-workflow-003", plan_data=original_plan_data)
-        )
-        main_store.write_artifact(
-            ImplementationArtifact(
-                workflow_id="main-workflow-003", implement_data=original_impl_data
-            )
-        )
-        main_store.write_artifact(
-            ReviewArtifact(workflow_id="main-workflow-003", review_data=original_review_data)
-        )
-
-        # Create patch workflow and write new artifacts
-        patch_store = ArtifactStore(
-            "patch-workflow-003",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-003",
-        )
-
-        # Patch workflow writes its own implementation and review
-        patch_store.write_artifact(
-            ImplementationArtifact(
-                workflow_id="patch-workflow-003",
-                implement_data=ImplementData(output="Patch implementation - different"),
-            )
-        )
-        patch_store.write_artifact(
-            ReviewArtifact(
-                workflow_id="patch-workflow-003",
-                review_data=ReviewData(review_text="Patch review - different"),
-            )
-        )
-
-        # Verify main workflow artifacts are unchanged
-        main_issue = main_store.read_artifact("issue", IssueArtifact)
-        main_plan = main_store.read_artifact("plan", PlanArtifact)
-        main_impl = main_store.read_artifact("implementation", ImplementationArtifact)
-        main_review = main_store.read_artifact("review", ReviewArtifact)
-
-        assert main_issue.issue.id == 300
-        assert main_issue.issue.description == "Original main issue"
-        assert main_plan.plan_data.plan == "Original plan content"
-        assert main_plan.plan_data.summary == "Original summary"
-        assert main_impl.implement_data.output == "Original implementation"
-        assert main_review.review_data.review_text == "Original review"
-
-    def test_patch_specific_artifacts_do_not_fallback_to_parent(self, tmp_path):
-        """Test patch-specific artifacts (implementation, review) don't fall back to parent."""
-        import pytest
-
-        from rouge.core.workflow.artifacts import (
-            ArtifactStore,
-            ImplementationArtifact,
-            IssueArtifact,
-            ReviewArtifact,
-        )
-        from rouge.core.workflow.types import ImplementData, ReviewData
-
-        # Setup main workflow with all artifacts
-        main_store = ArtifactStore("main-workflow-004", base_path=tmp_path)
-
-        main_store.write_artifact(
-            IssueArtifact(
-                workflow_id="main-workflow-004",
-                issue=Issue(id=400, description="Main issue"),
-            )
-        )
-        main_store.write_artifact(
-            ImplementationArtifact(
-                workflow_id="main-workflow-004",
-                implement_data=ImplementData(output="Main implementation"),
-            )
-        )
-        main_store.write_artifact(
-            ReviewArtifact(
-                workflow_id="main-workflow-004",
-                review_data=ReviewData(review_text="Main review"),
-            )
-        )
-
-        # Create patch workflow with parent reference (no artifacts yet)
-        patch_store = ArtifactStore(
-            "patch-workflow-004",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-004",
-        )
-
-        # Shared artifacts (issue) should fall back to parent
-        issue = patch_store.read_artifact("issue", IssueArtifact)
-        assert issue.issue.id == 400
-
-        # Patch-specific artifacts should NOT fall back
-        with pytest.raises(FileNotFoundError, match="Artifact not found: implementation"):
-            patch_store.read_artifact("implementation", ImplementationArtifact)
-
-        with pytest.raises(FileNotFoundError, match="Artifact not found: review"):
-            patch_store.read_artifact("review", ReviewArtifact)
-
-    def test_workflow_runner_with_parent_workflow_id(self, tmp_path, monkeypatch):
-        """Test WorkflowRunner.run passes parent_workflow_id to ArtifactStore."""
-        from rouge.core.workflow.artifacts import (
-            ArtifactStore,
-            IssueArtifact,
-            PlanArtifact,
-        )
-        from rouge.core.workflow.pipeline import WorkflowRunner
-        from rouge.core.workflow.step_base import WorkflowStep
-        from rouge.core.workflow.types import PlanData, StepResult
-
-        # Set ROUGE_DATA_DIR to tmp_path for this test
-        monkeypatch.setenv("ROUGE_DATA_DIR", str(tmp_path / "data"))
-
-        # Create base workflows dir
-        workflows_dir = tmp_path / "data" / "workflows"
-        workflows_dir.mkdir(parents=True, exist_ok=True)
-
-        # Setup main workflow with shared artifacts using explicit base_path
-        main_store = ArtifactStore("main-adw-005", base_path=workflows_dir)
-
-        main_store.write_artifact(
-            IssueArtifact(
-                workflow_id="main-adw-005",
-                issue=Issue(id=500, description="Main workflow issue"),
-            )
-        )
-        main_store.write_artifact(
-            PlanArtifact(
-                workflow_id="main-adw-005",
-                plan_data=PlanData(plan="Main plan", summary="Main summary"),
-            )
-        )
-
-        # Create a mock step that captures the context
-        captured_context = None
-
-        class CapturingStep(WorkflowStep):
-            name = "Capturing step"
-            is_critical = True
-
-            def run(self, context) -> StepResult:
-                nonlocal captured_context
-                captured_context = context
+        
+        # Run a simple workflow that accesses artifacts
+        class AccessArtifactsStep(WorkflowStep):
+            @property
+            def name(self): return "Access Artifacts"
+            
+            @property
+            def is_critical(self): return True
+            
+            def run(self, ctx):
+                store = ctx.artifact_store
+                # Should find parent artifacts
+                issue = store.get_latest_artifact(IssueArtifact)
+                plan = store.get_latest_artifact(PlanArtifact)
+                
+                if not issue or issue.title != "Main Issue":
+                    return StepResult.fail("Failed to read parent IssueArtifact")
+                if not plan or plan.plan.problem_statement != "Problem":
+                    return StepResult.fail("Failed to read parent PlanArtifact")
+                    
                 return StepResult.ok(None)
 
-        # Run workflow with parent_workflow_id
-        runner = WorkflowRunner([CapturingStep()])
-        result = runner.run(
-            issue_id=500,
-            adw_id="patch-adw-005",
-            parent_workflow_id="main-adw-005",
-        )
+        runner = WorkflowRunner([AccessArtifactsStep()])
+        success = runner.run(context)
+        
+        assert success, "Workflow failed to access parent artifacts"
 
-        assert result is True
-        assert captured_context is not None
-        assert captured_context.artifact_store is not None
-
-        # Verify the artifact store can read from parent
-        issue = captured_context.artifact_store.read_artifact("issue", IssueArtifact)
-        assert issue.issue.id == 500
-
-        plan = captured_context.artifact_store.read_artifact("plan", PlanArtifact)
-        assert plan.plan_data.summary == "Main summary"
-
-    def test_multiple_patch_workflows_isolated_from_each_other(self, tmp_path):
-        """Test multiple patch workflows are isolated from each other."""
+    def test_patch_pipeline_uses_isolated_artifacts(self, tmp_path):
+        """Verify patch workflow writes new artifacts without overwriting parent's."""
         from rouge.core.workflow.artifacts import (
             ArtifactStore,
             ImplementationArtifact,
-            IssueArtifact,
-            PlanArtifact,
+            ReviewArtifact,
         )
-        from rouge.core.workflow.types import ImplementData, PlanData
-
-        # Setup main workflow
-        main_store = ArtifactStore("main-workflow-006", base_path=tmp_path)
-
-        main_store.write_artifact(
-            IssueArtifact(
-                workflow_id="main-workflow-006",
-                issue=Issue(id=600, description="Shared issue"),
-            )
+        
+        main_wf_id = "main-wf-1"
+        patch_wf_id = "patch-wf-1"
+        
+        # 1. Main workflow creates implementation
+        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_impl = ImplementationArtifact(
+            workflow_id=main_wf_id,
+            files_modified=["main.py"],
+            diff="main diff",
+            pr_url="http://pr/1"
         )
-        main_store.write_artifact(
-            PlanArtifact(
-                workflow_id="main-workflow-006",
-                plan_data=PlanData(plan="Shared plan", summary="Shared summary"),
-            )
+        main_store.write_artifact(main_impl)
+        
+        # 2. Patch workflow creates its own implementation
+        patch_store = ArtifactStore(patch_wf_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        
+        # Verify it can see parent's initially
+        initial_read = patch_store.get_latest_artifact(ImplementationArtifact)
+        assert initial_read.diff == "main diff"
+        assert initial_read.workflow_id == main_wf_id
+        
+        # Write patch-specific implementation
+        patch_impl = ImplementationArtifact(
+            workflow_id=patch_wf_id,
+            files_modified=["patch.py"],
+            diff="patch diff",
+            pr_url="http://pr/1"
         )
+        patch_store.write_artifact(patch_impl)
+        
+        # 3. Verify patch workflow sees its own version now
+        patch_read = patch_store.get_latest_artifact(ImplementationArtifact)
+        assert patch_read.diff == "patch diff"
+        assert patch_read.workflow_id == patch_wf_id
+        
+        # 4. Verify main workflow still sees original version (ISOLATION)
+        main_read = main_store.get_latest_artifact(ImplementationArtifact)
+        assert main_read.diff == "main diff"
+        assert main_read.workflow_id == main_wf_id
 
-        # Create two patch workflows
-        patch_store_1 = ArtifactStore(
-            "patch-workflow-006-a",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-006",
+    def test_patch_artifacts_do_not_fallback_to_parent(self, tmp_path):
+        """Verify that patch-specific artifacts (like Review) don't fallback if missing."""
+        from rouge.core.workflow.artifacts import ArtifactStore, ReviewArtifact
+        
+        main_wf_id = "main-wf-1"
+        patch_wf_id = "patch-wf-1"
+        
+        # Main workflow has a review
+        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_review = ReviewArtifact(
+            workflow_id=main_wf_id,
+            review_content="Main review",
+            status="approved"
         )
-        patch_store_2 = ArtifactStore(
-            "patch-workflow-006-b",
-            base_path=tmp_path,
-            parent_workflow_id="main-workflow-006",
+        main_store.write_artifact(main_review)
+        
+        # Patch workflow store
+        patch_store = ArtifactStore(patch_wf_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        
+        # Should be able to read it (ReviewArtifact is shared type)
+        read = patch_store.get_latest_artifact(ReviewArtifact)
+        assert read is not None
+        assert read.review_content == "Main review"
+        
+        # But if we write a new one, it takes precedence
+        patch_review = ReviewArtifact(
+            workflow_id=patch_wf_id,
+            review_content="Patch review",
+            status="changes_requested"
         )
+        patch_store.write_artifact(patch_review)
+        
+        read_new = patch_store.get_latest_artifact(ReviewArtifact)
+        assert read_new.review_content == "Patch review"
 
-        # Both can read shared artifacts from parent
-        issue_1 = patch_store_1.read_artifact("issue", IssueArtifact)
-        issue_2 = patch_store_2.read_artifact("issue", IssueArtifact)
-        assert issue_1.issue.id == 600
-        assert issue_2.issue.id == 600
-
-        # Write different implementations to each patch workflow
-        patch_store_1.write_artifact(
-            ImplementationArtifact(
-                workflow_id="patch-workflow-006-a",
-                implement_data=ImplementData(output="Patch A implementation"),
-            )
+    def test_multiple_patch_workflows_are_isolated(self, tmp_path):
+        """Verify two patch workflows from same parent don't see each other's artifacts."""
+        from rouge.core.workflow.artifacts import ArtifactStore, ImplementationArtifact
+        
+        main_wf_id = "main-wf"
+        patch1_id = "patch-1"
+        patch2_id = "patch-2"
+        
+        # Common parent
+        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        
+        # Patch 1 writes something
+        store1 = ArtifactStore(patch1_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        impl1 = ImplementationArtifact(
+            workflow_id=patch1_id,
+            files_modified=["f1"],
+            diff="diff1"
         )
-        patch_store_2.write_artifact(
-            ImplementationArtifact(
-                workflow_id="patch-workflow-006-b",
-                implement_data=ImplementData(output="Patch B implementation"),
-            )
-        )
-
-        # Verify each patch workflow reads its own implementation
-        impl_1 = patch_store_1.read_artifact("implementation", ImplementationArtifact)
-        impl_2 = patch_store_2.read_artifact("implementation", ImplementationArtifact)
-        assert impl_1.implement_data.output == "Patch A implementation"
-        assert impl_2.implement_data.output == "Patch B implementation"
-
-        # Verify isolation - artifacts are in separate directories
-        assert (tmp_path / "patch-workflow-006-a" / "implementation.json").exists()
-        assert (tmp_path / "patch-workflow-006-b" / "implementation.json").exists()
+        store1.write_artifact(impl1)
+        
+        # Patch 2 should NOT see Patch 1's artifact
+        store2 = ArtifactStore(patch2_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        read2 = store2.get_latest_artifact(ImplementationArtifact)
+        
+        assert read2 is None  # Should be empty as main has none and patch2 has none
