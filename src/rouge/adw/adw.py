@@ -47,6 +47,12 @@ def execute_adw_workflow(
     if patch_mode:
         # Extract parent workflow ID from patch workflow ID to access main workflow artifacts
         parent_workflow_id = _extract_parent_workflow_id(workflow_id)
+        if parent_workflow_id is None:
+            raise ValueError(
+                f"Invalid patch workflow ID: '{workflow_id}'. "
+                f"Patch workflows must have a workflow ID ending with '{_PATCH_SUFFIX}' "
+                "to enable parent workflow artifact sharing."
+            )
         success = execute_workflow(
             issue_id,
             workflow_id,

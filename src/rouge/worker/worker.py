@@ -21,6 +21,7 @@ import signal
 import subprocess
 import time
 from pathlib import Path
+from types import FrameType
 from typing import Optional
 
 from rouge.core.database import fetch_pending_patch, init_db_env, update_patch_status
@@ -110,7 +111,7 @@ class IssueWorker:
 
         return logger
 
-    def _handle_shutdown(self, signum, _frame):
+    def _handle_shutdown(self, signum: int, _frame: FrameType | None) -> None:
         """Handle shutdown signals gracefully."""
         self.logger.info(f"Received signal {signum}, shutting down gracefully...")
         self.running = False
