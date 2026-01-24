@@ -16,6 +16,7 @@ from rouge.core.models import Issue, Patch
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
+    PatchPlanData,
     PlanData,
     ReviewData,
 )
@@ -44,6 +45,8 @@ ArtifactType = Literal[
     "pr_metadata",
     "pull_request",
     "patch",
+    "patch_plan",
+    "patch_acceptance",
 ]
 
 
@@ -196,6 +199,30 @@ class PatchArtifact(Artifact):
     patch: Patch
 
 
+class PatchPlanArtifact(Artifact):
+    """Artifact containing patch plan results.
+
+    Attributes:
+        patch_plan_data: The patch plan data from the planning step
+    """
+
+    artifact_type: Literal["patch_plan"] = "patch_plan"
+    patch_plan_data: PatchPlanData
+
+
+class PatchAcceptanceArtifact(Artifact):
+    """Artifact containing patch acceptance validation results.
+
+    Attributes:
+        success: Whether the patch implementation passed acceptance criteria
+        message: Optional message about the validation result
+    """
+
+    artifact_type: Literal["patch_acceptance"] = "patch_acceptance"
+    success: bool
+    message: Optional[str] = None
+
+
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "issue": IssueArtifact,
@@ -209,6 +236,8 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "pr_metadata": PRMetadataArtifact,
     "pull_request": PullRequestArtifact,
     "patch": PatchArtifact,
+    "patch_plan": PatchPlanArtifact,
+    "patch_acceptance": PatchAcceptanceArtifact,
 }
 
 # Artifact types that can be read from a parent workflow directory.
@@ -228,6 +257,8 @@ SHARED_ARTIFACT_TYPES: frozenset[ArtifactType] = frozenset(
 PATCH_SPECIFIC_ARTIFACT_TYPES: frozenset[ArtifactType] = frozenset(
     [
         "patch",
+        "patch_plan",
+        "patch_acceptance",
         "implementation",
         "review",
         "review_addressed",
