@@ -11,6 +11,7 @@ AGENT_PLAN_IMPLEMENTOR = "sdlc_plan_implementor"
 AGENT_REVIEW_IMPLEMENTOR = "sdlc_review_implementor"
 AGENT_VALIDATOR = "sdlc_validator"
 AGENT_CODE_QUALITY_CHECKER = "sdlc_code_quality_checker"
+AGENT_PATCH_PLANNER = "patch_planner"
 AGENT_PULL_REQUEST_BUILDER = "sdlc_pull_request_builder"
 
 
