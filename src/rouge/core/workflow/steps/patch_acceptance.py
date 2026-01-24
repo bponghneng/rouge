@@ -63,7 +63,7 @@ class ValidatePatchAcceptanceStep(WorkflowStep):
         )
 
         if not acceptance_result.success:
-            logger.error(f"Failed to validate patch acceptance: {acceptance_result.error}")
+            logger.error("Failed to validate patch acceptance: %s", acceptance_result.error)
             # Save artifact even on failure
             if context.artifacts_enabled and context.artifact_store is not None:
                 artifact = PatchAcceptanceArtifact(
