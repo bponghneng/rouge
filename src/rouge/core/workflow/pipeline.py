@@ -26,18 +26,24 @@ class WorkflowRunner:
         """
         self._steps = steps
 
-    def run(self, issue_id: int, adw_id: str) -> bool:
+    def run(
+        self,
+        issue_id: int,
+        adw_id: str,
+        parent_workflow_id: str | None = None,
+    ) -> bool:
         """Execute all workflow steps in sequence.
 
         Args:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
+            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
         # Create artifact store unconditionally
-        artifact_store = ArtifactStore(adw_id)
+        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
         logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
 
         context = WorkflowContext(
@@ -79,6 +85,7 @@ class WorkflowRunner:
         issue_id: int,
         adw_id: str,
         has_dependencies: bool = True,
+        parent_workflow_id: str | None = None,
     ) -> bool:
         """Execute a single step by name, using artifacts for dependencies.
 
@@ -90,6 +97,7 @@ class WorkflowRunner:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for artifact persistence
             has_dependencies: Whether the step has dependencies (if False, skip artifact dir check)
+            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if step completed successfully, False otherwise
@@ -108,7 +116,7 @@ class WorkflowRunner:
             raise ValueError(f"Step not found: {step_name}")
 
         # Always enable artifacts for single-step execution
-        artifact_store = ArtifactStore(adw_id)
+        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
         workflow_dir = artifact_store.workflow_dir
 
         # For steps with dependencies, ensure the workflow directory exists with artifacts
