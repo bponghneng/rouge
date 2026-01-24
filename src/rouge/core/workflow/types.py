@@ -91,6 +91,20 @@ class PlanData(BaseModel):
     session_id: Optional[str] = None
 
 
+class PatchPlanData(BaseModel):
+    """Data payload for patch plan results.
+
+    Attributes:
+        patch_description: Description of what the patch addresses
+        original_plan_reference: Reference to the original plan being patched
+        patch_plan_content: The patch plan content (markdown)
+    """
+
+    patch_description: str
+    original_plan_reference: str
+    patch_plan_content: str
+
+
 class ImplementData(BaseModel):
     """Data payload for implementation results.
 
