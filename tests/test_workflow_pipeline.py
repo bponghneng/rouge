@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock
 
+from rouge.core.models import Issue
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -380,7 +381,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow with shared artifacts
         main_store = ArtifactStore("main-workflow-001", base_path=tmp_path)
-        from rouge.core.models import Issue
 
         main_issue = Issue(id=100, description="Main issue for testing")
         main_store.write_artifact(IssueArtifact(workflow_id="main-workflow-001", issue=main_issue))
@@ -422,7 +422,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow with shared artifacts
         main_store = ArtifactStore("main-workflow-002", base_path=tmp_path)
-        from rouge.core.models import Issue
 
         main_store.write_artifact(
             IssueArtifact(
@@ -488,7 +487,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow with artifacts
         main_store = ArtifactStore("main-workflow-003", base_path=tmp_path)
-        from rouge.core.models import Issue
 
         original_issue = Issue(id=300, description="Original main issue")
         original_plan_data = PlanData(plan="Original plan content", summary="Original summary")
@@ -558,7 +556,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow with all artifacts
         main_store = ArtifactStore("main-workflow-004", base_path=tmp_path)
-        from rouge.core.models import Issue
 
         main_store.write_artifact(
             IssueArtifact(
@@ -617,7 +614,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow with shared artifacts using explicit base_path
         main_store = ArtifactStore("main-adw-005", base_path=workflows_dir)
-        from rouge.core.models import Issue
 
         main_store.write_artifact(
             IssueArtifact(
@@ -639,7 +635,7 @@ class TestPatchWorkflowArtifactIsolation:
             name = "Capturing step"
             is_critical = True
 
-            def run(self, context):
+            def run(self, context) -> StepResult:
                 nonlocal captured_context
                 captured_context = context
                 return StepResult.ok(None)
@@ -675,7 +671,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Setup main workflow
         main_store = ArtifactStore("main-workflow-006", base_path=tmp_path)
-        from rouge.core.models import Issue
 
         main_store.write_artifact(
             IssueArtifact(
