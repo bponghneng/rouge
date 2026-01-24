@@ -109,8 +109,30 @@ class UpdatePRCommitsStep(WorkflowStep):
 
             repo_path = get_repo_path()
 
+            # Check if we're on a branch (not in detached HEAD state)
+            branch_check = subprocess.run(
+                ["git", "symbolic-ref", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+            )
+
+            if branch_check.returncode != 0:
+                error_msg = "Cannot push: not on a branch (detached HEAD state)"
+                logger.error(error_msg)
+                emit_progress_comment(
+                    context.issue_id,
+                    error_msg,
+                    raw={"output": "pr-update-failed", "error": error_msg},
+                    adw_id=context.adw_id,
+                )
+                return StepResult.fail(error_msg)
+
+            branch = branch_check.stdout.strip()
+            logger.debug("On branch: %s", branch)
+
             # Push commits to origin (the PR/MR will automatically update)
-            push_cmd = ["git", "push", "origin", "HEAD"]
+            push_cmd = ["git", "push", "origin", branch]
             logger.debug("Pushing patch commits to origin...")
 
             push_result = subprocess.run(
@@ -163,7 +185,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
-        except Exception as e:
+        except (OSError, PermissionError, ValueError) as e:
             error_msg = f"Error updating PR/MR with patch commits: {e}"
             logger.warning(error_msg)
             emit_progress_comment(
@@ -173,3 +195,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
+        except Exception as e:
+            # Re-raise unexpected exceptions after logging
+            logger.error("Unexpected error updating PR/MR: %s", e)
+            raise
