@@ -7,7 +7,7 @@ a unified StepResult[T] generic type.
 
 from typing import Any, Dict, Generic, Literal, Optional, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 # Slash commands that can be output from classify step
 ClassifySlashCommand = Literal[
@@ -100,9 +100,35 @@ class PatchPlanData(BaseModel):
         patch_plan_content: The patch plan content (markdown)
     """
 
-    patch_description: str
-    original_plan_reference: str
-    patch_plan_content: str
+    patch_description: str = Field(
+        ...,
+        min_length=1,
+        title="Patch Description",
+        description="Description of what the patch addresses",
+        examples=["Fix authentication bug in login flow"],
+    )
+    original_plan_reference: str = Field(
+        ...,
+        min_length=1,
+        title="Original Plan Reference",
+        description="Reference to the original plan being patched (workflow ID)",
+        examples=["adw-abc123"],
+    )
+    patch_plan_content: str = Field(
+        ...,
+        min_length=1,
+        title="Patch Plan Content",
+        description="The patch plan content in markdown format",
+        examples=["## Patch Plan\n\n### Changes\n..."],
+    )
+
+    @field_validator("patch_description", "original_plan_reference", "patch_plan_content")
+    @classmethod
+    def validate_non_empty(cls, v: str) -> str:
+        """Ensure field is not empty or whitespace-only."""
+        if not v or not v.strip():
+            raise ValueError("Field must not be empty or whitespace-only")
+        return v
 
 
 class ImplementData(BaseModel):
