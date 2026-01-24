@@ -495,6 +495,9 @@ def fetch_pending_patch(issue_id: int) -> Patch:
             .execute()
         )
 
+        if response is None:
+            raise ValueError(f"No pending patch found for issue {issue_id}")
+
         response_data = cast(Optional[SupabaseRow], response.data)
         if response_data is None:
             raise ValueError(f"No pending patch found for issue {issue_id}")
