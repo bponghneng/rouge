@@ -10,6 +10,8 @@ import pytest
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import (
     ARTIFACT_MODELS,
+    PATCH_SPECIFIC_ARTIFACT_TYPES,
+    SHARED_ARTIFACT_TYPES,
     AcceptanceArtifact,
     ArtifactStore,
     ClassificationArtifact,
@@ -542,3 +544,259 @@ class TestArtifactStoreIntegration:
         ]
         for artifact_type in expected_types:
             assert artifact_type in artifacts
+
+
+class TestArtifactStoreParentWorkflow:
+    """Tests for ArtifactStore with parent_workflow_id for patch workflows."""
+
+    def test_store_initialization_with_parent_workflow_id(self, tmp_path):
+        """Test ArtifactStore can be created with parent_workflow_id."""
+        # Create parent workflow directory first
+        parent_dir = tmp_path / "parent-workflow-123"
+        parent_dir.mkdir()
+
+        store = ArtifactStore(
+            "child-workflow-456",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow-123",
+        )
+
+        assert store.workflow_id == "child-workflow-456"
+        assert store.workflow_dir == tmp_path / "child-workflow-456"
+        assert store.workflow_dir.exists()
+
+    def test_parent_workflow_dir_must_exist(self, tmp_path):
+        """Test FileNotFoundError is raised when parent workflow directory doesn't exist."""
+        with pytest.raises(FileNotFoundError, match="Parent workflow directory not found"):
+            ArtifactStore(
+                "child-workflow-456",
+                base_path=tmp_path,
+                parent_workflow_id="nonexistent-parent",
+            )
+
+    def test_shared_artifact_fallback_to_parent(self, tmp_path):
+        """Test that shared artifacts fall back to parent directory when missing from child."""
+        # Setup parent workflow with a shared artifact (plan)
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        plan_data = PlanData(
+            plan="Parent plan content",
+            summary="Parent summary",
+            session_id="parent-session",
+        )
+        parent_store.write_artifact(
+            PlanArtifact(workflow_id="parent-workflow", plan_data=plan_data)
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Child doesn't have the artifact, but should fall back to parent
+        assert not child_store.artifact_exists("plan")
+
+        # Read should succeed by falling back to parent
+        artifact = child_store.read_artifact("plan", PlanArtifact)
+
+        assert artifact.plan_data.plan == "Parent plan content"
+        assert artifact.plan_data.summary == "Parent summary"
+
+    def test_shared_artifact_types_include_expected_types(self):
+        """Test SHARED_ARTIFACT_TYPES includes expected artifact types."""
+        expected_shared = {"issue", "classification", "plan", "pr_metadata", "pull_request"}
+        assert SHARED_ARTIFACT_TYPES == expected_shared
+
+    def test_patch_specific_artifact_types_include_expected_types(self):
+        """Test PATCH_SPECIFIC_ARTIFACT_TYPES includes expected artifact types."""
+        expected_patch_specific = {
+            "patch",
+            "implementation",
+            "review",
+            "review_addressed",
+            "quality_check",
+            "acceptance",
+        }
+        assert PATCH_SPECIFIC_ARTIFACT_TYPES == expected_patch_specific
+
+    def test_patch_specific_artifact_no_fallback_to_parent(self, tmp_path):
+        """Test that patch-specific artifacts do NOT fall back to parent directory."""
+        # Setup parent workflow with a patch-specific artifact (implementation)
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        implement_data = ImplementData(output="Parent implementation output")
+        parent_store.write_artifact(
+            ImplementationArtifact(workflow_id="parent-workflow", implement_data=implement_data)
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Child doesn't have the artifact
+        assert not child_store.artifact_exists("implementation")
+
+        # Read should raise FileNotFoundError because implementation is patch-specific
+        with pytest.raises(FileNotFoundError, match="Artifact not found: implementation"):
+            child_store.read_artifact("implementation", ImplementationArtifact)
+
+    def test_review_artifact_no_fallback_to_parent(self, tmp_path):
+        """Test that review artifact (patch-specific) does NOT fall back to parent."""
+        # Setup parent workflow with review artifact
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        review_data = ReviewData(review_text="Parent review content")
+        parent_store.write_artifact(
+            ReviewArtifact(workflow_id="parent-workflow", review_data=review_data)
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Read should raise FileNotFoundError because review is patch-specific
+        with pytest.raises(FileNotFoundError, match="Artifact not found: review"):
+            child_store.read_artifact("review", ReviewArtifact)
+
+    def test_write_always_goes_to_child_directory(self, tmp_path):
+        """Test that writing artifacts always goes to the child directory, not parent."""
+        # Setup parent workflow
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        parent_plan_data = PlanData(
+            plan="Parent plan", summary="Parent summary", session_id="parent-session"
+        )
+        parent_store.write_artifact(
+            PlanArtifact(workflow_id="parent-workflow", plan_data=parent_plan_data)
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Write a plan artifact to the child store
+        child_plan_data = PlanData(
+            plan="Child plan", summary="Child summary", session_id="child-session"
+        )
+        child_store.write_artifact(
+            PlanArtifact(workflow_id="child-workflow", plan_data=child_plan_data)
+        )
+
+        # Verify the artifact was written to child directory
+        child_artifact_path = tmp_path / "child-workflow" / "plan.json"
+        parent_artifact_path = tmp_path / "parent-workflow" / "plan.json"
+
+        assert child_artifact_path.exists()
+        assert parent_artifact_path.exists()  # Parent should still exist unchanged
+
+        # Verify child store now reads from its own directory (not parent)
+        artifact = child_store.read_artifact("plan", PlanArtifact)
+        assert artifact.plan_data.plan == "Child plan"
+
+        # Verify parent artifact is unchanged
+        parent_artifact = parent_store.read_artifact("plan", PlanArtifact)
+        assert parent_artifact.plan_data.plan == "Parent plan"
+
+    def test_child_artifact_takes_precedence_over_parent(self, tmp_path):
+        """Test that child artifact takes precedence when both exist."""
+        # Setup parent workflow with issue artifact
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        parent_issue = Issue(id=1, description="Parent issue")
+        parent_store.write_artifact(
+            IssueArtifact(workflow_id="parent-workflow", issue=parent_issue)
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Write a different issue artifact to child
+        child_issue = Issue(id=2, description="Child issue")
+        child_store.write_artifact(IssueArtifact(workflow_id="child-workflow", issue=child_issue))
+
+        # Read should return child's artifact, not parent's
+        artifact = child_store.read_artifact("issue", IssueArtifact)
+        assert artifact.issue.id == 2
+        assert artifact.issue.description == "Child issue"
+
+    def test_all_shared_types_fallback_to_parent(self, tmp_path):
+        """Test that all shared artifact types can fall back to parent."""
+        # Setup parent workflow with all shared artifacts
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+
+        # Write all shared artifact types to parent
+        parent_store.write_artifact(
+            IssueArtifact(
+                workflow_id="parent-workflow",
+                issue=Issue(id=1, description="Parent issue"),
+            )
+        )
+        parent_store.write_artifact(
+            ClassificationArtifact(
+                workflow_id="parent-workflow",
+                classify_data=ClassifyData(
+                    command="/adw-feature-plan",
+                    classification={"type": "feature", "level": "medium"},
+                ),
+            )
+        )
+        parent_store.write_artifact(
+            PlanArtifact(
+                workflow_id="parent-workflow",
+                plan_data=PlanData(plan="Parent plan", summary="Summary"),
+            )
+        )
+        parent_store.write_artifact(
+            PRMetadataArtifact(
+                workflow_id="parent-workflow",
+                title="Parent PR",
+                summary="Parent PR summary",
+                commits=[],
+            )
+        )
+        parent_store.write_artifact(
+            PullRequestArtifact(
+                workflow_id="parent-workflow",
+                url="https://github.com/org/repo/pull/1",
+                platform="github",
+            )
+        )
+
+        # Create child store with parent_workflow_id
+        child_store = ArtifactStore(
+            "child-workflow",
+            base_path=tmp_path,
+            parent_workflow_id="parent-workflow",
+        )
+
+        # Verify all shared types can be read from child (falling back to parent)
+        for artifact_type in SHARED_ARTIFACT_TYPES:
+            artifact = child_store.read_artifact(artifact_type)
+            assert artifact is not None
+            assert artifact.workflow_id == "parent-workflow"
+
+    def test_no_fallback_without_parent_workflow_id(self, tmp_path):
+        """Test that fallback doesn't happen without parent_workflow_id."""
+        # Setup parent workflow with a shared artifact
+        parent_store = ArtifactStore("parent-workflow", base_path=tmp_path)
+        plan_data = PlanData(plan="Parent plan", summary="Summary")
+        parent_store.write_artifact(
+            PlanArtifact(workflow_id="parent-workflow", plan_data=plan_data)
+        )
+
+        # Create child store WITHOUT parent_workflow_id
+        child_store = ArtifactStore("child-workflow", base_path=tmp_path)
+
+        # Read should raise FileNotFoundError (no fallback)
+        with pytest.raises(FileNotFoundError, match="Artifact not found: plan"):
+            child_store.read_artifact("plan", PlanArtifact)
