@@ -110,7 +110,7 @@ class IssueWorker:
 
         return logger
 
-    def _handle_shutdown(self, signum, frame):
+    def _handle_shutdown(self, signum, _frame):
         """Handle shutdown signals gracefully."""
         self.logger.info(f"Received signal {signum}, shutting down gracefully...")
         self.running = False
@@ -206,13 +206,13 @@ class IssueWorker:
 
         return response.data["adw_id"]
 
-    def _handle_patch_failure(self, issue_id: int, patch_id: Optional[int], reason: str) -> None:
+    def _handle_patch_failure(self, issue_id: int, patch_id: Optional[int], _reason: str) -> None:
         """Handle patch workflow failure by logging and updating status.
 
         Args:
             issue_id: The ID of the issue
             patch_id: The ID of the patch (None if not yet initialized)
-            reason: Description of the failure reason
+            _reason: Description of the failure reason
         """
         if patch_id is not None:
             self.logger.exception(f"Patch workflow failed for issue {issue_id}, patch {patch_id}")
@@ -280,13 +280,13 @@ class IssueWorker:
                 transition_to_patch_pending(issue_id)
                 return patch_wf_id, False
 
-        except ValueError as e:
+        except ValueError:
             self._handle_patch_failure(issue_id, patch_id, "ValueError during patch workflow")
             raise
-        except subprocess.TimeoutExpired as e:
+        except subprocess.TimeoutExpired:
             self._handle_patch_failure(issue_id, patch_id, "Patch workflow timed out")
             raise
-        except Exception as e:
+        except Exception:
             self._handle_patch_failure(issue_id, patch_id, "Unexpected error in patch workflow")
             raise
 
@@ -320,7 +320,7 @@ class IssueWorker:
                 update_issue_status(issue_id, "pending", self.logger)
             return False
 
-        except Exception as e:
+        except Exception:
             self.logger.exception(f"Error executing workflow for issue {issue_id}")
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)

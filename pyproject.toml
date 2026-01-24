@@ -49,6 +49,10 @@ src = ["src"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "ARG"]
 
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ARG"]
+"migrations/**/*.py" = ["E501"]
+
 [tool.black]
 line-length = 100
 target-version = ["py312"]

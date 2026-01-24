@@ -59,12 +59,12 @@ step(
         current_status TEXT;
     BEGIN
         SELECT status INTO current_status FROM issues WHERE id = NEW.issue_id;
-        
+
         IF current_status NOT IN ('completed', 'patched') THEN
-            RAISE EXCEPTION 'Patches can only be created for issues with status completed or patched, but issue % has status %', 
+            RAISE EXCEPTION 'Patches can only be created for issues with status completed or patched, but issue % has status %',
                 NEW.issue_id, current_status;
         END IF;
-        
+
         RETURN NEW;
     END;
     $$ LANGUAGE plpgsql;
