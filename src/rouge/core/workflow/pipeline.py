@@ -213,31 +213,42 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     workflow. It assumes:
 
     - SetupStep is NOT needed: The repository is already set up from the main workflow
-    - ClassifyStep/BuildPlanStep are NOT needed: The plan already exists in the main
+    - ClassifyStep is NOT needed: The classification already exists in the main
       workflow artifacts at <main_adw_id> directory
     - PR/MR creation steps are NOT needed: Patch commits will be added to the
       existing PR/MR created by the main workflow
 
-    The patch workflow starts by fetching the patch, then proceeds through
-    implementation, review, quality checks, and acceptance validation.
+    The patch workflow sequence is:
+    1. FetchPatchStep - Fetch the patch data
+    2. BuildPatchPlanStep - Build a plan specific to the patch changes
+    3. ImplementStep - Implement the patch changes
+    4. GenerateReviewStep - Generate review of the implementation
+    5. AddressReviewStep - Address any review feedback
+    6. CodeQualityStep - Run code quality checks
+    7. ValidatePatchAcceptanceStep - Validate patch meets acceptance criteria
+    8. UpdatePRCommitsStep - Update the existing PR with new commits
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
     from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
     from rouge.core.workflow.steps.implement import ImplementStep
+    from rouge.core.workflow.steps.patch_acceptance import ValidatePatchAcceptanceStep
+    from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
+        BuildPatchPlanStep(),
         ImplementStep(),
         GenerateReviewStep(),
         AddressReviewStep(),
         CodeQualityStep(),
-        ValidateAcceptanceStep(),
+        ValidatePatchAcceptanceStep(),
+        UpdatePRCommitsStep(),
     ]
 
     return steps
