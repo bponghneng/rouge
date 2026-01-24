@@ -1,7 +1,8 @@
 """Patch plan building step implementation."""
 
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
+from typing import Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -16,6 +17,7 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.shared import AGENT_PATCH_PLANNER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PatchPlanData, PlanData, StepResult
+from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -161,7 +163,7 @@ class BuildPatchPlanStep(WorkflowStep):
         )
 
         if not patch_plan_response.success:
-            logger.error(f"Error building patch plan: {patch_plan_response.error}")
+            logger.error("Error building patch plan: %s", patch_plan_response.error)
             return StepResult.fail(f"Error building patch plan: {patch_plan_response.error}")
 
         # Store patch plan data in context
@@ -181,8 +183,6 @@ class BuildPatchPlanStep(WorkflowStep):
             logger.debug("Saved patch plan artifact for workflow %s", context.adw_id)
 
         # Emit progress comment with patch plan summary
-        from rouge.core.workflow.workflow_io import emit_progress_comment
-
         patch_plan_data = patch_plan_response.data
         comment_text = (
             f"Patch plan created for: {patch_plan_data.patch_description[:100]}"
