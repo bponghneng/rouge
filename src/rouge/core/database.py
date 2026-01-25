@@ -439,9 +439,7 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
     # Validate worker ID if provided
     if assigned_to is not None and assigned_to not in VALID_WORKER_IDS:
         valid_workers_str = ", ".join(sorted(VALID_WORKER_IDS))
-        raise ValueError(
-            f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}"
-        )
+        raise ValueError(f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}")
 
     try:
         client = get_client()
@@ -454,8 +452,7 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
 
         if issue.status != "pending":
             raise ValueError(
-                f"Only pending issues can be assigned; "
-                f"issue {issue_id} has status '{issue.status}'"
+                f"Only pending issues can be assigned; issue {issue_id} has status '{issue.status}'"
             )
 
         response = (
