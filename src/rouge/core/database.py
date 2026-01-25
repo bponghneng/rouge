@@ -281,6 +281,9 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         if not description or not description.strip():
             raise ValueError("Description cannot be empty")
 
+        if len(description.strip()) < 10:
+            raise ValueError("Description must be at least 10 characters")
+
         if title and not title.strip():
             raise ValueError("Title cannot be empty/whitespace if provided")
 
@@ -424,7 +427,13 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
     Raises:
         ValueError: If inputs invalid or update fails
     """
-    if assigned_to is not None and (not assigned_to or not assigned_to.strip()):
+    if assigned_to is not None and not isinstance(assigned_to, str):
+        raise TypeError("Worker ID must be a string")
+
+    if assigned_to is not None:
+        assigned_to = assigned_to.strip()
+
+    if assigned_to is not None and not assigned_to:
         raise ValueError("Worker ID cannot be empty")
 
     # Validate worker ID if provided
