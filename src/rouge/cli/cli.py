@@ -16,11 +16,11 @@ from rouge.core.workflow import execute_workflow
 # Load environment variables
 env_file_path = Path.cwd() / ".env"
 if env_file_path.exists():
-    init_db_env(dotenv_path=str(env_file_path))
+    init_db_env(dotenv_path=env_file_path)
 else:
     parent_env_file_path = Path.cwd().parent / ".env"
     if parent_env_file_path.exists():
-        init_db_env(dotenv_path=str(parent_env_file_path))
+        init_db_env(dotenv_path=parent_env_file_path)
     else:
         init_db_env()
 

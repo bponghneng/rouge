@@ -82,11 +82,11 @@ def run_step(
         os.chdir(target_dir)
         env_file_path = target_dir / ".env"
         if env_file_path.exists():
-            init_db_env(dotenv_path=str(env_file_path))
+            init_db_env(dotenv_path=env_file_path)
         else:
             parent_env_file_path = target_dir.parent / ".env"
             if parent_env_file_path.exists():
-                init_db_env(dotenv_path=str(parent_env_file_path))
+                init_db_env(dotenv_path=parent_env_file_path)
             else:
                 init_db_env()
 

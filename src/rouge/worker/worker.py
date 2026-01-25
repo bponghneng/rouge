@@ -53,11 +53,11 @@ class IssueWorker:
             # First try the working directory itself, then its parent
             env_file_path = Path(self.config.working_dir) / ".env"
             if env_file_path.is_file():
-                init_db_env(dotenv_path=str(env_file_path))
+                init_db_env(dotenv_path=env_file_path)
             else:
                 env_file_path = Path(self.config.working_dir).parent / ".env"
                 if env_file_path.is_file():
-                    init_db_env(dotenv_path=str(env_file_path))
+                    init_db_env(dotenv_path=env_file_path)
                 else:
                     # Fallback to default load_dotenv behavior if not found
                     init_db_env()
@@ -243,6 +243,8 @@ class IssueWorker:
         try:
             # Fetch the pending patch to get its ID for status updates
             patch = fetch_pending_patch(issue_id)
+            if patch is None:
+                raise ValueError(f"No pending patch found for issue {issue_id}")
             patch_id = patch.id
 
             # Get the main ADW ID from the most recent workflow_completed comment
