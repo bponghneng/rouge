@@ -73,7 +73,7 @@ def build_patch_plan(
     )
 
     if not response.success:
-        return StepResult.fail(response.output)
+        return StepResult.fail(response.output or "Unknown error")
 
     # Build PatchPlanData from response
     return StepResult.ok(
