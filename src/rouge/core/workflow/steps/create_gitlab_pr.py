@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _emit_and_log(issue_id: str, adw_id: str, text: str, raw: dict) -> None:
     """Helper to emit comment and log based on status.
-    
+
     Args:
         issue_id: Issue ID
         adw_id: ADW ID
