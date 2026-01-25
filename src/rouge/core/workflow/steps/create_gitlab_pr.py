@@ -14,7 +14,7 @@ from rouge.core.workflow.types import StepResult
 logger = logging.getLogger(__name__)
 
 
-def _emit_and_log(issue_id: str, adw_id: str, text: str, raw: dict) -> None:
+def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
     """Helper to emit comment and log based on status.
 
     Args:
