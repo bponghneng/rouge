@@ -367,7 +367,7 @@ class ArtifactStore:
                 artifact_path,
             )
         except Exception as e:
-            logger.error(
+            logger.exception(
                 "Failed to write artifact %s: %s",
                 artifact.artifact_type,
                 e,
@@ -434,10 +434,10 @@ class ArtifactStore:
                 logger.debug("Read artifact %s from %s", artifact_type, artifact_path)
             return artifact
         except json.JSONDecodeError as e:
-            logger.error("Failed to parse artifact %s: %s", artifact_type, e)
+            logger.exception("Failed to parse artifact %s: %s", artifact_type, e)
             raise ValueError(f"Corrupted artifact JSON for {artifact_type}: {e}") from e
         except Exception as e:
-            logger.error("Failed to read artifact %s: %s", artifact_type, e)
+            logger.exception("Failed to read artifact %s: %s", artifact_type, e)
             raise ValueError(f"Failed to validate artifact {artifact_type}: {e}") from e
 
     def artifact_exists(self, artifact_type: ArtifactType) -> bool:
@@ -506,5 +506,5 @@ class ArtifactStore:
             logger.debug("Deleted artifact %s", artifact_type)
             return True
         except Exception as e:
-            logger.error("Failed to delete artifact %s: %s", artifact_type, e)
+            logger.exception("Failed to delete artifact %s: %s", artifact_type, e)
             return False

@@ -75,8 +75,8 @@ def generate_review(
         return StepResult.ok(ReviewData(review_text=review_text))
 
     except subprocess.TimeoutExpired:
-        logger.error("CodeRabbit review timed out after 300 seconds")
+        logger.exception("CodeRabbit review timed out after 300 seconds")
         return StepResult.fail("CodeRabbit review timed out after 300 seconds")
     except Exception as e:
-        logger.error("Failed to generate review: %s", e)
+        logger.exception(f"Failed to generate review: {e}")
         return StepResult.fail(f"Failed to generate review: {e}")
