@@ -92,7 +92,6 @@ def address_review_issues(
 
         # Emit result comment
         parsed_data = parse_result.data or {}
-<<<<<<< HEAD
         emit_progress_comment(
             issue_id=issue_id,
             message="Review issues addressed",
