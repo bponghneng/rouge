@@ -82,8 +82,17 @@ class Comment(BaseModel):
         return v.strip()
 
     def to_supabase(self) -> dict:
-        """Convert Comment to dict for Supabase insertion."""
-        data = self.model_dump(exclude={"id", "created_at"})
+        """Convert Comment to Supabase insert format."""
+        data = {
+            "issue_id": self.issue_id,
+            "comment": self.comment,
+            "raw": self.raw,
+            "adw_id": self.adw_id,
+        }
+        if self.source is not None:
+            data["source"] = self.source
+        if self.type is not None:
+            data["type"] = self.type
         return data
 
     @classmethod
