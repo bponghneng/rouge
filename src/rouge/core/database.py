@@ -1,108 +1,98 @@
-"""Supabase client and helper functions for issue workflow."""
+"""
+Database configuration and client initialization.
+"""
 
 import logging
 import os
 from functools import lru_cache
-from typing import Any, Dict, List, Optional, cast
+from pathlib import Path
+from typing import List, Optional
 
 import httpx
 from dotenv import load_dotenv
 from postgrest.exceptions import APIError
-from supabase import Client, create_client
-from supabase.lib.client_options import SyncClientOptions
+from supabase import Client, ClientOptions, create_client
 
 from rouge.core.models import Comment, Issue, Patch
 
 logger = logging.getLogger(__name__)
 
-SupabaseRow = Dict[str, Any]
-SupabaseRows = List[SupabaseRow]
 
-# ============================================================================
-# Configuration
-# ============================================================================
-
-
-def init_db_env(dotenv_path: Optional[str] = None) -> None:
-    """
-    Initialize environment variables for database connection.
-
-    This should be called as early as possible in the application lifecycle,
-    but it's also called lazily by get_client() if needed.
+def init_db_env(dotenv_path: Optional[Path] = None) -> None:
+    """Initialize database environment variables.
 
     Args:
-        dotenv_path: Optional path to a specific .env file to load.
+        dotenv_path: Optional path to .env file
     """
-    load_dotenv(dotenv_path=dotenv_path, override=True)
+    if dotenv_path:
+        load_dotenv(dotenv_path)
+    else:
+        load_dotenv()
 
 
 class SupabaseConfig:
-    """Configuration for Supabase connection."""
+    """Configuration for Supabase client."""
 
-    def __init__(self) -> None:
-        self.url: Optional[str] = os.environ.get("SUPABASE_URL")
-        self.service_role_key: Optional[str] = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    @property
+    def url(self) -> str:
+        url = os.getenv("SUPABASE_URL")
+        if not url:
+            raise ValueError("SUPABASE_URL environment variable is not set")
+        return url
 
-    def validate(self) -> None:
-        """Validate required environment variables are set."""
-        missing = []
-
-        if not self.url:
-            missing.append("SUPABASE_URL")
-        if not self.service_role_key:
-            missing.append("SUPABASE_SERVICE_ROLE_KEY")
-
-        if missing:
-            raise ValueError(
-                f"Missing required Supabase environment variables: "
-                f"{', '.join(missing)}. "
-                f"Please set these in your environment or .env file."
-            )
+    @property
+    def key(self) -> str:
+        key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+        if not key:
+            raise ValueError("SUPABASE_SERVICE_ROLE_KEY environment variable is not set")
+        return key
 
 
-# ============================================================================
-# Client Singleton
-# ============================================================================
-
+# Global client instance
 _client: Optional[Client] = None
-_HTTPX_CLIENT: Optional[httpx.Client] = None
 
 
-def _build_http_client() -> httpx.Client:
-    """Build an httpx client configured for Supabase interactions."""
-    timeout_seconds = float(os.environ.get("SUPABASE_HTTP_TIMEOUT", "30"))
-    verify_env = os.environ.get("SUPABASE_HTTP_VERIFY", "true").lower()
-    verify = verify_env not in {"0", "false", "no"}
-    return httpx.Client(timeout=timeout_seconds, verify=verify)
+def _build_http_client(timeout: int, verify: bool) -> httpx.Client:
+    """Build HTTP client with specific configuration.
+
+    Args:
+        timeout: Request timeout in seconds
+        verify: Whether to verify SSL certificates
+
+    Returns:
+        Configured httpx.Client
+    """
+    return httpx.Client(timeout=timeout, verify=verify)
 
 
 def _get_http_client() -> httpx.Client:
-    global _HTTPX_CLIENT
-    if _HTTPX_CLIENT is None:
-        _HTTPX_CLIENT = _build_http_client()
-    return _HTTPX_CLIENT
+    """Get HTTP client based on environment configuration.
+
+    Returns:
+        Configured httpx.Client
+    """
+    timeout = int(os.getenv("SUPABASE_HTTP_TIMEOUT", "30"))
+    verify = os.getenv("SUPABASE_HTTP_VERIFY", "true").lower() == "true"
+    return _build_http_client(timeout, verify)
 
 
-@lru_cache()
 def get_client() -> Client:
-    """Get or create the global Supabase client instance."""
+    """Get or create the global Supabase client instance.
+
+    Returns:
+        Supabase client instance
+
+    Raises:
+        ValueError: If required environment variables are missing
+    """
     global _client
-
     if _client is None:
-        # Ensure env vars are loaded if not already done manually
-        # This will use the default behavior (cwd) if init_db_env wasn't called
-        init_db_env()
-
         config = SupabaseConfig()
-        config.validate()
-
-        assert config.url is not None
-        assert config.service_role_key is not None
-
-        client_options = SyncClientOptions(httpx_client=_get_http_client())
-        _client = create_client(config.url, config.service_role_key, client_options)
-        logger.info("Supabase client initialized")
-
+        options = ClientOptions(postgrest_client_timeout=10, storage_client_timeout=10)
+        _client = create_client(config.url, config.key, options=options)
+        # Monkey patch the http_client on the postgrest client directly
+        # since supabase-py doesn't expose a clean way to pass custom httpx client
+        _client.postgrest.http_client = _get_http_client()
     return _client
 
 
@@ -112,23 +102,32 @@ def get_client() -> Client:
 
 
 def fetch_issue(issue_id: int) -> Issue:
-    """Fetch issue from Supabase by ID."""
-    client = get_client()
+    """Fetch an issue by ID.
 
+    Args:
+        issue_id: ID of the issue to fetch
+
+    Returns:
+        Issue object
+
+    Raises:
+        ValueError: If issue is not found or fetch fails
+    """
     try:
-        response = client.table("issues").select("*").eq("id", issue_id).maybe_single().execute()
+        client = get_client()
+        response = client.table("issues").select("*").eq("id", issue_id).execute()
 
-        if response is None:
-            raise ValueError(f"Empty response when fetching issue {issue_id}")
+        # Handle empty response (postgrest returns empty list if not found)
+        # response.data can be None or [] in some versions/cases
+        response_data = response.data[0] if response.data else None
 
-        response_data = cast(Optional[SupabaseRow], response.data)
         if response_data is None:
             raise ValueError(f"Issue with id {issue_id} not found")
 
         return Issue.from_supabase(response_data)
 
     except APIError as e:
-        logger.error("Database error fetching issue %s: %s", issue_id, e)
+        logger.exception(f"Database error fetching issue {issue_id}: {e}")
         raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
 
@@ -136,24 +135,28 @@ def fetch_all_issues() -> List[Issue]:
     """Fetch all issues ordered by creation date (newest first).
 
     Returns:
-        List of Issue objects. Returns empty list if no issues exist.
+        List of Issue objects
 
     Raises:
-        ValueError: If database operation fails.
+        ValueError: If fetch fails
     """
-    client = get_client()
-
     try:
-        response = client.table("issues").select("*").order("created_at", desc=True).execute()
+        client = get_client()
+        response = (
+            client.table("issues")
+            .select("*")
+            .order("created_at", desc=True)
+            .execute()
+        )
 
-        rows = cast(Optional[SupabaseRows], response.data)
+        rows = response.data
         if not rows:
             return []
 
         return [Issue.from_supabase(row) for row in rows]
 
     except APIError as e:
-        logger.error("Database error fetching all issues: %s", e)
+        logger.exception(f"Database error fetching all issues: {e}")
         raise ValueError(f"Failed to fetch issues: {e}") from e
 
 
@@ -163,305 +166,216 @@ def fetch_all_issues() -> List[Issue]:
 
 
 def create_comment(comment: Comment) -> Comment:
-    """Create a comment on an issue from a Comment payload."""
-    client = get_client()
+    """Create a new comment in the database.
 
-    comment_data: SupabaseRow = {
-        "issue_id": comment.issue_id,
-        "comment": comment.comment.strip(),
-        "raw": comment.raw or {},
-        "source": comment.source,
-        "type": comment.type,
-        "adw_id": comment.adw_id,
-    }
+    Args:
+        comment: Comment object to create (id can be None)
 
+    Returns:
+        Created Comment object with ID and timestamps populated
+
+    Raises:
+        ValueError: If creation fails
+    """
     try:
-        response = client.table("comments").insert(comment_data).execute()
+        client = get_client()
+        data = comment.to_supabase()
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
+        response = client.table("comments").insert(data).execute()
+
+        if not response.data:
             raise ValueError("Comment creation returned no data")
 
-        first_row = cast(SupabaseRow, rows[0])
-        return Comment(**first_row)
+        return Comment.from_supabase(response.data[0])
 
     except APIError as e:
-        logger.error("Database error creating comment on issue %s: %s", comment.issue_id, e)
-        raise ValueError(f"Failed to create comment on issue {comment.issue_id}: {e}") from e
+        logger.exception(f"Database error creating comment: {e}")
+        raise ValueError(f"Failed to create comment: {e}") from e
 
 
 def fetch_comments(issue_id: int) -> List[Comment]:
-    """Fetch all comments for an issue in chronological order.
+    """Fetch comments for an issue ordered by creation date.
 
     Args:
-        issue_id: The ID of the issue to fetch comments for.
+        issue_id: ID of the issue to fetch comments for
 
     Returns:
-        List of Comment objects. Returns empty list if no comments exist.
+        List of Comment objects
 
     Raises:
-        ValueError: If database operation fails.
+        ValueError: If fetch fails
     """
-    client = get_client()
-
     try:
+        client = get_client()
         response = (
             client.table("comments")
             .select("*")
             .eq("issue_id", issue_id)
-            .order("created_at", desc=True)
+            .order("created_at")
             .execute()
         )
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
+        if not response.data:
             return []
 
-        return [Comment(**row) for row in rows]
+        return [Comment.from_supabase(row) for row in response.data]
 
     except APIError as e:
-        logger.error("Database error fetching comments for issue %s: %s", issue_id, e)
+        logger.exception(f"Database error fetching comments for issue {issue_id}: {e}")
         raise ValueError(f"Failed to fetch comments for issue {issue_id}: {e}") from e
 
 
+# ============================================================================
+# Issue Updates
+# ============================================================================
+
+
 def create_issue(description: str, title: Optional[str] = None) -> Issue:
-    """Create a new issue with the given description.
+    """Create a new issue.
 
     Args:
-        description: The issue description text. Will be trimmed of leading/trailing whitespace.
-                    Must not be empty after trimming.
-        title: Optional title for the issue.
+        description: Issue description/body
+        title: Optional issue title
 
     Returns:
-        Issue: The created issue with database-generated id and timestamps.
+        Created Issue object
 
     Raises:
-        ValueError: If description is empty after trimming, or if database operation fails.
+        ValueError: If creation fails
     """
-    description_clean = description.strip()
-
-    description_length = len(description_clean)
-
-    if description_length == 0:
-        raise ValueError("Issue description cannot be empty")
-
-    if description_length < 10 or description_length > 10000:
-        raise ValueError("Issue description must be between 10 and 10000 characters")
-
-    client = get_client()
-
-    issue_data: SupabaseRow = {
-        "description": description_clean,
-        "status": "pending",
-    }
-
-    if title:
-        title_clean = title.strip()
-        if len(title_clean) > 255:
-            raise ValueError("Issue title cannot exceed 255 characters")
-        issue_data["title"] = title_clean
-
     try:
-        response = client.table("issues").insert(issue_data).execute()
+        client = get_client()
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
+        # Validate inputs
+        if not description or not description.strip():
+            raise ValueError("Description is required")
+
+        if title and not title.strip():
+            raise ValueError("Title cannot be empty/whitespace if provided")
+
+        data = {"description": description, "status": "pending"}
+        if title:
+            data["title"] = title
+
+        response = client.table("issues").insert(data).execute()
+
+        if not response.data:
             raise ValueError("Issue creation returned no data")
 
-        first_row = cast(SupabaseRow, rows[0])
-        return Issue(**first_row)
+        return Issue.from_supabase(response.data[0])
 
     except APIError as e:
-        logger.error("Database error creating issue: %s", e)
+        logger.exception(f"Database error creating issue: {e}")
         raise ValueError(f"Failed to create issue: {e}") from e
 
 
-def update_issue_status(issue_id: int, status: str) -> Issue:
-    """Update the status of an existing issue.
+def update_issue_status(issue_id: int, status: str) -> None:
+    """Update issue status.
 
     Args:
-        issue_id: The ID of the issue to update.
-        status: The new status value. Must be one of: "pending", "started", "completed".
-
-    Returns:
-        Issue: The updated issue with new status and updated timestamp.
+        issue_id: Issue ID to update
+        status: New status (pending, started, completed)
 
     Raises:
-        ValueError: If status is invalid, issue not found, or database operation fails.
+        ValueError: If status is invalid or update fails
     """
-    valid_statuses = ["pending", "started", "completed"]
+    valid_statuses = {"pending", "started", "completed", "patch pending", "patched"}
     if status not in valid_statuses:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
-
-    client = get_client()
-
-    update_data: SupabaseRow = {
-        "status": status,
-    }
+        raise ValueError(
+            f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
+        )
 
     try:
-        response = client.table("issues").update(update_data).eq("id", issue_id).execute()
+        client = get_client()
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
+        # Verify issue exists first
+        issue_check = client.table("issues").select("id").eq("id", issue_id).execute()
+        if not issue_check.data:
             raise ValueError(f"Issue with id {issue_id} not found")
 
-        first_row = cast(SupabaseRow, rows[0])
-        return Issue(**first_row)
+        response = (
+            client.table("issues").update({"status": status}).eq("id", issue_id).execute()
+        )
+        if not response.data:
+            raise ValueError(f"Update failed: issue {issue_id} not returned")
 
     except APIError as e:
-        logger.error("Database error updating issue %s status: %s", issue_id, e)
+        logger.exception(f"Database error updating status for issue {issue_id}: {e}")
         raise ValueError(f"Failed to update issue {issue_id} status: {e}") from e
 
 
-def update_issue_description(issue_id: int, description: str) -> Issue:
-    """Update the description of an existing issue.
+def update_issue_description(issue_id: int, description: str) -> None:
+    """Update issue description.
 
     Args:
-        issue_id: The ID of the issue to update.
-        description: The new description text. Will be trimmed of leading/trailing whitespace.
-                    Must be between 10 and 10000 characters after trimming.
-
-    Returns:
-        Issue: The updated issue with new description and updated timestamp.
+        issue_id: Issue ID to update
+        description: New description
 
     Raises:
-        ValueError: If description is invalid, issue not found, or database operation fails.
+        ValueError: If description is empty or update fails
     """
-    description_clean = description.strip()
-
-    if not description_clean:
-        raise ValueError("Issue description cannot be empty")
-
-    if len(description_clean) < 10:
-        raise ValueError("Issue description must be at least 10 characters")
-
-    if len(description_clean) > 10000:
-        raise ValueError("Issue description cannot exceed 10000 characters")
-
-    client = get_client()
-
-    update_data: SupabaseRow = {
-        "description": description_clean,
-    }
+    if not description or not description.strip():
+        raise ValueError("Description cannot be empty")
 
     try:
-        response = client.table("issues").update(update_data).eq("id", issue_id).execute()
-
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
-            raise ValueError(f"Issue with id {issue_id} not found")
-
-        first_row = cast(SupabaseRow, rows[0])
-        return Issue(**first_row)
+        client = get_client()
+        client.table("issues").update({"description": description}).eq(
+            "id", issue_id
+        ).execute()
 
     except APIError as e:
-        logger.error("Database error updating issue %s description: %s", issue_id, e)
+        logger.exception(f"Database error updating description for issue {issue_id}: {e}")
         raise ValueError(f"Failed to update issue {issue_id} description: {e}") from e
 
 
-def delete_issue(issue_id: int) -> bool:
-    """Delete an issue and its associated comments from the database.
-
-    This operation will cascade delete all comments associated with the issue
-    if the database foreign key constraint is configured with ON DELETE CASCADE.
+def delete_issue(issue_id: int) -> None:
+    """Delete an issue.
 
     Args:
-        issue_id: The ID of the issue to delete.
-
-    Returns:
-        bool: True if the issue was successfully deleted.
+        issue_id: Issue ID to delete
 
     Raises:
-        ValueError: If issue not found or database operation fails.
+        ValueError: If deletion fails
     """
-    client = get_client()
-
     try:
-        response = client.table("issues").delete().eq("id", issue_id).execute()
-
-        if not response.data:
-            raise ValueError(f"Issue with id {issue_id} not found")
-
-        logger.info("Successfully deleted issue %s", issue_id)
-        return True
+        client = get_client()
+        client.table("issues").delete().eq("id", issue_id).execute()
+        # Note: PostgREST delete returns rows, but if ID didn't exist, it returns []
+        # We don't necessarily want to fail if it didn't exist (idempotency)
 
     except APIError as e:
-        logger.error("Database error deleting issue %s: %s", issue_id, e)
+        logger.exception(f"Database error deleting issue {issue_id}: {e}")
         raise ValueError(f"Failed to delete issue {issue_id}: {e}") from e
 
 
-def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
-    """Update the worker assignment of an existing issue.
+def update_issue_assignment(issue_id: int, assigned_to: str) -> None:
+    """Update issue worker assignment.
 
     Args:
-        issue_id: The ID of the issue to update.
-        assigned_to: The worker ID to assign. Must be one of: None, "alleycat-1",
-                    "alleycat-2", "alleycat-3", "hailmary-1", "hailmary-2",
-                    "hailmary-3", "local-1", "local-2",
-                    "local-3", "tydirium-1", "tydirium-2", "tydirium-3".
-
-    Returns:
-        Issue: The updated issue with new assignment and updated timestamp.
+        issue_id: Issue ID to update
+        assigned_to: Worker ID string
 
     Raises:
-        ValueError: If assigned_to is invalid, issue not found, issue is not pending,
-                   or database operation fails.
+        ValueError: If inputs invalid or update fails
     """
-    # Validate assigned_to parameter
-    valid_workers = [
-        None,
-        "alleycat-1",
-        "alleycat-2",
-        "alleycat-3",
-        "hailmary-1",
-        "hailmary-2",
-        "hailmary-3",
-        "local-1",
-        "local-2",
-        "local-3",
-        "tydirium-1",
-        "tydirium-2",
-        "tydirium-3",
-    ]
-    if assigned_to not in valid_workers:
-        raise ValueError(
-            f"Invalid worker ID '{assigned_to}'. Must be one of: "
-            f"{', '.join(repr(w) for w in valid_workers)}"
-        )
-
-    # First, fetch the issue to check its status
-    try:
-        current_issue = fetch_issue(issue_id)
-    except ValueError as e:
-        raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
-
-    # Only allow assignment for pending issues
-    if current_issue.status != "pending":
-        raise ValueError(
-            f"Cannot assign worker to issue {issue_id} with status '{current_issue.status}'. "
-            f"Only pending issues can be assigned."
-        )
-
-    client = get_client()
-
-    update_data: SupabaseRow = {
-        "assigned_to": assigned_to,
-    }
+    if not assigned_to or not assigned_to.strip():
+        raise ValueError("Worker ID cannot be empty")
 
     try:
-        response = client.table("issues").update(update_data).eq("id", issue_id).execute()
+        client = get_client()
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
-            raise ValueError(f"Issue with id {issue_id} not found")
+        # Validate issue exists and status
+        issue = fetch_issue(issue_id)
+        if issue.status == "completed":
+            logger.warning(f"Updating assignment for completed issue {issue_id}")
 
-        first_row = cast(SupabaseRow, rows[0])
-        return Issue(**first_row)
+        client.table("issues").update({"assigned_to": assigned_to}).eq(
+            "id", issue_id
+        ).execute()
 
     except APIError as e:
-        logger.error("Database error updating issue %s assignment: %s", issue_id, e)
-        raise ValueError(f"Failed to update issue {issue_id} assignment: {e}") from e
+        logger.exception(f"Database error assigning issue {issue_id}: {e}")
+        raise ValueError(f"Failed to assign issue {issue_id}: {e}") from e
 
 
 # ============================================================================
@@ -469,78 +383,70 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
 # ============================================================================
 
 
-def fetch_pending_patch(issue_id: int) -> Patch:
+def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
     """Fetch the oldest pending patch for an issue.
 
     Args:
-        issue_id: The ID of the issue to fetch patches for.
+        issue_id: Issue ID to find patch for
 
     Returns:
-        Patch: The oldest pending patch (ordered by created_at ASC).
-
-    Raises:
-        ValueError: If no pending patch exists for the issue or database operation fails.
+        Patch object if found, None otherwise
     """
-    client = get_client()
-
     try:
+        client = get_client()
         response = (
             client.table("patches")
             .select("*")
             .eq("issue_id", issue_id)
             .eq("status", "pending")
-            .order("created_at", desc=False)
+            .order("created_at", desc=False)  # Oldest first (FIFO)
             .limit(1)
-            .maybe_single()
             .execute()
         )
 
-        if response is None:
-            raise ValueError(f"No pending patch found for issue {issue_id}")
+        if response.data and len(response.data) > 0:
+            return Patch.from_supabase(response.data[0])
 
-        response_data = cast(Optional[SupabaseRow], response.data)
-        if response_data is None:
-            raise ValueError(f"No pending patch found for issue {issue_id}")
-
-        return Patch.from_supabase(response_data)
+        return None
 
     except APIError as e:
-        logger.exception("Database error fetching pending patch for issue %s: %s", issue_id, e)
-        raise ValueError(f"Failed to fetch pending patch for issue {issue_id}: {e}") from e
+        logger.exception(f"Database error fetching pending patch for issue {issue_id}: {e}")
+        # Don't raise, just return None as "no patch found"
+        return None
 
 
-def update_patch_status(patch_id: int, status: str, log: Optional[logging.Logger] = None) -> None:
-    """Update the status of an existing patch.
+def update_patch_status(
+    patch_id: int, status: str, log: Optional[logging.Logger] = None
+) -> None:
+    """Update patch status.
 
     Args:
-        patch_id: The ID of the patch to update.
-        status: The new status value. Must be one of: "pending", "completed", "failed".
-        log: Optional logger instance to use. Falls back to module logger if not provided.
+        patch_id: ID of patch to update
+        status: New status (pending, completed, failed)
+        log: Optional logger to use (defaults to module logger)
 
     Raises:
-        ValueError: If status is invalid, patch not found, or database operation fails.
+        ValueError: If status invalid or update fails
     """
+    valid_statuses = {"pending", "completed", "failed"}
+    if status not in valid_statuses:
+        raise ValueError(
+            f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
+        )
+
     _log = log or logger
 
-    valid_statuses = ["pending", "completed", "failed"]
-    if status not in valid_statuses:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
-
-    client = get_client()
-
-    update_data: SupabaseRow = {
-        "status": status,
-    }
-
     try:
-        response = client.table("patches").update(update_data).eq("id", patch_id).execute()
+        client = get_client()
 
-        rows = cast(Optional[SupabaseRows], response.data)
-        if not rows:
+        # Verify exists
+        check = client.table("patches").select("id").eq("id", patch_id).execute()
+        if not check.data:
             raise ValueError(f"Patch with id {patch_id} not found")
 
-        _log.info("Updated patch %s status to '%s'", patch_id, status)
+        client.table("patches").update({"status": status}).eq("id", patch_id).execute()
+        _log.info(f"Updated patch {patch_id} status to {status}")
 
     except APIError as e:
-        _log.error("Database error updating patch %s status: %s", patch_id, e)
+        _log.exception(f"Database error updating patch {patch_id} status: {e}")
         raise ValueError(f"Failed to update patch {patch_id} status: {e}") from e

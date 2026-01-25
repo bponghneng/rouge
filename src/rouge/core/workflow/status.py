@@ -24,7 +24,7 @@ def update_status(issue_id: int, status: str) -> None:
         update_issue_status(issue_id, status)
         logger.debug("Issue %s status updated to '%s'", issue_id, status)
     except APIError as e:
-        logger.error("Failed to update issue %s status to '%s': %s", issue_id, status, e)
+        logger.exception(f"Failed to update issue {issue_id} status to '{status}': {e}")
 
 
 def transition_to_patch_pending(issue_id: int) -> None:
@@ -42,7 +42,7 @@ def transition_to_patch_pending(issue_id: int) -> None:
         client.table("issues").update({"status": "patch pending"}).eq("id", issue_id).execute()
         logger.debug("Issue %s status updated to 'patch pending'", issue_id)
     except APIError as e:
-        logger.error("Failed to update issue %s status to 'patch pending': %s", issue_id, e)
+        logger.exception(f"Failed to update issue {issue_id} status to 'patch pending': {e}")
 
 
 def transition_to_patched(issue_id: int, patch_id: int) -> None:
@@ -69,4 +69,4 @@ def transition_to_patched(issue_id: int, patch_id: int) -> None:
         client.table("issues").update({"status": "patched"}).eq("id", issue_id).execute()
         logger.debug("Issue %s status updated to 'patched'", issue_id)
     except APIError as e:
-        logger.error("Failed to update issue %s status to 'patched': %s", issue_id, e)
+        logger.exception(f"Failed to update issue {issue_id} status to 'patched': {e}")

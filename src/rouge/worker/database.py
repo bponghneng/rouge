@@ -54,7 +54,7 @@ def get_next_issue(
 
     except Exception as e:
         if logger:
-            logger.error("Error retrieving next issue: %s", e)
+            logger.exception(f"Error retrieving next issue: {e}")
         return None
 
 
@@ -93,4 +93,4 @@ def update_issue_status(
 
     except Exception as e:
         if logger:
-            logger.error("Error updating issue %s status: %s", issue_id, e)
+            logger.exception(f"Error updating issue {issue_id} status: {e}")

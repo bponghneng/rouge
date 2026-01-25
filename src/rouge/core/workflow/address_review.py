@@ -1,16 +1,11 @@
-"""Review issue addressing functionality for workflow orchestration."""
-
 import logging
-from typing import Callable, Optional
+from typing import Any, Dict
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.shared import AGENT_REVIEW_IMPLEMENTOR
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
+from rouge.core.workflow.workflow_io import emit_comment_from_payload, emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -23,32 +18,36 @@ ADDRESS_REVIEW_REQUIRED_FIELDS = {
 
 
 def address_review_issues(
-    review_text: str,
     issue_id: int,
     adw_id: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
-) -> StepResult[None]:
-    """Execute the /address-review-issues template with the review content.
+    review_text: str,
+    stream_handler: Any = None,
+) -> StepResult:
+    """Address issues found in the review.
+
+    This step runs the /adw-implement-review slash command to address
+    the issues identified in the review step.
 
     Args:
-        review_text: Full review content to address
-        issue_id: Issue ID for tracking
-        adw_id: Workflow ID for tracking
-        stream_handler: Optional callback for streaming output
+        issue_id: Issue ID
+        adw_id: ADW workflow ID
+        review_text: The review text containing issues to address
+        stream_handler: Optional handler for streaming output
 
     Returns:
-        StepResult with None data (success/failure only)
+        StepResult indicating success or failure
     """
+    logger.info("Addressing review issues for issue %s (adw_id=%s)", issue_id, adw_id)
+
+    if not review_text or not review_text.strip():
+        logger.error("Review text is empty")
+        return StepResult.fail("Review text is empty")
+
     try:
-        review_text = review_text.strip()
-        if not review_text:
-            return StepResult.fail("Review text is empty")
-
-        logger.debug("Invoking /adw-implement-review template with review content")
-
-        # Call execute_template with the review content
+        # Construct the template request
+        # Pass the review text as an argument to the slash command
         request = ClaudeAgentTemplateRequest(
-            agent_name=AGENT_REVIEW_IMPLEMENTOR,
+            agent_name="code_review",
             slash_command="/adw-implement-review",
             args=[review_text],
             adw_id=adw_id,
@@ -57,28 +56,29 @@ def address_review_issues(
         )
 
         logger.debug(
-            "address_review_issues request: %s",
+            "address_review request: %s",
             request.model_dump_json(indent=2, by_alias=True),
         )
 
-        # Execute template - now requiring JSON with proper validation
-        response = execute_template(request, stream_handler=stream_handler, require_json=True)
-
-        logger.debug(
-            "address_review_issues response: success=%s",
-            response.success,
+        # Execute the template
+        response = execute_template(
+            request, stream_handler=stream_handler, require_json=True
         )
 
-        # Emit raw LLM response for debugging visibility
+        logger.debug("address_review response: success=%s", response.success)
+
+        # Emit progress comment
         emit_progress_comment(
             issue_id,
-            "Address review LLM response received",
+            "Addressing review issues...",
             raw={"output": "address-review-response", "llm_response": response.output},
             adw_id=adw_id,
         )
 
         if not response.success:
-            logger.error("Failed to execute /adw-implement-review template: %s", response.output)
+            logger.error(
+                "Failed to execute /adw-implement-review template: %s", response.output
+            )
             return StepResult.fail(
                 f"Failed to execute /adw-implement-review template: {response.output}"
             )
@@ -92,23 +92,25 @@ def address_review_issues(
         if not parse_result.success:
             return StepResult.fail(parse_result.error or "JSON parsing failed")
 
-        # Insert progress comment with parsed template output
-        payload = CommentPayload(
-            issue_id=issue_id,
+        logger.info("Review issues addressed successfully")
+
+        # Emit result comment
+        emit_comment_from_payload(
+            issue_id,
+            "address_review",
+            {
+                "raw": {
+                    "output": parse_result.data.get("output", ""),
+                    "summary": parse_result.data.get("summary", ""),
+                    "issues": parse_result.data.get("issues", []),
+                    "parsed_data": parse_result.data,
+                }
+            },
             adw_id=adw_id,
-            text="Review issues template executed successfully",
-            raw={"template_output": parse_result.data},
-            source="system",
-            kind="artifact",
         )
-        status, msg = emit_comment_from_payload(payload)
-        if status != "success":
-            logger.error("Failed to insert template notification comment: %s", msg)
-        else:
-            logger.debug("Template notification comment inserted: %s", msg)
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 
     except Exception as e:
-        logger.error("Failed to address review issues: %s", e)
+        logger.exception(f"Failed to address review issues: {e}")
         return StepResult.fail(f"Failed to address review issues: {e}")

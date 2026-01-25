@@ -82,14 +82,14 @@ def make_progress_comment_handler(
                     else:
                         logger.error("Failed to insert progress comment: %s", msg)
                 except Exception as exc:
-                    logger.error("Error serializing assistant item: %s", exc)
+                    logger.exception("Error serializing assistant item: %s", exc)
 
         except json.JSONDecodeError as exc:
             # JSON parsing error - log but continue
             logger.debug("JSON decode error in stream handler: %s", exc)
         except Exception as exc:
             # Unexpected error - log but never raise
-            logger.error("Stream handler error: %s", exc)
+            logger.exception("Stream handler error: %s", exc)
 
     return handler
 
@@ -114,6 +114,6 @@ def make_simple_logger_handler() -> Callable[[str], None]:
             logger.debug("Agent output: %s", line.strip())
         except Exception as exc:
             # Even logging errors shouldn't interrupt execution
-            logger.error("Logger handler error: %s", exc)
+            logger.exception("Logger handler error: %s", exc)
 
     return handler
