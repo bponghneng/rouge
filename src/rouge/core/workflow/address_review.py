@@ -61,9 +61,7 @@ def address_review_issues(
         )
 
         # Execute the template
-        response = execute_template(
-            request, stream_handler=stream_handler, require_json=True
-        )
+        response = execute_template(request, stream_handler=stream_handler, require_json=True)
 
         logger.debug("address_review response: success=%s", response.success)
 
@@ -76,9 +74,7 @@ def address_review_issues(
         )
 
         if not response.success:
-            logger.error(
-                "Failed to execute /adw-implement-review template: %s", response.output
-            )
+            logger.error("Failed to execute /adw-implement-review template: %s", response.output)
             return StepResult.fail(
                 f"Failed to execute /adw-implement-review template: {response.output}"
             )
@@ -95,14 +91,15 @@ def address_review_issues(
         logger.info("Review issues addressed successfully")
 
         # Emit result comment
+        parsed_data = parse_result.data or {}
         status, msg = emit_progress_comment(
             issue_id=issue_id,
             message="Review issues addressed",
             raw={
-                "output": parse_result.data.get("output", ""),
-                "summary": parse_result.data.get("summary", ""),
-                "issues": parse_result.data.get("issues", []),
-                "parsed_data": parse_result.data,
+                "output": parsed_data.get("output", ""),
+                "summary": parsed_data.get("summary", ""),
+                "issues": parsed_data.get("issues", []),
+                "parsed_data": parsed_data,
             },
             comment_type="address_review",
             adw_id=adw_id,

@@ -210,23 +210,40 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 
     The patch workflow is a subset of the default workflow, designed to process
     patches against an existing issue that has already been through the main
-    workflow. It assumes:
+    workflow.
 
+    Artifact Handling:
+    -----------------
+    The patch workflow uses a parent_workflow_id to access shared artifacts from
+    the main workflow. Artifact types are categorized as:
+
+    - SHARED artifacts (read from parent if missing locally):
+      issue, classification, plan, pr_metadata, pull_request
+
+    - PATCH-SPECIFIC artifacts (never read from parent):
+      patch, patch_plan, patch_acceptance, implementation, review,
+      review_addressed, quality_check, acceptance
+
+    Key behaviors:
+    - FetchPatchStep: Writes only PatchArtifact (IssueArtifact is read from parent)
+    - ImplementStep: Uses patch_plan artifact first, falls back to plan if missing
+    - UpdatePRCommitsStep: FAILS if no pull_request artifact exists (from parent)
+
+    Assumptions:
     - SetupStep is NOT needed: The repository is already set up from the main workflow
-    - ClassifyStep is NOT needed: The classification already exists in the main
-      workflow artifacts at <main_adw_id> directory
+    - ClassifyStep is NOT needed: The classification exists in parent workflow artifacts
     - PR/MR creation steps are NOT needed: Patch commits will be added to the
       existing PR/MR created by the main workflow
 
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch the patch data
+    1. FetchPatchStep - Fetch patch data; writes PatchArtifact only
     2. BuildPatchPlanStep - Build a plan specific to the patch changes
-    3. ImplementStep - Implement the patch changes
+    3. ImplementStep - Implement using patch_plan (or fall back to plan from parent)
     4. GenerateReviewStep - Generate review of the implementation
     5. AddressReviewStep - Address any review feedback
     6. CodeQualityStep - Run code quality checks
     7. ValidatePatchAcceptanceStep - Validate patch meets acceptance criteria
-    8. UpdatePRCommitsStep - Update the existing PR with new commits
+    8. UpdatePRCommitsStep - Update existing PR with new commits (fails if no PR)
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
