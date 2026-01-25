@@ -30,7 +30,9 @@ def mock_env(monkeypatch):
 def test_supabase_config_validation_success(mock_env):
     """Test config validation with valid env vars."""
     config = SupabaseConfig()
-    config.validate()  # Should not raise
+    # Properties should not raise when accessed
+    assert config.url == "https://test.supabase.co"
+    assert config.key == "test_key"
 
 
 def test_supabase_config_validation_missing_url(monkeypatch):
@@ -40,7 +42,7 @@ def test_supabase_config_validation_missing_url(monkeypatch):
 
     config = SupabaseConfig()
     with pytest.raises(ValueError, match="SUPABASE_URL"):
-        config.validate()
+        _ = config.url
 
 
 def test_supabase_config_validation_missing_key(monkeypatch):
@@ -50,7 +52,7 @@ def test_supabase_config_validation_missing_key(monkeypatch):
 
     config = SupabaseConfig()
     with pytest.raises(ValueError, match="SUPABASE_SERVICE_ROLE_KEY"):
-        config.validate()
+        _ = config.key
 
 
 @patch("rouge.core.database.create_client")
@@ -59,8 +61,7 @@ def test_get_client(mock_create_client, mock_env):
     mock_client = Mock()
     mock_create_client.return_value = mock_client
 
-    # Clear cache and global client
-    get_client.cache_clear()
+    # Clear global client
     import rouge.core.database
 
     rouge.core.database._client = None
