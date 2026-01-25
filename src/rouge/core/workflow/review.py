@@ -78,5 +78,5 @@ def generate_review(
         logger.exception("CodeRabbit review timed out after 300 seconds")
         return StepResult.fail("CodeRabbit review timed out after 300 seconds")
     except Exception as e:
-        logger.exception(f"Failed to generate review: {e}")
+        logger.exception("Failed to generate review: %s", e)
         return StepResult.fail(f"Failed to generate review: {e}")

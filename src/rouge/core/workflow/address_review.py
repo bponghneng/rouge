@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict
+from typing import Any
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -112,5 +112,5 @@ def address_review_issues(
         return StepResult.ok(None, parsed_data=parse_result.data)
 
     except Exception as e:
-        logger.exception(f"Failed to address review issues: {e}")
+        logger.exception("Failed to address review issues: %s", e)
         return StepResult.fail(f"Failed to address review issues: {e}")
