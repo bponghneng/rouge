@@ -63,7 +63,7 @@ class TestLoadPlanText:
     """Tests for _load_plan_text method."""
 
     def test_uses_patch_plan_when_available(
-        self, mock_context, sample_patch_plan_data, sample_plan_data
+        self, mock_context, sample_patch_plan_data
     ):
         """Test that patch_plan is preferred when available."""
         # Setup: patch_plan_data is in context
@@ -200,7 +200,7 @@ class TestImplementStepRun:
     def test_run_success_with_plan(
         self,
         mock_implement_plan,
-        mock_emit,
+        _mock_emit,
         mock_context,
         sample_plan_data,
         sample_implement_data,
@@ -245,7 +245,7 @@ class TestImplementStepRun:
     def test_run_fails_when_implement_plan_fails(
         self,
         mock_implement_plan,
-        mock_emit,
+        _mock_emit,
         mock_context,
         sample_plan_data,
     ):
@@ -264,14 +264,14 @@ class TestImplementStepRun:
 
         assert result.success is False
         assert "Implementation failed" in result.error
-        mock_emit.assert_not_called()
+        _mock_emit.assert_not_called()
 
     @patch("rouge.core.workflow.steps.implement.emit_progress_comment")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_run_saves_artifact(
         self,
         mock_implement_plan,
-        mock_emit,
+        _mock_emit,
         mock_context,
         sample_plan_data,
         sample_implement_data,

@@ -150,7 +150,16 @@ def fetch_all_issues() -> list[Issue]:
         if not rows:
             return []
 
-        return [Issue.from_supabase(row) for row in rows if isinstance(row, dict)]
+        # Validate all rows are dicts before processing
+        issues = []
+        for i, row in enumerate(rows):
+            if not isinstance(row, dict):
+                raise ValueError(
+                    f"Invalid row at index {i}: expected dict, got {type(row).__name__}. "
+                    f"Value preview: {str(row)[:100]}"
+                )
+            issues.append(Issue.from_supabase(row))
+        return issues
 
     except APIError as e:
         logger.exception("Database error fetching all issues")
@@ -219,7 +228,16 @@ def fetch_comments(issue_id: int) -> list[Comment]:
         if not response.data:
             return []
 
-        return [Comment.from_supabase(row) for row in response.data if isinstance(row, dict)]
+        # Validate all rows are dicts before processing
+        comments = []
+        for i, row in enumerate(response.data):
+            if not isinstance(row, dict):
+                raise ValueError(
+                    f"Invalid row at index {i}: expected dict, got {type(row).__name__}. "
+                    f"Value preview: {str(row)[:100]}"
+                )
+            comments.append(Comment.from_supabase(row))
+        return comments
 
     except APIError as e:
         logger.exception("Database error fetching comments for issue %s", issue_id)
