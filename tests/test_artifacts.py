@@ -899,3 +899,139 @@ class TestArtifactStoreParentWorkflow:
         # Read should raise FileNotFoundError (no fallback)
         with pytest.raises(FileNotFoundError, match="Artifact not found: plan"):
             child_store.read_artifact("plan", PlanArtifact)
+
+
+class TestArtifactStorePatchWorkflowWriteValidation:
+    """Tests for write validation that warns when patch workflows write shared artifacts."""
+
+    def test_is_patch_workflow_true_for_patch_suffix(self, tmp_path):
+        """Test _is_patch_workflow returns True for workflow IDs ending in -patch."""
+        store = ArtifactStore("adw-123-patch", base_path=tmp_path)
+        assert store._is_patch_workflow() is True
+
+    def test_is_patch_workflow_false_for_regular_workflow(self, tmp_path):
+        """Test _is_patch_workflow returns False for regular workflow IDs."""
+        store = ArtifactStore("adw-123", base_path=tmp_path)
+        assert store._is_patch_workflow() is False
+
+    def test_is_patch_workflow_false_for_patch_in_middle(self, tmp_path):
+        """Test _is_patch_workflow returns False when -patch is not at the end."""
+        store = ArtifactStore("adw-patch-123", base_path=tmp_path)
+        assert store._is_patch_workflow() is False
+
+    def test_patch_workflow_write_shared_artifact_logs_warning(self, tmp_path, caplog):
+        """Test that writing a shared artifact from a patch workflow logs a warning."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        store = ArtifactStore("adw-123-patch", base_path=tmp_path)
+
+        # Write a shared artifact type (issue)
+        issue = Issue(id=1, description="Test issue")
+        artifact = IssueArtifact(workflow_id="adw-123-patch", issue=issue)
+
+        store.write_artifact(artifact)
+
+        # Verify warning was logged
+        assert len(caplog.records) >= 1
+        warning_record = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_record) == 1
+        warning_msg = warning_record[0].message
+        assert "Patch workflow adw-123-patch is writing shared artifact type 'issue'" in warning_msg
+        assert "Shared artifacts should typically be read from the parent workflow" in warning_msg
+
+        # Verify the artifact was still written (permissive mode)
+        assert store.artifact_exists("issue")
+
+    def test_patch_workflow_write_patch_specific_artifact_no_warning(self, tmp_path, caplog):
+        """Test writing patch-specific artifact from patch workflow does NOT warn."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        store = ArtifactStore("adw-123-patch", base_path=tmp_path)
+
+        # Write a patch-specific artifact type (implementation)
+        implement_data = ImplementData(output="Implementation output")
+        artifact = ImplementationArtifact(
+            workflow_id="adw-123-patch", implement_data=implement_data
+        )
+
+        store.write_artifact(artifact)
+
+        # Verify no warning was logged
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_records) == 0
+
+        # Verify the artifact was written
+        assert store.artifact_exists("implementation")
+
+    def test_regular_workflow_write_shared_artifact_no_warning(self, tmp_path, caplog):
+        """Test that writing a shared artifact from a regular workflow does NOT log a warning."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        store = ArtifactStore("adw-123", base_path=tmp_path)
+
+        # Write a shared artifact type (issue)
+        issue = Issue(id=1, description="Test issue")
+        artifact = IssueArtifact(workflow_id="adw-123", issue=issue)
+
+        store.write_artifact(artifact)
+
+        # Verify no warning was logged
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_records) == 0
+
+        # Verify the artifact was written
+        assert store.artifact_exists("issue")
+
+    def test_patch_workflow_write_all_shared_artifacts_logs_warnings(self, tmp_path, caplog):
+        """Test that writing any shared artifact from a patch workflow logs a warning."""
+        import logging
+
+        caplog.set_level(logging.WARNING)
+
+        store = ArtifactStore("adw-456-patch", base_path=tmp_path)
+
+        # Write each shared artifact type and verify warning
+        shared_artifacts = [
+            IssueArtifact(
+                workflow_id="adw-456-patch",
+                issue=Issue(id=1, description="Test"),
+            ),
+            ClassificationArtifact(
+                workflow_id="adw-456-patch",
+                classify_data=ClassifyData(
+                    command="/adw-feature-plan",
+                    classification={"type": "feature"},
+                ),
+            ),
+            PlanArtifact(
+                workflow_id="adw-456-patch",
+                plan_data=PlanData(plan="Test plan", summary="Summary"),
+            ),
+            PRMetadataArtifact(
+                workflow_id="adw-456-patch",
+                title="Test PR",
+                summary="Test summary",
+            ),
+            PullRequestArtifact(
+                workflow_id="adw-456-patch",
+                url="https://github.com/test/repo/pull/1",
+                platform="github",
+            ),
+        ]
+
+        for artifact in shared_artifacts:
+            store.write_artifact(artifact)
+
+        # Verify a warning was logged for each shared artifact type
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warning_records) == len(SHARED_ARTIFACT_TYPES)
+
+        # Verify all artifacts were still written
+        for artifact_type in SHARED_ARTIFACT_TYPES:
+            assert store.artifact_exists(artifact_type)
