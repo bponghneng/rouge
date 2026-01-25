@@ -62,9 +62,7 @@ def sample_implement_data():
 class TestLoadPlanText:
     """Tests for _load_plan_text method."""
 
-    def test_uses_patch_plan_when_available(
-        self, mock_context, sample_patch_plan_data
-    ):
+    def test_uses_patch_plan_when_available(self, mock_context, sample_patch_plan_data):
         """Test that patch_plan is preferred when available."""
         # Setup: patch_plan_data is in context
         mock_context.data = {"patch_plan_data": sample_patch_plan_data}
@@ -164,7 +162,7 @@ class TestLoadPlanText:
 class TestImplementStepRun:
     """Tests for ImplementStep.run method."""
 
-    @patch("rouge.core.workflow.steps.implement.emit_progress_comment")
+    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_run_success_with_patch_plan(
         self,
@@ -183,6 +181,7 @@ class TestImplementStepRun:
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
         mock_implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementStep()
         result = step.run(mock_context)
@@ -195,12 +194,12 @@ class TestImplementStepRun:
         )
         mock_emit.assert_called_once()
 
-    @patch("rouge.core.workflow.steps.implement.emit_progress_comment")
+    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_run_success_with_plan(
         self,
         mock_implement_plan,
-        _mock_emit,
+        mock_emit,
         mock_context,
         sample_plan_data,
         sample_implement_data,
@@ -214,6 +213,7 @@ class TestImplementStepRun:
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
         mock_implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementStep()
         result = step.run(mock_context)
@@ -240,7 +240,7 @@ class TestImplementStepRun:
         assert result.success is False
         assert "no plan or patch_plan available" in result.error
 
-    @patch("rouge.core.workflow.steps.implement.emit_progress_comment")
+    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_run_fails_when_implement_plan_fails(
         self,
@@ -266,12 +266,12 @@ class TestImplementStepRun:
         assert "Implementation failed" in result.error
         _mock_emit.assert_not_called()
 
-    @patch("rouge.core.workflow.steps.implement.emit_progress_comment")
+    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_run_saves_artifact(
         self,
         mock_implement_plan,
-        _mock_emit,
+        mock_emit,
         mock_context,
         sample_plan_data,
         sample_implement_data,
@@ -285,6 +285,7 @@ class TestImplementStepRun:
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
         mock_implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementStep()
         result = step.run(mock_context)

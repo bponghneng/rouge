@@ -358,7 +358,7 @@ def test_generate_review_timeout(mock_subprocess):
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
-@patch("rouge.core.workflow.address_review.emit_progress_comment")
+@patch("rouge.core.workflow.address_review.emit_comment_from_payload")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_success(mock_request_class, mock_emit_comment, mock_execute):
     """Test successful notification of review template."""
@@ -375,7 +375,7 @@ def test_address_review_issues_success(mock_request_class, mock_emit_comment, mo
     mock_response.output = address_review_json
     mock_execute.return_value = mock_response
 
-    # Mock emit_progress_comment success
+    # Mock emit_comment_from_payload success
     mock_emit_comment.return_value = ("success", "Comment inserted")
 
     result = address_review_issues(
@@ -386,7 +386,7 @@ def test_address_review_issues_success(mock_request_class, mock_emit_comment, mo
 
     assert result.success
     mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
-    # emit_progress_comment is called twice: once for progress, once for result
+    # emit_comment_from_payload is called twice: once for progress, once for result
     assert mock_emit_comment.call_count == 2
 
 
@@ -430,7 +430,7 @@ def test_address_review_issues_execution_failure(mock_request_class, mock_execut
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_which):
     """Test successful PR creation with git push before gh pr create."""
@@ -455,7 +455,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
 
-    # Mock emit_progress_comment success
+    # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
@@ -484,18 +484,22 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
     # Verify the emit call has correct data
     call_args = mock_emit.call_args
-    assert call_args[0][0] == 1  # issue_id
-    assert "https://github.com/owner/repo/pull/123" in call_args[0][1]
-    assert call_args[1]["raw"]["output"] == "pull-request-created"
-    assert call_args[1]["raw"]["url"] == "https://github.com/owner/repo/pull/123"
+    payload = call_args[0][0]
+    assert payload.issue_id == 1
+    assert "https://github.com/owner/repo/pull/123" in payload.text
+    assert payload.raw["output"] == "pull-request-created"
+    assert payload.raw["url"] == "https://github.com/owner/repo/pull/123"
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 def test_create_pr_step_missing_github_pat(mock_emit):
     """Test PR creation skipped when GITHUB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -509,14 +513,17 @@ def test_create_pr_step_missing_github_pat(mock_emit):
 
     assert result.success is True
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 def test_create_pr_step_missing_pr_details(mock_emit):
     """Test PR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     # No pr_details in context
@@ -526,15 +533,18 @@ def test_create_pr_step_missing_pr_details(mock_emit):
 
     assert result.success is True
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit):
     """Test PR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -548,12 +558,12 @@ def test_create_pr_step_empty_title(mock_emit):
 
     assert result.success is True
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
@@ -580,6 +590,9 @@ def test_create_pr_step_gh_command_failure(
 
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -592,12 +605,12 @@ def test_create_pr_step_gh_command_failure(
 
     assert result.success is False
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_which):
@@ -623,6 +636,9 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
         subprocess.TimeoutExpired(cmd="gh", timeout=120),
     ]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -635,11 +651,11 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
 
     assert result.success is False
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-failed"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     """Test PR creation handles gh CLI not found via proactive detection."""
@@ -648,6 +664,9 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
 
     # Mock shutil.which to return None (gh not found)
     mock_which.return_value = None
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -663,13 +682,13 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     assert result.success is True
     mock_which.assert_called_once_with("gh")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-skipped"
-    assert "gh CLI not found" in mock_emit.call_args[1]["raw"]["reason"]
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
+    assert "gh CLI not found" in mock_emit.call_args[0][0].raw["reason"]
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
@@ -696,6 +715,9 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -710,12 +732,12 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert result.success is True
     assert mock_subprocess.call_count == 2
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-created"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
 @patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
 @patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
@@ -742,6 +764,9 @@ def test_create_pr_step_push_timeout_continues_to_pr(
         mock_pr_result,
     ]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -756,7 +781,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     assert result.success is True
     assert mock_subprocess.call_count == 2
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "pull-request-created"
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
 def test_create_pr_step_is_not_critical():
@@ -780,7 +805,7 @@ def test_create_pr_step_name():
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
     """Test successful MR creation with git push before glab mr create."""
@@ -802,7 +827,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
 
     mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
 
-    # Mock emit_progress_comment success
+    # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
@@ -831,19 +856,23 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
 
     # Verify the emit call has correct data
     call_args = mock_emit.call_args
-    assert call_args[0][0] == 1  # issue_id
-    assert "https://gitlab.com/owner/repo/-/merge_requests/123" in call_args[0][1]
-    assert call_args[1]["raw"]["output"] == "merge-request-created"
-    assert call_args[1]["raw"]["url"] == "https://gitlab.com/owner/repo/-/merge_requests/123"
+    payload = call_args[0][0]
+    assert payload.issue_id == 1
+    assert "https://gitlab.com/owner/repo/-/merge_requests/123" in payload.text
+    assert payload.raw["output"] == "merge-request-created"
+    assert payload.raw["url"] == "https://gitlab.com/owner/repo/-/merge_requests/123"
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
     """Test MR creation skipped when GITLAB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -860,15 +889,18 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
         "MR creation skipped: GITLAB_PAT environment variable not set"
     )
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     """Test MR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     # No pr_details in context
@@ -879,16 +911,19 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     assert result.success is True
     mock_logger.info.assert_called_with("MR creation skipped: no PR details in context")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     """Test MR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
@@ -903,11 +938,11 @@ def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     assert result.success is True
     mock_logger.info.assert_called_with("MR creation skipped: MR title is empty")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-skipped"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -932,6 +967,9 @@ def test_create_gitlab_mr_step_glab_command_failure(
 
     mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -945,11 +983,11 @@ def test_create_gitlab_mr_step_glab_command_failure(
     assert result.success is False
     mock_logger.warning.assert_called()
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -973,6 +1011,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
         subprocess.TimeoutExpired(cmd="glab", timeout=120),
     ]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -986,11 +1027,11 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     assert result.success is False
     mock_logger.warning.assert_called_with("glab mr create timed out after 120 seconds")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -1011,6 +1052,9 @@ def test_create_gitlab_mr_step_glab_not_found(
 
     mock_subprocess.side_effect = [mock_push_result, FileNotFoundError("glab not found")]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -1024,11 +1068,11 @@ def test_create_gitlab_mr_step_glab_not_found(
     assert result.success is False
     mock_logger.warning.assert_called_with("glab CLI not found, skipping MR creation")
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-failed"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_failure_continues_to_mr(
@@ -1052,6 +1096,9 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
 
     mock_subprocess.side_effect = [mock_push_result, mock_mr_result]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -1066,11 +1113,11 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
     assert result.success is True
     assert mock_subprocess.call_count == 2
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-created"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
 @patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
@@ -1094,6 +1141,9 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
         mock_mr_result,
     ]
 
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
+
     context = WorkflowContext(issue_id=1, adw_id="adw123")
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -1108,7 +1158,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
     assert result.success is True
     assert mock_subprocess.call_count == 2
     mock_emit.assert_called_once()
-    assert mock_emit.call_args[1]["raw"]["output"] == "merge-request-created"
+    assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
 def test_create_gitlab_mr_step_is_not_critical():
@@ -1172,7 +1222,7 @@ def test_prepare_pr_step_store_pr_details_missing_fields():
     assert context.data["pr_details"]["commits"] == []
 
 
-@patch("rouge.core.workflow.steps.pr.emit_progress_comment")
+@patch("rouge.core.workflow.steps.pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.pr.execute_template")
 @patch("rouge.core.workflow.steps.pr.update_status")
 @patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
@@ -1185,6 +1235,9 @@ def test_prepare_pr_step_emits_raw_llm_response(
 
     # Mock progress comment handler
     mock_handler.return_value = Mock()
+
+    # Mock emit_comment_from_payload success
+    mock_emit.return_value = ("success", "Comment inserted")
 
     # Mock successful template execution with valid JSON
     pr_json = (
@@ -1202,21 +1255,22 @@ def test_prepare_pr_step_emits_raw_llm_response(
 
     assert result.success is True
 
-    # Verify emit_progress_comment was called with raw LLM response
+    # Verify emit_comment_from_payload was called with raw LLM response
     # It should be called at least twice - once for raw response, once for "PR prepared"
     assert mock_emit.call_count >= 2
 
     # Find the call with the raw LLM response
     llm_response_call = None
     for call in mock_emit.call_args_list:
-        if call[1].get("raw", {}).get("output") == "pr-preparation-response":
+        payload = call[0][0]  # Get the CommentPayload from positional args
+        if payload.raw and payload.raw.get("output") == "pr-preparation-response":
             llm_response_call = call
             break
 
     assert llm_response_call is not None, (
-        "Expected emit_progress_comment call with pr-preparation-response"
+        "Expected emit_comment_from_payload call with pr-preparation-response"
     )
-    assert llm_response_call[1]["raw"]["llm_response"] == pr_json
+    assert llm_response_call[0][0].raw["llm_response"] == pr_json
 
 
 # Patch status transition tests

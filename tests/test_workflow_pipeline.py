@@ -324,6 +324,8 @@ class TestPatchWorkflowArtifactIsolation:
 
             def run(self, ctx: WorkflowContext) -> StepResult:
                 store = ctx.artifact_store
+                if store is None:
+                    return StepResult.fail("No artifact store available")
                 issue = store.read_artifact("issue", IssueArtifact)
                 plan = store.read_artifact("plan", PlanArtifact)
 
@@ -489,6 +491,7 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Patch-specific artifact should NOT fall back
         import pytest
+
         with pytest.raises(FileNotFoundError):
             patch_store.read_artifact("implementation", ImplementationArtifact)
 
