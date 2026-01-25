@@ -347,6 +347,16 @@ class ArtifactStore:
         """Get the workflow directory path."""
         return self._workflow_dir
 
+    def _is_patch_workflow(self) -> bool:
+        """Check if this is a patch workflow.
+
+        Patch workflows are identified by workflow IDs ending in '-patch'.
+
+        Returns:
+            True if this is a patch workflow, False otherwise
+        """
+        return self._workflow_id.endswith("-patch")
+
     def write_artifact(self, artifact: Artifact) -> None:
         """Write an artifact to disk.
 
@@ -355,7 +365,22 @@ class ArtifactStore:
 
         Raises:
             IOError: If the file cannot be written
+
+        Note:
+            Logs a warning if a patch workflow attempts to write a shared artifact
+            type (issue, classification, plan, pr_metadata, pull_request). Shared
+            artifacts should be read from the parent workflow directory instead.
         """
+        # Warn if a patch workflow is writing a shared artifact type
+        if self._is_patch_workflow() and artifact.artifact_type in SHARED_ARTIFACT_TYPES:
+            logger.warning(
+                "Patch workflow %s is writing shared artifact type '%s'. "
+                "Shared artifacts should typically be read from the parent workflow. "
+                "This write may cause inconsistency with the parent workflow's artifacts.",
+                self._workflow_id,
+                artifact.artifact_type,
+            )
+
         artifact_path = self._get_artifact_path(artifact.artifact_type)
 
         try:
