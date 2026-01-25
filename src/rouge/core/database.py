@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
-from rouge.core.models import Comment, Issue, Patch
+from rouge.core.models import VALID_WORKER_IDS, Comment, Issue, Patch
 
 logger = logging.getLogger(__name__)
 
@@ -134,7 +134,9 @@ def fetch_issue(issue_id: int) -> Issue:
             raise ValueError(f"Issue with id {issue_id} not found")
 
         if not isinstance(response_data, dict):
-            raise ValueError(f"Expected dict from database, got {type(response_data)}")
+            raise TypeError(
+                f"Expected dict from database for issue {issue_id}, got {type(response_data)}"
+            )
 
         return Issue.from_supabase(response_data)
 
@@ -426,23 +428,10 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
         raise ValueError("Worker ID cannot be empty")
 
     # Validate worker ID if provided
-    valid_workers = {
-        "alleycat-1",
-        "alleycat-2",
-        "alleycat-3",
-        "hailmary-1",
-        "hailmary-2",
-        "hailmary-3",
-        "local-1",
-        "local-2",
-        "local-3",
-        "tydirium-1",
-        "tydirium-2",
-        "tydirium-3",
-    }
-    if assigned_to is not None and assigned_to not in valid_workers:
+    if assigned_to is not None and assigned_to not in VALID_WORKER_IDS:
+        valid_workers_str = ", ".join(sorted(VALID_WORKER_IDS))
         raise ValueError(
-            f"Invalid worker ID '{assigned_to}'. Must be one of: {', '.join(sorted(valid_workers))}"
+            f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}"
         )
 
     try:

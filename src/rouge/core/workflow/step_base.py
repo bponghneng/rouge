@@ -52,7 +52,7 @@ class WorkflowContext:
         """
         if self.artifact_store is None:
             return None
-        return self.artifact_store._parent_workflow_id
+        return self.artifact_store.parent_workflow_id
 
     def load_artifact_if_missing(
         self,
