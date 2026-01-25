@@ -307,6 +307,15 @@ class ArtifactStore:
 
         self._ensure_workflow_dir()
 
+    @property
+    def parent_workflow_id(self) -> Optional[str]:
+        """Get the parent workflow ID.
+
+        Returns:
+            Parent workflow ID if set, None otherwise
+        """
+        return self._parent_workflow_id
+
     def _ensure_workflow_dir(self) -> None:
         """Ensure the workflow directory exists.
 
