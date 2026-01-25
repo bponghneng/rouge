@@ -75,7 +75,11 @@ def address_review_issues(
             kind="workflow",
             adw_id=adw_id,
         )
-        emit_comment_from_payload(payload)
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         if not response.success:
             logger.error("Failed to execute /adw-implement-review template: %s", response.output)
@@ -109,7 +113,11 @@ def address_review_issues(
             kind="address_review",
             adw_id=adw_id,
         )
-        emit_comment_from_payload(result_payload)
+        status, msg = emit_comment_from_payload(result_payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 

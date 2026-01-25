@@ -14,6 +14,30 @@ from rouge.core.workflow.types import StepResult
 logger = logging.getLogger(__name__)
 
 
+def _emit_and_log(issue_id: str, adw_id: str, text: str, raw: dict) -> None:
+    """Helper to emit comment and log based on status.
+    
+    Args:
+        issue_id: Issue ID
+        adw_id: ADW ID
+        text: Comment text
+        raw: Raw payload data
+    """
+    payload = CommentPayload(
+        issue_id=issue_id,
+        adw_id=adw_id,
+        text=text,
+        raw=raw,
+        source="system",
+        kind="workflow",
+    )
+    status, msg = emit_comment_from_payload(payload)
+    if status == "success":
+        logger.debug(msg)
+    else:
+        logger.error(msg)
+
+
 class CreateGitLabPullRequestStep(WorkflowStep):
     """Create GitLab merge request via glab CLI."""
 
@@ -46,19 +70,12 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         if not pr_details:
             skip_msg = "MR creation skipped: no PR details in context"
             logger.info(skip_msg)
-            payload = CommentPayload(
-                issue_id=context.issue_id,
-                adw_id=context.adw_id,
-                text=skip_msg,
-                raw={"output": "merge-request-skipped", "reason": skip_msg},
-                source="system",
-                kind="workflow",
+            _emit_and_log(
+                context.issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             return StepResult.ok(None)
 
         title = pr_details.get("title", "")
@@ -68,19 +85,12 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         if not title:
             skip_msg = "MR creation skipped: MR title is empty"
             logger.info(skip_msg)
-            payload = CommentPayload(
-                issue_id=context.issue_id,
-                adw_id=context.adw_id,
-                text=skip_msg,
-                raw={"output": "merge-request-skipped", "reason": skip_msg},
-                source="system",
-                kind="workflow",
+            _emit_and_log(
+                context.issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             return StepResult.ok(None)
 
         # Check for GITLAB_PAT environment variable
@@ -88,19 +98,12 @@ class CreateGitLabPullRequestStep(WorkflowStep):
         if not gitlab_pat:
             skip_msg = "MR creation skipped: GITLAB_PAT environment variable not set"
             logger.info(skip_msg)
-            payload = CommentPayload(
-                issue_id=context.issue_id,
-                adw_id=context.adw_id,
-                text=skip_msg,
-                raw={"output": "merge-request-skipped", "reason": skip_msg},
-                source="system",
-                kind="workflow",
+            _emit_and_log(
+                context.issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             return StepResult.ok(None)
 
         try:
@@ -219,7 +222,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
 
         except subprocess.TimeoutExpired:
             error_msg = "glab mr create timed out after 120 seconds"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
@@ -236,7 +239,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             return StepResult.fail(error_msg)
         except FileNotFoundError:
             error_msg = "glab CLI not found, skipping MR creation"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
@@ -253,7 +256,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating merge request: {e}"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
