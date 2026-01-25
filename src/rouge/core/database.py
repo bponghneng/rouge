@@ -444,7 +444,7 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
             raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
         if issue.status != "pending":
-            raise ValueError("Only pending issues can be assigned")
+            raise ValueError(f"Only pending issues can be assigned; issue {issue_id} has status '{issue.status}'")
 
         response = (
             client.table("issues").update({"assigned_to": assigned_to}).eq("id", issue_id).execute()

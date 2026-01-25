@@ -150,8 +150,6 @@ class TestWorkflowRunner:
 
 class TestGetDefaultPipeline:
     def test_pipeline_structure_no_platform(self, monkeypatch):
-        from rouge.core.workflow.steps.setup import SetupStep
-
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_default_pipeline()
 
@@ -318,14 +316,14 @@ class TestPatchWorkflowArtifactIsolation:
         # Run a simple workflow that accesses artifacts via parent_workflow_id.
         class AccessArtifactsStep(WorkflowStep):
             @property
-            def name(self):
+            def name(self) -> str:
                 return "Access Artifacts"
 
             @property
-            def is_critical(self):
+            def is_critical(self) -> bool:
                 return True
 
-            def run(self, ctx):
+            def run(self, ctx: WorkflowContext) -> StepResult:
                 store = ctx.artifact_store
                 issue = store.read_artifact("issue", IssueArtifact)
                 plan = store.read_artifact("plan", PlanArtifact)
