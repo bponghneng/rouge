@@ -70,8 +70,8 @@ class IssueWorker:
         signal.signal(signal.SIGTERM, self._handle_shutdown)
         signal.signal(signal.SIGINT, self._handle_shutdown)
 
-        self.logger.info(f"Worker {self.config.worker_id} initialized")
-        self.logger.info(f"Poll interval: {self.config.poll_interval} seconds")
+        self.logger.info("Worker %s initialized", self.config.worker_id)
+        self.logger.info("Poll interval: %s seconds", self.config.poll_interval)
 
     def setup_logging(self) -> logging.Logger:
         """
@@ -113,7 +113,7 @@ class IssueWorker:
 
     def _handle_shutdown(self, signum: int, _frame: FrameType | None) -> None:
         """Handle shutdown signals gracefully."""
-        self.logger.info(f"Received signal {signum}, shutting down gracefully...")
+        self.logger.info("Received signal %s, shutting down gracefully...", signum)
         self.running = False
 
     def _get_base_cmd(self) -> list:
@@ -143,8 +143,8 @@ class IssueWorker:
             Exception: If workflow execution fails
         """
         workflow_id = make_adw_id()
-        self.logger.info(f"Executing main workflow {workflow_id} for issue {issue_id}")
-        self.logger.debug(f"Issue description: {description}")
+        self.logger.info("Executing main workflow %s for issue %s", workflow_id, issue_id)
+        self.logger.debug("Issue description: %s", description)
 
         cmd = self._get_base_cmd() + [
             "--adw-id",
@@ -162,13 +162,15 @@ class IssueWorker:
         )
 
         if result.returncode == 0:
-            self.logger.info(f"Successfully completed issue {issue_id} (workflow {workflow_id})")
+            self.logger.info("Successfully completed issue %s (workflow %s)", issue_id, workflow_id)
             update_issue_status(issue_id, "completed", self.logger)
             return workflow_id, True
         else:
             self.logger.error(
-                f"Workflow {workflow_id} failed for issue {issue_id} "
-                f"with exit code {result.returncode}"
+                "Workflow %s failed for issue %s with exit code %s",
+                workflow_id,
+                issue_id,
+                result.returncode,
             )
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
@@ -216,10 +218,12 @@ class IssueWorker:
             _reason: Description of the failure reason
         """
         if patch_id is not None:
-            self.logger.exception(f"Patch workflow failed for issue {issue_id}, patch {patch_id}")
+            self.logger.exception(
+                "Patch workflow failed for issue %s, patch %s", issue_id, patch_id
+            )
             update_patch_status(patch_id, "failed", self.logger)
         else:
-            self.logger.exception(f"Failed to initialize patch workflow for issue {issue_id}")
+            self.logger.exception("Failed to initialize patch workflow for issue %s", issue_id)
 
     def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
         """Execute the patch workflow for an issue with pending patches.
@@ -246,10 +250,13 @@ class IssueWorker:
             patch_wf_id = make_patch_workflow_id(main_adw_id)
 
             self.logger.info(
-                f"Executing patch workflow {patch_wf_id} for issue {issue_id} "
-                f"(patch {patch_id}, derived from {main_adw_id})"
+                "Executing patch workflow %s for issue %s (patch %s, derived from %s)",
+                patch_wf_id,
+                issue_id,
+                patch_id,
+                main_adw_id,
             )
-            self.logger.debug(f"Patch description: {patch.description}")
+            self.logger.debug("Patch description: %s", patch.description)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
@@ -267,15 +274,19 @@ class IssueWorker:
 
             if result.returncode == 0:
                 self.logger.info(
-                    f"Successfully completed patch {patch_id} for issue {issue_id} "
-                    f"(workflow {patch_wf_id})"
+                    "Successfully completed patch %s for issue %s (workflow %s)",
+                    patch_id,
+                    issue_id,
+                    patch_wf_id,
                 )
                 transition_to_patched(issue_id, patch_id)
                 return patch_wf_id, True
             else:
                 self.logger.error(
-                    f"Patch workflow {patch_wf_id} failed for issue {issue_id} "
-                    f"with exit code {result.returncode}"
+                    "Patch workflow %s failed for issue %s with exit code %s",
+                    patch_wf_id,
+                    issue_id,
+                    result.returncode,
                 )
                 update_patch_status(patch_id, "failed", self.logger)
                 transition_to_patch_pending(issue_id)
@@ -314,7 +325,7 @@ class IssueWorker:
             return success
 
         except subprocess.TimeoutExpired:
-            self.logger.exception(f"Workflow timed out for issue {issue_id}")
+            self.logger.exception("Workflow timed out for issue %s", issue_id)
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)
             else:
@@ -322,7 +333,7 @@ class IssueWorker:
             return False
 
         except Exception:
-            self.logger.exception(f"Error executing workflow for issue {issue_id}")
+            self.logger.exception("Error executing workflow for issue %s", issue_id)
             if status == "patch pending":
                 transition_to_patch_pending(issue_id)
             else:
@@ -336,7 +347,7 @@ class IssueWorker:
         Continuously polls for pending issues and executes workflows.
         Sleeps for the configured poll interval when no issues are available.
         """
-        self.logger.info(f"Worker {self.config.worker_id} starting main loop")
+        self.logger.info("Worker %s starting main loop", self.config.worker_id)
 
         while self.running:
             try:
@@ -349,7 +360,7 @@ class IssueWorker:
                 else:
                     # No issues available, sleep for poll interval
                     self.logger.debug(
-                        f"No pending issues, sleeping for {self.config.poll_interval} seconds"
+                        "No pending issues, sleeping for %s seconds", self.config.poll_interval
                     )
                     time.sleep(self.config.poll_interval)
 
@@ -358,7 +369,7 @@ class IssueWorker:
                 self.running = False
 
             except Exception as e:
-                self.logger.error(f"Unexpected error in main loop: {e}")
+                self.logger.error("Unexpected error in main loop: %s", e)
                 time.sleep(self.config.poll_interval)
 
-        self.logger.info(f"Worker {self.config.worker_id} stopped")
+        self.logger.info("Worker %s stopped", self.config.worker_id)
