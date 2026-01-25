@@ -5,11 +5,12 @@ import os
 import shutil
 import subprocess
 
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PRMetadataArtifact, PullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -46,12 +47,19 @@ class CreateGitHubPullRequestStep(WorkflowStep):
         if not pr_details:
             skip_msg = "PR creation skipped: no PR details in context"
             logger.info(skip_msg)
-            emit_progress_comment(
-                context.issue_id,
-                skip_msg,
-                raw={"output": "pull-request-skipped", "reason": skip_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=skip_msg,
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.ok(None)
 
         title = pr_details.get("title", "")
@@ -61,12 +69,19 @@ class CreateGitHubPullRequestStep(WorkflowStep):
         if not title:
             skip_msg = "PR creation skipped: PR title is empty"
             logger.info(skip_msg)
-            emit_progress_comment(
-                context.issue_id,
-                skip_msg,
-                raw={"output": "pull-request-skipped", "reason": skip_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=skip_msg,
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.ok(None)
 
         # Check for GITHUB_PAT environment variable
@@ -74,12 +89,19 @@ class CreateGitHubPullRequestStep(WorkflowStep):
         if not github_pat:
             skip_msg = "PR creation skipped: GITHUB_PAT environment variable not set"
             logger.info(skip_msg)
-            emit_progress_comment(
-                context.issue_id,
-                skip_msg,
-                raw={"output": "pull-request-skipped", "reason": skip_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=skip_msg,
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.ok(None)
 
         # Proactively check for gh CLI availability
@@ -87,12 +109,19 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             skip_msg = "PR creation skipped: gh CLI not found in PATH"
             logger.info(skip_msg)
             logger.debug("Current PATH: %s", os.environ.get("PATH", ""))
-            emit_progress_comment(
-                context.issue_id,
-                skip_msg,
-                raw={"output": "pull-request-skipped", "reason": skip_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=skip_msg,
+                raw={"output": "pull-request-skipped", "reason": skip_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.ok(None)
 
         try:
@@ -156,12 +185,19 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                     result.returncode,
                     result.stderr,
                 )
-                emit_progress_comment(
-                    context.issue_id,
-                    error_msg,
-                    raw={"output": "pull-request-failed", "error": error_msg},
+                payload = CommentPayload(
+                    issue_id=context.issue_id,
                     adw_id=context.adw_id,
+                    text=error_msg,
+                    raw={"output": "pull-request-failed", "error": error_msg},
+                    source="system",
+                    kind="workflow",
                 )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
                 return StepResult.fail(error_msg)
 
             # Parse PR URL from output (gh pr create outputs the URL)
@@ -184,32 +220,53 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 "output": "pull-request-created",
                 "url": pr_url,
             }
-            emit_progress_comment(
-                context.issue_id,
-                f"Pull request created: {pr_url}",
-                raw=comment_data,
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=f"Pull request created: {pr_url}",
+                raw=comment_data,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             return StepResult.ok(None)
 
         except subprocess.TimeoutExpired:
             error_msg = "gh pr create timed out after 120 seconds"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pull-request-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating pull request: {e}"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pull-request-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)

@@ -107,9 +107,6 @@ def execute_template(
     """
     response = execute_claude_template(request, stream_handler=stream_handler)
 
-    # Import here to avoid circular import
-    from rouge.core.workflow.workflow_io import emit_progress_comment
-
     # Handle JSON validation based on require_json parameter
     if response.success and response.output:
         raw_output = response.output.strip()
@@ -123,37 +120,46 @@ def execute_template(
             )
             if result.success:
                 # Emit progress comment with parsed JSON in raw field
-                emit_progress_comment(
+                payload = CommentPayload(
                     issue_id=request.issue_id,
-                    message=f"Template {request.slash_command} completed",
+                    text=f"Template {request.slash_command} completed",
                     raw={"template": request.slash_command, "result": result.data},
-                    comment_type="workflow",
+                    source="system",
+                    kind="workflow",
                     adw_id=request.adw_id,
                 )
+                status, msg = emit_comment_from_payload(payload)
+                logger.debug(msg) if status == "success" else logger.error(msg)
                 logger.debug("Template output parsed as JSON successfully")
             else:
                 # Emit error progress comment for non-JSON output
                 logger.error("Template output is not valid JSON: %s", result.error)
-                emit_progress_comment(
+                payload = CommentPayload(
                     issue_id=request.issue_id,
-                    message=f"Template {request.slash_command} returned non-JSON output",
+                    text=f"Template {request.slash_command} returned non-JSON output",
                     raw={
                         "template": request.slash_command,
                         "error": result.error,
                         "output": raw_output[:500],
                     },
-                    comment_type="workflow",
+                    source="system",
+                    kind="workflow",
                     adw_id=request.adw_id,
                 )
+                status, msg = emit_comment_from_payload(payload)
+                logger.debug(msg) if status == "success" else logger.error(msg)
         else:
             # Skip JSON validation for plain text output (FindPlanFileStep, GenerateReviewStep)
-            emit_progress_comment(
+            payload = CommentPayload(
                 issue_id=request.issue_id,
-                message=f"Template {request.slash_command} completed",
+                text=f"Template {request.slash_command} completed",
                 raw={"template": request.slash_command, "output": raw_output[:500]},
-                comment_type="workflow",
+                source="system",
+                kind="workflow",
                 adw_id=request.adw_id,
             )
+            status, msg = emit_comment_from_payload(payload)
+            logger.debug(msg) if status == "success" else logger.error(msg)
             logger.debug("Template output accepted as plain text (require_json=False)")
 
     return response

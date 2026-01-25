@@ -4,8 +4,9 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +67,15 @@ def address_review_issues(
         logger.debug("address_review response: success=%s", response.success)
 
         # Emit progress comment
-        emit_progress_comment(
-            issue_id,
-            "Addressing review issues...",
+        payload = CommentPayload(
+            issue_id=issue_id,
+            text="Addressing review issues...",
             raw={"output": "address-review-response", "llm_response": response.output},
+            source="system",
+            kind="workflow",
             adw_id=adw_id,
         )
+        emit_comment_from_payload(payload)
 
         if not response.success:
             logger.error("Failed to execute /adw-implement-review template: %s", response.output)
@@ -92,18 +96,20 @@ def address_review_issues(
 
         # Emit result comment
         parsed_data = parse_result.data or {}
-        emit_progress_comment(
+        result_payload = CommentPayload(
             issue_id=issue_id,
-            message="Review issues addressed",
+            text="Review issues addressed",
             raw={
                 "output": parsed_data.get("output", ""),
                 "summary": parsed_data.get("summary", ""),
                 "issues": parsed_data.get("issues", []),
                 "parsed_data": parsed_data,
             },
-            comment_type="address_review",
+            source="system",
+            kind="address_review",
             adw_id=adw_id,
         )
+        emit_comment_from_payload(result_payload)
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 

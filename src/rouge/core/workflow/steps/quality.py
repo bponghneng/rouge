@@ -5,12 +5,13 @@ import logging
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import QualityCheckArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -94,15 +95,22 @@ class CodeQualityStep(WorkflowStep):
                 logger.debug("Saved quality_check artifact for workflow %s", context.adw_id)
 
             # Insert progress comment - best-effort, non-blocking
-            emit_progress_comment(
-                context.issue_id,
-                "Code quality checks completed.",
+            payload = CommentPayload(
+                issue_id=context.issue_id,
+                adw_id=context.adw_id,
+                text="Code quality checks completed.",
                 raw={
                     "text": "Code quality checks completed.",
                     "result": parse_result.data,
                 },
-                adw_id=context.adw_id,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             return StepResult.ok(None, parsed_data=parse_result.data)
 

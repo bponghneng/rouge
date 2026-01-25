@@ -3,10 +3,11 @@
 import logging
 
 from rouge.core.database import fetch_issue, fetch_pending_patch
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -65,16 +66,23 @@ class FetchPatchStep(WorkflowStep):
                 logger.debug("Saved patch artifact for workflow %s", context.adw_id)
 
             # Emit progress comment with patch description
-            emit_progress_comment(
-                issue_id,
-                f"Patch fetched: {patch.description}",
+            payload = CommentPayload(
+                issue_id=issue_id,
+                adw_id=context.adw_id,
+                text=f"Patch fetched: {patch.description}",
                 raw={
                     "patch_id": patch.id,
                     "issue_id": issue_id,
                     "description": patch.description,
                 },
-                adw_id=context.adw_id,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             return StepResult.ok(None)
 

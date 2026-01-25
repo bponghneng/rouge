@@ -3,11 +3,12 @@
 import logging
 
 from rouge.core.database import fetch_issue
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import IssueArtifact
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -48,15 +49,22 @@ class FetchIssueStep(WorkflowStep):
             update_status(issue_id, "started")
 
             # Insert progress comment - best-effort, non-blocking
-            emit_progress_comment(
-                issue_id,
-                "Workflow started. Issue fetched and validated",
+            payload = CommentPayload(
+                issue_id=issue_id,
+                adw_id=context.adw_id,
+                text="Workflow started. Issue fetched and validated",
                 raw={
                     "issue_id": issue_id,
                     "text": "Workflow started. Issue fetched and validated.",
                 },
-                adw_id=context.adw_id,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             return StepResult.ok(None)
 
