@@ -600,27 +600,29 @@ def test_update_issue_assignment_to_none(mock_get_client, mock_fetch_issue):
     mock_table.update.assert_called_once_with({"assigned_to": None})
 
 
+@patch("rouge.core.database.get_client")
 @patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue):
+def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue, mock_get_client):
     """Test that assignment is rejected for started issues."""
     # Mock fetch_issue to return a started issue
     mock_issue = Mock()
     mock_issue.status = "started"
     mock_fetch_issue.return_value = mock_issue
 
-    with pytest.raises(ValueError, match="Only pending issues can be assigned"):
+    with pytest.raises(ValueError, match="Only pending issues can be assigned; issue 1 has status 'started'"):
         update_issue_assignment(1, "tydirium-1")
 
 
+@patch("rouge.core.database.get_client")
 @patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_rejects_completed_issue(mock_fetch_issue):
+def test_update_issue_assignment_rejects_completed_issue(mock_fetch_issue, mock_get_client):
     """Test that assignment is rejected for completed issues."""
     # Mock fetch_issue to return a completed issue
     mock_issue = Mock()
     mock_issue.status = "completed"
     mock_fetch_issue.return_value = mock_issue
 
-    with pytest.raises(ValueError, match="Only pending issues can be assigned"):
+    with pytest.raises(ValueError, match="Only pending issues can be assigned; issue 1 has status 'completed'"):
         update_issue_assignment(1, "alleycat-1")
 
 
@@ -631,8 +633,9 @@ def test_update_issue_assignment_rejects_invalid_worker(mock_get_client):
         update_issue_assignment(1, "invalid-worker")
 
 
+@patch("rouge.core.database.get_client")
 @patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue):
+def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue, mock_get_client):
     """Test assignment fails for non-existent issue."""
     mock_fetch_issue.side_effect = ValueError("Issue not found")
 
