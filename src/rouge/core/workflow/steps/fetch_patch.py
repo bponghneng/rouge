@@ -46,7 +46,7 @@ class FetchPatchStep(WorkflowStep):
             # Fetch the pending patch for this issue
             patch = fetch_pending_patch(issue_id)
             logger.info(
-                f"Patch fetched: ID={patch.id}, Issue={patch.issue_id}, Status={patch.status}"
+                "Patch fetched: ID=%s, Issue=%s, Status=%s", patch.id, patch.issue_id, patch.status
             )
 
             # Store patch in context data

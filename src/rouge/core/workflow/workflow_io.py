@@ -56,7 +56,7 @@ def log_step_start(step_name: str, issue_id: int | None = None) -> None:
         step_name: Name of the step starting
         issue_id: Optional issue ID for progress comment
     """
-    logger.info(f"\n=== {step_name} ===")
+    logger.info("\n=== %s ===", step_name)
     if issue_id is not None:
         emit_progress_comment(
             issue_id=issue_id,
@@ -76,9 +76,9 @@ def log_step_end(step_name: str, success: bool, issue_id: int | None = None) -> 
     """
     status_text = "Success" if success else "Failed"
     if success:
-        logger.info(f"{step_name} completed successfully")
+        logger.info("%s completed successfully", step_name)
     else:
-        logger.error(f"{step_name} failed")
+        logger.error("%s failed", step_name)
 
     if issue_id is not None:
         emit_progress_comment(

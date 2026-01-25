@@ -45,7 +45,7 @@ class ImplementStep(WorkflowStep):
         implement_response = implement_plan(plan_data.plan, context.issue_id, context.adw_id)
 
         if not implement_response.success:
-            logger.error(f"Error implementing solution: {implement_response.error}")
+            logger.error("Error implementing solution: %s", implement_response.error)
             return StepResult.fail(f"Error implementing solution: {implement_response.error}")
 
         logger.info("Solution implemented")

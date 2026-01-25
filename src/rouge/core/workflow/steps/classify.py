@@ -39,7 +39,7 @@ class ClassifyStep(WorkflowStep):
         result = classify_issue(issue, context.adw_id, stream_handler=classify_handler)
 
         if not result.success:
-            logger.error(f"Error classifying issue: {result.error}")
+            logger.error("Error classifying issue: %s", result.error)
             return StepResult.fail(f"Error classifying issue: {result.error}")
 
         if result.data is None:
@@ -73,7 +73,7 @@ class ClassifyStep(WorkflowStep):
                 f"({classification_data['level']}) -> {issue_command}"
             )
         else:
-            logger.info(f"Issue classified as: {issue_command}")
+            logger.info("Issue classified as: %s", issue_command)
             comment_text = f"Issue classified as {issue_command}"
 
         # Insert progress comment - best-effort, non-blocking

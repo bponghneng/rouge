@@ -64,7 +64,7 @@ class CodeQualityStep(WorkflowStep):
             logger.debug("code_quality response: success=%s", response.success)
 
             if not response.success:
-                logger.warning(f"Code quality checks failed: {response.output}")
+                logger.warning("Code quality checks failed: %s", response.output)
                 return StepResult.fail(f"Code quality checks failed: {response.output}")
 
             # Parse and validate JSON output
@@ -107,5 +107,5 @@ class CodeQualityStep(WorkflowStep):
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
-            logger.warning(f"Code quality step failed: {e}")
+            logger.warning("Code quality step failed: %s", e)
             return StepResult.fail(f"Code quality step failed: {e}")

@@ -231,7 +231,7 @@ def execute_implement_plan(
     """
     # Get the configured provider for implementation
     provider_name = get_implement_provider()
-    logger.info(f"Using provider '{provider_name}' for implementation")
+    logger.info("Using provider '%s' for implementation", provider_name)
 
     # Provider-specific prompt construction
     if provider_name == "claude":

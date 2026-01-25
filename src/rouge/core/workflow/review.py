@@ -29,7 +29,7 @@ def generate_review(
         config_path = os.path.join(repo_path, ".coderabbit.yaml")
         if not os.path.exists(config_path):
             return StepResult.fail(f"CodeRabbit config not found at {config_path}")
-        logger.debug(f"Using CodeRabbit config at {config_path}")
+        logger.debug("Using CodeRabbit config at %s", config_path)
 
         # Build CodeRabbit command
         # Note: Uses direct 'coderabbit --prompt-only' instead of 'coderabbit review --prompt-only'
@@ -41,19 +41,19 @@ def generate_review(
             config_path,
         ]
 
-        logger.debug(f"Executing CodeRabbit command: {' '.join(cmd)}")
-        logger.debug(f"Running from directory: {repo_path}")
+        logger.debug("Executing CodeRabbit command: %s", " ".join(cmd))
+        logger.debug("Running from directory: %s", repo_path)
 
         # Execute CodeRabbit review from repo_path
         result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
-            logger.error(f"CodeRabbit review failed with code {result.returncode}")
-            logger.error(f"stderr: {result.stderr}")
+            logger.error("CodeRabbit review failed with code %s", result.returncode)
+            logger.error("stderr: %s", result.stderr)
             return StepResult.fail(f"CodeRabbit review failed with code {result.returncode}")
 
         review_text = result.stdout
-        logger.info(f"CodeRabbit review generated ({len(review_text)} chars)")
+        logger.info("CodeRabbit review generated (%s chars)", len(review_text))
 
         # Insert progress comment with artifact preview
         payload = CommentPayload(
@@ -68,9 +68,9 @@ def generate_review(
         )
         status, msg = emit_comment_from_payload(payload)
         if status != "success":
-            logger.error(f"Failed to insert review artifact comment: {msg}")
+            logger.error("Failed to insert review artifact comment: %s", msg)
         else:
-            logger.debug(f"Review artifact comment inserted: {msg}")
+            logger.debug("Review artifact comment inserted: %s", msg)
 
         return StepResult.ok(ReviewData(review_text=review_text))
 
@@ -78,5 +78,5 @@ def generate_review(
         logger.error("CodeRabbit review timed out after 300 seconds")
         return StepResult.fail("CodeRabbit review timed out after 300 seconds")
     except Exception as e:
-        logger.error(f"Failed to generate review: {e}")
+        logger.error("Failed to generate review: %s", e)
         return StepResult.fail(f"Failed to generate review: {e}")

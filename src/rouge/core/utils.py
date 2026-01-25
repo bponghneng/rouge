@@ -129,8 +129,8 @@ def setup_logger(
         logger.addHandler(console_handler)
 
     # Log initial setup message
-    logger.info(f"Rouge Logger initialized - ID: {adw_id} (detached={detached_mode})")
-    logger.debug(f"Log file: {log_file}")
+    logger.info("Rouge Logger initialized - ID: %s (detached=%s)", adw_id, detached_mode)
+    logger.debug("Log file: %s", log_file)
 
     return logger
 
