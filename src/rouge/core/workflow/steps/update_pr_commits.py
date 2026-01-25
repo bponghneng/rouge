@@ -195,7 +195,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
-        except Exception as e:
+        except Exception:
             # Re-raise unexpected exceptions after logging
-            logger.error("Unexpected error updating PR/MR: %s", e)
+            logger.exception("Unexpected error updating PR/MR")
             raise
