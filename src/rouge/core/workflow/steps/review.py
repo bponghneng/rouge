@@ -124,9 +124,9 @@ class AddressReviewStep(WorkflowStep):
 
         review_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
         review_issues_result = address_review_issues(
-            review_text,
             context.issue_id,
             context.adw_id,
+            review_text,
             stream_handler=review_handler,
         )
 
