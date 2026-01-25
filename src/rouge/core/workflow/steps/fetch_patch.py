@@ -46,7 +46,7 @@ class FetchPatchStep(WorkflowStep):
             # Fetch the pending patch for this issue
             patch = fetch_pending_patch(issue_id)
             if patch is None:
-                raise ValueError(f"No pending patch found for issue {issue_id}")
+                return StepResult.fail(f"No pending patch found for issue {issue_id}")
             logger.info(
                 "Patch fetched: ID=%s, Issue=%s, Status=%s", patch.id, patch.issue_id, patch.status
             )
