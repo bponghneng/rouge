@@ -358,7 +358,7 @@ def test_generate_review_timeout(mock_subprocess):
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
-@patch("rouge.core.workflow.address_review.emit_comment_from_payload")
+@patch("rouge.core.workflow.address_review.emit_progress_comment")
 @patch("rouge.core.workflow.address_review.ClaudeAgentTemplateRequest")
 def test_address_review_issues_success(mock_request_class, mock_emit_comment, mock_execute):
     """Test successful notification of review template."""
@@ -375,18 +375,19 @@ def test_address_review_issues_success(mock_request_class, mock_emit_comment, mo
     mock_response.output = address_review_json
     mock_execute.return_value = mock_response
 
-    # Mock emit_comment_from_payload success
+    # Mock emit_progress_comment success
     mock_emit_comment.return_value = ("success", "Comment inserted")
 
     result = address_review_issues(
-        review_text="Review content",
         issue_id=123,
         adw_id="adw123",
+        review_text="Review content",
     )
 
     assert result.success
     mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
-    mock_emit_comment.assert_called_once()
+    # emit_progress_comment is called twice: once for progress, once for result
+    assert mock_emit_comment.call_count == 2
 
 
 def test_address_review_issues_empty_review_text():
@@ -415,9 +416,9 @@ def test_address_review_issues_execution_failure(mock_request_class, mock_execut
     mock_execute.return_value = mock_response
 
     result = address_review_issues(
-        review_text="Review content",
         issue_id=123,
         adw_id="adw123",
+        review_text="Review content",
     )
 
     assert not result.success
