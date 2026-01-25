@@ -81,6 +81,16 @@ class Comment(BaseModel):
         """Trim whitespace from comment."""
         return v.strip()
 
+    def to_supabase(self) -> dict:
+        """Convert Comment to dict for Supabase insertion."""
+        data = self.model_dump(exclude={"id", "created_at"})
+        return data
+
+    @classmethod
+    def from_supabase(cls, row: dict) -> "Comment":
+        """Create Comment from Supabase row."""
+        return cls(**row)
+
 
 # Source types for comment payloads
 CommentSource = Literal["system", "agent"]
