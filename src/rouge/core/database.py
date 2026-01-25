@@ -5,7 +5,7 @@ Database configuration and client initialization.
 import logging
 import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
 import httpx
 from dotenv import load_dotenv
@@ -126,11 +126,11 @@ def fetch_issue(issue_id: int) -> Issue:
         return Issue.from_supabase(response_data)
 
     except APIError as e:
-        logger.exception("Database error fetching issue %s: %s", issue_id, e)
+        logger.exception("Database error fetching issue %s", issue_id)
         raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
 
-def fetch_all_issues() -> List[Issue]:
+def fetch_all_issues() -> list[Issue]:
     """Fetch all issues ordered by creation date (newest first).
 
     Returns:
@@ -155,7 +155,7 @@ def fetch_all_issues() -> List[Issue]:
         return [Issue.from_supabase(row) for row in rows]
 
     except APIError as e:
-        logger.exception("Database error fetching all issues: %s", e)
+        logger.exception("Database error fetching all issues")
         raise ValueError(f"Failed to fetch issues: {e}") from e
 
 
@@ -188,11 +188,11 @@ def create_comment(comment: Comment) -> Comment:
         return Comment.from_supabase(response.data[0])
 
     except APIError as e:
-        logger.exception("Database error creating comment: %s", e)
+        logger.exception("Database error creating comment")
         raise ValueError(f"Failed to create comment: {e}") from e
 
 
-def fetch_comments(issue_id: int) -> List[Comment]:
+def fetch_comments(issue_id: int) -> list[Comment]:
     """Fetch comments for an issue ordered by creation date.
 
     Args:
@@ -220,7 +220,7 @@ def fetch_comments(issue_id: int) -> List[Comment]:
         return [Comment.from_supabase(row) for row in response.data]
 
     except APIError as e:
-        logger.exception("Database error fetching comments for issue %s: %s", issue_id, e)
+        logger.exception("Database error fetching comments for issue %s", issue_id)
         raise ValueError(f"Failed to fetch comments for issue {issue_id}: {e}") from e
 
 
@@ -264,7 +264,7 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         return Issue.from_supabase(response.data[0])
 
     except APIError as e:
-        logger.exception("Database error creating issue: %s", e)
+        logger.exception("Database error creating issue")
         raise ValueError(f"Failed to create issue: {e}") from e
 
 
@@ -299,11 +299,11 @@ def update_issue_status(issue_id: int, status: str) -> None:
             raise ValueError(f"Update failed: issue {issue_id} not returned")
 
     except APIError as e:
-        logger.exception("Database error updating status for issue %s: %s", issue_id, e)
+        logger.exception("Database error updating status for issue %s", issue_id)
         raise ValueError(f"Failed to update issue {issue_id} status: {e}") from e
 
 
-def update_issue_description(issue_id: int, description: str) -> None:
+def update_issue_description(issue_id: int, description: str) -> Issue:
     """Update issue description.
 
     Args:
@@ -312,18 +312,26 @@ def update_issue_description(issue_id: int, description: str) -> None:
 
     Raises:
         ValueError: If description is empty or update fails
+
+    Returns:
+        Updated Issue object
     """
     if not description or not description.strip():
         raise ValueError("Description cannot be empty")
 
     try:
         client = get_client()
-        client.table("issues").update({"description": description}).eq(
+        response = client.table("issues").update({"description": description}).eq(
             "id", issue_id
         ).execute()
 
+        if not response.data:
+            raise ValueError(f"Issue with id {issue_id} not found")
+
+        return Issue.from_supabase(response.data[0])
+
     except APIError as e:
-        logger.exception("Database error updating description for issue %s: %s", issue_id, e)
+        logger.exception("Database error updating description for issue %s", issue_id)
         raise ValueError(f"Failed to update issue {issue_id} description: {e}") from e
 
 
@@ -343,7 +351,7 @@ def delete_issue(issue_id: int) -> None:
         # We don't necessarily want to fail if it didn't exist (idempotency)
 
     except APIError as e:
-        logger.exception("Database error deleting issue %s: %s", issue_id, e)
+        logger.exception("Database error deleting issue %s", issue_id)
         raise ValueError(f"Failed to delete issue {issue_id}: {e}") from e
 
 
@@ -373,7 +381,7 @@ def update_issue_assignment(issue_id: int, assigned_to: str) -> None:
         ).execute()
 
     except APIError as e:
-        logger.exception("Database error assigning issue %s: %s", issue_id, e)
+        logger.exception("Database error assigning issue %s", issue_id)
         raise ValueError(f"Failed to assign issue {issue_id}: {e}") from e
 
 
@@ -408,8 +416,8 @@ def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
 
         return None
 
-    except APIError as e:
-        logger.exception("Database error fetching pending patch for issue %s: %s", issue_id, e)
+    except APIError:
+        logger.exception("Database error fetching pending patch for issue %s", issue_id)
         # Don't raise, just return None as "no patch found"
         return None
 
