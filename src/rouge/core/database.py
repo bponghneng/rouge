@@ -91,7 +91,7 @@ def get_client() -> Client:
         _client = create_client(config.url, config.key, options=options)
         # Monkey patch the http_client on the postgrest client directly
         # since supabase-py doesn't expose a clean way to pass custom httpx client
-        _client.postgrest.http_client = _get_http_client()
+        _client.postgrest.http_client = _get_http_client()  # type: ignore[attr-defined]
     return _client
 
 
@@ -123,6 +123,9 @@ def fetch_issue(issue_id: int) -> Issue:
         if response_data is None:
             raise ValueError(f"Issue with id {issue_id} not found")
 
+        if not isinstance(response_data, dict):
+            raise ValueError(f"Expected dict from database, got {type(response_data)}")
+
         return Issue.from_supabase(response_data)
 
     except APIError as e:
@@ -141,18 +144,13 @@ def fetch_all_issues() -> list[Issue]:
     """
     try:
         client = get_client()
-        response = (
-            client.table("issues")
-            .select("*")
-            .order("created_at", desc=True)
-            .execute()
-        )
+        response = client.table("issues").select("*").order("created_at", desc=True).execute()
 
         rows = response.data
         if not rows:
             return []
 
-        return [Issue.from_supabase(row) for row in rows]
+        return [Issue.from_supabase(row) for row in rows if isinstance(row, dict)]
 
     except APIError as e:
         logger.exception("Database error fetching all issues")
@@ -185,7 +183,11 @@ def create_comment(comment: Comment) -> Comment:
         if not response.data:
             raise ValueError("Comment creation returned no data")
 
-        return Comment.from_supabase(response.data[0])
+        response_data = response.data[0]
+        if not isinstance(response_data, dict):
+            raise ValueError(f"Expected dict from database, got {type(response_data)}")
+
+        return Comment.from_supabase(response_data)
 
     except APIError as e:
         logger.exception("Database error creating comment")
@@ -217,7 +219,7 @@ def fetch_comments(issue_id: int) -> list[Comment]:
         if not response.data:
             return []
 
-        return [Comment.from_supabase(row) for row in response.data]
+        return [Comment.from_supabase(row) for row in response.data if isinstance(row, dict)]
 
     except APIError as e:
         logger.exception("Database error fetching comments for issue %s", issue_id)
@@ -261,7 +263,11 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         if not response.data:
             raise ValueError("Issue creation returned no data")
 
-        return Issue.from_supabase(response.data[0])
+        response_data = response.data[0]
+        if not isinstance(response_data, dict):
+            raise ValueError(f"Expected dict from database, got {type(response_data)}")
+
+        return Issue.from_supabase(response_data)
 
     except APIError as e:
         logger.exception("Database error creating issue")
@@ -280,9 +286,7 @@ def update_issue_status(issue_id: int, status: str) -> None:
     """
     valid_statuses = {"pending", "started", "completed", "patch pending", "patched"}
     if status not in valid_statuses:
-        raise ValueError(
-            f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
-        )
+        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
 
     try:
         client = get_client()
@@ -292,9 +296,7 @@ def update_issue_status(issue_id: int, status: str) -> None:
         if not issue_check.data:
             raise ValueError(f"Issue with id {issue_id} not found")
 
-        response = (
-            client.table("issues").update({"status": status}).eq("id", issue_id).execute()
-        )
+        response = client.table("issues").update({"status": status}).eq("id", issue_id).execute()
         if not response.data:
             raise ValueError(f"Update failed: issue {issue_id} not returned")
 
@@ -321,14 +323,18 @@ def update_issue_description(issue_id: int, description: str) -> Issue:
 
     try:
         client = get_client()
-        response = client.table("issues").update({"description": description}).eq(
-            "id", issue_id
-        ).execute()
+        response = (
+            client.table("issues").update({"description": description}).eq("id", issue_id).execute()
+        )
 
         if not response.data:
             raise ValueError(f"Issue with id {issue_id} not found")
 
-        return Issue.from_supabase(response.data[0])
+        response_data = response.data[0]
+        if not isinstance(response_data, dict):
+            raise ValueError(f"Expected dict from database, got {type(response_data)}")
+
+        return Issue.from_supabase(response_data)
 
     except APIError as e:
         logger.exception("Database error updating description for issue %s", issue_id)
@@ -376,9 +382,7 @@ def update_issue_assignment(issue_id: int, assigned_to: str) -> None:
         if issue.status == "completed":
             logger.warning("Updating assignment for completed issue %s", issue_id)
 
-        client.table("issues").update({"assigned_to": assigned_to}).eq(
-            "id", issue_id
-        ).execute()
+        client.table("issues").update({"assigned_to": assigned_to}).eq("id", issue_id).execute()
 
     except APIError as e:
         logger.exception("Database error assigning issue %s", issue_id)
@@ -412,7 +416,9 @@ def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
         )
 
         if response.data and len(response.data) > 0:
-            return Patch.from_supabase(response.data[0])
+            response_data = response.data[0]
+            if isinstance(response_data, dict):
+                return Patch.from_supabase(response_data)
 
         return None
 
@@ -422,9 +428,7 @@ def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
         return None
 
 
-def update_patch_status(
-    patch_id: int, status: str, log: Optional[logging.Logger] = None
-) -> None:
+def update_patch_status(patch_id: int, status: str, log: Optional[logging.Logger] = None) -> None:
     """Update patch status.
 
     Args:
@@ -437,9 +441,7 @@ def update_patch_status(
     """
     valid_statuses = {"pending", "completed", "failed"}
     if status not in valid_statuses:
-        raise ValueError(
-            f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
-        )
+        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
 
     _log = log or logger
 
