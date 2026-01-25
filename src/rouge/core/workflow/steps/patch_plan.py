@@ -75,6 +75,12 @@ def build_patch_plan(
     if not response.success:
         return StepResult.fail(response.output or "Unknown error")
 
+    # Guard against None output even when success is True
+    if response.output is None:
+        error_msg = "Patch plan agent returned success but no output"
+        logger.error(error_msg)
+        return StepResult.fail(error_msg, session_id=response.session_id)
+
     # Build PatchPlanData from response
     return StepResult.ok(
         PatchPlanData(
@@ -203,4 +209,5 @@ class BuildPatchPlanStep(WorkflowStep):
             adw_id=context.adw_id,
         )
 
-        return StepResult.ok(None)
+        # Return the result from build_patch_plan to preserve session_id
+        return patch_plan_response

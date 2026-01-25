@@ -185,7 +185,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
             )
             return StepResult.fail(error_msg)
-        except (OSError, PermissionError, ValueError) as e:
+        except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
             error_msg = f"Error updating PR/MR with patch commits: {e}"
             logger.warning(error_msg)
             emit_progress_comment(
