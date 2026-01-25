@@ -46,6 +46,16 @@ class SupabaseConfig:
             raise ValueError("SUPABASE_SERVICE_ROLE_KEY environment variable is not set")
         return key
 
+    def validate(self) -> None:
+        """Validate that all required configuration is present.
+
+        Raises:
+            ValueError: If any required configuration is missing
+        """
+        # Access properties to trigger validation
+        _ = self.url
+        _ = self.key
+
 
 # Global client instance
 _client: Optional[Client] = None
@@ -267,7 +277,7 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
 
         # Validate inputs
         if not description or not description.strip():
-            raise ValueError("Description is required")
+            raise ValueError("Description cannot be empty")
 
         if title and not title.strip():
             raise ValueError("Title cannot be empty/whitespace if provided")
@@ -292,12 +302,15 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         raise ValueError(f"Failed to create issue: {e}") from e
 
 
-def update_issue_status(issue_id: int, status: str) -> None:
+def update_issue_status(issue_id: int, status: str) -> Issue:
     """Update issue status.
 
     Args:
         issue_id: Issue ID to update
         status: New status (pending, started, completed)
+
+    Returns:
+        Updated Issue object
 
     Raises:
         ValueError: If status is invalid or update fails
@@ -317,6 +330,12 @@ def update_issue_status(issue_id: int, status: str) -> None:
         response = client.table("issues").update({"status": status}).eq("id", issue_id).execute()
         if not response.data:
             raise ValueError(f"Update failed: issue {issue_id} not returned")
+
+        row = response.data[0]
+        if not isinstance(row, dict):
+            raise ValueError(f"Invalid response data type for issue {issue_id}")
+
+        return Issue.from_supabase(row)
 
     except APIError as e:
         logger.exception("Database error updating status for issue %s", issue_id)
@@ -339,6 +358,12 @@ def update_issue_description(issue_id: int, description: str) -> Issue:
     if not description or not description.strip():
         raise ValueError("Description cannot be empty")
 
+    if len(description.strip()) < 10:
+        raise ValueError("Description must be at least 10 characters")
+
+    if len(description) > 10000:
+        raise ValueError("Description cannot exceed 10000 characters")
+
     try:
         client = get_client()
         response = (
@@ -359,48 +384,90 @@ def update_issue_description(issue_id: int, description: str) -> Issue:
         raise ValueError(f"Failed to update issue {issue_id} description: {e}") from e
 
 
-def delete_issue(issue_id: int) -> None:
+def delete_issue(issue_id: int) -> bool:
     """Delete an issue.
 
     Args:
         issue_id: Issue ID to delete
 
+    Returns:
+        True if the issue was deleted successfully
+
     Raises:
-        ValueError: If deletion fails
+        ValueError: If deletion fails or issue not found
     """
     try:
         client = get_client()
-        client.table("issues").delete().eq("id", issue_id).execute()
-        # Note: PostgREST delete returns rows, but if ID didn't exist, it returns []
-        # We don't necessarily want to fail if it didn't exist (idempotency)
+        response = client.table("issues").delete().eq("id", issue_id).execute()
+        # PostgREST delete returns the deleted rows
+        if not response.data:
+            raise ValueError(f"Issue with id {issue_id} not found")
+        return True
 
     except APIError as e:
         logger.exception("Database error deleting issue %s", issue_id)
         raise ValueError(f"Failed to delete issue {issue_id}: {e}") from e
 
 
-def update_issue_assignment(issue_id: int, assigned_to: str) -> None:
+def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
     """Update issue worker assignment.
 
     Args:
         issue_id: Issue ID to update
-        assigned_to: Worker ID string
+        assigned_to: Worker ID string or None to unassign
+
+    Returns:
+        Updated Issue object
 
     Raises:
         ValueError: If inputs invalid or update fails
     """
-    if not assigned_to or not assigned_to.strip():
+    if assigned_to is not None and (not assigned_to or not assigned_to.strip()):
         raise ValueError("Worker ID cannot be empty")
+
+    # Validate worker ID if provided
+    valid_workers = {
+        "alleycat-1",
+        "alleycat-2",
+        "alleycat-3",
+        "hailmary-1",
+        "hailmary-2",
+        "hailmary-3",
+        "local-1",
+        "local-2",
+        "local-3",
+        "tydirium-1",
+        "tydirium-2",
+        "tydirium-3",
+    }
+    if assigned_to is not None and assigned_to not in valid_workers:
+        raise ValueError(
+            f"Invalid worker ID '{assigned_to}'. Must be one of: {', '.join(sorted(valid_workers))}"
+        )
 
     try:
         client = get_client()
 
         # Validate issue exists and status
-        issue = fetch_issue(issue_id)
-        if issue.status == "completed":
-            logger.warning("Updating assignment for completed issue %s", issue_id)
+        try:
+            issue = fetch_issue(issue_id)
+        except ValueError as e:
+            raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
-        client.table("issues").update({"assigned_to": assigned_to}).eq("id", issue_id).execute()
+        if issue.status != "pending":
+            raise ValueError("Only pending issues can be assigned")
+
+        response = (
+            client.table("issues").update({"assigned_to": assigned_to}).eq("id", issue_id).execute()
+        )
+        if not response.data:
+            raise ValueError(f"Update failed: issue {issue_id} not returned")
+
+        row = response.data[0]
+        if not isinstance(row, dict):
+            raise ValueError(f"Invalid response data type for issue {issue_id}")
+
+        return Issue.from_supabase(row)
 
     except APIError as e:
         logger.exception("Database error assigning issue %s", issue_id)
@@ -434,9 +501,9 @@ def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
         )
 
         if response.data and len(response.data) > 0:
-            response_data = response.data[0]
-            if isinstance(response_data, dict):
-                return Patch.from_supabase(response_data)
+            row = response.data[0]
+            if isinstance(row, dict):
+                return Patch.from_supabase(row)
 
         return None
 
