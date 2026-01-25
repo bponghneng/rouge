@@ -51,7 +51,7 @@ class GenerateReviewStep(WorkflowStep):
         review_result = generate_review(repo_path, context.issue_id, context.adw_id)
 
         if not review_result.success:
-            logger.error(f"Failed to generate CodeRabbit review: {review_result.error}")
+            logger.error("Failed to generate CodeRabbit review: %s", review_result.error)
             return StepResult.fail(f"Failed to generate CodeRabbit review: {review_result.error}")
 
         if review_result.data is None:
@@ -131,7 +131,7 @@ class AddressReviewStep(WorkflowStep):
         )
 
         if not review_issues_result.success:
-            logger.error(f"Failed to address review issues: {review_issues_result.error}")
+            logger.error("Failed to address review issues: %s", review_issues_result.error)
             # Save artifact even on failure
             if context.artifacts_enabled and context.artifact_store is not None:
                 artifact = ReviewAddressedArtifact(

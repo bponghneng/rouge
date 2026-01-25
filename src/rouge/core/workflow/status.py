@@ -22,9 +22,9 @@ def update_status(issue_id: int, status: str) -> None:
     """
     try:
         update_issue_status(issue_id, status)
-        logger.debug(f"Issue {issue_id} status updated to '{status}'")
+        logger.debug("Issue %s status updated to '%s'", issue_id, status)
     except APIError as e:
-        logger.error(f"Failed to update issue {issue_id} status to '{status}': {e}")
+        logger.error("Failed to update issue %s status to '%s': %s", issue_id, status, e)
 
 
 def transition_to_patch_pending(issue_id: int) -> None:
@@ -40,9 +40,9 @@ def transition_to_patch_pending(issue_id: int) -> None:
     try:
         client = get_client()
         client.table("issues").update({"status": "patch pending"}).eq("id", issue_id).execute()
-        logger.debug(f"Issue {issue_id} status updated to 'patch pending'")
+        logger.debug("Issue %s status updated to 'patch pending'", issue_id)
     except APIError as e:
-        logger.error(f"Failed to update issue {issue_id} status to 'patch pending': {e}")
+        logger.error("Failed to update issue %s status to 'patch pending': %s", issue_id, e)
 
 
 def transition_to_patched(issue_id: int, patch_id: int) -> None:
@@ -59,14 +59,14 @@ def transition_to_patched(issue_id: int, patch_id: int) -> None:
     """
     try:
         update_patch_status(patch_id, "completed", logger)
-        logger.debug(f"Patch {patch_id} status updated to 'completed'")
+        logger.debug("Patch %s status updated to 'completed'", patch_id)
     except APIError as e:
-        logger.error(f"Failed to update patch {patch_id} status to 'completed': {e}")
+        logger.error("Failed to update patch %s status to 'completed': %s", patch_id, e)
         return  # Don't update issue if patch update failed
 
     try:
         client = get_client()
         client.table("issues").update({"status": "patched"}).eq("id", issue_id).execute()
-        logger.debug(f"Issue {issue_id} status updated to 'patched'")
+        logger.debug("Issue %s status updated to 'patched'", issue_id)
     except APIError as e:
-        logger.error(f"Failed to update issue {issue_id} status to 'patched': {e}")
+        logger.error("Failed to update issue %s status to 'patched': %s", issue_id, e)

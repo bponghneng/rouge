@@ -60,7 +60,7 @@ class BuildPlanStep(WorkflowStep):
         )
 
         if not plan_response.success:
-            logger.error(f"Error building plan: {plan_response.error}")
+            logger.error("Error building plan: %s", plan_response.error)
             return StepResult.fail(f"Error building plan: {plan_response.error}")
 
         # Store plan data in context

@@ -71,7 +71,7 @@ def notify_plan_acceptance(
         )
 
         if not response.success:
-            logger.error(f"Failed to execute /adw-acceptance template: {response.output}")
+            logger.error("Failed to execute /adw-acceptance template: %s", response.output)
             return StepResult.fail(f"Failed to execute /adw-acceptance template: {response.output}")
 
         # Parse and validate JSON output
@@ -84,5 +84,5 @@ def notify_plan_acceptance(
         return StepResult.ok(None, parsed_data=parse_result.data)
 
     except Exception as e:
-        logger.error(f"Failed to notify plan acceptance template: {e}")
+        logger.error("Failed to notify plan acceptance template: %s", e)
         return StepResult.fail(f"Failed to notify plan acceptance template: {e}")

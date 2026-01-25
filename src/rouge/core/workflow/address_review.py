@@ -78,7 +78,7 @@ def address_review_issues(
         )
 
         if not response.success:
-            logger.error(f"Failed to execute /adw-implement-review template: {response.output}")
+            logger.error("Failed to execute /adw-implement-review template: %s", response.output)
             return StepResult.fail(
                 f"Failed to execute /adw-implement-review template: {response.output}"
             )
@@ -103,12 +103,12 @@ def address_review_issues(
         )
         status, msg = emit_comment_from_payload(payload)
         if status != "success":
-            logger.error(f"Failed to insert template notification comment: {msg}")
+            logger.error("Failed to insert template notification comment: %s", msg)
         else:
-            logger.debug(f"Template notification comment inserted: {msg}")
+            logger.debug("Template notification comment inserted: %s", msg)
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 
     except Exception as e:
-        logger.error(f"Failed to address review issues: {e}")
+        logger.error("Failed to address review issues: %s", e)
         return StepResult.fail(f"Failed to address review issues: {e}")

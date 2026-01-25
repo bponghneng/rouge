@@ -79,7 +79,7 @@ class PreparePullRequestStep(WorkflowStep):
             )
 
             if not response.success:
-                logger.warning(f"Pull request preparation failed: {response.output}")
+                logger.warning("Pull request preparation failed: %s", response.output)
                 # Still mark workflow as completed even if PR prep fails
                 self._finalize_workflow(context)
                 return StepResult.fail(f"Pull request preparation failed: {response.output}")
@@ -90,7 +90,7 @@ class PreparePullRequestStep(WorkflowStep):
             )
             if not parse_result.success:
                 error_msg = parse_result.error or "JSON parsing failed"
-                logger.warning(f"Pull request JSON parsing failed: {error_msg}")
+                logger.warning("Pull request JSON parsing failed: %s", error_msg)
                 # Still mark workflow as completed even if parse fails
                 self._finalize_workflow(context)
                 return StepResult.fail(error_msg)
@@ -115,7 +115,7 @@ class PreparePullRequestStep(WorkflowStep):
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
-            logger.warning(f"Pull request preparation failed: {e}")
+            logger.warning("Pull request preparation failed: %s", e)
             # Still mark workflow as completed
             self._finalize_workflow(context)
             return StepResult.fail(f"Pull request preparation failed: {e}")

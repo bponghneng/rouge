@@ -52,8 +52,8 @@ class WorkflowRunner:
             artifact_store=artifact_store,
         )
 
-        logger.info(f"ADW ID: {adw_id}")
-        logger.info(f"Processing issue ID: {issue_id}")
+        logger.info("ADW ID: %s", adw_id)
+        logger.info("Processing issue ID: %s", issue_id)
 
         for step in self._steps:
             log_step_start(step.name, issue_id=issue_id)
@@ -66,13 +66,13 @@ class WorkflowRunner:
                     error_msg = f"Critical step '{step.name}' failed"
                     if result.error:
                         error_msg += f": {result.error}"
-                    logger.error(f"{error_msg}, aborting workflow")
+                    logger.error("%s, aborting workflow", error_msg)
                     return False
                 else:
                     warning_msg = f"Best-effort step '{step.name}' failed"
                     if result.error:
                         warning_msg += f": {result.error}"
-                    logger.warning(f"{warning_msg}, continuing")
+                    logger.warning("%s, continuing", warning_msg)
             else:
                 log_step_end(step.name, result.success, issue_id=issue_id)
 
@@ -139,8 +139,8 @@ class WorkflowRunner:
             artifact_store=artifact_store,
         )
 
-        logger.info(f"ADW ID: {adw_id}")
-        logger.info(f"Running single step '{step_name}' for issue ID: {issue_id}")
+        logger.info("ADW ID: %s", adw_id)
+        logger.info("Running single step '%s' for issue ID: %s", step_name, issue_id)
 
         log_step_start(target_step.name, issue_id=issue_id)
         result = target_step.run(context)
@@ -153,7 +153,7 @@ class WorkflowRunner:
             logger.error(error_msg)
             return False
 
-        logger.info(f"Step '{step_name}' completed successfully")
+        logger.info("Step '%s' completed successfully", step_name)
         return True
 
 

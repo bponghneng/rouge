@@ -32,7 +32,7 @@ class FetchIssueStep(WorkflowStep):
 
         try:
             issue = fetch_issue(issue_id)
-            logger.info(f"Issue fetched: ID={issue.id}, Status={issue.status}")
+            logger.info("Issue fetched: ID=%s, Status=%s", issue.id, issue.status)
             context.issue = issue
 
             # Save artifact if artifact store is available
@@ -61,8 +61,8 @@ class FetchIssueStep(WorkflowStep):
             return StepResult.ok(None)
 
         except ValueError as e:
-            logger.error(f"Error fetching issue: {e}")
+            logger.error("Error fetching issue: %s", e)
             return StepResult.fail(f"Error fetching issue: {e}")
         except Exception as e:
-            logger.error(f"Unexpected error fetching issue: {e}")
+            logger.error("Unexpected error fetching issue: %s", e)
             return StepResult.fail(f"Unexpected error fetching issue: {e}")

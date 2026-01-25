@@ -128,7 +128,7 @@ def fetch_issue(issue_id: int) -> Issue:
         return Issue.from_supabase(response_data)
 
     except APIError as e:
-        logger.error(f"Database error fetching issue {issue_id}: {e}")
+        logger.error("Database error fetching issue %s: %s", issue_id, e)
         raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
 
@@ -153,7 +153,7 @@ def fetch_all_issues() -> List[Issue]:
         return [Issue.from_supabase(row) for row in rows]
 
     except APIError as e:
-        logger.error(f"Database error fetching all issues: {e}")
+        logger.error("Database error fetching all issues: %s", e)
         raise ValueError(f"Failed to fetch issues: {e}") from e
 
 
@@ -220,7 +220,7 @@ def fetch_comments(issue_id: int) -> List[Comment]:
         return [Comment(**row) for row in rows]
 
     except APIError as e:
-        logger.error(f"Database error fetching comments for issue {issue_id}: {e}")
+        logger.error("Database error fetching comments for issue %s: %s", issue_id, e)
         raise ValueError(f"Failed to fetch comments for issue {issue_id}: {e}") from e
 
 
@@ -272,7 +272,7 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         return Issue(**first_row)
 
     except APIError as e:
-        logger.error(f"Database error creating issue: {e}")
+        logger.error("Database error creating issue: %s", e)
         raise ValueError(f"Failed to create issue: {e}") from e
 
 
@@ -310,7 +310,7 @@ def update_issue_status(issue_id: int, status: str) -> Issue:
         return Issue(**first_row)
 
     except APIError as e:
-        logger.error(f"Database error updating issue {issue_id} status: {e}")
+        logger.error("Database error updating issue %s status: %s", issue_id, e)
         raise ValueError(f"Failed to update issue {issue_id} status: {e}") from e
 
 
@@ -356,7 +356,7 @@ def update_issue_description(issue_id: int, description: str) -> Issue:
         return Issue(**first_row)
 
     except APIError as e:
-        logger.error(f"Database error updating issue {issue_id} description: {e}")
+        logger.error("Database error updating issue %s description: %s", issue_id, e)
         raise ValueError(f"Failed to update issue {issue_id} description: {e}") from e
 
 
@@ -383,11 +383,11 @@ def delete_issue(issue_id: int) -> bool:
         if not response.data:
             raise ValueError(f"Issue with id {issue_id} not found")
 
-        logger.info(f"Successfully deleted issue {issue_id}")
+        logger.info("Successfully deleted issue %s", issue_id)
         return True
 
     except APIError as e:
-        logger.error(f"Database error deleting issue {issue_id}: {e}")
+        logger.error("Database error deleting issue %s: %s", issue_id, e)
         raise ValueError(f"Failed to delete issue {issue_id}: {e}") from e
 
 
@@ -460,7 +460,7 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
         return Issue(**first_row)
 
     except APIError as e:
-        logger.error(f"Database error updating issue {issue_id} assignment: {e}")
+        logger.error("Database error updating issue %s assignment: %s", issue_id, e)
         raise ValueError(f"Failed to update issue {issue_id} assignment: {e}") from e
 
 
@@ -505,7 +505,7 @@ def fetch_pending_patch(issue_id: int) -> Patch:
         return Patch.from_supabase(response_data)
 
     except APIError as e:
-        logger.exception(f"Database error fetching pending patch for issue {issue_id}: {e}")
+        logger.exception("Database error fetching pending patch for issue %s: %s", issue_id, e)
         raise ValueError(f"Failed to fetch pending patch for issue {issue_id}: {e}") from e
 
 
@@ -539,8 +539,8 @@ def update_patch_status(patch_id: int, status: str, log: Optional[logging.Logger
         if not rows:
             raise ValueError(f"Patch with id {patch_id} not found")
 
-        _log.info(f"Updated patch {patch_id} status to '{status}'")
+        _log.info("Updated patch %s status to '%s'", patch_id, status)
 
     except APIError as e:
-        _log.error(f"Database error updating patch {patch_id} status: {e}")
+        _log.error("Database error updating patch %s status: %s", patch_id, e)
         raise ValueError(f"Failed to update patch {patch_id} status: {e}") from e

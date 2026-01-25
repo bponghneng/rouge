@@ -140,25 +140,25 @@ def parse_and_validate_json(
     raw_output = output.strip() if output else ""
 
     if not raw_output:
-        logger.error(f"{step_prefix}Empty output received")
+        logger.error("%sEmpty output received", step_prefix)
         return StepResult.fail(f"{step_prefix}Empty output received")
 
     # Sanitize output to strip Markdown code fences and prose
     sanitized_output = _sanitize_json_output(raw_output)
-    logger.debug(f"{step_prefix}Sanitized output: {sanitized_output[:200]}...")
+    logger.debug("%sSanitized output: %s...", step_prefix, sanitized_output[:200])
 
     # Parse JSON
     try:
         parsed_data = json.loads(sanitized_output)
     except json.JSONDecodeError as exc:
-        logger.error(f"{step_prefix}JSON decode failed: {exc} | raw={raw_output[:200]}...")
+        logger.error("%sJSON decode failed: %s | raw=%s...", step_prefix, exc, raw_output[:200])
         return StepResult.fail(
             f"{step_prefix}Invalid JSON: {exc}. Output starts with: {raw_output[:100]}..."
         )
 
     # Validate it's a dict
     if not isinstance(parsed_data, dict):
-        logger.error(f"{step_prefix}Expected dict, got {type(parsed_data).__name__}")
+        logger.error("%sExpected dict, got %s", step_prefix, type(parsed_data).__name__)
         return StepResult.fail(
             f"{step_prefix}Expected JSON object, got {type(parsed_data).__name__}"
         )
@@ -166,7 +166,7 @@ def parse_and_validate_json(
     # Validate required fields and types
     for field_name, expected_type in required_fields.items():
         if field_name not in parsed_data:
-            logger.error(f"{step_prefix}Missing required field: '{field_name}'")
+            logger.error("%sMissing required field: '%s'", step_prefix, field_name)
             return StepResult.fail(f"{step_prefix}Missing required field: '{field_name}'")
 
         field_value = parsed_data[field_name]
@@ -175,8 +175,11 @@ def parse_and_validate_json(
             actual_type = type(field_value).__name__
             expected_type_name = expected_type.__name__
             logger.error(
-                f"{step_prefix}Field '{field_name}' has wrong type: "
-                f"expected {expected_type_name}, got {actual_type}"
+                "%sField '%s' has wrong type: expected %s, got %s",
+                step_prefix,
+                field_name,
+                expected_type_name,
+                actual_type,
             )
             return StepResult.fail(
                 f"{step_prefix}Field '{field_name}' has wrong type: "
@@ -186,13 +189,16 @@ def parse_and_validate_json(
             actual_type = type(field_value).__name__
             expected_type_name = expected_type.__name__
             logger.error(
-                f"{step_prefix}Field '{field_name}' has wrong type: "
-                f"expected {expected_type_name}, got {actual_type}"
+                "%sField '%s' has wrong type: expected %s, got %s",
+                step_prefix,
+                field_name,
+                expected_type_name,
+                actual_type,
             )
             return StepResult.fail(
                 f"{step_prefix}Field '{field_name}' has wrong type: "
                 f"expected {expected_type_name}, got {actual_type}"
             )
 
-    logger.debug(f"{step_prefix}JSON parsed and validated successfully")
+    logger.debug("%sJSON parsed and validated successfully", step_prefix)
     return StepResult.ok(parsed_data)
