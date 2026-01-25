@@ -4,11 +4,12 @@ import logging
 import os
 import subprocess
 
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +50,19 @@ class UpdatePRCommitsStep(WorkflowStep):
         if not pull_request:
             error_msg = "No existing PR/MR found for patch update"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pr-update-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pr-update-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
 
         pr_url = pull_request.get("url", "")
@@ -63,12 +71,19 @@ class UpdatePRCommitsStep(WorkflowStep):
         if not pr_url:
             error_msg = "PR/MR URL is empty in artifact"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pr-update-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pr-update-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
 
         # Determine which PAT to use based on platform
@@ -83,23 +98,37 @@ class UpdatePRCommitsStep(WorkflowStep):
         else:
             error_msg = f"Unknown platform: {platform}"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pr-update-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pr-update-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
 
         if not pat:
             skip_msg = f"PR update skipped: {pat_name} environment variable not set"
             logger.info(skip_msg)
-            emit_progress_comment(
-                context.issue_id,
-                skip_msg,
-                raw={"output": "pr-update-skipped", "reason": skip_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=skip_msg,
+                raw={"output": "pr-update-skipped", "reason": skip_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.ok(None)
 
         try:
@@ -120,12 +149,19 @@ class UpdatePRCommitsStep(WorkflowStep):
             if branch_check.returncode != 0:
                 error_msg = "Cannot push: not on a branch (detached HEAD state)"
                 logger.error(error_msg)
-                emit_progress_comment(
-                    context.issue_id,
-                    error_msg,
-                    raw={"output": "pr-update-failed", "error": error_msg},
+                payload = CommentPayload(
+                    issue_id=context.issue_id,
                     adw_id=context.adw_id,
+                    text=error_msg,
+                    raw={"output": "pr-update-failed", "error": error_msg},
+                    source="system",
+                    kind="workflow",
                 )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
                 return StepResult.fail(error_msg)
 
             branch = branch_check.stdout.strip()
@@ -149,12 +185,19 @@ class UpdatePRCommitsStep(WorkflowStep):
                     f"git push failed (exit code {push_result.returncode}): {push_result.stderr}"
                 )
                 logger.warning(error_msg)
-                emit_progress_comment(
-                    context.issue_id,
-                    error_msg,
-                    raw={"output": "pr-update-failed", "error": error_msg},
+                payload = CommentPayload(
+                    issue_id=context.issue_id,
                     adw_id=context.adw_id,
+                    text=error_msg,
+                    raw={"output": "pr-update-failed", "error": error_msg},
+                    source="system",
+                    kind="workflow",
                 )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
                 return StepResult.fail(error_msg)
 
             logger.info("Patch commits pushed to PR/MR: %s", pr_url)
@@ -162,38 +205,59 @@ class UpdatePRCommitsStep(WorkflowStep):
             # Emit progress comment indicating commits were added
             platform_name = "Pull request" if platform == "github" else "Merge request"
             comment_msg = f"{platform_name} updated with patch commits: {pr_url}"
-            emit_progress_comment(
-                context.issue_id,
-                comment_msg,
+            payload = CommentPayload(
+                issue_id=context.issue_id,
+                adw_id=context.adw_id,
+                text=comment_msg,
                 raw={
                     "output": "pr-updated",
                     "url": pr_url,
                     "platform": platform,
                 },
-                adw_id=context.adw_id,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             return StepResult.ok(None)
 
         except subprocess.TimeoutExpired:
             error_msg = "git push timed out after 60 seconds"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pr-update-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pr-update-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
         except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
             error_msg = f"Error updating PR/MR with patch commits: {e}"
             logger.warning(error_msg)
-            emit_progress_comment(
-                context.issue_id,
-                error_msg,
-                raw={"output": "pr-update-failed", "error": error_msg},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text=error_msg,
+                raw={"output": "pr-update-failed", "error": error_msg},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
             return StepResult.fail(error_msg)
         except Exception:
             # Re-raise unexpected exceptions after logging

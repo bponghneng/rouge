@@ -3,6 +3,8 @@
 import logging
 from typing import Optional
 
+from rouge.core.models import CommentPayload
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     ImplementationArtifact,
     PatchPlanArtifact,
@@ -11,7 +13,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.implement import implement_plan
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -104,11 +105,18 @@ class ImplementStep(WorkflowStep):
             logger.debug("Saved implementation artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        emit_progress_comment(
-            context.issue_id,
-            "Implementation complete.",
-            raw={"text": "Implementation complete."},
+        payload = CommentPayload(
+            issue_id=context.issue_id,
             adw_id=context.adw_id,
+            text="Implementation complete.",
+            raw={"text": "Implementation complete."},
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         return StepResult.ok(None)

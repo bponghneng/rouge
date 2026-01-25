@@ -2,14 +2,15 @@
 
 import logging
 
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.address_review import address_review_issues
 from rouge.core.workflow.artifacts import PlanArtifact, ReviewAddressedArtifact, ReviewArtifact
 from rouge.core.workflow.review import generate_review
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -73,12 +74,19 @@ class GenerateReviewStep(WorkflowStep):
             logger.debug("Saved review artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        emit_progress_comment(
-            context.issue_id,
-            "CodeRabbit review complete.",
-            raw={"text": "CodeRabbit review complete."},
+        payload = CommentPayload(
+            issue_id=context.issue_id,
             adw_id=context.adw_id,
+            text="CodeRabbit review complete.",
+            raw={"text": "CodeRabbit review complete."},
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         return StepResult.ok(None)
 
@@ -155,11 +163,18 @@ class AddressReviewStep(WorkflowStep):
             logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        emit_progress_comment(
-            context.issue_id,
-            "Review issues addressed.",
-            raw={"text": "Review issues addressed."},
+        payload = CommentPayload(
+            issue_id=context.issue_id,
             adw_id=context.adw_id,
+            text="Review issues addressed.",
+            raw={"text": "Review issues addressed."},
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         return StepResult.ok(None)

@@ -6,8 +6,9 @@ from typing import Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
-from rouge.core.models import Issue, Patch
+from rouge.core.models import CommentPayload, Issue, Patch
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     IssueArtifact,
     PatchArtifact,
@@ -17,7 +18,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.shared import AGENT_PATCH_PLANNER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PatchPlanData, PlanData, StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -196,9 +196,10 @@ class BuildPatchPlanStep(WorkflowStep):
             else "Patch plan created"
         )
 
-        emit_progress_comment(
-            issue.id,
-            comment_text,
+        payload = CommentPayload(
+            issue_id=issue.id,
+            adw_id=context.adw_id,
+            text=comment_text,
             raw={
                 "patch_id": patch.id,
                 "patch_description": patch.description,
@@ -206,8 +207,14 @@ class BuildPatchPlanStep(WorkflowStep):
                     patch_plan_data.original_plan_reference if patch_plan_data else None
                 ),
             },
-            adw_id=context.adw_id,
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         # Return the result from build_patch_plan to preserve session_id
         return patch_plan_response

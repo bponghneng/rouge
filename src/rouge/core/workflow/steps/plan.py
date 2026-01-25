@@ -2,7 +2,9 @@
 
 import logging
 
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     ClassificationArtifact,
     IssueArtifact,
@@ -11,7 +13,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.plan import build_plan
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +93,18 @@ class BuildPlanStep(WorkflowStep):
         comment_text = f"{title}\n\n{summary}" if summary else title
 
         # Insert progress comment - best-effort, non-blocking
-        emit_progress_comment(
-            issue.id,
-            comment_text,
-            raw={"text": parsed_data},
+        payload = CommentPayload(
+            issue_id=issue.id,
             adw_id=context.adw_id,
+            text=comment_text,
+            raw={"text": parsed_data},
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         return StepResult.ok(None)

@@ -5,13 +5,14 @@ import logging
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PRMetadataArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -68,15 +69,22 @@ class PreparePullRequestStep(WorkflowStep):
             logger.debug("PR preparation LLM response: %s", response.output)
 
             # Emit raw LLM response for debugging visibility
-            emit_progress_comment(
-                context.issue_id,
-                "PR preparation LLM response received",
+            payload = CommentPayload(
+                issue_id=context.issue_id,
+                adw_id=context.adw_id,
+                text="PR preparation LLM response received",
                 raw={
                     "output": "pr-preparation-response",
                     "llm_response": response.output,
                 },
-                adw_id=context.adw_id,
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             if not response.success:
                 logger.warning("Pull request preparation failed: %s", response.output)
@@ -102,12 +110,19 @@ class PreparePullRequestStep(WorkflowStep):
                 self._store_pr_details(parse_result.data, context)
 
             # Insert progress comment - best-effort, non-blocking
-            emit_progress_comment(
-                context.issue_id,
-                "Pull request prepared.",
-                raw={"text": "Pull request prepared.", "result": parse_result.data},
+            payload = CommentPayload(
+                issue_id=context.issue_id,
                 adw_id=context.adw_id,
+                text="Pull request prepared.",
+                raw={"text": "Pull request prepared.", "result": parse_result.data},
+                source="system",
+                kind="workflow",
             )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
             # Finalize workflow
             self._finalize_workflow(context)
@@ -130,12 +145,19 @@ class PreparePullRequestStep(WorkflowStep):
         update_status(context.issue_id, "completed")
 
         # Insert progress comment - best-effort, non-blocking
-        emit_progress_comment(
-            context.issue_id,
-            "Solution implemented successfully",
-            raw={"text": "Solution implemented successfully."},
+        payload = CommentPayload(
+            issue_id=context.issue_id,
             adw_id=context.adw_id,
+            text="Solution implemented successfully",
+            raw={"text": "Solution implemented successfully."},
+            source="system",
+            kind="workflow",
         )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
     def _store_pr_details(self, pr_data: dict, context: WorkflowContext) -> None:
         """Store validated PR details in context for CreatePullRequestStep.
