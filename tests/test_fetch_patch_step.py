@@ -44,7 +44,7 @@ def sample_patch():
     )
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_success(
@@ -58,6 +58,7 @@ def test_fetch_patch_step_success(
     """Test successful patch fetch."""
     mock_fetch_issue.return_value = sample_issue
     mock_fetch_patch.return_value = sample_patch
+    mock_emit.return_value = ("success", "Comment inserted")
 
     step = FetchPatchStep()
     result = step.run(mock_context)
@@ -78,7 +79,7 @@ def test_fetch_patch_step_success(
     mock_emit.assert_called_once()
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_no_pending_patch(
@@ -99,7 +100,7 @@ def test_fetch_patch_step_no_pending_patch(
     assert "No pending patch found" in result.error
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_issue_not_found(
@@ -118,7 +119,7 @@ def test_fetch_patch_step_issue_not_found(
     assert "Issue not found" in result.error
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_without_artifact_store(
@@ -134,6 +135,7 @@ def test_fetch_patch_step_without_artifact_store(
     mock_context.artifact_store = None
     mock_fetch_issue.return_value = sample_issue
     mock_fetch_patch.return_value = sample_patch
+    mock_emit.return_value = ("success", "Comment inserted")
 
     step = FetchPatchStep()
     result = step.run(mock_context)
@@ -155,13 +157,13 @@ def test_fetch_patch_step_name():
     assert step.name == "Fetching pending patch"
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_progress_comment")
+@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_unexpected_error(
     mock_fetch_issue,
     mock_fetch_pending_patch,
-    mock_emit_progress_comment,
+    mock_emit_comment_from_payload,
     mock_context,
     sample_issue,
 ):
@@ -179,4 +181,4 @@ def test_fetch_patch_step_unexpected_error(
     assert "Unexpected error" in result.error
     mock_fetch_issue.assert_called_once_with(10)
     mock_fetch_pending_patch.assert_called_once_with(10)
-    mock_emit_progress_comment.assert_not_called()
+    mock_emit_comment_from_payload.assert_not_called()
