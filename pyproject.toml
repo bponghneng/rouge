@@ -47,7 +47,7 @@ line-length = 100
 src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "ARG"]
+select = ["E", "F", "I", "W", "ARG", "G004"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["ARG"]
