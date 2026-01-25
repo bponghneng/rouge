@@ -286,7 +286,6 @@ class TestPatchWorkflowArtifactIsolation:
 
     def test_patch_workflow_reads_shared_artifacts_from_parent(self, tmp_path):
         """Test that patch workflows can read shared artifacts (issue, plan) from parent."""
-        from rouge.core.models import Issue
         from rouge.core.workflow.artifacts import (
             ArtifactStore,
             IssueArtifact,
@@ -425,7 +424,7 @@ class TestPatchWorkflowArtifactIsolation:
             ImplementationArtifact,
             ReviewArtifact,
         )
-        from rouge.core.workflow.types import ImplementData, ReviewData
+        from rouge.core.workflow.types import ImplementData
 
         main_wf_id = "main-wf-1"
         patch_wf_id = "patch-wf-1-patch"
@@ -547,7 +546,6 @@ class TestPatchWorkflowArtifactIsolation:
 
     def test_child_artifact_takes_precedence_over_parent_for_shared_types(self, tmp_path):
         """Test that child's artifact takes precedence when both exist (shared types)."""
-        from rouge.core.models import Issue
         from rouge.core.workflow.artifacts import ArtifactStore, IssueArtifact
 
         main_wf_id = "main-wf"
