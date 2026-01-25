@@ -1,11 +1,11 @@
 import logging
-from typing import Any
+from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.workflow.types import StepResult
-from rouge.core.workflow.workflow_io import emit_comment_from_payload, emit_progress_comment
+from rouge.core.workflow.workflow_io import emit_progress_comment
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def address_review_issues(
     issue_id: int,
     adw_id: str,
     review_text: str,
-    stream_handler: Any = None,
+    stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult:
     """Address issues found in the review.
 
@@ -95,22 +95,21 @@ def address_review_issues(
         logger.info("Review issues addressed successfully")
 
         # Emit result comment
-        emit_comment_from_payload(
-            issue_id,
-            "address_review",
-            {
-                "raw": {
-                    "output": parse_result.data.get("output", ""),
-                    "summary": parse_result.data.get("summary", ""),
-                    "issues": parse_result.data.get("issues", []),
-                    "parsed_data": parse_result.data,
-                }
+        status, msg = emit_progress_comment(
+            issue_id=issue_id,
+            message="Review issues addressed",
+            raw={
+                "output": parse_result.data.get("output", ""),
+                "summary": parse_result.data.get("summary", ""),
+                "issues": parse_result.data.get("issues", []),
+                "parsed_data": parse_result.data,
             },
+            comment_type="address_review",
             adw_id=adw_id,
         )
 
         return StepResult.ok(None, parsed_data=parse_result.data)
 
     except Exception as e:
-        logger.exception("Failed to address review issues: %s", e)
+        logger.exception("Failed to address review issues")
         return StepResult.fail(f"Failed to address review issues: {e}")
