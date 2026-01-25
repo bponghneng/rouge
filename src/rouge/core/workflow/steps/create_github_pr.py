@@ -251,11 +251,11 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             if status == "success":
                 logger.debug(msg)
             else:
-                logger.error(msg)
+                logger.exception(msg)
             return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating pull request: {e}"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,

@@ -97,7 +97,7 @@ class BuildPlanStep(WorkflowStep):
             issue_id=issue.id,
             adw_id=context.adw_id,
             text=comment_text,
-            raw={"text": parsed_data},
+            raw={"text": comment_text, "parsed": parsed_data},
             source="system",
             kind="workflow",
         )

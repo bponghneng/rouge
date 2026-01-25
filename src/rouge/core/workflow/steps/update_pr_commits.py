@@ -227,7 +227,7 @@ class UpdatePRCommitsStep(WorkflowStep):
 
         except subprocess.TimeoutExpired:
             error_msg = "git push timed out after 60 seconds"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
@@ -244,7 +244,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             return StepResult.fail(error_msg)
         except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
             error_msg = f"Error updating PR/MR with patch commits: {e}"
-            logger.warning(error_msg)
+            logger.exception(error_msg)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,

@@ -1025,7 +1025,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     result = step.run(context)
 
     assert result.success is False
-    mock_logger.warning.assert_called_with("glab mr create timed out after 120 seconds")
+    mock_logger.exception.assert_called_with("glab mr create timed out after 120 seconds")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
@@ -1066,7 +1066,7 @@ def test_create_gitlab_mr_step_glab_not_found(
     result = step.run(context)
 
     assert result.success is False
-    mock_logger.warning.assert_called_with("glab CLI not found, skipping MR creation")
+    mock_logger.exception.assert_called_with("glab CLI not found, skipping MR creation")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
