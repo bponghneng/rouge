@@ -47,14 +47,14 @@ def get_next_issue(
             description = issue["issue_description"]
             status = issue["issue_status"]
             if logger:
-                logger.info(f"Locked issue {issue_id} (status: {status}) for processing")
+                logger.info("Locked issue %s (status: %s) for processing", issue_id, status)
             return (issue_id, description, status)
 
         return None
 
     except Exception as e:
         if logger:
-            logger.error(f"Error retrieving next issue: {e}")
+            logger.error("Error retrieving next issue: %s", e)
         return None
 
 
@@ -89,8 +89,8 @@ def update_issue_status(
         client.table("issues").update({"status": status}).eq("id", issue_id).execute()
 
         if logger:
-            logger.debug(f"Updated issue {issue_id} status to {status}")
+            logger.debug("Updated issue %s status to %s", issue_id, status)
 
     except Exception as e:
         if logger:
-            logger.error(f"Error updating issue {issue_id} status: {e}")
+            logger.error("Error updating issue %s status: %s", issue_id, e)
