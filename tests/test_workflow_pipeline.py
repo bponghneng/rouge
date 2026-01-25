@@ -1,30 +1,35 @@
 import logging
-from unittest.mock import MagicMock
+import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rouge.core.models import Issue
 from rouge.core.workflow.pipeline import (
     WorkflowRunner,
     get_default_pipeline,
     get_patch_pipeline,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
-from rouge.core.workflow.steps.classify import ClassifyStep
+from rouge.core.workflow.steps import (
+    AddressReviewStep,
+    BuildPlanStep,
+    ClassifyStep,
+    CodeQualityStep,
+    FetchIssueStep,
+    FetchPatchStep,
+    GenerateReviewStep,
+    ImplementStep,
+    PreparePullRequestStep,
+    SetupStep,
+    ValidateAcceptanceStep,
+)
 from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
-from rouge.core.workflow.steps.fetch import FetchIssueStep
-from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
-from rouge.core.workflow.steps.implement import ImplementStep
 from rouge.core.workflow.steps.patch_acceptance import ValidatePatchAcceptanceStep
 from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-from rouge.core.workflow.steps.plan import BuildPlanStep
-from rouge.core.workflow.steps.pr import PreparePullRequestStep
-from rouge.core.workflow.steps.quality import CodeQualityStep
-from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
-from rouge.core.workflow.steps.setup import SetupStep
 from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
-from rouge.core.workflow.types import StepResult
+from rouge.core.workflow.types import ImplementData, PatchPlanData, PlanData, ReviewData, StepResult
 
 
 class TestStep(WorkflowStep):
@@ -137,14 +142,16 @@ class TestWorkflowRunner:
             runner.run(issue_id=123, adw_id="test-adw-4")
 
         mock_step.run.assert_called_once()
-        # Verify context was passed with correct issue_id and adw_id
         call_args = mock_step.run.call_args[0][0]
+        assert isinstance(call_args, WorkflowContext)
         assert call_args.issue_id == 123
         assert call_args.adw_id == "test-adw-4"
 
 
 class TestGetDefaultPipeline:
     def test_pipeline_structure_no_platform(self, monkeypatch):
+        from rouge.core.workflow.steps.setup import SetupStep
+
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_default_pipeline()
 
@@ -176,6 +183,7 @@ class TestGetDefaultPipeline:
         assert pipeline[2].is_critical  # Classify
         assert pipeline[3].is_critical  # Plan
         assert pipeline[4].is_critical  # Implement
+        assert not pipeline[7].is_critical  # Quality
 
     def test_pipeline_structure_github(self, monkeypatch):
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
@@ -230,17 +238,15 @@ class TestGetPatchPipeline:
         assert not pipeline[7].is_critical  # Update PR commits (best effort)
 
     def test_patch_pipeline_excludes_create_pr_steps(self, monkeypatch):
-        """Verify patch pipeline never includes CreateGitHub/GitLabPullRequestStep."""
+        """Verify patch pipeline never includes PR creation steps."""
         # Even with platform set
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_patch_pipeline()
 
+        pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(step, CreateGitHubPullRequestStep), (
-                "Patch pipeline should not include CreateGitHubPullRequestStep"
-            )
-            assert not isinstance(step, CreateGitLabPullRequestStep), (
-                "Patch pipeline should not include CreateGitLabPullRequestStep"
+            assert not isinstance(step, pr_step_types), (
+                "Patch pipeline should not include PR creation steps"
             )
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
@@ -288,47 +294,54 @@ class TestPatchWorkflowArtifactIsolation:
             IssueArtifact,
             PlanArtifact,
         )
-        from rouge.core.workflow.types import PlanData
 
         # Setup main workflow with shared artifacts
         main_wf_id = "main-wf-1"
-        patch_wf_id = "patch-wf-1-patch"  # Uses -patch suffix
+        patch_wf_id = "patch-wf-1-patch"
 
-        # Create artifacts in main workflow
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        # Create artifacts in main workflow using the same base as WorkflowRunner.
+        workflows_dir = tmp_path / ".rouge" / "workflows"
+        main_store = ArtifactStore(main_wf_id, base_path=workflows_dir)
 
         issue_artifact = IssueArtifact(
             workflow_id=main_wf_id,
-            issue=Issue(id=1, description="Main Issue Description"),
+            issue=Issue(id=1, description="Main Issue"),
         )
         main_store.write_artifact(issue_artifact)
 
         plan_artifact = PlanArtifact(
             workflow_id=main_wf_id,
-            plan_data=PlanData(
-                plan="Main plan content",
-                summary="Main plan summary",
-            ),
+            plan_data=PlanData(plan="Problem statement and changes", summary="Main summary"),
         )
         main_store.write_artifact(plan_artifact)
 
-        # Create patch workflow store with parent reference
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        # Run a simple workflow that accesses artifacts via parent_workflow_id.
+        class AccessArtifactsStep(WorkflowStep):
+            @property
+            def name(self):
+                return "Access Artifacts"
 
-        # Patch workflow should be able to read issue from parent (shared artifact)
-        issue = patch_store.read_artifact("issue", IssueArtifact)
-        assert issue.issue.id == 1
-        assert issue.issue.description == "Main Issue Description"
-        assert issue.workflow_id == main_wf_id  # Comes from parent
+            @property
+            def is_critical(self):
+                return True
 
-        # Patch workflow should be able to read plan from parent (shared artifact)
-        plan = patch_store.read_artifact("plan", PlanArtifact)
-        assert plan.plan_data.plan == "Main plan content"
-        assert plan.workflow_id == main_wf_id  # Comes from parent
+            def run(self, ctx):
+                store = ctx.artifact_store
+                issue = store.read_artifact("issue", IssueArtifact)
+                plan = store.read_artifact("plan", PlanArtifact)
+
+                if not issue or issue.issue.description != "Main Issue":
+                    return StepResult.fail("Failed to read parent IssueArtifact")
+                if not plan or plan.plan_data.summary != "Main summary":
+                    return StepResult.fail("Failed to read parent PlanArtifact")
+
+                return StepResult.ok(None)
+
+        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path / ".rouge")}):
+            runner = WorkflowRunner([AccessArtifactsStep()])
+            success = runner.run(issue_id=1, adw_id=patch_wf_id, parent_workflow_id=main_wf_id)
+
+        assert success, "Workflow failed to access parent artifacts"
 
     def test_patch_workflow_uses_patch_plan_for_implementation(self, tmp_path):
         """Test that patch workflows use patch_plan (not plan) for implementation."""
@@ -479,7 +492,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Patch-specific artifact should NOT fall back
         import pytest
-
         with pytest.raises(FileNotFoundError):
             patch_store.read_artifact("implementation", ImplementationArtifact)
 
@@ -569,3 +581,129 @@ class TestPatchWorkflowArtifactIsolation:
         read = patch_store.read_artifact("issue", IssueArtifact)
         assert read.issue.id == 2
         assert read.issue.description == "Child issue"
+
+    @patch("rouge.core.workflow.steps.implement.implement_plan")
+    def test_implement_step_uses_patch_plan_when_both_artifacts_exist(
+        self, mock_implement_plan, tmp_path
+    ):
+        """Test that ImplementStep uses patch_plan content when both plan and patch_plan exist.
+
+        When a patch workflow has both the original plan artifact (from parent) and
+        a patch_plan artifact, the ImplementStep should call implement_plan() with
+        the patch_plan_content, not the original plan content.
+        """
+        from rouge.core.workflow.artifacts import (
+            ArtifactStore,
+            PatchPlanArtifact,
+            PlanArtifact,
+        )
+
+        main_wf_id = "main-wf-1"
+        patch_wf_id = "patch-wf-1"
+
+        # 1. Create the parent workflow's plan artifact
+        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        original_plan = PlanArtifact(
+            workflow_id=main_wf_id,
+            plan_data=PlanData(
+                plan="# Original Plan\n\nThis is the original implementation plan.",
+                summary="Original plan summary",
+            ),
+        )
+        main_store.write_artifact(original_plan)
+
+        # 2. Create the patch workflow's patch_plan artifact
+        patch_store = ArtifactStore(patch_wf_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        patch_plan = PatchPlanArtifact(
+            workflow_id=patch_wf_id,
+            patch_plan_data=PatchPlanData(
+                patch_description="Fix the bug in the original plan",
+                original_plan_reference=main_wf_id,
+                patch_plan_content="# Patch Plan\n\nThis is the PATCH implementation plan.",
+            ),
+        )
+        patch_store.write_artifact(patch_plan)
+
+        # 3. Configure mock to return a successful implementation response
+        mock_implement_plan.return_value = StepResult.ok(
+            ImplementData(output="mock implementation output")
+        )
+
+        # 4. Create a WorkflowContext for the patch workflow
+        # Note: artifact_store is created with parent_workflow_id for shared artifact access
+        context = WorkflowContext(
+            issue_id=1,
+            adw_id=patch_wf_id,
+            artifact_store=patch_store,
+        )
+
+        # 5. Run the ImplementStep
+        step = ImplementStep()
+        result = step.run(context)
+
+        # 6. Verify step succeeded
+        assert result.success, f"ImplementStep failed: {result.error}"
+
+        # 7. Verify implement_plan was called with PATCH plan content, not original
+        mock_implement_plan.assert_called_once()
+        call_args = mock_implement_plan.call_args
+        plan_content_arg = call_args[0][0]  # First positional argument
+
+        # The patch plan content should be used
+        assert "PATCH implementation plan" in plan_content_arg, (
+            f"Expected patch plan content but got: {plan_content_arg}"
+        )
+        assert "Original Plan" not in plan_content_arg, "Should NOT contain original plan content"
+
+    @patch("rouge.core.workflow.steps.implement.implement_plan")
+    def test_implement_step_uses_original_plan_when_no_patch_plan(
+        self, mock_implement_plan, tmp_path
+    ):
+        """Test that ImplementStep uses original plan when no patch_plan exists.
+
+        In a regular (non-patch) workflow, only the plan artifact exists.
+        ImplementStep should use the original plan content.
+        """
+        from rouge.core.workflow.artifacts import ArtifactStore, PlanArtifact
+
+        wf_id = "regular-wf-1"
+
+        # 1. Create only the plan artifact (no patch_plan)
+        store = ArtifactStore(wf_id, base_path=tmp_path)
+        plan = PlanArtifact(
+            workflow_id=wf_id,
+            plan_data=PlanData(
+                plan="# Original Plan\n\nThis is the standard implementation plan.",
+                summary="Standard plan summary",
+            ),
+        )
+        store.write_artifact(plan)
+
+        # 2. Configure mock to return a successful implementation response
+        mock_implement_plan.return_value = StepResult.ok(
+            ImplementData(output="mock implementation output")
+        )
+
+        # 3. Create a WorkflowContext (no parent workflow)
+        context = WorkflowContext(
+            issue_id=1,
+            adw_id=wf_id,
+            artifact_store=store,
+        )
+
+        # 4. Run the ImplementStep
+        step = ImplementStep()
+        result = step.run(context)
+
+        # 5. Verify step succeeded
+        assert result.success, f"ImplementStep failed: {result.error}"
+
+        # 6. Verify implement_plan was called with the original plan content
+        mock_implement_plan.assert_called_once()
+        call_args = mock_implement_plan.call_args
+        plan_content_arg = call_args[0][0]  # First positional argument
+
+        # The original plan content should be used
+        assert "standard implementation plan" in plan_content_arg, (
+            f"Expected original plan content but got: {plan_content_arg}"
+        )
