@@ -1,9 +1,11 @@
 """Implementation step implementations."""
 
 import logging
+from typing import Optional
 
 from rouge.core.workflow.artifacts import (
     ImplementationArtifact,
+    PatchPlanArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.implement import implement_plan
@@ -21,16 +23,31 @@ class ImplementStep(WorkflowStep):
     def name(self) -> str:
         return "Implementing solution"
 
-    def run(self, context: WorkflowContext) -> StepResult:
-        """Implement the plan and store result in context.
+    def _load_plan_text(self, context: WorkflowContext) -> Optional[str]:
+        """Load plan text from patch_plan or plan artifact.
+
+        Tries to load patch_plan first (for patch workflows), falling back
+        to plan (for main workflows) if patch_plan is not available.
 
         Args:
-            context: Workflow context with plan artifact
+            context: Workflow context with artifact store
 
         Returns:
-            StepResult with success status and optional error message
+            Plan text string, or None if neither artifact is available
         """
-        # Load plan content from artifact
+        # First, try to load patch_plan (for patch workflows)
+        patch_plan_data = context.load_artifact_if_missing(
+            "patch_plan_data",
+            "patch_plan",
+            PatchPlanArtifact,
+            lambda a: a.patch_plan_data,
+        )
+
+        if patch_plan_data is not None:
+            logger.info("Using patch_plan for implementation")
+            return patch_plan_data.patch_plan_content
+
+        # Fall back to plan (for main workflows)
         plan_data = context.load_artifact_if_missing(
             "plan_data",
             "plan",
@@ -38,11 +55,29 @@ class ImplementStep(WorkflowStep):
             lambda a: a.plan_data,
         )
 
-        if plan_data is None:
-            logger.error("Cannot implement: plan not available")
-            return StepResult.fail("Cannot implement: plan not available")
+        if plan_data is not None:
+            logger.info("Using plan for implementation")
+            return plan_data.plan
 
-        implement_response = implement_plan(plan_data.plan, context.issue_id, context.adw_id)
+        return None
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        """Implement the plan and store result in context.
+
+        Args:
+            context: Workflow context with plan or patch_plan artifact
+
+        Returns:
+            StepResult with success status and optional error message
+        """
+        # Try to load plan content - prefer patch_plan over plan
+        plan_text = self._load_plan_text(context)
+
+        if plan_text is None:
+            logger.error("Cannot implement: no plan or patch_plan available")
+            return StepResult.fail("Cannot implement: no plan or patch_plan available")
+
+        implement_response = implement_plan(plan_text, context.issue_id, context.adw_id)
 
         if not implement_response.success:
             logger.error("Error implementing solution: %s", implement_response.error)

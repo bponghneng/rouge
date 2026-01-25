@@ -3,7 +3,7 @@
 import logging
 
 from rouge.core.database import fetch_issue, fetch_pending_patch
-from rouge.core.workflow.artifacts import IssueArtifact, PatchArtifact
+from rouge.core.workflow.artifacts import PatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_io import emit_progress_comment
@@ -45,6 +45,8 @@ class FetchPatchStep(WorkflowStep):
 
             # Fetch the pending patch for this issue
             patch = fetch_pending_patch(issue_id)
+            if patch is None:
+                raise ValueError(f"No pending patch found for issue {issue_id}")
             logger.info(
                 "Patch fetched: ID=%s, Issue=%s, Status=%s", patch.id, patch.issue_id, patch.status
             )
@@ -54,14 +56,6 @@ class FetchPatchStep(WorkflowStep):
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
-                # Save issue artifact
-                issue_artifact = IssueArtifact(
-                    workflow_id=context.adw_id,
-                    issue=issue,
-                )
-                context.artifact_store.write_artifact(issue_artifact)
-                logger.debug("Saved issue artifact for workflow %s", context.adw_id)
-
                 # Save patch artifact
                 artifact = PatchArtifact(
                     workflow_id=context.adw_id,
