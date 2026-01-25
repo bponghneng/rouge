@@ -112,15 +112,13 @@ def test_fetch_issue_success(mock_get_client):
     mock_table = Mock()
     mock_select = Mock()
     mock_eq = Mock()
-    mock_maybe_single = Mock()
     mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
     mock_table.select.return_value = mock_select
     mock_select.eq.return_value = mock_eq
-    mock_eq.maybe_single.return_value = mock_maybe_single
-    mock_execute.data = {"id": 1, "description": "Test issue", "status": "pending"}
-    mock_maybe_single.execute.return_value = mock_execute
+    mock_execute.data = [{"id": 1, "description": "Test issue", "status": "pending"}]
+    mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
     issue = fetch_issue(1)
@@ -135,15 +133,13 @@ def test_fetch_issue_not_found(mock_get_client):
     mock_table = Mock()
     mock_select = Mock()
     mock_eq = Mock()
-    mock_maybe_single = Mock()
     mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
     mock_table.select.return_value = mock_select
     mock_select.eq.return_value = mock_eq
-    mock_eq.maybe_single.return_value = mock_maybe_single
-    mock_execute.data = None
-    mock_maybe_single.execute.return_value = mock_execute
+    mock_execute.data = []
+    mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
     with pytest.raises(ValueError, match="not found"):
@@ -300,15 +296,27 @@ def test_update_issue_status_success(mock_get_client):
     """Test successful status update."""
     mock_client = Mock()
     mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
 
-    mock_client.table.return_value = mock_table
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [{"id": 1, "description": "Test issue", "status": "started"}]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    # Set up table to return select on first call, update on second call
+    mock_table.select.return_value = mock_select_check
     mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = [{"id": 1, "description": "Test issue", "status": "started"}]
-    mock_eq.execute.return_value = mock_execute
+    mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
     issue = update_issue_status(1, "started")
@@ -322,15 +330,27 @@ def test_update_issue_status_to_completed(mock_get_client):
     """Test updating status to completed."""
     mock_client = Mock()
     mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
 
-    mock_client.table.return_value = mock_table
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [{"id": 1, "description": "Test issue", "status": "completed"}]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    # Set up table to return select on first call, update on second call
+    mock_table.select.return_value = mock_select_check
     mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = [{"id": 1, "description": "Test issue", "status": "completed"}]
-    mock_eq.execute.return_value = mock_execute
+    mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
     issue = update_issue_status(1, "completed")
@@ -349,15 +369,17 @@ def test_update_issue_status_not_found(mock_get_client):
     """Test updating non-existent issue."""
     mock_client = Mock()
     mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
 
+    # Mock for the select check (returns empty list)
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = []
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    mock_table.select.return_value = mock_select_check
     mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = None
-    mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
     with pytest.raises(ValueError, match="not found"):
@@ -690,7 +712,6 @@ def test_fetch_pending_patch_success(mock_get_client):
     mock_eq2 = Mock()
     mock_order = Mock()
     mock_limit = Mock()
-    mock_maybe_single = Mock()
     mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
@@ -699,14 +720,15 @@ def test_fetch_pending_patch_success(mock_get_client):
     mock_eq1.eq.return_value = mock_eq2
     mock_eq2.order.return_value = mock_order
     mock_order.limit.return_value = mock_limit
-    mock_limit.maybe_single.return_value = mock_maybe_single
-    mock_execute.data = {
-        "id": 1,
-        "issue_id": 10,
-        "description": "Fix typo",
-        "status": "pending",
-    }
-    mock_maybe_single.execute.return_value = mock_execute
+    mock_execute.data = [
+        {
+            "id": 1,
+            "issue_id": 10,
+            "description": "Fix typo",
+            "status": "pending",
+        }
+    ]
+    mock_limit.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
     patch = fetch_pending_patch(10)
@@ -718,7 +740,7 @@ def test_fetch_pending_patch_success(mock_get_client):
 
 @patch("rouge.core.database.get_client")
 def test_fetch_pending_patch_not_found(mock_get_client):
-    """Test fetch_pending_patch raises ValueError when no pending patch exists."""
+    """Test fetch_pending_patch returns None when no pending patch exists."""
     from rouge.core.database import fetch_pending_patch
 
     mock_client = Mock()
@@ -728,7 +750,6 @@ def test_fetch_pending_patch_not_found(mock_get_client):
     mock_eq2 = Mock()
     mock_order = Mock()
     mock_limit = Mock()
-    mock_maybe_single = Mock()
     mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
@@ -737,13 +758,12 @@ def test_fetch_pending_patch_not_found(mock_get_client):
     mock_eq1.eq.return_value = mock_eq2
     mock_eq2.order.return_value = mock_order
     mock_order.limit.return_value = mock_limit
-    mock_limit.maybe_single.return_value = mock_maybe_single
-    mock_execute.data = None
-    mock_maybe_single.execute.return_value = mock_execute
+    mock_execute.data = []
+    mock_limit.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    with pytest.raises(ValueError, match="No pending patch found"):
-        fetch_pending_patch(10)
+    patch = fetch_pending_patch(10)
+    assert patch is None
 
 
 @patch("rouge.core.database.get_client")
@@ -790,15 +810,17 @@ def test_update_patch_status_not_found(mock_get_client):
 
     mock_client = Mock()
     mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
 
+    # Mock for the select check (returns empty list)
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = []
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    mock_table.select.return_value = mock_select_check
     mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = []
-    mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
     with pytest.raises(ValueError, match="not found"):
