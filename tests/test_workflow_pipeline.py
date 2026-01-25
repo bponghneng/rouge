@@ -165,7 +165,7 @@ class TestGetDefaultPipeline:
             PreparePullRequestStep,
         ]
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types)):
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
             assert isinstance(step, expected_type), (
                 f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
             )
@@ -214,7 +214,7 @@ class TestGetPatchPipeline:
             UpdatePRCommitsStep,
         ]
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types)):
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
             assert isinstance(step, expected_type), (
                 f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
             )

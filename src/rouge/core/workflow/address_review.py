@@ -92,7 +92,7 @@ def address_review_issues(
 
         # Emit result comment
         parsed_data = parse_result.data or {}
-        status, msg = emit_progress_comment(
+        emit_progress_comment(
             issue_id=issue_id,
             message="Review issues addressed",
             raw={
