@@ -24,6 +24,9 @@ VALID_WORKER_IDS = frozenset(
         "alleycat-1",
         "alleycat-2",
         "alleycat-3",
+        "executor-1",
+        "executor-2",
+        "executor-3",
         "hailmary-1",
         "hailmary-2",
         "hailmary-3",
@@ -33,6 +36,9 @@ VALID_WORKER_IDS = frozenset(
         "tydirium-1",
         "tydirium-2",
         "tydirium-3",
+        "xwing-1",
+        "xwing-2",
+        "xwing-3",
     }
 )
 
@@ -49,6 +55,9 @@ class Issue(BaseModel):
             "alleycat-1",
             "alleycat-2",
             "alleycat-3",
+            "executor-1",
+            "executor-2",
+            "executor-3",
             "hailmary-1",
             "hailmary-2",
             "hailmary-3",
@@ -58,6 +67,9 @@ class Issue(BaseModel):
             "tydirium-1",
             "tydirium-2",
             "tydirium-3",
+            "xwing-1",
+            "xwing-2",
+            "xwing-3",
         ]
     ] = None
     created_at: Optional[datetime] = None
