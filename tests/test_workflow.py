@@ -1267,9 +1267,9 @@ def test_prepare_pr_step_emits_raw_llm_response(
             llm_response_call = call
             break
 
-    assert llm_response_call is not None, (
-        "Expected emit_comment_from_payload call with pr-preparation-response"
-    )
+    assert (
+        llm_response_call is not None
+    ), "Expected emit_comment_from_payload call with pr-preparation-response"
     assert llm_response_call[0][0].raw["llm_response"] == pr_json
 
 
