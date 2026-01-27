@@ -97,11 +97,8 @@ def get_client() -> Client:
     global _client
     if _client is None:
         config = SupabaseConfig()
-        options = ClientOptions(postgrest_client_timeout=10, storage_client_timeout=10)
+        options = ClientOptions(httpx_client=_get_http_client())
         _client = create_client(config.url, config.key, options=options)
-        # Monkey patch the http_client on the postgrest client directly
-        # since supabase-py doesn't expose a clean way to pass custom httpx client
-        _client.postgrest.http_client = _get_http_client()  # type: ignore[attr-defined]
     return _client
 
 
