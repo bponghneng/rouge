@@ -20,11 +20,10 @@ def get_next_issue(
     logger: Optional[logging.Logger] = None,
 ) -> Optional[Tuple[int, str, str, str]]:
     """
-    Retrieve and lock the next pending or patch pending issue from the database.
+    Retrieve the next pending or patch pending issue from the database.
 
-    Uses the PostgreSQL function get_and_lock_next_issue to atomically
-    retrieve and lock an issue, preventing race conditions. Selects issues
-    where type is 'main' or 'patch' and status is 'pending' or 'patch pending'.
+    Queries the issues table directly (no RPC). Selects issues where type is
+    'main' or 'patch' and status is 'pending' or 'patch pending'.
 
     Args:
         worker_id: Unique identifier for the worker requesting the issue
@@ -38,15 +37,25 @@ def get_next_issue(
     try:
         client = get_client()
 
-        # Call the PostgreSQL function to get and lock the next issue
-        response = client.rpc("get_and_lock_next_issue", {"p_worker_id": worker_id}).execute()
+        if logger:
+            logger.debug("Fetching next issue for worker %s", worker_id)
+
+        response = (
+            client.table("issues")
+            .select("id,description,status,type")
+            .in_("status", ["pending"])
+            .in_("type", ["main", "patch"])
+            .order("id")
+            .limit(1)
+            .execute()
+        )
 
         if response.data and len(response.data) > 0:
             issue = response.data[0]
-            issue_id = issue["issue_id"]
-            description = issue["issue_description"]
-            status = issue["issue_status"]
-            issue_type = issue["issue_type"]
+            issue_id = issue["id"]
+            description = issue["description"]
+            status = issue["status"]
+            issue_type = issue["type"]
             if logger:
                 logger.info(
                     "Locked issue %s (status: %s, type: %s) for processing",
