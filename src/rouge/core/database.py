@@ -533,4 +533,3 @@ def update_issue_branch(issue_id: int, branch: str) -> Issue:
     except APIError as e:
         logger.exception("Database error updating branch for issue %s", issue_id)
         raise ValueError(f"Failed to update issue {issue_id} branch: {e}") from e
-
