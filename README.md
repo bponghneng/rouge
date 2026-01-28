@@ -189,34 +189,8 @@ to load `.env` from that directory (or its parent), matching the worker's
 
 ## Database Requirements
 
-All executables expect the standard Supabase schema plus the worker RPC. Key pieces:
-
-```sql
-CREATE TYPE worker_id AS ENUM ('alleycat-1', 'tydirium-1');
-
-ALTER TABLE cape_issues
-ADD COLUMN assigned_to worker_id;
-
-CREATE OR REPLACE FUNCTION get_and_lock_next_issue(p_worker_id worker_id)
-RETURNS TABLE (issue_id INTEGER, issue_description TEXT) AS $$
-BEGIN
-    RETURN QUERY
-    UPDATE cape_issues
-    SET status = 'started', assigned_to = p_worker_id, updated_at = now()
-    WHERE id = (
-        SELECT id FROM cape_issues
-        WHERE status = 'pending'
-          AND assigned_to = p_worker_id
-        ORDER BY created_at ASC
-        FOR UPDATE SKIP LOCKED LIMIT 1
-    )
-    RETURNING cape_issues.id, cape_issues.description;
-END;
-$$ LANGUAGE plpgsql;
-```
-
-Run that migration (or apply equivalent DDL) before starting the worker so each
-instance can atomically claim work.
+All executables expect the standard Supabase schema. The worker queries the
+`issues` table directly and does not require a dedicated RPC function.
 
 ## Tests
 
