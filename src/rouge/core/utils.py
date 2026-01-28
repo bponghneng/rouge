@@ -14,23 +14,6 @@ def make_adw_id() -> str:
     return str(uuid.uuid4())[:8]
 
 
-def make_patch_workflow_id(main_adw_id: str) -> str:
-    """Derive a patch workflow ID from a main ADW workflow ID.
-
-    Patch workflows need a separate workflow ID to isolate their artifacts
-    (logs, plans, implementation outputs) from the main workflow artifacts.
-    This prevents collision and allows both workflows to maintain independent
-    state in the artifact store.
-
-    Args:
-        main_adw_id: The main ADW workflow ID to derive from
-
-    Returns:
-        A derived workflow ID in the format "{main_adw_id}-patch"
-    """
-    return f"{main_adw_id}-patch"
-
-
 def _get_log_level() -> int:
     """Get log level from ROUGE_LOG_LEVEL environment variable.
 
