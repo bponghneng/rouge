@@ -400,31 +400,31 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. BuildPatchPlanStep: requires issue, patch, plan; produces patch_plan
+    # 13. BuildPatchPlanStep: requires issue, patch; produces plan
     registry.register(
         BuildPatchPlanStep,
-        dependencies=["issue", "patch", "plan"],
-        outputs=["patch_plan"],
+        dependencies=["issue", "patch"],
+        outputs=["plan"],
         is_critical=True,
-        description="Build patch-specific plan contextualized against original plan",
+        description="Build implementation plan for a patch",
     )
 
-    # 14. ValidatePatchAcceptanceStep: requires patch_plan, produces patch_acceptance
+    # 14. ValidatePatchAcceptanceStep: requires plan, produces patch_acceptance
     registry.register(
         ValidatePatchAcceptanceStep,
-        dependencies=["patch_plan"],
+        dependencies=["plan"],
         outputs=["patch_acceptance"],
         is_critical=False,
-        description="Validate patch implementation against patch plan acceptance criteria",
+        description="Validate patch implementation against plan acceptance criteria",
     )
 
-    # 15. UpdatePRCommitsStep: requires pull_request, pushes commits
+    # 15. UpdatePRCommitsStep: requires pull_request artifact, pushes commits
     registry.register(
         UpdatePRCommitsStep,
         dependencies=["pull_request"],
         outputs=[],
         is_critical=False,
-        description="Push patch commits to existing PR/MR",
+        description="Push commits to an existing PR/MR (does not create new PRs)",
     )
 
 
