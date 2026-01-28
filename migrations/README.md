@@ -64,7 +64,9 @@ The initial migration (`001_initial_schema.py`) creates:
 
 ### Functions
 - `update_updated_at_column()` - Trigger function for automatic timestamp updates
-- `get_and_lock_next_issue(worker_id)` - Atomic issue locking for worker processing
+
+Note: `get_and_lock_next_issue` is removed in `006_remove_lock_rpc.py`; the worker
+queries the `issues` table directly.
 
 ### Enum Types
 - `worker_id` - Valid worker identifiers (alleycat-1/2/3, executor-1/2/3, hailmary-1/2/3, local-1/2/3, tydirium-1/2/3, xwing-1/2/3)
