@@ -189,14 +189,14 @@ class PullRequestArtifact(Artifact):
 
 
 class PatchArtifact(Artifact):
-    """Artifact containing the fetched Patch data.
+    """Artifact containing the fetched Patch issue data.
 
     Attributes:
-        patch: The Patch model from the database
+        patch: The Issue model from the database (with type='patch')
     """
 
     artifact_type: Literal["patch"] = "patch"
-    patch: Patch
+    patch: Issue
 
 
 class PatchPlanArtifact(Artifact):

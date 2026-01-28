@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.database import fetch_issue, fetch_pending_patch
+from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PatchArtifact
@@ -25,9 +25,9 @@ class FetchPatchStep(WorkflowStep):
         return True
 
     def run(self, context: WorkflowContext) -> StepResult:
-        """Fetch pending patch and issue from database.
+        """Fetch pending patch issue from database.
 
-        Fetches both the issue and its pending patch directly from the database.
+        Fetches the issue (which should have type='patch') directly from the database.
         The patch workflow uses a different workflow_id than the main workflow,
         so artifacts from the main workflow are not accessible here.
 
@@ -40,27 +40,32 @@ class FetchPatchStep(WorkflowStep):
         issue_id = context.issue_id
 
         try:
-            # Fetch issue from database
+            # Fetch issue from database (should be type='patch')
             issue = fetch_issue(issue_id)
             context.issue = issue
 
-            # Fetch the pending patch for this issue
-            patch = fetch_pending_patch(issue_id)
-            if patch is None:
-                return StepResult.fail(f"No pending patch found for issue {issue_id}")
-            logger.info(
-                "Patch fetched: ID=%s, Issue=%s, Status=%s", patch.id, patch.issue_id, patch.status
-            )
+            # Verify this is actually a patch issue
+            if issue.type != "patch":
+                return StepResult.fail(
+                    f"Issue {issue_id} is not a patch issue (type={issue.type})"
+                )
 
-            # Store patch in context data
-            context.data["patch"] = patch
+            logger.info(
+                "Patch issue fetched: ID=%s, Type=%s, Status=%s, ADW_ID=%s",
+                issue.id,
+                issue.type,
+                issue.status,
+                issue.adw_id,
+            )
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
-                # Save patch artifact
+                # Save patch artifact using the Issue object
+                # Note: PatchArtifact model may need to be updated to accept Issue
+                # For now, we'll create a minimal patch-like object
                 artifact = PatchArtifact(
                     workflow_id=context.adw_id,
-                    patch=patch,
+                    patch=issue,  # Pass the issue as the patch
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved patch artifact for workflow %s", context.adw_id)
@@ -69,11 +74,11 @@ class FetchPatchStep(WorkflowStep):
             payload = CommentPayload(
                 issue_id=issue_id,
                 adw_id=context.adw_id,
-                text=f"Patch fetched: {patch.description}",
+                text=f"Patch fetched: {issue.description}",
                 raw={
-                    "patch_id": patch.id,
                     "issue_id": issue_id,
-                    "description": patch.description,
+                    "description": issue.description,
+                    "type": issue.type,
                 },
                 source="system",
                 kind="workflow",
@@ -87,8 +92,8 @@ class FetchPatchStep(WorkflowStep):
             return StepResult.ok(None)
 
         except ValueError as e:
-            logger.exception("Error fetching patch")
-            return StepResult.fail(f"Error fetching patch: {e}")
+            logger.exception("Error fetching patch issue")
+            return StepResult.fail(f"Error fetching patch issue: {e}")
         except Exception as e:
-            logger.exception("Unexpected error fetching patch")
-            return StepResult.fail(f"Unexpected error fetching patch: {e}")
+            logger.exception("Unexpected error fetching patch issue")
+            return StepResult.fail(f"Unexpected error fetching patch issue: {e}")

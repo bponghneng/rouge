@@ -24,7 +24,7 @@ from pathlib import Path
 from types import FrameType
 from typing import Optional
 
-from rouge.core.database import fetch_issue, fetch_pending_patch, init_db_env, update_patch_status
+from rouge.core.database import fetch_issue, init_db_env
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
 from rouge.core.workflow.status import transition_to_patch_pending, transition_to_patched
 
@@ -205,7 +205,6 @@ class IssueWorker:
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
-        patch_id = None
         try:
             # Fetch the issue to get adw_id directly from the issues row
             issue = fetch_issue(issue_id)
@@ -216,16 +215,10 @@ class IssueWorker:
             main_adw_id = issue.adw_id
             patch_wf_id = make_patch_workflow_id(main_adw_id)
 
-            # Fetch the pending patch to get its ID for status updates (legacy support)
-            patch = fetch_pending_patch(issue_id)
-            if patch is not None:
-                patch_id = patch.id
-
             self.logger.info(
-                "Executing patch workflow %s for issue %s (patch %s, derived from %s)",
+                "Executing patch workflow %s for issue %s (derived from %s)",
                 patch_wf_id,
                 issue_id,
-                patch_id,
                 main_adw_id,
             )
             self.logger.debug("Issue description: %s", issue.description)
@@ -246,14 +239,11 @@ class IssueWorker:
 
             if result.returncode == 0:
                 self.logger.info(
-                    "Successfully completed patch %s for issue %s (workflow %s)",
-                    patch_id,
-                    issue_id,
+                    "Successfully completed patch workflow %s for issue %s",
                     patch_wf_id,
+                    issue_id,
                 )
-                # Update legacy patches table if a patch record exists
-                if patch_id is not None:
-                    transition_to_patched(issue_id, patch_id)
+                transition_to_patched(issue_id, None)
                 return patch_wf_id, True
             else:
                 self.logger.error(
@@ -262,20 +252,17 @@ class IssueWorker:
                     issue_id,
                     result.returncode,
                 )
-                # Update legacy patches table if a patch record exists
-                if patch_id is not None:
-                    update_patch_status(patch_id, "failed", self.logger)
                 transition_to_patch_pending(issue_id)
                 return patch_wf_id, False
 
         except ValueError:
-            self._handle_patch_failure(issue_id, patch_id, "ValueError during patch workflow")
+            self._handle_patch_failure(issue_id, None, "ValueError during patch workflow")
             raise
         except subprocess.TimeoutExpired:
-            self._handle_patch_failure(issue_id, patch_id, "Patch workflow timed out")
+            self._handle_patch_failure(issue_id, None, "Patch workflow timed out")
             raise
         except Exception:
-            self._handle_patch_failure(issue_id, patch_id, "Unexpected error in patch workflow")
+            self._handle_patch_failure(issue_id, None, "Unexpected error in patch workflow")
             raise
 
     def execute_workflow(
