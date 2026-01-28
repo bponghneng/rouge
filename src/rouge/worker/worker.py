@@ -204,8 +204,8 @@ class IssueWorker:
                 raise ValueError(f"Issue {issue_id} has no adw_id")
 
             # For patch issues, use the adw_id directly from the issue
-            adw_id = issue.adw_id
-            if not adw_id.strip():
+            adw_id = issue.adw_id.strip()
+            if not adw_id:
                 raise ValueError(f"Issue {issue_id} has no adw_id")
             self.logger.info(
                 "Executing patch workflow %s for issue %s",
