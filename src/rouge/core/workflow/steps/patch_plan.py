@@ -12,12 +12,11 @@ from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     IssueArtifact,
     PatchArtifact,
-    PatchPlanArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PATCH_PLANNER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import PatchPlanData, PlanData, StepResult
+from rouge.core.workflow.types import PlanData, StepResult
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,7 @@ def build_patch_plan(
     original_plan: PlanData,
     adw_id: str,
     stream_handler: Optional[Callable[[str], None]] = None,
-) -> StepResult[PatchPlanData]:
+) -> StepResult[PlanData]:
     """Build patch-specific plan by contextualizing patch against original plan.
 
     Args:
@@ -39,7 +38,7 @@ def build_patch_plan(
         stream_handler: Optional callback for streaming output
 
     Returns:
-        StepResult with PatchPlanData containing the patch-specific plan
+        StepResult with PlanData containing the patch-specific plan
     """
     # Build prompt that contextualizes patch against original plan
     patch_context = f"""## Original Issue
@@ -81,12 +80,13 @@ def build_patch_plan(
         logger.error(error_msg)
         return StepResult.fail(error_msg, session_id=response.session_id)
 
-    # Build PatchPlanData from response
+    # Build PlanData from response - generate summary from patch description
+    summary = f"Patch plan for: {patch.description[:100]}"
     return StepResult.ok(
-        PatchPlanData(
-            patch_description=patch.description,
-            original_plan_reference=adw_id,
-            patch_plan_content=response.output,
+        PlanData(
+            plan=response.output,
+            summary=summary,
+            session_id=response.session_id,
         ),
         session_id=response.session_id,
     )
@@ -172,8 +172,8 @@ class BuildPatchPlanStep(WorkflowStep):
             logger.error("Error building patch plan: %s", patch_plan_response.error)
             return StepResult.fail(f"Error building patch plan: {patch_plan_response.error}")
 
-        # Store patch plan data in context
-        context.data["patch_plan_data"] = patch_plan_response.data
+        # Store plan data in context
+        context.data["plan_data"] = patch_plan_response.data
 
         # Save artifact if artifact store is available
         if (
@@ -181,18 +181,18 @@ class BuildPatchPlanStep(WorkflowStep):
             and context.artifact_store is not None
             and patch_plan_response.data is not None
         ):
-            artifact = PatchPlanArtifact(
+            artifact = PlanArtifact(
                 workflow_id=context.adw_id,
-                patch_plan_data=patch_plan_response.data,
+                plan_data=patch_plan_response.data,
             )
             context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved patch plan artifact for workflow %s", context.adw_id)
+            logger.debug("Saved plan artifact for workflow %s", context.adw_id)
 
         # Emit progress comment with patch plan summary
-        patch_plan_data = patch_plan_response.data
+        plan_data_result = patch_plan_response.data
         comment_text = (
-            f"Patch plan created for: {patch_plan_data.patch_description[:100]}"
-            if patch_plan_data
+            f"Patch plan created: {plan_data_result.summary}"
+            if plan_data_result
             else "Patch plan created"
         )
 
@@ -203,9 +203,6 @@ class BuildPatchPlanStep(WorkflowStep):
             raw={
                 "patch_id": patch.id,
                 "patch_description": patch.description,
-                "original_plan_reference": (
-                    patch_plan_data.original_plan_reference if patch_plan_data else None
-                ),
             },
             source="system",
             kind="workflow",
