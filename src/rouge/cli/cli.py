@@ -123,7 +123,11 @@ def create_from_file(file_path: Path):
 
 
 @app.command()
-def new_patch(file_path: Path):
+def new_patch(
+    file_path: Path = typer.Argument(
+        ..., help="Path to file containing patch description", metavar="PATCH_FILE"
+    ),
+):
     """Create a new patch issue from description file.
 
     Args:

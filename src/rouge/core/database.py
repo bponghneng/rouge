@@ -301,8 +301,9 @@ def create_issue(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
             )
 
-        # Generate adw_id if not provided
-        issue_adw_id = adw_id if adw_id else make_adw_id()
+        # Generate adw_id if not provided or if it's whitespace-only
+        normalized = adw_id.strip() if adw_id is not None else ""
+        issue_adw_id = normalized or make_adw_id()
 
         data = {
             "description": description,
