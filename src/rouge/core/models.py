@@ -102,7 +102,7 @@ class Issue(BaseModel):
 
     @field_validator("type", mode="before")
     @classmethod
-    def default_type(cls, v):
+    def default_type(cls, v: Optional[str]) -> str:
         """Default missing type to main."""
         return v if v else "main"
 
@@ -110,13 +110,21 @@ class Issue(BaseModel):
     @classmethod
     def trim_adw_id(cls, v: Optional[str]) -> Optional[str]:
         """Trim whitespace from adw_id if provided."""
-        return v.strip() if v else v
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("adw_id cannot be blank or whitespace-only")
+        return stripped
 
     @field_validator("branch")
     @classmethod
     def trim_branch(cls, v: Optional[str]) -> Optional[str]:
         """Trim whitespace from branch if provided."""
-        return v.strip() if v else v
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped if stripped else None
 
     @classmethod
     def from_supabase(cls, row: dict) -> "Issue":

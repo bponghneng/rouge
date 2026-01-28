@@ -705,7 +705,6 @@ def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
             update_issue_assignment(1, worker_id)
 
 
-
 # ============================================================================
 # create_issue with issue_type and adw_id tests
 # ============================================================================
@@ -901,7 +900,7 @@ def test_create_issue_auto_generates_adw_id(mock_get_client):
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_invalid_type(mock_get_client):
+def test_create_issue_invalid_type(_mock_get_client):
     """Test creating issue with invalid type raises ValueError."""
     with pytest.raises(ValueError, match="Invalid issue_type"):
         create_issue("Test issue", issue_type="invalid")

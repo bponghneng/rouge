@@ -38,7 +38,7 @@ def test_setup_step_is_critical():
 @patch("rouge.core.workflow.steps.setup.update_issue_branch")
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
-def test_setup_step_success(mock_subprocess, mock_get_repo_path, mock_update_branch, context):
+def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, context):
     """Test successful git setup with all commands succeeding."""
     mock_get_repo_path.return_value = "/path/to/repo"
 

@@ -171,9 +171,9 @@ class TestGetDefaultPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Setup
@@ -221,9 +221,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch
@@ -243,9 +243,9 @@ class TestGetPatchPipeline:
 
         pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(step, pr_step_types), (
-                "Patch pipeline should not include PR creation steps"
-            )
+            assert not isinstance(
+                step, pr_step_types
+            ), "Patch pipeline should not include PR creation steps"
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
         """Verify patch pipeline ends with UpdatePRCommitsStep."""
@@ -272,9 +272,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
 
 class TestPatchWorkflowArtifactIsolation:
@@ -649,9 +649,9 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The patch plan content should be used
-        assert "PATCH implementation plan" in plan_content_arg, (
-            f"Expected patch plan content but got: {plan_content_arg}"
-        )
+        assert (
+            "PATCH implementation plan" in plan_content_arg
+        ), f"Expected patch plan content but got: {plan_content_arg}"
         assert "Original Plan" not in plan_content_arg, "Should NOT contain original plan content"
 
     @patch("rouge.core.workflow.steps.implement.implement_plan")
@@ -703,6 +703,6 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The original plan content should be used
-        assert "standard implementation plan" in plan_content_arg, (
-            f"Expected original plan content but got: {plan_content_arg}"
-        )
+        assert (
+            "standard implementation plan" in plan_content_arg
+        ), f"Expected original plan content but got: {plan_content_arg}"
