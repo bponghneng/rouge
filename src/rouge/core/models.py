@@ -4,7 +4,7 @@ Agent-specific models moved to rouge.core.agents package.
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, Union, get_args
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -39,6 +39,26 @@ VALID_WORKER_IDS = frozenset(
     }
 )
 
+# Generate Literal type from VALID_WORKER_IDS
+# Sort to ensure consistent ordering for type checking
+WorkerIdLiteral = Literal[
+    "alleycat-1",
+    "alleycat-2",
+    "alleycat-3",
+    "executor-1",
+    "executor-2",
+    "executor-3",
+    "local-1",
+    "local-2",
+    "local-3",
+    "tydirium-1",
+    "tydirium-2",
+    "tydirium-3",
+    "xwing-1",
+    "xwing-2",
+    "xwing-3",
+]
+
 
 class Issue(BaseModel):
     """Issue model matching Supabase schema.
@@ -64,25 +84,7 @@ class Issue(BaseModel):
     type: Literal["main", "patch"] = "main"
     adw_id: Optional[str] = None
     branch: Optional[str] = None
-    assigned_to: Optional[
-        Literal[
-            "alleycat-1",
-            "alleycat-2",
-            "alleycat-3",
-            "executor-1",
-            "executor-2",
-            "executor-3",
-            "local-1",
-            "local-2",
-            "local-3",
-            "tydirium-1",
-            "tydirium-2",
-            "tydirium-3",
-            "xwing-1",
-            "xwing-2",
-            "xwing-3",
-        ]
-    ] = None
+    assigned_to: Optional[WorkerIdLiteral] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
