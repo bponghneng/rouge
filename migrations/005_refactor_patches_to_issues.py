@@ -96,7 +96,8 @@ step(
 # and filter by type IN ('main', 'patch') instead of status
 step(
     """
-    CREATE OR REPLACE FUNCTION get_and_lock_next_issue()
+    DROP FUNCTION IF EXISTS get_and_lock_next_issue();
+    CREATE FUNCTION get_and_lock_next_issue()
     RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
     LANGUAGE plpgsql
     AS $$
@@ -113,7 +114,8 @@ step(
     $$;
     """,
     """
-    CREATE OR REPLACE FUNCTION get_and_lock_next_issue()
+    DROP FUNCTION IF EXISTS get_and_lock_next_issue();
+    CREATE FUNCTION get_and_lock_next_issue()
     RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT)
     LANGUAGE plpgsql
     AS $$
