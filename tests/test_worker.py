@@ -725,13 +725,13 @@ class TestWorkflowRouting:
     def test_execute_workflow_catches_patch_exception(self, worker):
         """Test execute_workflow catches and handles patch workflow exceptions."""
         with patch.object(worker, "_execute_patch_workflow") as mock_patch:
-            with patch("rouge.worker.worker.transition_to_patch_pending") as mock_transition:
+            with patch("rouge.worker.worker.update_issue_status") as mock_update:
                 mock_patch.side_effect = Exception("Patch failed")
 
                 result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
 
                 assert result is False
-                mock_transition.assert_called_once_with(123)
+                mock_update.assert_called_once_with(123, "pending", worker.logger)
 
     def test_execute_workflow_catches_main_exception(self, worker):
         """Test execute_workflow catches and handles main workflow exceptions."""

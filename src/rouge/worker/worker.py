@@ -26,7 +26,6 @@ from typing import Optional
 
 from rouge.core.database import fetch_issue, init_db_env
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
-from rouge.core.workflow.status import transition_to_patch_pending, transition_to_patched
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -239,7 +238,7 @@ class IssueWorker:
                     patch_wf_id,
                     issue_id,
                 )
-                transition_to_patched(issue_id, None)
+                update_issue_status(issue_id, "completed", self.logger)
                 return patch_wf_id, True
             else:
                 self.logger.error(
@@ -248,7 +247,7 @@ class IssueWorker:
                     issue_id,
                     result.returncode,
                 )
-                transition_to_patch_pending(issue_id)
+                update_issue_status(issue_id, "pending", self.logger)
                 return patch_wf_id, False
 
         except ValueError:
@@ -288,18 +287,12 @@ class IssueWorker:
 
         except subprocess.TimeoutExpired:
             self.logger.exception("Workflow timed out for issue %s", issue_id)
-            if issue_type == "patch":
-                transition_to_patch_pending(issue_id)
-            else:
-                update_issue_status(issue_id, "pending", self.logger)
+            update_issue_status(issue_id, "pending", self.logger)
             return False
 
         except Exception:
             self.logger.exception("Error executing workflow for issue %s", issue_id)
-            if issue_type == "patch":
-                transition_to_patch_pending(issue_id)
-            else:
-                update_issue_status(issue_id, "pending", self.logger)
+            update_issue_status(issue_id, "pending", self.logger)
             return False
 
     def run(self) -> None:
