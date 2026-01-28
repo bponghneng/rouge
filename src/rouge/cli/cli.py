@@ -123,21 +123,14 @@ def create_from_file(file_path: Path):
 
 
 @app.command()
-def new_patch(
-    file_path: Path,
-    parent_adw_id: str = typer.Option(..., "--parent-adw-id", help="Parent ADW ID"),
-):
+def new_patch(file_path: Path):
     """Create a new patch issue from description file.
-
-    Creates a patch issue linked to a parent issue's ADW workflow. The patch
-    issue will inherit the parent's ADW ID for branch coordination.
 
     Args:
         file_path: Path to file containing patch description
-        parent_adw_id: Parent ADW ID for branch coordination (required)
 
     Example:
-        rouge new-patch patch-description.txt --parent-adw-id abc12345
+        rouge new-patch patch-description.txt
     """
     try:
         # Validate file exists
@@ -161,7 +154,6 @@ def new_patch(
         issue = create_issue(
             description=description,
             issue_type="patch",
-            adw_id=parent_adw_id,
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
