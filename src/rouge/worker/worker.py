@@ -198,17 +198,13 @@ class IssueWorker:
         """
         try:
             # Fetch the issue to get adw_id directly from the issues row
+            # Note: The Pydantic validator ensures adw_id is trimmed and non-empty if not None
             issue = fetch_issue(issue_id)
             if issue.adw_id is None:
                 raise ValueError(f"Issue {issue_id} has no adw_id")
 
-            # Validate adw_id is not empty or whitespace-only
-            trimmed = issue.adw_id.strip()
-            if not trimmed:
-                raise ValueError(f"Issue {issue_id} has empty or whitespace-only adw_id")
-
             # For patch issues, the adw_id is the main ADW ID from the parent
-            main_adw_id = trimmed
+            main_adw_id = issue.adw_id
             patch_wf_id = make_patch_workflow_id(main_adw_id)
 
             self.logger.info(
