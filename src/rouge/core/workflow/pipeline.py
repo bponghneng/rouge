@@ -30,20 +30,18 @@ class WorkflowRunner:
         self,
         issue_id: int,
         adw_id: str,
-        parent_workflow_id: str | None = None,
     ) -> bool:
         """Execute all workflow steps in sequence.
 
         Args:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
-            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
         # Create artifact store unconditionally
-        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
+        artifact_store = ArtifactStore(adw_id)
         logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
 
         context = WorkflowContext(
@@ -85,7 +83,6 @@ class WorkflowRunner:
         issue_id: int,
         adw_id: str,
         has_dependencies: bool = True,
-        parent_workflow_id: str | None = None,
     ) -> bool:
         """Execute a single step by name, using artifacts for dependencies.
 
@@ -97,7 +94,6 @@ class WorkflowRunner:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for artifact persistence
             has_dependencies: Whether the step has dependencies (if False, skip artifact dir check)
-            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if step completed successfully, False otherwise
@@ -116,7 +112,7 @@ class WorkflowRunner:
             raise ValueError(f"Step not found: {step_name}")
 
         # Always enable artifacts for single-step execution
-        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
+        artifact_store = ArtifactStore(adw_id)
         workflow_dir = artifact_store.workflow_dir
 
         # For steps with dependencies, ensure the workflow directory exists with artifacts
@@ -224,36 +220,35 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 
     Artifact Handling:
     ------------------
-    The patch workflow uses a parent_workflow_id to access shared artifacts from
-    the main workflow. Artifact types are categorized as:
+    Artifact types are categorized as:
 
-    - SHARED artifacts (read from parent if missing locally):
-      issue, classification, plan, pr_metadata, pull_request
+    - SHARED artifacts: issue, classification, plan, pr_metadata, pull_request
 
-    - PATCH-SPECIFIC artifacts (never read from parent):
+    - PATCH-SPECIFIC artifacts (unique to each patch workflow):
       patch, patch_plan, patch_acceptance, implementation, review,
       review_addressed, quality_check, acceptance
 
     Key behaviors:
-    - FetchPatchStep: Writes only PatchArtifact (IssueArtifact is read from parent)
-    - ImplementStep: Uses patch_plan artifact first, falls back to plan if missing
-    - UpdatePRCommitsStep: FAILS if no pull_request artifact exists (from parent)
+    - FetchPatchStep: Writes PatchArtifact
+    - BuildPatchPlanStep: Produces PlanArtifact with patch-specific plan
+    - ImplementStep: Uses plan artifact from BuildPatchPlanStep
+    - UpdatePRCommitsStep: Updates existing PR with new commits
 
     Assumptions:
     - SetupStep is NOT needed: The repository is already set up from the main workflow
-    - ClassifyStep is NOT needed: The classification exists in parent workflow artifacts
+    - ClassifyStep is NOT needed: The classification exists from the main workflow
     - PR/MR creation steps are NOT needed: Patch commits will be added to the
       existing PR/MR created by the main workflow
 
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch patch data; writes PatchArtifact only
+    1. FetchPatchStep - Fetch patch data; writes PatchArtifact
     2. BuildPatchPlanStep - Build a plan specific to the patch changes
-    3. ImplementStep - Implement using patch_plan (or fall back to plan from parent)
+    3. ImplementStep - Implement using plan from BuildPatchPlanStep
     4. GenerateReviewStep - Generate review of the implementation
     5. AddressReviewStep - Address any review feedback
     6. CodeQualityStep - Run code quality checks
     7. ValidatePatchAcceptanceStep - Validate patch meets acceptance criteria
-    8. UpdatePRCommitsStep - Update existing PR with new commits (fails if no PR)
+    8. UpdatePRCommitsStep - Update existing PR with new commits
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
