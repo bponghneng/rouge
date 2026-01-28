@@ -18,7 +18,7 @@ class UpdatePRCommitsStep(WorkflowStep):
     """Push new commits to an existing pull request or merge request.
 
     This step is used in patch workflows to add new commits to an existing
-    PR/MR from the parent workflow. It does not create new PRs/MRs.
+    PR/MR. It does not create new PRs/MRs.
     """
 
     @property
@@ -39,7 +39,7 @@ class UpdatePRCommitsStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load pull_request from artifact (from parent workflow)
+        # Load pull_request artifact directly
         pull_request = context.load_artifact_if_missing(
             "pull_request",
             "pull_request",
@@ -203,8 +203,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             logger.info("Patch commits pushed to PR/MR: %s", pr_url)
 
             # Emit progress comment indicating commits were added
-            platform_name = "Pull request" if platform == "github" else "Merge request"
-            comment_msg = f"{platform_name} updated with patch commits: {pr_url}"
+            comment_msg = "Commits pushed to branch"
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
