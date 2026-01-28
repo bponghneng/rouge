@@ -16,7 +16,6 @@ def execute_workflow(
     issue_id: int,
     adw_id: str,
     pipeline: Optional[list["WorkflowStep"]] = None,
-    parent_workflow_id: Optional[str] = None,
 ) -> bool:
     """Execute complete workflow for an issue using pluggable step pipeline.
 
@@ -40,12 +39,10 @@ def execute_workflow(
         adw_id: Workflow ID for tracking
         pipeline: Optional custom pipeline of workflow steps. If not provided,
             uses the default pipeline.
-        parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
-            (used by patch workflows to access main workflow artifacts)
 
     Returns:
         True if workflow completed successfully, False otherwise
     """
     steps = pipeline if pipeline is not None else get_default_pipeline()
     runner = WorkflowRunner(steps)
-    return runner.run(issue_id, adw_id, parent_workflow_id=parent_workflow_id)
+    return runner.run(issue_id, adw_id)

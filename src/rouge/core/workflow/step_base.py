@@ -43,17 +43,6 @@ class WorkflowContext:
         """
         return self.artifact_store is not None
 
-    @property
-    def parent_workflow_id(self) -> Optional[str]:
-        """Get the parent workflow ID from the artifact store.
-
-        Returns:
-            Parent workflow ID if artifact store exists and has parent, None otherwise
-        """
-        if self.artifact_store is None:
-            return None
-        return self.artifact_store.parent_workflow_id
-
     def load_artifact_if_missing(
         self,
         context_key: str,
