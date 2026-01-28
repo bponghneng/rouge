@@ -16,7 +16,6 @@ from rouge.core.models import Issue
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
-    PatchPlanData,
     PlanData,
     ReviewData,
 )
@@ -45,7 +44,6 @@ ArtifactType = Literal[
     "pr_metadata",
     "pull_request",
     "patch",
-    "patch_plan",
     "patch_acceptance",
 ]
 
@@ -199,17 +197,6 @@ class PatchArtifact(Artifact):
     patch: Issue
 
 
-class PatchPlanArtifact(Artifact):
-    """Artifact containing patch plan results.
-
-    Attributes:
-        patch_plan_data: The patch plan data from the planning step
-    """
-
-    artifact_type: Literal["patch_plan"] = "patch_plan"
-    patch_plan_data: PatchPlanData
-
-
 class PatchAcceptanceArtifact(Artifact):
     """Artifact containing patch acceptance validation results.
 
@@ -236,36 +223,8 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "pr_metadata": PRMetadataArtifact,
     "pull_request": PullRequestArtifact,
     "patch": PatchArtifact,
-    "patch_plan": PatchPlanArtifact,
     "patch_acceptance": PatchAcceptanceArtifact,
 }
-
-# Artifact types that can be read from a parent workflow directory.
-# These artifacts are shared across patch workflows and the original issue workflow.
-SHARED_ARTIFACT_TYPES: frozenset[ArtifactType] = frozenset(
-    [
-        "issue",
-        "classification",
-        "plan",
-        "pr_metadata",
-        "pull_request",
-    ]
-)
-
-# Artifact types that are specific to each patch/workflow and should never be
-# read from a parent workflow directory.
-PATCH_SPECIFIC_ARTIFACT_TYPES: frozenset[ArtifactType] = frozenset(
-    [
-        "patch",
-        "patch_plan",
-        "patch_acceptance",
-        "implementation",
-        "review",
-        "review_addressed",
-        "quality_check",
-        "acceptance",
-    ]
-)
 
 
 class ArtifactStore:
@@ -279,17 +238,14 @@ class ArtifactStore:
         self,
         workflow_id: str,
         base_path: Optional[Path] = None,
-        parent_workflow_id: Optional[str] = None,
     ) -> None:
         """Initialize the artifact store for a workflow.
 
         Args:
             workflow_id: The workflow ID to manage artifacts for
             base_path: Optional base path override (defaults to RougePaths.get_workflows_dir())
-            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
         """
         self._workflow_id = workflow_id
-        self._parent_workflow_id = parent_workflow_id
 
         if base_path is None:
             from rouge.core.paths import RougePaths
@@ -299,40 +255,10 @@ class ArtifactStore:
         self._base_path = base_path
         self._workflow_dir = base_path / workflow_id
 
-        # Compute parent workflow directory if parent_workflow_id is provided
-        if parent_workflow_id is not None:
-            self._parent_workflow_dir: Optional[Path] = base_path / parent_workflow_id
-        else:
-            self._parent_workflow_dir = None
-
         self._ensure_workflow_dir()
 
-    @property
-    def parent_workflow_id(self) -> Optional[str]:
-        """Get the parent workflow ID.
-
-        Returns:
-            Parent workflow ID if set, None otherwise
-        """
-        return self._parent_workflow_id
-
     def _ensure_workflow_dir(self) -> None:
-        """Ensure the workflow directory exists.
-
-        Also validates that the parent workflow directory exists if parent_workflow_id
-        was provided.
-
-        Raises:
-            FileNotFoundError: If parent_workflow_id is set but the parent directory
-                doesn't exist
-        """
-        # Validate parent workflow directory exists if parent_workflow_id is set
-        if self._parent_workflow_dir is not None:
-            if not self._parent_workflow_dir.exists():
-                raise FileNotFoundError(
-                    f"Parent workflow directory not found: {self._parent_workflow_dir}"
-                )
-
+        """Ensure the workflow directory exists."""
         self._workflow_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     def _get_artifact_path(self, artifact_type: ArtifactType) -> Path:
@@ -356,16 +282,6 @@ class ArtifactStore:
         """Get the workflow directory path."""
         return self._workflow_dir
 
-    def _is_patch_workflow(self) -> bool:
-        """Check if this is a patch workflow.
-
-        Patch workflows are identified by workflow IDs ending in '-patch'.
-
-        Returns:
-            True if this is a patch workflow, False otherwise
-        """
-        return self._workflow_id.endswith("-patch")
-
     def write_artifact(self, artifact: Artifact) -> None:
         """Write an artifact to disk.
 
@@ -374,22 +290,7 @@ class ArtifactStore:
 
         Raises:
             IOError: If the file cannot be written
-
-        Note:
-            Logs a warning if a patch workflow attempts to write a shared artifact
-            type (issue, classification, plan, pr_metadata, pull_request). Shared
-            artifacts should be read from the parent workflow directory instead.
         """
-        # Warn if a patch workflow is writing a shared artifact type
-        if self._is_patch_workflow() and artifact.artifact_type in SHARED_ARTIFACT_TYPES:
-            logger.warning(
-                "Patch workflow %s is writing shared artifact type '%s'. "
-                "Shared artifacts should typically be read from the parent workflow. "
-                "This write may cause inconsistency with the parent workflow's artifacts.",
-                self._workflow_id,
-                artifact.artifact_type,
-            )
-
         artifact_path = self._get_artifact_path(artifact.artifact_type)
 
         try:
@@ -413,11 +314,6 @@ class ArtifactStore:
     ) -> T:
         """Read an artifact from disk.
 
-        For shared artifact types (issue, classification, plan, pr_metadata,
-        pull_request), if the artifact is not found in the primary workflow
-        directory and a parent_workflow_id is set, the method will fall back
-        to reading from the parent workflow directory.
-
         Args:
             artifact_type: The type of artifact to read
             model_class: Optional model class (auto-detected if not provided)
@@ -431,22 +327,6 @@ class ArtifactStore:
         """
         artifact_path = self._get_artifact_path(artifact_type)
 
-        # Determine if we should fall back to parent directory
-        use_parent = False
-        if not artifact_path.exists():
-            # Check if we can fall back to parent for this artifact type
-            if self._parent_workflow_dir is not None and artifact_type in SHARED_ARTIFACT_TYPES:
-                parent_artifact_path = self._parent_workflow_dir / f"{artifact_type}.json"
-                if parent_artifact_path.exists():
-                    logger.info(
-                        "Artifact %s not found in workflow %s, falling back to parent workflow %s",
-                        artifact_type,
-                        self._workflow_id,
-                        self._parent_workflow_id,
-                    )
-                    artifact_path = parent_artifact_path
-                    use_parent = True
-
         if not artifact_path.exists():
             raise FileNotFoundError(f"Artifact not found: {artifact_type}")
 
@@ -458,14 +338,7 @@ class ArtifactStore:
         try:
             json_data = artifact_path.read_text(encoding="utf-8")
             artifact = model_class.model_validate_json(json_data)
-            if use_parent:
-                logger.debug(
-                    "Read artifact %s from parent workflow at %s",
-                    artifact_type,
-                    artifact_path,
-                )
-            else:
-                logger.debug("Read artifact %s from %s", artifact_type, artifact_path)
+            logger.debug("Read artifact %s from %s", artifact_type, artifact_path)
             return artifact
         except json.JSONDecodeError as e:
             logger.exception("Failed to parse artifact %s: %s", artifact_type, e)
