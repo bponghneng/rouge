@@ -4,15 +4,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rouge.core.workflow.artifacts import (
-    PatchPlanArtifact,
-    PlanArtifact,
-)
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.implement import ImplementStep
 from rouge.core.workflow.types import (
     ImplementData,
-    PatchPlanData,
     PlanData,
     StepResult,
 )
@@ -41,16 +36,6 @@ def sample_plan_data():
 
 
 @pytest.fixture
-def sample_patch_plan_data():
-    """Create a sample PatchPlanData."""
-    return PatchPlanData(
-        patch_description="Fix typo in documentation",
-        original_plan_reference="adw-original-123",
-        patch_plan_content="## Patch Plan\n\n### Changes\nFix typo in README.md",
-    )
-
-
-@pytest.fixture
 def sample_implement_data():
     """Create a sample ImplementData."""
     return ImplementData(
@@ -59,140 +44,8 @@ def sample_implement_data():
     )
 
 
-class TestLoadPlanText:
-    """Tests for _load_plan_text method."""
-
-    def test_uses_patch_plan_when_available(self, mock_context, sample_patch_plan_data):
-        """Test that patch_plan is preferred when available."""
-        # Setup: patch_plan_data is in context
-        mock_context.data = {"patch_plan_data": sample_patch_plan_data}
-
-        # Setup load_artifact_if_missing to return from context
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        step = ImplementStep()
-        result = step._load_plan_text(mock_context)
-
-        assert result == sample_patch_plan_data.patch_plan_content
-
-    def test_falls_back_to_plan_when_patch_plan_not_available(self, mock_context, sample_plan_data):
-        """Test that plan is used when patch_plan is not available."""
-        # Setup: only plan_data is in context
-        mock_context.data = {"plan_data": sample_plan_data}
-
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        step = ImplementStep()
-        result = step._load_plan_text(mock_context)
-
-        assert result == sample_plan_data.plan
-
-    def test_returns_none_when_no_plan_available(self, mock_context):
-        """Test that None is returned when neither plan is available."""
-        mock_context.data = {}
-
-        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            return None
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        step = ImplementStep()
-        result = step._load_plan_text(mock_context)
-
-        assert result is None
-
-    def test_loads_patch_plan_from_artifact(self, mock_context, sample_patch_plan_data):
-        """Test loading patch_plan from artifact store."""
-        mock_context.data = {}
-        patch_plan_artifact = PatchPlanArtifact(
-            workflow_id="test-adw",
-            patch_plan_data=sample_patch_plan_data,
-        )
-
-        call_count = {"count": 0}
-
-        def load_artifact_if_missing(context_key, artifact_type, _artifact_class, extract_fn):
-            call_count["count"] += 1
-            if artifact_type == "patch_plan":
-                value = extract_fn(patch_plan_artifact)
-                mock_context.data[context_key] = value
-                return value
-            return None
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        step = ImplementStep()
-        result = step._load_plan_text(mock_context)
-
-        assert result == sample_patch_plan_data.patch_plan_content
-        # Should only call once since patch_plan was found
-        assert call_count["count"] == 1
-
-    def test_loads_plan_from_artifact_when_patch_plan_missing(self, mock_context, sample_plan_data):
-        """Test loading plan from artifact when patch_plan is not available."""
-        mock_context.data = {}
-        plan_artifact = PlanArtifact(
-            workflow_id="test-adw",
-            plan_data=sample_plan_data,
-        )
-
-        def load_artifact_if_missing(context_key, artifact_type, _artifact_class, extract_fn):
-            if artifact_type == "patch_plan":
-                return None
-            if artifact_type == "plan":
-                value = extract_fn(plan_artifact)
-                mock_context.data[context_key] = value
-                return value
-            return None
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        step = ImplementStep()
-        result = step._load_plan_text(mock_context)
-
-        assert result == sample_plan_data.plan
-
-
 class TestImplementStepRun:
     """Tests for ImplementStep.run method."""
-
-    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.implement.implement_plan")
-    def test_run_success_with_patch_plan(
-        self,
-        mock_implement_plan,
-        mock_emit,
-        mock_context,
-        sample_patch_plan_data,
-        sample_implement_data,
-    ):
-        """Test successful implementation using patch_plan."""
-        mock_context.data = {"patch_plan_data": sample_patch_plan_data}
-
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
-
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
-
-        mock_implement_plan.return_value = StepResult.ok(sample_implement_data)
-        mock_emit.return_value = ("success", "Comment inserted")
-
-        step = ImplementStep()
-        result = step.run(mock_context)
-
-        assert result.success is True
-        mock_implement_plan.assert_called_once_with(
-            sample_patch_plan_data.patch_plan_content,
-            mock_context.issue_id,
-            mock_context.adw_id,
-        )
-        mock_emit.assert_called_once()
 
     @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")
@@ -226,7 +79,7 @@ class TestImplementStepRun:
         )
 
     def test_run_fails_when_no_plan_available(self, mock_context):
-        """Test that run fails when no plan or patch_plan is available."""
+        """Test that run fails when no plan is available."""
         mock_context.data = {}
 
         def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -238,7 +91,7 @@ class TestImplementStepRun:
         result = step.run(mock_context)
 
         assert result.success is False
-        assert "no plan or patch_plan available" in result.error
+        assert "no plan available" in result.error
 
     @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement.implement_plan")

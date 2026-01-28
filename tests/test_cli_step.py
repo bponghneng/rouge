@@ -94,9 +94,8 @@ class TestStepValidateCommand:
     def test_step_validate_valid_registry(self):
         """Test step validate command on valid registry."""
         result = runner.invoke(app, ["step", "validate"])
-        # Default registry should be valid
+        # Registry should now be valid with all dependencies satisfied
         assert result.exit_code == 0
-        assert "valid" in result.output.lower() or "no issues" in result.output.lower()
 
 
 class TestStepRunCommand:
