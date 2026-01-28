@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field
 
-from rouge.core.models import Issue, Patch
+from rouge.core.models import Issue
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,

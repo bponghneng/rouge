@@ -175,21 +175,17 @@ class IssueWorker:
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
 
-    def _handle_patch_failure(self, issue_id: int, patch_id: Optional[int], _reason: str) -> None:
+    def _handle_patch_failure(
+        self, issue_id: int, _patch_id: Optional[int], _reason: str
+    ) -> None:
         """Handle patch workflow failure by logging and updating status.
 
         Args:
             issue_id: The ID of the issue
-            patch_id: The ID of the patch (None if not yet initialized)
+            _patch_id: Legacy patch ID parameter (no longer used)
             _reason: Description of the failure reason
         """
-        if patch_id is not None:
-            self.logger.exception(
-                "Patch workflow failed for issue %s, patch %s", issue_id, patch_id
-            )
-            update_patch_status(patch_id, "failed", self.logger)
-        else:
-            self.logger.exception("Failed to initialize patch workflow for issue %s", issue_id)
+        self.logger.exception("Patch workflow failed for issue %s", issue_id)
 
     def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
         """Execute the patch workflow for an issue of type 'patch'.
