@@ -24,12 +24,12 @@ from pathlib import Path
 from types import FrameType
 from typing import Optional
 
-from rouge.core.database import fetch_pending_patch, init_db_env, update_patch_status
+from rouge.core.database import fetch_issue, fetch_pending_patch, init_db_env, update_patch_status
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
 from rouge.core.workflow.status import transition_to_patch_pending, transition_to_patched
 
 from .config import WorkerConfig
-from .database import get_client, get_next_issue, update_issue_status
+from .database import get_next_issue, update_issue_status
 
 
 class IssueWorker:
@@ -175,40 +175,6 @@ class IssueWorker:
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
 
-    def _fetch_main_adw_id(self, issue_id: int) -> str:
-        """Fetch the main ADW ID from the most recent workflow_completed comment.
-
-        Args:
-            issue_id: The issue ID to fetch the ADW ID for
-
-        Returns:
-            The adw_id from the most recent workflow_completed comment
-
-        Raises:
-            ValueError: If no workflow_completed comment found for the issue
-        """
-        client = get_client()
-        try:
-            response = (
-                client.table("comments")
-                .select("adw_id")
-                .eq("issue_id", issue_id)
-                .eq("type", "workflow_completed")
-                .order("created_at", desc=True)
-                .limit(1)
-                .maybe_single()
-                .execute()
-            )
-        except Exception as e:
-            raise ValueError(
-                f"Failed to fetch workflow_completed comment for issue {issue_id}: {e}"
-            ) from e
-
-        if response.data is None or response.data.get("adw_id") is None:
-            raise ValueError(f"No workflow_completed comment found for issue {issue_id}")
-
-        return response.data["adw_id"]
-
     def _handle_patch_failure(self, issue_id: int, patch_id: Optional[int], _reason: str) -> None:
         """Handle patch workflow failure by logging and updating status.
 
@@ -226,30 +192,34 @@ class IssueWorker:
             self.logger.exception("Failed to initialize patch workflow for issue %s", issue_id)
 
     def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
-        """Execute the patch workflow for an issue with pending patches.
+        """Execute the patch workflow for an issue of type 'patch'.
 
         Args:
-            issue_id: The ID of the issue to process
+            issue_id: The ID of the patch issue to process
 
         Returns:
             Tuple of (patch_workflow_id, success) where success is True if completed
 
         Raises:
-            ValueError: If no pending patch or workflow_completed comment found
+            ValueError: If issue not found or adw_id missing
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
         patch_id = None
         try:
-            # Fetch the pending patch to get its ID for status updates
-            patch = fetch_pending_patch(issue_id)
-            if patch is None:
-                raise ValueError(f"No pending patch found for issue {issue_id}")
-            patch_id = patch.id
+            # Fetch the issue to get adw_id directly from the issues row
+            issue = fetch_issue(issue_id)
+            if issue.adw_id is None:
+                raise ValueError(f"Issue {issue_id} has no adw_id")
 
-            # Get the main ADW ID from the most recent workflow_completed comment
-            main_adw_id = self._fetch_main_adw_id(issue_id)
+            # For patch issues, the adw_id is the main ADW ID from the parent
+            main_adw_id = issue.adw_id
             patch_wf_id = make_patch_workflow_id(main_adw_id)
+
+            # Fetch the pending patch to get its ID for status updates (legacy support)
+            patch = fetch_pending_patch(issue_id)
+            if patch is not None:
+                patch_id = patch.id
 
             self.logger.info(
                 "Executing patch workflow %s for issue %s (patch %s, derived from %s)",
@@ -258,7 +228,7 @@ class IssueWorker:
                 patch_id,
                 main_adw_id,
             )
-            self.logger.debug("Patch description: %s", patch.description)
+            self.logger.debug("Issue description: %s", issue.description)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
@@ -281,7 +251,9 @@ class IssueWorker:
                     issue_id,
                     patch_wf_id,
                 )
-                transition_to_patched(issue_id, patch_id)
+                # Update legacy patches table if a patch record exists
+                if patch_id is not None:
+                    transition_to_patched(issue_id, patch_id)
                 return patch_wf_id, True
             else:
                 self.logger.error(
@@ -290,7 +262,9 @@ class IssueWorker:
                     issue_id,
                     result.returncode,
                 )
-                update_patch_status(patch_id, "failed", self.logger)
+                # Update legacy patches table if a patch record exists
+                if patch_id is not None:
+                    update_patch_status(patch_id, "failed", self.logger)
                 transition_to_patch_pending(issue_id)
                 return patch_wf_id, False
 
@@ -304,23 +278,26 @@ class IssueWorker:
             self._handle_patch_failure(issue_id, patch_id, "Unexpected error in patch workflow")
             raise
 
-    def execute_workflow(self, issue_id: int, description: str, status: str) -> bool:
+    def execute_workflow(
+        self, issue_id: int, description: str, _status: str, issue_type: str
+    ) -> bool:
         """
-        Execute the appropriate workflow for the given issue based on status.
+        Execute the appropriate workflow for the given issue based on type.
 
-        Routes to either main workflow (for pending issues) or patch workflow
-        (for patch pending issues).
+        Routes to either main workflow (for 'main' type issues) or patch workflow
+        (for 'patch' type issues).
 
         Args:
             issue_id: The ID of the issue to process
             description: The issue description
-            status: The issue status (determines workflow routing)
+            _status: The issue status (unused, kept for interface compatibility)
+            issue_type: The issue type ('main' or 'patch') - determines workflow routing
 
         Returns:
             True if workflow executed successfully, False otherwise
         """
         try:
-            if status == "patch pending":
+            if issue_type == "patch":
                 _, success = self._execute_patch_workflow(issue_id)
             else:
                 _, success = self._execute_main_workflow(issue_id, description)
@@ -328,7 +305,7 @@ class IssueWorker:
 
         except subprocess.TimeoutExpired:
             self.logger.exception("Workflow timed out for issue %s", issue_id)
-            if status == "patch pending":
+            if issue_type == "patch":
                 transition_to_patch_pending(issue_id)
             else:
                 update_issue_status(issue_id, "pending", self.logger)
@@ -336,7 +313,7 @@ class IssueWorker:
 
         except Exception:
             self.logger.exception("Error executing workflow for issue %s", issue_id)
-            if status == "patch pending":
+            if issue_type == "patch":
                 transition_to_patch_pending(issue_id)
             else:
                 update_issue_status(issue_id, "pending", self.logger)
@@ -353,12 +330,12 @@ class IssueWorker:
 
         while self.running:
             try:
-                # Get next issue (returns tuple of issue_id, description, status)
+                # Get next issue (returns tuple of issue_id, description, status, type)
                 issue = get_next_issue(self.config.worker_id, self.logger)
 
                 if issue:
-                    issue_id, description, status = issue
-                    self.execute_workflow(issue_id, description, status)
+                    issue_id, description, status, issue_type = issue
+                    self.execute_workflow(issue_id, description, status, issue_type)
                 else:
                     # No issues available, sleep for poll interval
                     self.logger.debug(

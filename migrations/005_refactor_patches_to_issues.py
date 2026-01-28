@@ -1,0 +1,135 @@
+"""
+Refactor patches to issues by adding type, adw_id, and branch columns.
+
+This migration adds new columns to the issues table to support unified patch handling:
+- type: Distinguishes between 'main' and 'patch' issues
+- adw_id: Runtime-generated ADW (Agent Development Workflow) identifier
+- branch: Optional branch name for issue work
+
+Existing issues are backfilled with type='main' and generated adw_id values.
+The get_and_lock_next_issue function is updated to return the type column.
+
+Note: The patches table and its triggers are left in place for deprecation in a
+separate step.
+"""
+
+from yoyo import step
+
+__depends__ = {"004_add_executor_xwing_workers"}
+
+# Add type column to issues table with CHECK constraint
+step(
+    """
+    ALTER TABLE issues ADD COLUMN type TEXT NOT NULL DEFAULT 'main'
+        CHECK (type IN ('main', 'patch'));
+    """,
+    """
+    ALTER TABLE issues DROP COLUMN type;
+    """,
+)
+
+# Add adw_id column to issues table (nullable initially for backfill)
+step(
+    """
+    ALTER TABLE issues ADD COLUMN adw_id TEXT;
+    """,
+    """
+    ALTER TABLE issues DROP COLUMN adw_id;
+    """,
+)
+
+# Add branch column to issues table (nullable)
+step(
+    """
+    ALTER TABLE issues ADD COLUMN branch TEXT;
+    """,
+    """
+    ALTER TABLE issues DROP COLUMN branch;
+    """,
+)
+
+# Backfill existing issues: set type='main' (already default), generate adw_id
+# Uses first 8 characters of gen_random_uuid() to match make_adw_id() format
+step(
+    """
+    UPDATE issues
+    SET adw_id = substring(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 8)
+    WHERE adw_id IS NULL;
+    """,
+    """
+    -- Rollback: Clear generated adw_id values (they were NULL before)
+    -- Note: This is a lossy rollback as we can't determine which were originally NULL
+    UPDATE issues SET adw_id = NULL WHERE type = 'main';
+    """,
+)
+
+# Add NOT NULL constraint to adw_id after backfill, with a default for new rows
+# Default uses first 8 characters to match make_adw_id() format
+step(
+    """
+    ALTER TABLE issues ALTER COLUMN adw_id SET DEFAULT substring(REPLACE(gen_random_uuid()::text, '-', '') FROM 1 FOR 8);
+    ALTER TABLE issues ALTER COLUMN adw_id SET NOT NULL;
+    """,
+    """
+    ALTER TABLE issues ALTER COLUMN adw_id DROP NOT NULL;
+    ALTER TABLE issues ALTER COLUMN adw_id DROP DEFAULT;
+    """,
+)
+
+# Create index on type for efficient filtering
+step(
+    """
+    CREATE INDEX IF NOT EXISTS idx_issues_type ON issues(type);
+    """,
+    """
+    DROP INDEX IF EXISTS idx_issues_type;
+    """,
+)
+
+# Create index on adw_id for efficient lookups
+step(
+    """
+    CREATE INDEX IF NOT EXISTS idx_issues_adw_id ON issues(adw_id);
+    """,
+    """
+    DROP INDEX IF EXISTS idx_issues_adw_id;
+    """,
+)
+
+# Update get_and_lock_next_issue function to return type column
+# and filter by type IN ('main', 'patch') instead of status
+step(
+    """
+    CREATE OR REPLACE FUNCTION get_and_lock_next_issue()
+    RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT i.id, i.description, i.status, i.type
+        FROM issues i
+        WHERE i.type IN ('main', 'patch')
+          AND (i.status = 'pending' OR i.status = 'patch pending')
+        ORDER BY i.id
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1;
+    END;
+    $$;
+    """,
+    """
+    CREATE OR REPLACE FUNCTION get_and_lock_next_issue()
+    RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT)
+    LANGUAGE plpgsql
+    AS $$
+    BEGIN
+        RETURN QUERY
+        SELECT i.id, i.description, i.status
+        FROM issues i
+        WHERE i.status = 'pending' OR i.status = 'patch pending'
+        ORDER BY i.id
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1;
+    END;
+    $$;
+    """,
+)

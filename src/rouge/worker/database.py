@@ -18,22 +18,22 @@ def get_client():
 def get_next_issue(
     worker_id: str,
     logger: Optional[logging.Logger] = None,
-) -> Optional[Tuple[int, str, str]]:
+) -> Optional[Tuple[int, str, str, str]]:
     """
     Retrieve and lock the next pending or patch pending issue from the database.
 
     Uses the PostgreSQL function get_and_lock_next_issue to atomically
     retrieve and lock an issue, preventing race conditions. Selects issues
-    where status is 'pending' or 'patch pending' and assigned to the worker.
+    where type is 'main' or 'patch' and status is 'pending' or 'patch pending'.
 
     Args:
         worker_id: Unique identifier for the worker requesting the issue
         logger: Optional logger for logging operations
 
     Returns:
-        Tuple of (issue_id, description, status) if an issue is available,
-        None otherwise. Status allows the worker to route correctly between
-        new issue processing and patch application.
+        Tuple of (issue_id, description, status, type) if an issue is available,
+        None otherwise. Status and type allow the worker to route correctly
+        between new issue processing and patch application.
     """
     try:
         client = get_client()
@@ -46,9 +46,15 @@ def get_next_issue(
             issue_id = issue["issue_id"]
             description = issue["issue_description"]
             status = issue["issue_status"]
+            issue_type = issue["issue_type"]
             if logger:
-                logger.info("Locked issue %s (status: %s) for processing", issue_id, status)
-            return (issue_id, description, status)
+                logger.info(
+                    "Locked issue %s (status: %s, type: %s) for processing",
+                    issue_id,
+                    status,
+                    issue_type,
+                )
+            return (issue_id, description, status, issue_type)
 
         return None
 

@@ -13,6 +13,7 @@ from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
 from rouge.core.models import VALID_WORKER_IDS, Comment, Issue, Patch
+from rouge.core.utils import make_adw_id
 
 logger = logging.getLogger(__name__)
 
@@ -258,18 +259,27 @@ def fetch_comments(issue_id: int) -> list[Comment]:
 # ============================================================================
 
 
-def create_issue(description: str, title: Optional[str] = None) -> Issue:
+def create_issue(
+    description: str,
+    title: Optional[str] = None,
+    issue_type: str = "main",
+    adw_id: Optional[str] = None,
+) -> Issue:
     """Create a new issue.
 
     Args:
         description: Issue description/body
         title: Optional issue title
+        issue_type: Issue type - 'main' for primary issues, 'patch' for patch issues.
+            Defaults to 'main'.
+        adw_id: Optional Agent Development Workflow identifier. If not provided,
+            a new 8-character UUID will be auto-generated.
 
     Returns:
         Created Issue object
 
     Raises:
-        ValueError: If creation fails
+        ValueError: If creation fails or validation fails
     """
     try:
         client = get_client()
@@ -284,7 +294,22 @@ def create_issue(description: str, title: Optional[str] = None) -> Issue:
         if title and not title.strip():
             raise ValueError("Title cannot be empty/whitespace if provided")
 
-        data = {"description": description, "status": "pending"}
+        # Validate issue_type
+        valid_types = {"main", "patch"}
+        if issue_type not in valid_types:
+            raise ValueError(
+                f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
+            )
+
+        # Generate adw_id if not provided
+        issue_adw_id = adw_id if adw_id else make_adw_id()
+
+        data = {
+            "description": description,
+            "status": "pending",
+            "type": issue_type,
+            "adw_id": issue_adw_id,
+        }
         if title:
             data["title"] = title
 
@@ -469,13 +494,59 @@ def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
         raise ValueError(f"Failed to assign issue {issue_id}: {e}") from e
 
 
+def update_issue_branch(issue_id: int, branch: str) -> Issue:
+    """Update issue branch name.
+
+    Args:
+        issue_id: Issue ID to update
+        branch: Branch name to set
+
+    Returns:
+        Updated Issue object
+
+    Raises:
+        ValueError: If branch is empty or update fails
+    """
+    if not branch or not branch.strip():
+        raise ValueError("Branch cannot be empty")
+
+    branch = branch.strip()
+
+    try:
+        client = get_client()
+
+        # Verify issue exists first
+        issue_check = client.table("issues").select("id").eq("id", issue_id).execute()
+        if not issue_check.data:
+            raise ValueError(f"Issue with id {issue_id} not found")
+
+        response = client.table("issues").update({"branch": branch}).eq("id", issue_id).execute()
+        if not response.data:
+            raise ValueError(f"Update failed: issue {issue_id} not returned")
+
+        row = response.data[0]
+        if not isinstance(row, dict):
+            raise ValueError(f"Invalid response data type for issue {issue_id}")
+
+        return Issue.from_supabase(row)
+
+    except APIError as e:
+        logger.exception("Database error updating branch for issue %s", issue_id)
+        raise ValueError(f"Failed to update issue {issue_id} branch: {e}") from e
+
+
 # ============================================================================
-# Patch Operations
+# Patch Operations (DEPRECATED)
 # ============================================================================
 
 
 def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
     """Fetch the oldest pending patch for an issue.
+
+    .. deprecated::
+        This function is deprecated. Use Issue records with type='patch' instead.
+        The patches table will be removed in a future migration. New patch
+        functionality should query issues with type='patch' and status='pending'.
 
     Args:
         issue_id: Issue ID to find patch for
@@ -510,6 +581,11 @@ def fetch_pending_patch(issue_id: int) -> Optional[Patch]:
 
 def update_patch_status(patch_id: int, status: str, log: Optional[logging.Logger] = None) -> None:
     """Update patch status.
+
+    .. deprecated::
+        This function is deprecated. Use update_issue_status() with Issue records
+        that have type='patch' instead. The patches table will be removed in a
+        future migration.
 
     Args:
         patch_id: ID of patch to update
