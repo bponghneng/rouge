@@ -24,7 +24,7 @@ from pathlib import Path
 from types import FrameType
 
 from rouge.core.database import fetch_issue, init_db_env
-from rouge.core.utils import make_adw_id, make_patch_workflow_id
+from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -203,21 +203,19 @@ class IssueWorker:
             if issue.adw_id is None:
                 raise ValueError(f"Issue {issue_id} has no adw_id")
 
-            # For patch issues, the adw_id is the main ADW ID from the parent
-            main_adw_id = issue.adw_id
-            patch_wf_id = make_patch_workflow_id(main_adw_id)
+            # For patch issues, use the adw_id directly from the issue
+            adw_id = issue.adw_id
 
             self.logger.info(
-                "Executing patch workflow %s for issue %s (derived from %s)",
-                patch_wf_id,
+                "Executing patch workflow %s for issue %s",
+                adw_id,
                 issue_id,
-                main_adw_id,
             )
             self.logger.debug("Issue description: %s", issue.description)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
-                patch_wf_id,
+                adw_id,
                 "--patch-mode",
                 str(issue_id),
             ]
@@ -232,20 +230,20 @@ class IssueWorker:
             if result.returncode == 0:
                 self.logger.info(
                     "Successfully completed patch workflow %s for issue %s",
-                    patch_wf_id,
+                    adw_id,
                     issue_id,
                 )
                 update_issue_status(issue_id, "completed", self.logger)
-                return patch_wf_id, True
+                return adw_id, True
             else:
                 self.logger.error(
                     "Patch workflow %s failed for issue %s with exit code %s",
-                    patch_wf_id,
+                    adw_id,
                     issue_id,
                     result.returncode,
                 )
                 update_issue_status(issue_id, "pending", self.logger)
-                return patch_wf_id, False
+                return adw_id, False
 
         except ValueError:
             self._handle_patch_failure(issue_id, "ValueError during patch workflow")
