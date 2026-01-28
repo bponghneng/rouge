@@ -180,7 +180,7 @@ class IssueWorker:
             issue_id: The ID of the issue
             reason: Description of the failure reason
         """
-        self.logger.exception("Patch workflow failed for issue %s", issue_id)
+        self.logger.exception("Patch workflow failed for issue %s: %s", issue_id, reason)
 
     def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
         """Execute the patch workflow for an issue of type 'patch'.
@@ -205,14 +205,8 @@ class IssueWorker:
 
             # For patch issues, use the adw_id directly from the issue
             adw_id = issue.adw_id
-            # Fetch the issue to get adw_id directly from the issues row
-            issue = fetch_issue(issue_id)
-            if issue.adw_id is None or not issue.adw_id.strip():
+            if not adw_id.strip():
                 raise ValueError(f"Issue {issue_id} has no adw_id")
-
-            # For patch issues, the adw_id is the main ADW ID from the parent
-            main_adw_id = issue.adw_id.strip()
-            patch_wf_id = make_patch_workflow_id(main_adw_id)
             self.logger.info(
                 "Executing patch workflow %s for issue %s",
                 adw_id,
