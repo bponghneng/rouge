@@ -46,9 +46,7 @@ class FetchPatchStep(WorkflowStep):
 
             # Verify this is actually a patch issue
             if issue.type != "patch":
-                return StepResult.fail(
-                    f"Issue {issue_id} is not a patch issue (type={issue.type})"
-                )
+                return StepResult.fail(f"Issue {issue_id} is not a patch issue (type={issue.type})")
 
             logger.info(
                 "Patch issue fetched: ID=%s, Type=%s, Status=%s, ADW_ID=%s",

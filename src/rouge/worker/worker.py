@@ -174,9 +174,7 @@ class IssueWorker:
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
 
-    def _handle_patch_failure(
-        self, issue_id: int, _patch_id: Optional[int], _reason: str
-    ) -> None:
+    def _handle_patch_failure(self, issue_id: int, _patch_id: Optional[int], _reason: str) -> None:
         """Handle patch workflow failure by logging and updating status.
 
         Args:
