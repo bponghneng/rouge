@@ -179,8 +179,7 @@ to load `.env` from that directory (or its parent), matching the worker's
 
 ## Worker Features
 
-- Polls `cape_issues` for `status='pending'`, locks the next row via a
-  PostgreSQL function, and marks it `started` while recording the `worker_id`.
+- Polls `issues` for pending/patch-pending rows and marks the next row `started` before processing (no dedicated RPC required).
 - Spawns `uv run rouge-adw <issue-id> --adw-id <workflow-id>` with clear logging
   so you can tail progress or read log files directly.
 - Supports multiple concurrent instances with unique `--worker-id` values.
