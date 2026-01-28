@@ -147,10 +147,10 @@ step(
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
-    
+
     CREATE INDEX idx_patches_issue_id ON patches(issue_id);
     CREATE INDEX idx_patches_status ON patches(status);
-    
+
     CREATE TRIGGER update_patches_updated_at
         BEFORE UPDATE ON patches
         FOR EACH ROW
