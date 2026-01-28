@@ -60,12 +60,10 @@ class FetchPatchStep(WorkflowStep):
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
-                # Save patch artifact using the Issue object
-                # Note: PatchArtifact model may need to be updated to accept Issue
-                # For now, we'll create a minimal patch-like object
+                # Save patch artifact with the issue
                 artifact = PatchArtifact(
                     workflow_id=context.adw_id,
-                    patch=issue,  # Pass the issue as the patch
+                    patch=issue,
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved patch artifact for workflow %s", context.adw_id)
