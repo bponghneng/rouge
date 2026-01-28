@@ -4,7 +4,7 @@ Agent-specific models moved to rouge.core.agents package.
 """
 
 from datetime import datetime
-from typing import Literal, Optional, Union, get_args
+from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
