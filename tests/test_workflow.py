@@ -1320,9 +1320,8 @@ def test_transition_to_patch_pending_failure(mock_get_client):
     transition_to_patch_pending(1)
 
 
-@patch("rouge.core.workflow.status.update_patch_status")
 @patch("rouge.core.workflow.status.get_client")
-def test_transition_to_patched_success(mock_get_client, mock_update_patch):
+def test_transition_to_patched_success(mock_get_client):
     """Test successful transition to patched status."""
     from rouge.core.workflow.status import transition_to_patched
 
@@ -1338,33 +1337,38 @@ def test_transition_to_patched_success(mock_get_client, mock_update_patch):
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    # Should not raise
-    transition_to_patched(1, 10)
+    # Should not raise (patch_id is now ignored/optional)
+    transition_to_patched(1, None)
 
-    # Verify patch status was updated
-    mock_update_patch.assert_called_once()
+    # Verify issue status was updated to 'patched'
+    mock_client.table.assert_called_once_with("issues")
+    mock_table.update.assert_called_once_with({"status": "patched"})
+    mock_update.eq.assert_called_once_with("id", 1)
 
 
-@patch("rouge.core.workflow.status.update_patch_status")
 @patch("rouge.core.workflow.status.get_client")
-def test_transition_to_patched_patch_update_failure(mock_get_client, mock_update_patch):
-    """Test transition to patched skips issue update if patch update fails."""
+def test_transition_to_patched_patch_update_failure(mock_get_client):
+    """Test transition to patched handles database errors gracefully."""
     from rouge.core.workflow.status import transition_to_patched
 
     mock_client = Mock()
-    mock_update_patch.side_effect = APIError({"message": "Database error"})
+    mock_table = Mock()
+    mock_update = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.update.return_value = mock_update
+    mock_update.eq.side_effect = APIError({"message": "Database error"})
     mock_get_client.return_value = mock_client
 
     # Should not raise - best-effort
-    transition_to_patched(1, 10)
+    transition_to_patched(1, None)
 
-    # Verify issue update was not called (client.table not called)
-    mock_client.table.assert_not_called()
+    # Verify it attempted to update the issue
+    mock_client.table.assert_called_once_with("issues")
 
 
-@patch("rouge.core.workflow.status.update_patch_status")
 @patch("rouge.core.workflow.status.get_client")
-def test_transition_to_patched_issue_update_failure(mock_get_client, mock_update_patch):
+def test_transition_to_patched_issue_update_failure(mock_get_client):
     """Test transition to patched handles issue update errors gracefully."""
     from rouge.core.workflow.status import transition_to_patched
 
@@ -1380,5 +1384,6 @@ def test_transition_to_patched_issue_update_failure(mock_get_client, mock_update
     # Should not raise - best-effort
     transition_to_patched(1, 10)
 
-    # Verify patch status was updated first
-    mock_update_patch.assert_called_once()
+    # Verify it attempted to update
+    mock_client.table.assert_called_once()
+

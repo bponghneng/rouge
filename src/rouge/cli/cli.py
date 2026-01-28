@@ -125,9 +125,6 @@ def create_from_file(file_path: Path):
 @app.command()
 def new_patch(
     file_path: Path,
-    issue_id: int = typer.Option(  # noqa: ARG001 - Reserved for future parent/child linkage
-        ..., "--issue-id", help="Parent issue ID"
-    ),
     parent_adw_id: str = typer.Option(..., "--parent-adw-id", help="Parent ADW ID"),
 ):
     """Create a new patch issue from description file.
@@ -137,11 +134,10 @@ def new_patch(
 
     Args:
         file_path: Path to file containing patch description
-        issue_id: Parent issue ID (required)
         parent_adw_id: Parent ADW ID for branch coordination (required)
 
     Example:
-        rouge new-patch patch-description.txt --issue-id 123 --parent-adw-id abc12345
+        rouge new-patch patch-description.txt --parent-adw-id abc12345
     """
     try:
         # Validate file exists
