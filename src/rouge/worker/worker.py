@@ -22,7 +22,6 @@ import subprocess
 import time
 from pathlib import Path
 from types import FrameType
-from typing import Optional
 
 from rouge.core.database import fetch_issue, init_db_env
 from rouge.core.utils import make_adw_id, make_patch_workflow_id
@@ -174,12 +173,11 @@ class IssueWorker:
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
 
-    def _handle_patch_failure(self, issue_id: int, _patch_id: Optional[int], _reason: str) -> None:
+    def _handle_patch_failure(self, issue_id: int, _reason: str) -> None:
         """Handle patch workflow failure by logging and updating status.
 
         Args:
             issue_id: The ID of the issue
-            _patch_id: Legacy patch ID parameter (no longer used)
             _reason: Description of the failure reason
         """
         self.logger.exception("Patch workflow failed for issue %s", issue_id)
@@ -204,8 +202,13 @@ class IssueWorker:
             if issue.adw_id is None:
                 raise ValueError(f"Issue {issue_id} has no adw_id")
 
+            # Validate adw_id is not empty or whitespace-only
+            trimmed = issue.adw_id.strip()
+            if not trimmed:
+                raise ValueError(f"Issue {issue_id} has empty or whitespace-only adw_id")
+
             # For patch issues, the adw_id is the main ADW ID from the parent
-            main_adw_id = issue.adw_id
+            main_adw_id = trimmed
             patch_wf_id = make_patch_workflow_id(main_adw_id)
 
             self.logger.info(
@@ -249,13 +252,13 @@ class IssueWorker:
                 return patch_wf_id, False
 
         except ValueError:
-            self._handle_patch_failure(issue_id, None, "ValueError during patch workflow")
+            self._handle_patch_failure(issue_id, "ValueError during patch workflow")
             raise
         except subprocess.TimeoutExpired:
-            self._handle_patch_failure(issue_id, None, "Patch workflow timed out")
+            self._handle_patch_failure(issue_id, "Patch workflow timed out")
             raise
         except Exception:
-            self._handle_patch_failure(issue_id, None, "Unexpected error in patch workflow")
+            self._handle_patch_failure(issue_id, "Unexpected error in patch workflow")
             raise
 
     def execute_workflow(
