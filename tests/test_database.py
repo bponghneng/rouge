@@ -14,6 +14,7 @@ from rouge.core.database import (
     fetch_issue,
     get_client,
     update_issue_assignment,
+    update_issue_branch,
     update_issue_description,
     update_issue_status,
 )
@@ -832,3 +833,366 @@ def test_update_patch_status_not_found(mock_get_client):
 
     with pytest.raises(ValueError, match="not found"):
         update_patch_status(999, "completed")
+
+
+# ============================================================================
+# create_issue with issue_type and adw_id tests
+# ============================================================================
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_with_explicit_type_main(mock_get_client):
+    """Test creating issue with explicit type='main'."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 1,
+            "description": "Test issue with type",
+            "status": "pending",
+            "type": "main",
+            "adw_id": "abc12345",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Test issue with type", issue_type="main")
+    assert issue.id == 1
+    assert issue.description == "Test issue with type"
+    assert issue.type == "main"
+
+    # Verify the insert data included the type
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "main"
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_with_explicit_type_patch(mock_get_client):
+    """Test creating issue with explicit type='patch'."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 2,
+            "description": "Patch issue for bug fix",
+            "status": "pending",
+            "type": "patch",
+            "adw_id": "xyz98765",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Patch issue for bug fix", issue_type="patch")
+    assert issue.id == 2
+    assert issue.description == "Patch issue for bug fix"
+    assert issue.type == "patch"
+
+    # Verify the insert data included the type
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "patch"
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_with_explicit_adw_id(mock_get_client):
+    """Test creating issue with explicit adw_id."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 3,
+            "description": "Test issue with custom adw_id",
+            "status": "pending",
+            "type": "main",
+            "adw_id": "custom-adw-id",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Test issue with custom adw_id", adw_id="custom-adw-id")
+    assert issue.id == 3
+    assert issue.adw_id == "custom-adw-id"
+
+    # Verify the insert data included the explicit adw_id
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["adw_id"] == "custom-adw-id"
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_with_type_and_adw_id(mock_get_client):
+    """Test creating issue with both explicit type and adw_id."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 4,
+            "description": "Patch issue with custom ID",
+            "status": "pending",
+            "type": "patch",
+            "adw_id": "patch-adw-123",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Patch issue with custom ID", issue_type="patch", adw_id="patch-adw-123")
+    assert issue.id == 4
+    assert issue.type == "patch"
+    assert issue.adw_id == "patch-adw-123"
+
+    # Verify both type and adw_id were included in insert data
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "patch"
+    assert insert_call_args["adw_id"] == "patch-adw-123"
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_default_type_is_main(mock_get_client):
+    """Test that issue type defaults to 'main' when not specified."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 5,
+            "description": "Issue without explicit type",
+            "status": "pending",
+            "type": "main",
+            "adw_id": "generated123",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Issue without explicit type")
+    assert issue.type == "main"
+
+    # Verify the insert data defaulted to 'main'
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "main"
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_auto_generates_adw_id(mock_get_client):
+    """Test that adw_id is auto-generated when not provided."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 6,
+            "description": "Issue with auto-generated adw_id",
+            "status": "pending",
+            "type": "main",
+            "adw_id": "auto1234",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    create_issue("Issue with auto-generated adw_id")
+
+    # Verify an adw_id was included in insert data (auto-generated)
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert "adw_id" in insert_call_args
+    assert insert_call_args["adw_id"] is not None
+    assert len(insert_call_args["adw_id"]) == 8  # make_adw_id generates 8-char IDs
+
+
+@patch("rouge.core.database.get_client")
+def test_create_issue_invalid_type(mock_get_client):
+    """Test creating issue with invalid type raises ValueError."""
+    with pytest.raises(ValueError, match="Invalid issue_type"):
+        create_issue("Test issue", issue_type="invalid")
+
+
+# ============================================================================
+# update_issue_branch tests
+# ============================================================================
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_success(mock_get_client):
+    """Test successful branch update."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "branch": "feature/my-branch",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue_branch(1, "feature/my-branch")
+    assert issue.id == 1
+    assert issue.branch == "feature/my-branch"
+    mock_table.update.assert_called_once_with({"branch": "feature/my-branch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_trims_whitespace(mock_get_client):
+    """Test that branch is trimmed of whitespace."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "branch": "feature/trimmed",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue_branch(1, "  feature/trimmed  ")
+    assert issue.branch == "feature/trimmed"
+    mock_table.update.assert_called_once_with({"branch": "feature/trimmed"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_empty_fails(mock_get_client):
+    """Test updating with empty branch fails."""
+    with pytest.raises(ValueError, match="Branch cannot be empty"):
+        update_issue_branch(1, "")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_whitespace_only_fails(mock_get_client):
+    """Test updating with whitespace-only branch fails."""
+    with pytest.raises(ValueError, match="Branch cannot be empty"):
+        update_issue_branch(1, "   ")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_not_found(mock_get_client):
+    """Test updating branch of non-existent issue."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check (returns empty list)
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = []
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    mock_table.select.return_value = mock_select_check
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="not found"):
+        update_issue_branch(999, "feature/branch")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_branch_with_adw_prefix(mock_get_client):
+    """Test updating branch with adw_id prefix naming convention."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 42}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 42,
+            "description": "Test issue",
+            "status": "started",
+            "branch": "adw/abc12345-feature-work",
+            "adw_id": "abc12345",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue_branch(42, "adw/abc12345-feature-work")
+    assert issue.id == 42
+    assert issue.branch == "adw/abc12345-feature-work"
+    assert issue.adw_id == "abc12345"
+    mock_table.update.assert_called_once_with({"branch": "adw/abc12345-feature-work"})

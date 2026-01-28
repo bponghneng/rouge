@@ -212,8 +212,18 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     patches against an existing issue that has already been through the main
     workflow.
 
+    Routing:
+    --------
+    Worker routing uses the `issues.type` column to determine which pipeline to run:
+    - `type='main'`: Routes to the default pipeline (get_default_pipeline)
+    - `type='patch'`: Routes to this patch pipeline
+
+    Patch workflows are represented as issue rows with `type='patch'` rather than
+    as separate patch table entries. This type-based routing replaced the previous
+    status-based routing (which used 'pending' vs 'patch pending' statuses).
+
     Artifact Handling:
-    -----------------
+    ------------------
     The patch workflow uses a parent_workflow_id to access shared artifacts from
     the main workflow. Artifact types are categorized as:
 
