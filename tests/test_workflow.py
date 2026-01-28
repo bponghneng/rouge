@@ -1347,7 +1347,7 @@ def test_transition_to_patched_success(mock_get_client):
 
 
 @patch("rouge.core.workflow.status.get_client")
-def test_transition_to_patched_patch_update_failure(mock_get_client):
+def test_transition_to_patched_database_error(mock_get_client):
     """Test transition to patched handles database errors gracefully."""
     from rouge.core.workflow.status import transition_to_patched
 
@@ -1368,22 +1368,25 @@ def test_transition_to_patched_patch_update_failure(mock_get_client):
 
 
 @patch("rouge.core.workflow.status.get_client")
-def test_transition_to_patched_issue_update_failure(mock_get_client):
-    """Test transition to patched handles issue update errors gracefully."""
+def test_transition_to_patched_with_legacy_patch_id(mock_get_client):
+    """Test transition to patched works with legacy patch_id parameter (ignored)."""
     from rouge.core.workflow.status import transition_to_patched
 
     mock_client = Mock()
     mock_table = Mock()
     mock_update = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
     mock_table.update.return_value = mock_update
-    mock_update.eq.side_effect = APIError({"message": "Database error"})
+    mock_update.eq.return_value = mock_eq
+    mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    # Should not raise - best-effort
+    # Should work with patch_id provided (but ignored)
     transition_to_patched(1, 10)
 
-    # Verify it attempted to update
-    mock_client.table.assert_called_once()
+    # Verify issue status was updated (patch_id is ignored)
+    mock_client.table.assert_called_once_with("issues")
 
