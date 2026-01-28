@@ -123,6 +123,64 @@ def create_from_file(file_path: Path):
 
 
 @app.command()
+def new_patch(
+    file_path: Path,
+    issue_id: int = typer.Option(  # noqa: ARG001 - Reserved for future parent/child linkage
+        ..., "--issue-id", help="Parent issue ID"
+    ),
+    parent_adw_id: str = typer.Option(..., "--parent-adw-id", help="Parent ADW ID"),
+):
+    """Create a new patch issue from description file.
+
+    Creates a patch issue linked to a parent issue's ADW workflow. The patch
+    issue will inherit the parent's ADW ID for branch coordination.
+
+    Args:
+        file_path: Path to file containing patch description
+        issue_id: Parent issue ID (required)
+        parent_adw_id: Parent ADW ID for branch coordination (required)
+
+    Example:
+        rouge new-patch patch-description.txt --issue-id 123 --parent-adw-id abc12345
+    """
+    try:
+        # Validate file exists
+        if not file_path.exists():
+            typer.echo(f"Error: File not found: {file_path}", err=True)
+            raise typer.Exit(1)
+
+        # Validate it's a file, not a directory
+        if not file_path.is_file():
+            typer.echo(f"Error: Path is not a file: {file_path}", err=True)
+            raise typer.Exit(1)
+
+        # Read file content
+        description = file_path.read_text(encoding="utf-8").strip()
+
+        if not description:
+            typer.echo("Error: File is empty", err=True)
+            raise typer.Exit(1)
+
+        # Create patch issue in database
+        issue = create_issue(
+            description=description,
+            issue_type="patch",
+            adw_id=parent_adw_id,
+        )
+        typer.echo(f"{issue.id}")  # Output only the ID for scripting
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except UnicodeDecodeError:
+        typer.echo(f"Error: File is not valid UTF-8: {file_path}", err=True)
+        raise typer.Exit(1)
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
 def run(
     issue_id: int,
     adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
