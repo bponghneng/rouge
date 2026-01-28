@@ -173,12 +173,12 @@ class IssueWorker:
             update_issue_status(issue_id, "pending", self.logger)
             return workflow_id, False
 
-    def _handle_patch_failure(self, issue_id: int, _reason: str) -> None:
+    def _handle_patch_failure(self, issue_id: int, reason: str) -> None:
         """Handle patch workflow failure by logging and updating status.
 
         Args:
             issue_id: The ID of the issue
-            _reason: Description of the failure reason
+            reason: Description of the failure reason
         """
         self.logger.exception("Patch workflow failed for issue %s", issue_id)
 
@@ -205,7 +205,14 @@ class IssueWorker:
 
             # For patch issues, use the adw_id directly from the issue
             adw_id = issue.adw_id
+            # Fetch the issue to get adw_id directly from the issues row
+            issue = fetch_issue(issue_id)
+            if issue.adw_id is None or not issue.adw_id.strip():
+                raise ValueError(f"Issue {issue_id} has no adw_id")
 
+            # For patch issues, the adw_id is the main ADW ID from the parent
+            main_adw_id = issue.adw_id.strip()
+            patch_wf_id = make_patch_workflow_id(main_adw_id)
             self.logger.info(
                 "Executing patch workflow %s for issue %s",
                 adw_id,
