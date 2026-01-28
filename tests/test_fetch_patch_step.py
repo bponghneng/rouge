@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from rouge.core.models import Issue, Patch
+from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import PatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
@@ -24,88 +24,81 @@ def mock_context():
 
 
 @pytest.fixture
-def sample_issue():
-    """Create a sample issue."""
+def sample_patch_issue():
+    """Create a sample patch issue."""
     return Issue(
         id=10,
-        description="Original issue",
-        status="patched",
+        description="Fix typo in README",
+        status="pending",
+        type="patch",
+        adw_id="abc12345",
     )
 
 
 @pytest.fixture
-def sample_patch():
-    """Create a sample patch."""
-    return Patch(
-        id=1,
-        issue_id=10,
-        description="Fix typo in README",
-        status="pending",
+def sample_main_issue():
+    """Create a sample main issue (not a patch)."""
+    return Issue(
+        id=10,
+        description="Original issue",
+        status="started",
+        type="main",
+        adw_id="abc12345",
     )
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_success(
     mock_fetch_issue,
-    mock_fetch_patch,
     mock_emit,
     mock_context,
-    sample_issue,
-    sample_patch,
+    sample_patch_issue,
 ):
     """Test successful patch fetch."""
-    mock_fetch_issue.return_value = sample_issue
-    mock_fetch_patch.return_value = sample_patch
+    mock_fetch_issue.return_value = sample_patch_issue
     mock_emit.return_value = ("success", "Comment inserted")
 
     step = FetchPatchStep()
     result = step.run(mock_context)
 
     assert result.success is True
-    assert mock_context.issue == sample_issue
-    assert mock_context.data["patch"] == sample_patch
+    assert mock_context.issue == sample_patch_issue
 
-    # Verify only patch artifact was saved (issue is a shared artifact from parent workflow)
+    # Verify patch artifact was saved
     assert mock_context.artifact_store.write_artifact.call_count == 1
 
-    # Check the call was PatchArtifact
+    # Check the call was PatchArtifact with the patch issue
     artifact_call = mock_context.artifact_store.write_artifact.call_args_list[0][0][0]
     assert isinstance(artifact_call, PatchArtifact)
-    assert artifact_call.patch == sample_patch
+    assert artifact_call.patch == sample_patch_issue
 
     # Verify progress comment was emitted
     mock_emit.assert_called_once()
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_no_pending_patch(
     mock_fetch_issue,
-    mock_fetch_patch,
     mock_emit,
     mock_context,
-    sample_issue,
+    sample_main_issue,
 ):
-    """Test fetch patch step fails when no pending patch exists."""
-    mock_fetch_issue.return_value = sample_issue
-    mock_fetch_patch.side_effect = ValueError("No pending patch found")
+    """Test fetch patch step fails when issue is not type='patch'."""
+    mock_fetch_issue.return_value = sample_main_issue
 
     step = FetchPatchStep()
     result = step.run(mock_context)
 
     assert result.success is False
-    assert "No pending patch found" in result.error
+    assert "not a patch issue" in result.error
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_issue_not_found(
     mock_fetch_issue,
-    mock_fetch_patch,
     mock_emit,
     mock_context,
 ):
@@ -120,29 +113,24 @@ def test_fetch_patch_step_issue_not_found(
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_without_artifact_store(
     mock_fetch_issue,
-    mock_fetch_patch,
     mock_emit,
     mock_context,
-    sample_issue,
-    sample_patch,
+    sample_patch_issue,
 ):
     """Test fetch patch step works without artifact store."""
     mock_context.artifacts_enabled = False
     mock_context.artifact_store = None
-    mock_fetch_issue.return_value = sample_issue
-    mock_fetch_patch.return_value = sample_patch
+    mock_fetch_issue.return_value = sample_patch_issue
     mock_emit.return_value = ("success", "Comment inserted")
 
     step = FetchPatchStep()
     result = step.run(mock_context)
 
     assert result.success is True
-    assert mock_context.issue == sample_issue
-    assert mock_context.data["patch"] == sample_patch
+    assert mock_context.issue == sample_patch_issue
 
 
 def test_fetch_patch_step_is_critical():
@@ -158,19 +146,15 @@ def test_fetch_patch_step_name():
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_pending_patch")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_unexpected_error(
     mock_fetch_issue,
-    mock_fetch_pending_patch,
     mock_emit_comment_from_payload,
     mock_context,
-    sample_issue,
 ):
     """Test FetchPatchStep handles unexpected errors gracefully."""
-    # Setup: fetch_issue succeeds but fetch_pending_patch raises RuntimeError
-    mock_fetch_issue.return_value = sample_issue
-    mock_fetch_pending_patch.side_effect = RuntimeError("Unexpected DB error")
+    # Setup: fetch_issue raises RuntimeError
+    mock_fetch_issue.side_effect = RuntimeError("Unexpected DB error")
 
     # Execute
     step = FetchPatchStep()
@@ -180,5 +164,4 @@ def test_fetch_patch_step_unexpected_error(
     assert result.success is False
     assert "Unexpected error" in result.error
     mock_fetch_issue.assert_called_once_with(10)
-    mock_fetch_pending_patch.assert_called_once_with(10)
     mock_emit_comment_from_payload.assert_not_called()

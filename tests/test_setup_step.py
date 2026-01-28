@@ -97,7 +97,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, mock_update_bra
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_custom_default_branch(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup uses custom DEFAULT_GIT_BRANCH from environment."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -127,7 +127,7 @@ def test_setup_step_custom_default_branch(
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_default_branch_fallback(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context, monkeypatch
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context, monkeypatch
 ):
     """Test setup defaults to 'main' when DEFAULT_GIT_BRANCH is not set."""
     monkeypatch.delenv("DEFAULT_GIT_BRANCH", raising=False)
@@ -183,7 +183,7 @@ def test_setup_step_destructive_ops_explicitly_disabled(context, monkeypatch):
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_destructive_ops_case_insensitive(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup accepts 'True' (capital T) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -207,7 +207,7 @@ def test_setup_step_destructive_ops_case_insensitive(
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_destructive_ops_uppercase(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup accepts 'TRUE' (all caps) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -445,7 +445,7 @@ def test_setup_step_unexpected_error(mock_subprocess, mock_get_repo_path, contex
 @patch("rouge.core.workflow.steps.setup.update_issue_branch")
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
-def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, mock_update_branch):
+def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch):
     """Test that branch name is correctly formatted from adw_id."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -483,7 +483,7 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, mock
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_subprocess_options(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test that subprocess.run is called with correct options."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -515,7 +515,7 @@ def test_setup_step_subprocess_options(
 @patch("rouge.core.workflow.steps.setup.get_repo_path")
 @patch("rouge.core.workflow.steps.setup.subprocess.run")
 def test_setup_step_returns_step_result_ok(
-    mock_subprocess, mock_get_repo_path, mock_update_branch, context
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test successful execution returns StepResult.ok()."""
     mock_get_repo_path.return_value = "/path/to/repo"
