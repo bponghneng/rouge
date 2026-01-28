@@ -123,3 +123,115 @@ def test_run_command_invalid_issue_id():
     """Test run command with invalid issue ID."""
     result = runner.invoke(app, ["run", "not-a-number"])
     assert result.exit_code != 0
+
+
+# Tests for new-patch command
+
+
+@patch("rouge.cli.cli.create_issue")
+def test_new_patch_success(mock_create_issue, tmp_path):
+    """Test successful patch issue creation from file."""
+    mock_issue = Issue(id=789, description="Patch issue", status="pending")
+    mock_create_issue.return_value = mock_issue
+
+    # Create temp file with patch description
+    patch_file = tmp_path / "patch.txt"
+    patch_file.write_text("Patch issue description")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--issue-id", "123", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code == 0
+    assert "789" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Patch issue description",
+        issue_type="patch",
+        adw_id="abc12345",
+    )
+
+
+def test_new_patch_file_not_found():
+    """Test new-patch with non-existent file."""
+    result = runner.invoke(
+        app,
+        ["new-patch", "/nonexistent/file.txt", "--issue-id", "123", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code == 1
+    assert "not found" in result.output.lower()
+
+
+def test_new_patch_empty_file(tmp_path):
+    """Test new-patch with empty file."""
+    patch_file = tmp_path / "empty.txt"
+    patch_file.write_text("")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--issue-id", "123", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code == 1
+    assert "empty" in result.output.lower()
+
+
+def test_new_patch_directory_instead_of_file(tmp_path):
+    """Test new-patch with directory instead of file."""
+    result = runner.invoke(
+        app,
+        ["new-patch", str(tmp_path), "--issue-id", "123", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code == 1
+    assert "not a file" in result.output.lower()
+
+
+def test_new_patch_missing_issue_id(tmp_path):
+    """Test new-patch with missing --issue-id option."""
+    patch_file = tmp_path / "patch.txt"
+    patch_file.write_text("Patch description")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code != 0
+    assert "issue-id" in result.output.lower()
+
+
+def test_new_patch_missing_parent_adw_id(tmp_path):
+    """Test new-patch with missing --parent-adw-id option."""
+    patch_file = tmp_path / "patch.txt"
+    patch_file.write_text("Patch description")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--issue-id", "123"],
+    )
+    assert result.exit_code != 0
+    assert "parent-adw-id" in result.output.lower()
+
+
+def test_new_patch_invalid_issue_id(tmp_path):
+    """Test new-patch with invalid (non-integer) issue ID."""
+    patch_file = tmp_path / "patch.txt"
+    patch_file.write_text("Patch description")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--issue-id", "not-a-number", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code != 0
+
+
+@patch("rouge.cli.cli.create_issue")
+def test_new_patch_whitespace_only_file(mock_create_issue, tmp_path):
+    """Test new-patch with file containing only whitespace."""
+    patch_file = tmp_path / "whitespace.txt"
+    patch_file.write_text("   \n\t\n   ")
+
+    result = runner.invoke(
+        app,
+        ["new-patch", str(patch_file), "--issue-id", "123", "--parent-adw-id", "abc12345"],
+    )
+    assert result.exit_code == 1
+    assert "empty" in result.output.lower()
+    mock_create_issue.assert_not_called()
