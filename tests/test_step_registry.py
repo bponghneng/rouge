@@ -467,9 +467,9 @@ class TestGlobalRegistry:
                 patch_acceptance_step_name = name
                 break
 
-        assert (
-            patch_acceptance_step_name is not None
-        ), "ValidatePatchAcceptanceStep should be registered"
+        assert patch_acceptance_step_name is not None, (
+            "ValidatePatchAcceptanceStep should be registered"
+        )
 
         metadata = registry.get_step_metadata(patch_acceptance_step_name)
         assert metadata is not None
@@ -531,9 +531,9 @@ class TestGlobalRegistry:
         # Should include steps that produce issue and plan
         # (patch is an external artifact, not produced by a step)
         assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
-        assert any(
-            "Building implementation plan" in dep for dep in deps
-        ), "Should depend on BuildPlanStep"
+        assert any("Building implementation plan" in dep for dep in deps), (
+            "Should depend on BuildPlanStep"
+        )
 
     def test_patch_acceptance_dependency_resolution(self):
         """Test dependency resolution for ValidatePatchAcceptanceStep."""
@@ -551,6 +551,6 @@ class TestGlobalRegistry:
         deps = registry.resolve_dependencies(patch_acceptance_step_name)
 
         # Should include BuildPatchPlanStep and its dependencies
-        assert any(
-            "Building patch plan" in dep for dep in deps
-        ), "Should depend on BuildPatchPlanStep"
+        assert any("Building patch plan" in dep for dep in deps), (
+            "Should depend on BuildPatchPlanStep"
+        )
