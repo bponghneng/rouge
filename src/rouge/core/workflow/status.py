@@ -46,10 +46,10 @@ def transition_to_patch_pending(issue_id: int) -> None:
         logger.exception("Failed to update issue %s status to 'patch pending'", issue_id)
 
 
-def transition_to_patched(issue_id: int, patch_id: Optional[int]) -> None:
+def transition_to_patched(issue_id: int, _patch_id: Optional[int]) -> None:
     """Transition an issue to 'patched' status.
 
-    Updates the issue status to 'patched'. The patch_id parameter is accepted
+    Updates the issue status to 'patched'. The _patch_id parameter is accepted
     for backward compatibility but is no longer used (legacy patches table
     has been removed).
 
@@ -59,7 +59,7 @@ def transition_to_patched(issue_id: int, patch_id: Optional[int]) -> None:
 
     Args:
         issue_id: The Rouge issue ID
-        patch_id: Legacy patch ID (no longer used, accepted for compatibility)
+        _patch_id: Legacy patch ID (no longer used, accepted for compatibility)
     """
     try:
         client = get_client()

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
-from rouge.core.models import VALID_WORKER_IDS, Comment, Issue, Patch
+from rouge.core.models import VALID_WORKER_IDS, Comment, Issue
 from rouge.core.utils import make_adw_id
 
 logger = logging.getLogger(__name__)
