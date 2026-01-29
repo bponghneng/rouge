@@ -422,7 +422,6 @@ class TestPatchWorkflowArtifactIsolation:
             ImplementationArtifact,
             ReviewArtifact,
         )
-        from rouge.core.workflow.types import ImplementData
 
         main_wf_id = "main-wf-1"
         patch_wf_id = "patch-wf-1-patch"
@@ -463,7 +462,6 @@ class TestPatchWorkflowArtifactIsolation:
             ArtifactStore,
             ImplementationArtifact,
         )
-        from rouge.core.workflow.types import ImplementData
 
         main_wf_id = "main-wf-1"
         patch_wf_id = "patch-wf-1-patch"
@@ -510,7 +508,6 @@ class TestPatchWorkflowArtifactIsolation:
             ArtifactStore,
             ImplementationArtifact,
         )
-        from rouge.core.workflow.types import ImplementData
 
         main_wf_id = "main-wf"
         patch1_id = "patch-1-patch"

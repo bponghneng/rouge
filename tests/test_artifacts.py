@@ -1,6 +1,7 @@
 """Unit tests for workflow artifact persistence layer."""
 
 import json
+import logging
 import os
 from datetime import datetime
 from unittest.mock import patch
@@ -851,8 +852,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_patch_workflow_with_suffix_logs_warning_on_shared_write(self, tmp_path, caplog):
         """Test that workflow IDs ending in -patch trigger warnings when writing shared artifacts."""
-        import logging
-
         caplog.set_level(logging.WARNING)
         store = ArtifactStore("adw-123-patch", base_path=tmp_path)
 
@@ -871,8 +870,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_regular_workflow_no_warning_on_shared_write(self, tmp_path, caplog):
         """Test that regular workflow IDs do not trigger warnings when writing shared artifacts."""
-        import logging
-
         caplog.set_level(logging.WARNING)
         store = ArtifactStore("adw-123", base_path=tmp_path)
 
@@ -887,8 +884,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_workflow_with_patch_in_middle_no_warning(self, tmp_path, caplog):
         """Test that workflow IDs with -patch not at the end do not trigger warnings."""
-        import logging
-
         caplog.set_level(logging.WARNING)
         store = ArtifactStore("adw-patch-123", base_path=tmp_path)
 
@@ -903,8 +898,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_patch_workflow_write_shared_artifact_logs_warning(self, tmp_path, caplog):
         """Test that writing a shared artifact from a patch workflow logs a warning."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         store = ArtifactStore("adw-123-patch", base_path=tmp_path)
@@ -928,8 +921,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_patch_workflow_write_patch_specific_artifact_no_warning(self, tmp_path, caplog):
         """Test writing patch-specific artifact from patch workflow does NOT warn."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         store = ArtifactStore("adw-123-patch", base_path=tmp_path)
@@ -951,8 +942,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_regular_workflow_write_shared_artifact_no_warning(self, tmp_path, caplog):
         """Test that writing a shared artifact from a regular workflow does NOT log a warning."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         store = ArtifactStore("adw-123", base_path=tmp_path)
@@ -972,8 +961,6 @@ class TestArtifactStorePatchWorkflowWriteValidation:
 
     def test_patch_workflow_write_all_shared_artifacts_logs_warnings(self, tmp_path, caplog):
         """Test that writing any shared artifact from a patch workflow logs a warning."""
-        import logging
-
         caplog.set_level(logging.WARNING)
 
         store = ArtifactStore("adw-456-patch", base_path=tmp_path)
