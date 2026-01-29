@@ -513,6 +513,6 @@ class TestGlobalRegistry:
         # Should include steps that produce issue and plan
         # (patch is an external artifact, not produced by a step)
         assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
-        assert any(
-            "Building implementation plan" in dep for dep in deps
-        ), "Should depend on BuildPlanStep"
+        assert any("Building implementation plan" in dep for dep in deps), (
+            "Should depend on BuildPlanStep"
+        )
