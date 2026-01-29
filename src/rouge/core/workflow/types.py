@@ -7,7 +7,7 @@ a unified StepResult[T] generic type.
 
 from typing import Any, Dict, Generic, Literal, Optional, TypeVar
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # Slash commands that can be output from classify step
 ClassifySlashCommand = Literal[
@@ -49,7 +49,34 @@ class StepResult(BaseModel, Generic[T]):
     data: Optional[T] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = {}
-    rerun_from: Optional[str] = None
+    rerun_from: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        description="Step name to rewind pipeline execution to. Must be non-empty if provided.",
+    )
+
+    @field_validator("rerun_from", mode="before")
+    @classmethod
+    def validate_rerun_from(cls, v: Optional[str]) -> Optional[str]:
+        """Validate and normalize rerun_from field.
+
+        Trims whitespace and rejects empty/whitespace-only strings.
+
+        Args:
+            v: The input value for rerun_from
+
+        Returns:
+            Trimmed string or None
+
+        Raises:
+            ValueError: If the value is empty or whitespace-only
+        """
+        if v is None:
+            return None
+        trimmed = v.strip()
+        if not trimmed:
+            raise ValueError("rerun_from cannot be empty or whitespace-only")
+        return trimmed
 
     @classmethod
     def ok(
