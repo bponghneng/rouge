@@ -2,9 +2,6 @@
 
 import logging
 
-# Module-level constant for step name used in rerun_from references
-GENERATE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
-
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
@@ -16,6 +13,9 @@ from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
+
+# Module-level constant for step name used in rerun_from references
+GENERATE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
 
 
 def is_clean_review(review_text: str) -> bool:
