@@ -26,43 +26,86 @@ class StepResult(BaseModel, Generic[T]):
     Provides consistent success/error handling with optional typed data
     and metadata for all workflow operations.
 
+    Rerun Signal:
+        A step may set ``rerun_from`` to the *name* of an earlier pipeline
+        step.  When the pipeline orchestrator sees a non-None ``rerun_from``
+        it should rewind execution to that step instead of advancing.
+        The orchestrator is responsible for enforcing a maximum rerun count
+        (default: 5) to prevent runaway loops.  The rerun mechanism is
+        generic -- any step can request it without embedding domain-specific
+        logic in the pipeline.
+
     Attributes:
         success: Whether the step completed successfully
         data: Optional typed payload specific to the step
         error: Optional error message if step failed
         metadata: Additional context (e.g., session IDs, timing)
+        rerun_from: Optional step name to rewind pipeline execution to.
+            When set, the pipeline should re-execute starting from the
+            named step rather than continuing forward.
     """
 
     success: bool
     data: Optional[T] = None
     error: Optional[str] = None
     metadata: Dict[str, Any] = {}
+    rerun_from: Optional[str] = None
 
     @classmethod
-    def ok(cls, data: T, **metadata: Any) -> "StepResult[T]":
+    def ok(
+        cls,
+        data: T,
+        rerun_from: Optional[str] = None,
+        **metadata: Any,
+    ) -> "StepResult[T]":
         """Create a successful result with data.
 
         Args:
             data: The success payload
+            rerun_from: Optional step name to rewind pipeline execution to.
+                When provided, the pipeline orchestrator will re-execute
+                from the named step instead of advancing. Max 5 reruns
+                by default to prevent runaway loops.
             **metadata: Additional metadata key-value pairs
 
         Returns:
             StepResult instance marked as successful
         """
-        return cls(success=True, data=data, error=None, metadata=metadata)
+        return cls(
+            success=True,
+            data=data,
+            error=None,
+            metadata=metadata,
+            rerun_from=rerun_from,
+        )
 
     @classmethod
-    def fail(cls, error: str, **metadata: Any) -> "StepResult[T]":
+    def fail(
+        cls,
+        error: str,
+        rerun_from: Optional[str] = None,
+        **metadata: Any,
+    ) -> "StepResult[T]":
         """Create a failed result with error message.
 
         Args:
             error: Description of the failure
+            rerun_from: Optional step name to rewind pipeline execution to.
+                When provided, the pipeline orchestrator will re-execute
+                from the named step instead of aborting. Max 5 reruns
+                by default to prevent runaway loops.
             **metadata: Additional metadata key-value pairs
 
         Returns:
             StepResult instance marked as failed
         """
-        return cls(success=False, data=None, error=error, metadata=metadata)
+        return cls(
+            success=False,
+            data=None,
+            error=error,
+            metadata=metadata,
+            rerun_from=rerun_from,
+        )
 
 
 class ClassifyData(BaseModel):
