@@ -6,6 +6,7 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     ImplementationArtifact,
+    PatchPlanArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.implement import implement_plan
@@ -31,15 +32,25 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Load plan content from artifact
-        plan_data = context.load_artifact_if_missing(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: a.plan_data,
+        # Try to load patch_plan first (for patch workflows), fall back to plan
+        patch_plan_data = context.load_artifact_if_missing(
+            "patch_plan_data",
+            "patch_plan",
+            PatchPlanArtifact,
+            lambda a: a.patch_plan_data,
         )
 
-        plan_text = plan_data.plan if plan_data is not None else None
+        if patch_plan_data is not None:
+            plan_text = patch_plan_data.patch_plan_content
+        else:
+            # Fall back to original plan
+            plan_data = context.load_artifact_if_missing(
+                "plan_data",
+                "plan",
+                PlanArtifact,
+                lambda a: a.plan_data,
+            )
+            plan_text = plan_data.plan if plan_data is not None else None
 
         if plan_text is None:
             logger.error("Cannot implement: no plan available")
