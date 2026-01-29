@@ -276,6 +276,33 @@ class TestGetPatchPipeline:
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
 
+@pytest.fixture
+def make_store(tmp_path):
+    """Factory fixture for creating ArtifactStore instances.
+
+    Yields a callable that creates ArtifactStore instances with
+    consistent base_path handling.
+
+    Usage:
+        main_store = make_store("main-wf-id")
+        patch_store = make_store("patch-wf-id", parent_workflow_id="main-wf-id")
+    """
+    from rouge.core.workflow.artifacts import ArtifactStore
+
+    def _make_store(
+        workflow_id: str,
+        parent_workflow_id: str | None = None,
+        base_path=None,
+    ):
+        return ArtifactStore(
+            workflow_id,
+            base_path=base_path or tmp_path,
+            parent_workflow_id=parent_workflow_id,
+        )
+
+    return _make_store
+
+
 class TestPatchWorkflowArtifactIsolation:
     """Integration tests for patch workflow artifact isolation.
 
@@ -283,10 +310,9 @@ class TestPatchWorkflowArtifactIsolation:
     workflows while maintaining isolation for patch-specific artifacts.
     """
 
-    def test_patch_workflow_reads_shared_artifacts_from_parent(self, tmp_path):
+    def test_patch_workflow_reads_shared_artifacts_from_parent(self, tmp_path, make_store):
         """Test that patch workflows can read shared artifacts (issue, plan) from parent."""
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             IssueArtifact,
             PlanArtifact,
         )
@@ -297,7 +323,7 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Create artifacts in main workflow using the same base as WorkflowRunner.
         workflows_dir = tmp_path / ".rouge" / "workflows"
-        main_store = ArtifactStore(main_wf_id, base_path=workflows_dir)
+        main_store = make_store(main_wf_id, base_path=workflows_dir)
 
         issue_artifact = IssueArtifact(
             workflow_id=main_wf_id,
@@ -341,10 +367,9 @@ class TestPatchWorkflowArtifactIsolation:
 
         assert success, "Workflow failed to access parent artifacts"
 
-    def test_patch_workflow_uses_patch_plan_for_implementation(self, tmp_path):
+    def test_patch_workflow_uses_patch_plan_for_implementation(self, make_store):
         """Test that patch workflows use patch_plan (not plan) for implementation."""
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             PatchPlanArtifact,
             PlanArtifact,
         )
@@ -353,7 +378,7 @@ class TestPatchWorkflowArtifactIsolation:
         patch_wf_id = "patch-wf-1-patch"
 
         # Main workflow has a plan
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_store = make_store(main_wf_id)
         main_store.write_artifact(
             PlanArtifact(
                 workflow_id=main_wf_id,
@@ -365,11 +390,7 @@ class TestPatchWorkflowArtifactIsolation:
         )
 
         # Patch workflow has its own patch_plan
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
         patch_plan_data = PatchPlanData(
             patch_description="Fix review feedback",
             original_plan_reference=main_wf_id,
@@ -393,32 +414,25 @@ class TestPatchWorkflowArtifactIsolation:
         plan = patch_store.read_artifact("plan", PlanArtifact)
         assert plan.plan_data.plan == "Original plan for main workflow"
 
-    def test_patch_workflow_fails_without_pull_request_artifact(self, tmp_path):
+    def test_patch_workflow_fails_without_pull_request_artifact(self, make_store):
         """Test that patch workflow UpdatePRCommitsStep fails when no PR artifact exists."""
-        from rouge.core.workflow.artifacts import ArtifactStore
-
         main_wf_id = "main-wf-1"
         patch_wf_id = "patch-wf-1-patch"
 
         # Main workflow exists but has no pull_request artifact
-        ArtifactStore(main_wf_id, base_path=tmp_path)
+        make_store(main_wf_id)
 
         # Patch workflow store
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
 
         # pull_request is a shared artifact type, so it would fall back to parent
         # But since parent doesn't have it either, this should raise FileNotFoundError
         with pytest.raises(FileNotFoundError, match="Artifact not found: pull_request"):
             patch_store.read_artifact("pull_request")
 
-    def test_patch_specific_artifacts_do_not_fallback_to_parent(self, tmp_path):
+    def test_patch_specific_artifacts_do_not_fallback_to_parent(self, make_store):
         """Verify that patch-specific artifacts (implementation, review) don't fallback."""
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             ImplementationArtifact,
             ReviewArtifact,
         )
@@ -427,7 +441,7 @@ class TestPatchWorkflowArtifactIsolation:
         patch_wf_id = "patch-wf-1-patch"
 
         # Main workflow has implementation and review
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_store = make_store(main_wf_id)
         main_store.write_artifact(
             ImplementationArtifact(
                 workflow_id=main_wf_id,
@@ -442,11 +456,7 @@ class TestPatchWorkflowArtifactIsolation:
         )
 
         # Patch workflow store
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
 
         # implementation is patch-specific, should NOT fall back to parent
         with pytest.raises(FileNotFoundError, match="Artifact not found: implementation"):
@@ -456,10 +466,9 @@ class TestPatchWorkflowArtifactIsolation:
         with pytest.raises(FileNotFoundError, match="Artifact not found: review"):
             patch_store.read_artifact("review", ReviewArtifact)
 
-    def test_patch_workflow_writes_isolated_artifacts(self, tmp_path):
+    def test_patch_workflow_writes_isolated_artifacts(self, make_store):
         """Verify patch workflow writes new artifacts without overwriting parent's."""
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             ImplementationArtifact,
         )
 
@@ -467,7 +476,7 @@ class TestPatchWorkflowArtifactIsolation:
         patch_wf_id = "patch-wf-1-patch"
 
         # 1. Main workflow creates implementation
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_store = make_store(main_wf_id)
         main_impl = ImplementationArtifact(
             workflow_id=main_wf_id,
             implement_data=ImplementData(output="main implementation output"),
@@ -475,11 +484,7 @@ class TestPatchWorkflowArtifactIsolation:
         main_store.write_artifact(main_impl)
 
         # 2. Patch workflow creates its own implementation
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
 
         # Patch-specific artifact should NOT fall back
         with pytest.raises(FileNotFoundError):
@@ -502,10 +507,9 @@ class TestPatchWorkflowArtifactIsolation:
         assert main_read.implement_data.output == "main implementation output"
         assert main_read.workflow_id == main_wf_id
 
-    def test_multiple_patch_workflows_are_isolated(self, tmp_path):
+    def test_multiple_patch_workflows_are_isolated(self, make_store):
         """Verify two patch workflows from same parent don't see each other's artifacts."""
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             ImplementationArtifact,
         )
 
@@ -514,10 +518,10 @@ class TestPatchWorkflowArtifactIsolation:
         patch2_id = "patch-2-patch"
 
         # Common parent (no implementation)
-        ArtifactStore(main_wf_id, base_path=tmp_path)
+        make_store(main_wf_id)
 
         # Patch 1 writes an implementation
-        store1 = ArtifactStore(patch1_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        store1 = make_store(patch1_id, parent_workflow_id=main_wf_id)
         impl1 = ImplementationArtifact(
             workflow_id=patch1_id,
             implement_data=ImplementData(output="patch 1 output"),
@@ -525,7 +529,7 @@ class TestPatchWorkflowArtifactIsolation:
         store1.write_artifact(impl1)
 
         # Patch 2 should NOT see Patch 1's artifact (implementation is patch-specific)
-        store2 = ArtifactStore(patch2_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        store2 = make_store(patch2_id, parent_workflow_id=main_wf_id)
 
         # Should raise FileNotFoundError since:
         # - patch2 doesn't have implementation locally
@@ -534,15 +538,15 @@ class TestPatchWorkflowArtifactIsolation:
         with pytest.raises(FileNotFoundError, match="Artifact not found: implementation"):
             store2.read_artifact("implementation", ImplementationArtifact)
 
-    def test_child_artifact_takes_precedence_over_parent_for_shared_types(self, tmp_path):
+    def test_child_artifact_takes_precedence_over_parent_for_shared_types(self, make_store):
         """Test that child's artifact takes precedence when both exist (shared types)."""
-        from rouge.core.workflow.artifacts import ArtifactStore, IssueArtifact
+        from rouge.core.workflow.artifacts import IssueArtifact
 
         main_wf_id = "main-wf"
         patch_wf_id = "patch-wf-patch"
 
         # Parent has an issue
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_store = make_store(main_wf_id)
         main_store.write_artifact(
             IssueArtifact(
                 workflow_id=main_wf_id,
@@ -551,11 +555,7 @@ class TestPatchWorkflowArtifactIsolation:
         )
 
         # Patch workflow creates its own issue (unusual but possible)
-        patch_store = ArtifactStore(
-            patch_wf_id,
-            base_path=tmp_path,
-            parent_workflow_id=main_wf_id,
-        )
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
         patch_store.write_artifact(
             IssueArtifact(
                 workflow_id=patch_wf_id,
@@ -570,7 +570,7 @@ class TestPatchWorkflowArtifactIsolation:
 
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_implement_step_uses_patch_plan_when_both_artifacts_exist(
-        self, mock_implement_plan, tmp_path
+        self, mock_implement_plan, make_store
     ):
         """Test that ImplementStep uses patch_plan content when both plan and patch_plan exist.
 
@@ -579,7 +579,6 @@ class TestPatchWorkflowArtifactIsolation:
         the patch_plan_content, not the original plan content.
         """
         from rouge.core.workflow.artifacts import (
-            ArtifactStore,
             PatchPlanArtifact,
             PlanArtifact,
         )
@@ -588,7 +587,7 @@ class TestPatchWorkflowArtifactIsolation:
         patch_wf_id = "patch-wf-1"
 
         # 1. Create the parent workflow's plan artifact
-        main_store = ArtifactStore(main_wf_id, base_path=tmp_path)
+        main_store = make_store(main_wf_id)
         original_plan = PlanArtifact(
             workflow_id=main_wf_id,
             plan_data=PlanData(
@@ -599,7 +598,7 @@ class TestPatchWorkflowArtifactIsolation:
         main_store.write_artifact(original_plan)
 
         # 2. Create the patch workflow's patch_plan artifact
-        patch_store = ArtifactStore(patch_wf_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
+        patch_store = make_store(patch_wf_id, parent_workflow_id=main_wf_id)
         patch_plan = PatchPlanArtifact(
             workflow_id=patch_wf_id,
             patch_plan_data=PatchPlanData(
@@ -643,19 +642,19 @@ class TestPatchWorkflowArtifactIsolation:
 
     @patch("rouge.core.workflow.steps.implement.implement_plan")
     def test_implement_step_uses_original_plan_when_no_patch_plan(
-        self, mock_implement_plan, tmp_path
+        self, mock_implement_plan, make_store
     ):
         """Test that ImplementStep uses original plan when no patch_plan exists.
 
         In a regular (non-patch) workflow, only the plan artifact exists.
         ImplementStep should use the original plan content.
         """
-        from rouge.core.workflow.artifacts import ArtifactStore, PlanArtifact
+        from rouge.core.workflow.artifacts import PlanArtifact
 
         wf_id = "regular-wf-1"
 
         # 1. Create only the plan artifact (no patch_plan)
-        store = ArtifactStore(wf_id, base_path=tmp_path)
+        store = make_store(wf_id)
         plan = PlanArtifact(
             workflow_id=wf_id,
             plan_data=PlanData(
