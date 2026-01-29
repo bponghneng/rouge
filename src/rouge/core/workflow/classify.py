@@ -66,7 +66,9 @@ def classify_issue(
 
     # parse_result.data is guaranteed to be non-None after success check
     classification_data = parse_result.data
-    assert classification_data is not None, "classification_data must not be None after success"
+    assert classification_data is not None, (
+        "classification_data should not be None after success check"
+    )
     issue_type = classification_data["type"]
     complexity_level = classification_data["level"]
 
