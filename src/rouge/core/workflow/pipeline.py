@@ -2,7 +2,7 @@
 
 import logging
 import os
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -15,8 +15,13 @@ class WorkflowRunner:
     """Orchestrates execution of workflow steps in sequence.
 
     Runs steps linearly, stopping on critical step failures and
-    continuing past best-effort step failures.
+    continuing past best-effort step failures.  Steps may request a
+    rerun by setting ``result.rerun_from`` to the name of an earlier
+    step; the runner will rewind to that step up to ``max_step_reruns``
+    times before forcing forward progress.
     """
+
+    max_step_reruns: int = 5
 
     def __init__(self, steps: List[WorkflowStep]) -> None:
         """Initialize the runner with a list of steps.
@@ -55,7 +60,13 @@ class WorkflowRunner:
         logger.info("ADW ID: %s", adw_id)
         logger.info("Processing issue ID: %s", issue_id)
 
-        for step in self._steps:
+        # Build index for fast step-name -> position lookup
+        step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
+        rerun_counts: Dict[str, int] = {}
+        step_index = 0
+
+        while step_index < len(self._steps):
+            step = self._steps[step_index]
             log_step_start(step.name, issue_id=issue_id)
 
             result = step.run(context)
@@ -75,6 +86,35 @@ class WorkflowRunner:
                     logger.warning("%s, continuing", warning_msg)
             else:
                 log_step_end(step.name, result.success, issue_id=issue_id)
+
+            # Handle rerun requests
+            if result.rerun_from is not None:
+                target = result.rerun_from
+                count = rerun_counts.get(target, 0)
+                if count < self.max_step_reruns:
+                    if target not in step_name_to_index:
+                        logger.warning(
+                            "Rerun requested for unknown step '%s', ignoring",
+                            target,
+                        )
+                    else:
+                        rerun_counts[target] = count + 1
+                        logger.info(
+                            "Rerun requested: rewinding to step '%s' (attempt %d/%d)",
+                            target,
+                            rerun_counts[target],
+                            self.max_step_reruns,
+                        )
+                        step_index = step_name_to_index[target]
+                        continue
+                else:
+                    logger.warning(
+                        "Max reruns (%d) reached for step '%s', continuing to next step",
+                        self.max_step_reruns,
+                        target,
+                    )
+
+            step_index += 1
 
         logger.info("\n=== Workflow completed successfully ===")
         return True
