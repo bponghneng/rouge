@@ -220,13 +220,17 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 
     Artifact Handling:
     ------------------
-    Artifact types are categorized as:
-
-    - SHARED artifacts: issue, classification, plan, pr_metadata, pull_request
-
-    - PATCH-SPECIFIC artifacts (unique to each patch workflow):
-      patch, patch_plan, patch_acceptance, implementation, review,
-      review_addressed, quality_check, acceptance
+    Each patch workflow generates its own artifacts independently:
+    - issue: Issue data from the database
+    - patch: Patch request data from FetchPatchStep
+    - plan: Patch-specific implementation plan from BuildPatchPlanStep
+    - implementation: Implementation result from ImplementStep
+    - review: Code review from GenerateReviewStep
+    - review_addressed: Review addressed status from AddressReviewStep
+    - quality_check: Quality check result from CodeQualityStep
+    - acceptance: Acceptance validation from ValidateAcceptanceStep
+    - patch_acceptance: Patch acceptance validation from ValidatePatchAcceptanceStep
+    - pr_metadata: Pull request metadata
 
     Key behaviors:
     - FetchPatchStep: Writes PatchArtifact

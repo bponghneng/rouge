@@ -468,9 +468,9 @@ class TestGlobalRegistry:
                 patch_acceptance_step_name = name
                 break
 
-        assert patch_acceptance_step_name is not None, (
-            "ValidatePatchAcceptanceStep should be registered"
-        )
+        assert (
+            patch_acceptance_step_name is not None
+        ), "ValidatePatchAcceptanceStep should be registered"
 
         metadata = registry.get_step_metadata(patch_acceptance_step_name)
         assert metadata is not None
@@ -506,7 +506,12 @@ class TestGlobalRegistry:
         # Filter out expected issues for artifacts without producers:
         # - "patch" is fetched externally, not produced by a step
         # - "patch_plan" is no longer produced (BuildPatchPlanStep produces "plan")
-        filtered_issues = [issue for issue in issues if "patch" not in issue.lower()]
+        expected_missing = ["patch", "patch_plan"]
+        filtered_issues = [
+            issue
+            for issue in issues
+            if not any(f"'{artifact}'" in issue for artifact in expected_missing)
+        ]
 
         # Should have no critical issues
         assert filtered_issues == [], f"Registry validation issues: {filtered_issues}"
@@ -545,7 +550,6 @@ class TestGlobalRegistry:
 
         deps = registry.resolve_dependencies(patch_acceptance_step_name)
 
-        # ValidatePatchAcceptanceStep depends on patch_plan which is not produced
-        # by any step (it's an artifact that needs to be updated in a future refactor)
-        # For now, the dependency chain will be empty
+        # ValidatePatchAcceptanceStep depends on "plan" artifact produced by BuildPatchPlanStep
+        # The dependency chain will include BuildPatchPlanStep and its dependencies
         assert isinstance(deps, list), "Should return a list of dependencies"
