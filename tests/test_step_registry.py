@@ -452,31 +452,9 @@ class TestGlobalRegistry:
 
         metadata = registry.get_step_metadata(patch_plan_step_name)
         assert metadata is not None
-        # BuildPatchPlanStep now produces PlanArtifact, not PatchPlanArtifact
-        assert metadata.dependencies == ["issue", "patch"]
-        assert metadata.outputs == ["plan"]
+        assert metadata.dependencies == ["issue", "patch", "plan"]
+        assert metadata.outputs == ["patch_plan"]
         assert metadata.is_critical is True
-
-    def test_validate_patch_acceptance_step_registration(self):
-        """Test ValidatePatchAcceptanceStep is registered with correct metadata."""
-        registry = get_step_registry()
-
-        # Find the patch acceptance step - exact name is "Validating patch acceptance"
-        patch_acceptance_step_name = None
-        for name in registry.list_all_steps():
-            if "Validating patch acceptance" in name:
-                patch_acceptance_step_name = name
-                break
-
-        assert (
-            patch_acceptance_step_name is not None
-        ), "ValidatePatchAcceptanceStep should be registered"
-
-        metadata = registry.get_step_metadata(patch_acceptance_step_name)
-        assert metadata is not None
-        assert metadata.dependencies == ["plan"]
-        assert metadata.outputs == ["patch_acceptance"]
-        assert metadata.is_critical is False
 
     def test_update_pr_commits_step_registration(self):
         """Test UpdatePRCommitsStep is registered with correct metadata."""
@@ -503,14 +481,12 @@ class TestGlobalRegistry:
 
         issues = registry.validate_registry()
 
-        # Filter out expected issues for artifacts without producers:
-        # - "patch" is fetched externally, not produced by a step
-        # - "patch_plan" is no longer produced (BuildPatchPlanStep produces "plan")
-        expected_missing = ["patch", "patch_plan"]
+        # Filter out expected issues for artifacts without producers
+        # (patch is fetched externally, not produced by a step)
         filtered_issues = [
             issue
             for issue in issues
-            if not any(f"'{artifact}'" in issue for artifact in expected_missing)
+            if "patch" not in issue.lower() or "patch_plan" in issue.lower()
         ]
 
         # Should have no critical issues
@@ -531,25 +507,9 @@ class TestGlobalRegistry:
 
         deps = registry.resolve_dependencies(patch_plan_step_name)
 
-        # BuildPatchPlanStep depends on issue and patch (external artifacts)
-        # It no longer depends on plan since it produces plan directly
+        # Should include steps that produce issue and plan
+        # (patch is an external artifact, not produced by a step)
         assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
-
-    def test_patch_acceptance_dependency_resolution(self):
-        """Test dependency resolution for ValidatePatchAcceptanceStep."""
-        registry = get_step_registry()
-
-        # Find the patch acceptance step - exact name is "Validating patch acceptance"
-        patch_acceptance_step_name = None
-        for name in registry.list_all_steps():
-            if "Validating patch acceptance" in name:
-                patch_acceptance_step_name = name
-                break
-
-        assert patch_acceptance_step_name is not None
-
-        deps = registry.resolve_dependencies(patch_acceptance_step_name)
-
-        # ValidatePatchAcceptanceStep depends on "plan" artifact produced by BuildPatchPlanStep
-        # The dependency chain will include BuildPatchPlanStep and its dependencies
-        assert isinstance(deps, list), "Should return a list of dependencies"
+        assert any("Building implementation plan" in dep for dep in deps), (
+            "Should depend on BuildPlanStep"
+        )
