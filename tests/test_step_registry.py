@@ -481,8 +481,11 @@ class TestGlobalRegistry:
 
         issues = registry.validate_registry()
 
-        # Filter out expected issues for artifacts without producers
-        # (patch is fetched externally, not produced by a step)
+        # Filter out expected issues for artifacts without producers.
+        # The 'patch' artifact is fetched externally (not produced by a step),
+        # but 'patch_plan' IS produced by BuildPatchPlanStep, so we:
+        # - Exclude issues mentioning 'patch' (external artifact, expected to have no producer)
+        # - BUT keep issues mentioning 'patch_plan' (should have a producer, so any issue is real)
         filtered_issues = [
             issue
             for issue in issues
@@ -510,6 +513,6 @@ class TestGlobalRegistry:
         # Should include steps that produce issue and plan
         # (patch is an external artifact, not produced by a step)
         assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
-        assert any("Building implementation plan" in dep for dep in deps), (
-            "Should depend on BuildPlanStep"
-        )
+        assert any(
+            "Building implementation plan" in dep for dep in deps
+        ), "Should depend on BuildPlanStep"
