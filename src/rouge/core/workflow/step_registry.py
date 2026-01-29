@@ -287,7 +287,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.fetch import FetchIssueStep
     from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
     from rouge.core.workflow.steps.implement import ImplementStep
-    from rouge.core.workflow.steps.patch_acceptance import ValidatePatchAcceptanceStep
     from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
     from rouge.core.workflow.steps.plan import BuildPlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
@@ -368,10 +367,10 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Run code quality checks (linting, type checking)",
     )
 
-    # 9. ValidateAcceptanceStep: requires plan, produces acceptance
+    # 9. ValidateAcceptanceStep: requires plan (or patch_plan), produces acceptance
     registry.register(
         ValidateAcceptanceStep,
-        dependencies=["plan"],
+        dependencies=["plan", "patch_plan"],
         outputs=["acceptance"],
         description="Validate implementation against acceptance criteria",
     )
@@ -400,31 +399,22 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. BuildPatchPlanStep: requires issue, patch; produces plan
+    # 13. BuildPatchPlanStep: requires issue, patch, plan; produces patch_plan
     registry.register(
         BuildPatchPlanStep,
-        dependencies=["issue", "patch"],
-        outputs=["plan"],
+        dependencies=["issue", "patch", "plan"],
+        outputs=["patch_plan"],
         is_critical=True,
-        description="Build implementation plan for a patch",
+        description="Build patch-specific plan contextualized against original plan",
     )
 
-    # 14. ValidatePatchAcceptanceStep: requires plan, produces patch_acceptance
-    registry.register(
-        ValidatePatchAcceptanceStep,
-        dependencies=["plan"],
-        outputs=["patch_acceptance"],
-        is_critical=False,
-        description="Validate patch implementation against plan acceptance criteria",
-    )
-
-    # 15. UpdatePRCommitsStep: requires pull_request artifact, pushes commits
+    # 14. UpdatePRCommitsStep: requires pull_request, pushes commits
     registry.register(
         UpdatePRCommitsStep,
         dependencies=["pull_request"],
         outputs=[],
         is_critical=False,
-        description="Push commits to an existing PR/MR (does not create new PRs)",
+        description="Push patch commits to existing PR/MR",
     )
 
 
