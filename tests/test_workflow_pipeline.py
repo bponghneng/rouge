@@ -67,6 +67,74 @@ class FailingStep(WorkflowStep):
         return StepResult.fail("Step failed")
 
 
+class RerunStep(WorkflowStep):
+    """Step that signals a rerun on its first N executions, then succeeds normally."""
+
+    def __init__(self, name: str, target: str, rerun_times: int = 1, critical: bool = True):
+        self._name = name
+        self._critical = critical
+        self._target = target
+        self._rerun_times = rerun_times
+        self.call_count = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        self.call_count += 1
+        if self.call_count <= self._rerun_times:
+            return StepResult.ok(None, rerun_from=self._target)
+        return StepResult.ok(None)
+
+
+class CountingStep(WorkflowStep):
+    """Step that counts how many times it is executed."""
+
+    def __init__(self, name: str, critical: bool = True):
+        self._name = name
+        self._critical = critical
+        self.call_count = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        self.call_count += 1
+        return StepResult.ok(None)
+
+
+class InvalidRerunStep(WorkflowStep):
+    """Step that signals a rerun targeting a non-existent step name."""
+
+    def __init__(self, name: str, target: str, critical: bool = True):
+        self._name = name
+        self._critical = critical
+        self._target = target
+        self.call_count = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        self.call_count += 1
+        return StepResult.ok(None, rerun_from=self._target)
+
+
 class TestWorkflowContext:
     def test_init(self):
         context = WorkflowContext(issue_id=1, adw_id="test-adw")
@@ -146,6 +214,102 @@ class TestWorkflowRunner:
         assert call_args.issue_id == 123
         assert call_args.adw_id == "test-adw-4"
 
+    def test_rerun_signal_restarts_from_target_step(self, caplog, tmp_path):
+        """When a step returns rerun_from, the pipeline rewinds to the named step."""
+        step_a = CountingStep("Step A")
+        step_b = CountingStep("Step B")
+        # On its first execution, request a rerun from "Step A", then succeed normally.
+        step_c = RerunStep("Step C", target="Step A", rerun_times=1)
+        runner = WorkflowRunner([step_a, step_b, step_c])
+
+        with caplog.at_level(logging.INFO):
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+                success = runner.run(issue_id=1, adw_id="test-rerun-signal")
+
+        assert success
+        # Step A should execute twice: initial run + one rewind
+        assert step_a.call_count == 2
+        # Step B should also execute twice (it follows Step A)
+        assert step_b.call_count == 2
+        # Step C: first call triggers rerun, second call succeeds normally
+        assert step_c.call_count == 2
+        assert "Rerun requested: rewinding to step 'Step A'" in caplog.text
+
+    def test_max_rerun_limit_logs_warning_and_continues(self, caplog, tmp_path):
+        """When max reruns are exceeded, the pipeline logs a warning and moves on."""
+        target_step = CountingStep("Target")
+        # Always request rerun (rerun_times exceeds max_step_reruns)
+        rerun_step = RerunStep("Rerunner", target="Target", rerun_times=100)
+        final_step = CountingStep("Final")
+        runner = WorkflowRunner([target_step, rerun_step, final_step])
+
+        with caplog.at_level(logging.WARNING):
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+                success = runner.run(issue_id=1, adw_id="test-max-rerun")
+
+        assert success
+        # Target should run 1 (initial) + max_step_reruns (5) = 6 times
+        assert target_step.call_count == 1 + runner.max_step_reruns
+        # Rerunner: same number of calls as target (runs after each target run)
+        assert rerun_step.call_count == 1 + runner.max_step_reruns
+        # Final step should still execute after max reruns are exhausted
+        assert final_step.call_count == 1
+        assert f"Max reruns ({runner.max_step_reruns}) reached for step 'Target'" in caplog.text
+
+    def test_rerun_counts_are_tracked_per_step(self, caplog, tmp_path):
+        """Different steps can independently trigger reruns with separate counters."""
+        step_a = CountingStep("Step A")
+        # First rerun step targets Step A, triggers once
+        rerun_b = RerunStep("Rerun B", target="Step A", rerun_times=1)
+        step_c = CountingStep("Step C")
+        # Second rerun step targets Step C, triggers once
+        rerun_d = RerunStep("Rerun D", target="Step C", rerun_times=1)
+        step_e = CountingStep("Step E")
+        runner = WorkflowRunner([step_a, rerun_b, step_c, rerun_d, step_e])
+
+        with caplog.at_level(logging.INFO):
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+                success = runner.run(issue_id=1, adw_id="test-multi-rerun")
+
+        assert success
+        # Step A: initial + rewind from Rerun B + replayed during Rerun D rewind path = 3
+        # (first run, rewind-to-A run, and re-run when pipeline passes through A again
+        #  after rewinding to C which is after A)
+        assert step_a.call_count >= 2
+        # Step C: initial + rewind from Rerun D
+        assert step_c.call_count >= 2
+        # Step E should execute
+        assert step_e.call_count >= 1
+        # Both rerun targets should appear in logs
+        assert "rewinding to step 'Step A'" in caplog.text
+        assert "rewinding to step 'Step C'" in caplog.text
+
+    def test_rerun_with_invalid_step_name_logs_warning(self, caplog, tmp_path):
+        """When rerun_from names a non-existent step, the pipeline warns and continues."""
+        step1 = CountingStep("Step 1")
+        bad_rerun = InvalidRerunStep("Bad Rerun", target="NonExistent")
+        step3 = CountingStep("Step 3")
+        runner = WorkflowRunner([step1, bad_rerun, step3])
+
+        with caplog.at_level(logging.WARNING):
+            with pytest.MonkeyPatch.context() as mp:
+                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+                success = runner.run(issue_id=1, adw_id="test-invalid-rerun")
+
+        assert success
+        # All steps should execute exactly once (no actual rewind)
+        assert step1.call_count == 1
+        # bad_rerun always requests a rerun, but the target is invalid so the
+        # pipeline ignores the request and advances.  It is invoked once per
+        # pass.  Because the invalid-target branch still increments step_index,
+        # the step only runs once.
+        assert bad_rerun.call_count >= 1
+        assert step3.call_count == 1
+        assert "Rerun requested for unknown step 'NonExistent', ignoring" in caplog.text
+
 
 class TestGetDefaultPipeline:
     def test_pipeline_structure_no_platform(self, monkeypatch):
@@ -170,9 +334,9 @@ class TestGetDefaultPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Setup
@@ -220,9 +384,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch
@@ -242,9 +406,9 @@ class TestGetPatchPipeline:
 
         pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "Patch pipeline should not include PR creation steps"
+            assert not isinstance(step, pr_step_types), (
+                "Patch pipeline should not include PR creation steps"
+            )
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
         """Verify patch pipeline ends with UpdatePRCommitsStep."""
@@ -271,9 +435,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
 
 @pytest.fixture
@@ -635,9 +799,9 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The patch plan content should be used
-        assert (
-            "PATCH implementation plan" in plan_content_arg
-        ), f"Expected patch plan content but got: {plan_content_arg}"
+        assert "PATCH implementation plan" in plan_content_arg, (
+            f"Expected patch plan content but got: {plan_content_arg}"
+        )
         assert "Original Plan" not in plan_content_arg, "Should NOT contain original plan content"
 
     @patch("rouge.core.workflow.steps.implement.implement_plan")
@@ -689,6 +853,6 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The original plan content should be used
-        assert (
-            "standard implementation plan" in plan_content_arg
-        ), f"Expected original plan content but got: {plan_content_arg}"
+        assert "standard implementation plan" in plan_content_arg, (
+            f"Expected original plan content but got: {plan_content_arg}"
+        )

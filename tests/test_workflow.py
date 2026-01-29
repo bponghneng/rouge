@@ -17,6 +17,7 @@ from rouge.core.workflow import (
 )
 from rouge.core.workflow.address_review import address_review_issues
 from rouge.core.workflow.shared import derive_paths_from_plan
+from rouge.core.workflow.steps.review import is_clean_review
 from rouge.core.workflow.types import StepResult
 
 
@@ -355,6 +356,46 @@ def test_generate_review_timeout(mock_subprocess):
 
     assert not result.success
     assert result.data is None
+
+
+# === is_clean_review Tests ===
+
+
+def test_is_clean_review_clean_text():
+    """Test is_clean_review returns True for clean review text."""
+    review_text = "Review completed\nNo issues found. The code looks good."
+    assert is_clean_review(review_text) is True
+
+
+def test_is_clean_review_with_issues():
+    """Test is_clean_review returns False when review contains file-level issues."""
+    review_text = (
+        "Review completed\nFile: src/main.py\nLine 42: Missing error handling for null case."
+    )
+    assert is_clean_review(review_text) is False
+
+
+def test_is_clean_review_empty_text():
+    """Test is_clean_review returns False for empty text."""
+    assert is_clean_review("") is False
+
+
+def test_is_clean_review_missing_review_completed_marker():
+    """Test is_clean_review returns False when 'Review completed' marker is absent."""
+    review_text = "All checks passed. No issues found."
+    assert is_clean_review(review_text) is False
+
+
+def test_is_clean_review_only_file_marker():
+    """Test is_clean_review returns False when only 'File:' marker is present."""
+    review_text = "File: src/utils.py\nLine 10: Unused import."
+    assert is_clean_review(review_text) is False
+
+
+def test_is_clean_review_both_markers_missing():
+    """Test is_clean_review returns False when both markers are absent."""
+    review_text = "Some random text without any markers."
+    assert is_clean_review(review_text) is False
 
 
 @patch("rouge.core.workflow.address_review.execute_template")
