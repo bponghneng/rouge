@@ -170,9 +170,9 @@ class TestGetDefaultPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Setup
@@ -220,9 +220,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch
@@ -242,9 +242,9 @@ class TestGetPatchPipeline:
 
         pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(step, pr_step_types), (
-                "Patch pipeline should not include PR creation steps"
-            )
+            assert not isinstance(
+                step, pr_step_types
+            ), "Patch pipeline should not include PR creation steps"
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
         """Verify patch pipeline ends with UpdatePRCommitsStep."""
@@ -271,9 +271,9 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
 
 class TestPatchWorkflowArtifactIsolation:
@@ -348,7 +348,6 @@ class TestPatchWorkflowArtifactIsolation:
             PatchPlanArtifact,
             PlanArtifact,
         )
-        from rouge.core.workflow.types import PatchPlanData, PlanData
 
         main_wf_id = "main-wf-1"
         patch_wf_id = "patch-wf-1-patch"
@@ -413,8 +412,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # pull_request is a shared artifact type, so it would fall back to parent
         # But since parent doesn't have it either, this should raise FileNotFoundError
-        import pytest
-
         with pytest.raises(FileNotFoundError, match="Artifact not found: pull_request"):
             patch_store.read_artifact("pull_request")
 
@@ -453,8 +450,6 @@ class TestPatchWorkflowArtifactIsolation:
         )
 
         # implementation is patch-specific, should NOT fall back to parent
-        import pytest
-
         with pytest.raises(FileNotFoundError, match="Artifact not found: implementation"):
             patch_store.read_artifact("implementation", ImplementationArtifact)
 
@@ -489,8 +484,6 @@ class TestPatchWorkflowArtifactIsolation:
         )
 
         # Patch-specific artifact should NOT fall back
-        import pytest
-
         with pytest.raises(FileNotFoundError):
             patch_store.read_artifact("implementation", ImplementationArtifact)
 
@@ -536,8 +529,6 @@ class TestPatchWorkflowArtifactIsolation:
 
         # Patch 2 should NOT see Patch 1's artifact (implementation is patch-specific)
         store2 = ArtifactStore(patch2_id, parent_workflow_id=main_wf_id, base_path=tmp_path)
-
-        import pytest
 
         # Should raise FileNotFoundError since:
         # - patch2 doesn't have implementation locally
@@ -648,9 +639,9 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The patch plan content should be used
-        assert "PATCH implementation plan" in plan_content_arg, (
-            f"Expected patch plan content but got: {plan_content_arg}"
-        )
+        assert (
+            "PATCH implementation plan" in plan_content_arg
+        ), f"Expected patch plan content but got: {plan_content_arg}"
         assert "Original Plan" not in plan_content_arg, "Should NOT contain original plan content"
 
     @patch("rouge.core.workflow.steps.implement.implement_plan")
@@ -702,6 +693,6 @@ class TestPatchWorkflowArtifactIsolation:
         plan_content_arg = call_args[0][0]  # First positional argument
 
         # The original plan content should be used
-        assert "standard implementation plan" in plan_content_arg, (
-            f"Expected original plan content but got: {plan_content_arg}"
-        )
+        assert (
+            "standard implementation plan" in plan_content_arg
+        ), f"Expected original plan content but got: {plan_content_arg}"
