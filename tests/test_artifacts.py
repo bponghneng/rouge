@@ -851,7 +851,7 @@ class TestArtifactStorePatchWorkflowWriteValidation:
     """Tests for write validation that warns when patch workflows write shared artifacts."""
 
     def test_patch_workflow_with_suffix_logs_warning_on_shared_write(self, tmp_path, caplog):
-        """Test that workflow IDs ending in -patch trigger warnings when writing shared artifacts."""
+        """Test workflow IDs ending in -patch trigger warnings when writing shared artifacts."""
         caplog.set_level(logging.WARNING)
         store = ArtifactStore("adw-123-patch", base_path=tmp_path)
 
