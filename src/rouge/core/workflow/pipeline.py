@@ -35,20 +35,18 @@ class WorkflowRunner:
         self,
         issue_id: int,
         adw_id: str,
-        parent_workflow_id: str | None = None,
     ) -> bool:
         """Execute all workflow steps in sequence.
 
         Args:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
-            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
         # Create artifact store unconditionally
-        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
+        artifact_store = ArtifactStore(adw_id)
         logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
 
         context = WorkflowContext(
@@ -125,7 +123,6 @@ class WorkflowRunner:
         issue_id: int,
         adw_id: str,
         has_dependencies: bool = True,
-        parent_workflow_id: str | None = None,
     ) -> bool:
         """Execute a single step by name, using artifacts for dependencies.
 
@@ -137,7 +134,6 @@ class WorkflowRunner:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for artifact persistence
             has_dependencies: Whether the step has dependencies (if False, skip artifact dir check)
-            parent_workflow_id: Optional parent workflow ID for accessing shared artifacts
 
         Returns:
             True if step completed successfully, False otherwise
@@ -156,7 +152,7 @@ class WorkflowRunner:
             raise ValueError(f"Step not found: {step_name}")
 
         # Always enable artifacts for single-step execution
-        artifact_store = ArtifactStore(adw_id, parent_workflow_id=parent_workflow_id)
+        artifact_store = ArtifactStore(adw_id)
         workflow_dir = artifact_store.workflow_dir
 
         # For steps with dependencies, ensure the workflow directory exists with artifacts
@@ -261,23 +257,6 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     Patch workflows are represented as issue rows with `type='patch'` rather than
     as separate patch table entries. This type-based routing replaced the previous
     status-based routing (which used 'pending' vs 'patch pending' statuses).
-
-    Artifact Handling:
-    ------------------
-    The patch workflow uses a parent_workflow_id to access shared artifacts from
-    the main workflow. Artifact types are categorized as:
-
-    - SHARED artifacts (read from parent if missing locally):
-      issue, classification, plan, pr_metadata, pull_request
-
-    - PATCH-SPECIFIC artifacts (never read from parent):
-      patch, patch_plan, implementation, review,
-      review_addressed, quality_check, acceptance
-
-    Key behaviors:
-    - FetchPatchStep: Writes only PatchArtifact (IssueArtifact is read from parent)
-    - ImplementStep: Uses patch_plan artifact first, falls back to plan if missing
-    - UpdatePRCommitsStep: FAILS if no pull_request artifact exists (from parent)
 
     Assumptions:
     - SetupStep is NOT needed: The repository is already set up from the main workflow
