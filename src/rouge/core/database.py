@@ -343,7 +343,7 @@ def update_issue_status(issue_id: int, status: str) -> Issue:
     Raises:
         ValueError: If status is invalid or update fails
     """
-    valid_statuses = {"pending", "started", "completed", "patch pending", "patched"}
+    valid_statuses = {"pending", "started", "completed", "failed"}
     if status not in valid_statuses:
         raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
 
