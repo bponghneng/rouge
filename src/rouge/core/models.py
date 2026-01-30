@@ -80,7 +80,7 @@ class Issue(BaseModel):
     id: int
     title: Optional[str] = None
     description: str = Field(..., min_length=1)
-    status: Literal["pending", "started", "completed", "patch pending", "patched"] = "pending"
+    status: Literal["pending", "started", "completed", "failed"] = "pending"
     type: Literal["main", "patch"] = "main"
     adw_id: Optional[str] = None
     branch: Optional[str] = None
@@ -219,13 +219,13 @@ class Patch(BaseModel):
 
     Business rules enforced by the database:
     - Patches can only be created when the related issue status is
-      'completed' or 'patched' (enforced by trigger).
+      'completed' (enforced by trigger).
     - Only one patch per issue is allowed (enforced by unique index).
     """
 
     id: int
     issue_id: int
-    status: Literal["pending", "completed", "failed"] = "pending"
+    status: Literal["pending", "started", "completed", "failed"] = "pending"
     description: str = Field(..., min_length=1)
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None

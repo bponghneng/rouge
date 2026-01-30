@@ -78,10 +78,10 @@ def update_issue_status(
 
     Args:
         issue_id: The ID of the issue to update
-        status: The new status ('pending', 'started', 'completed', 'patch pending', or 'patched')
+        status: The new status ('pending', 'started', 'completed', or 'failed')
         logger: Optional logger for logging operations
     """
-    valid_statuses = {"pending", "started", "completed", "patch pending", "patched"}
+    valid_statuses = {"pending", "started", "completed", "failed"}
     if status not in valid_statuses:
         error_message = (
             f"Invalid status '{status}' for issue {issue_id}. "
