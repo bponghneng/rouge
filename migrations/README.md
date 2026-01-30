@@ -64,7 +64,6 @@ The initial migration (`001_initial_schema.py`) creates:
 
 ### Functions
 - `update_updated_at_column()` - Trigger function for automatic timestamp updates
-- `get_and_lock_next_issue()` - Atomically finds and locks the next available issue (no worker filter)
 - `get_and_lock_next_issue(worker_id)` - Atomically finds and locks the next available issue for a specific worker
 
 Note: The lock RPC was removed in `006_remove_lock_rpc.py` but restored in
