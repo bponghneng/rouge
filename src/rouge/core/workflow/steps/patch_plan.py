@@ -98,7 +98,7 @@ class BuildPatchPlanStep(WorkflowStep):
     This step builds a patch-specific plan by contextualizing the patch request
     against the original implementation plan. It:
     1. Loads the patch from context (set by FetchPatchStep)
-    2. Loads the original plan from the parent workflow artifact
+    2. Loads the original plan from the workflow artifact
     3. Loads the issue from the parent workflow artifact
     4. Generates a patch-specific plan via the patch planner agent
     5. Stores the result in context and as an artifact
