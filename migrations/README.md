@@ -64,9 +64,13 @@ The initial migration (`001_initial_schema.py`) creates:
 
 ### Functions
 - `update_updated_at_column()` - Trigger function for automatic timestamp updates
+- `get_and_lock_next_issue()` - Atomically finds and locks the next available issue (no worker filter)
+- `get_and_lock_next_issue(worker_id)` - Atomically finds and locks the next available issue for a specific worker
 
-Note: `get_and_lock_next_issue` is removed in `006_remove_lock_rpc.py`; the worker
-queries the `issues` table directly.
+Note: The lock RPC was removed in `006_remove_lock_rpc.py` but restored in
+`008_restore_lock_rpc.py` to prevent race conditions when multiple workers
+poll concurrently. The RPC provides atomic SELECT-and-UPDATE to ensure no
+two workers can claim the same issue.
 
 ### Enum Types
 - `worker_id` - Valid worker identifiers (alleycat-1/2/3, executor-1/2/3, hailmary-1/2/3, local-1/2/3, tydirium-1/2/3, xwing-1/2/3)

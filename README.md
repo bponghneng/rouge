@@ -179,7 +179,7 @@ to load `.env` from that directory (or its parent), matching the worker's
 
 ## Worker Features
 
-- Polls `issues` for pending/patch-pending rows and marks the next row `started` before processing (no dedicated RPC required).
+- Atomically locks the next pending/patch-pending issue via the `get_and_lock_next_issue` RPC function, which uses `FOR UPDATE SKIP LOCKED` to prevent race conditions when multiple workers poll simultaneously.
 - Spawns `uv run rouge-adw <issue-id> --adw-id <workflow-id>` with clear logging
   so you can tail progress or read log files directly.
 - Supports multiple concurrent instances with unique `--worker-id` values.
@@ -188,8 +188,22 @@ to load `.env` from that directory (or its parent), matching the worker's
 
 ## Database Requirements
 
-All executables expect the standard Supabase schema. The worker queries the
-`issues` table directly and does not require a dedicated RPC function.
+All executables expect the standard Supabase schema. The worker requires the
+`get_and_lock_next_issue` RPC functions for atomic issue locking. Two overloads
+are provided (see migration `008_restore_lock_rpc`):
+
+```sql
+-- No-arg: returns the next unassigned pending issue
+get_and_lock_next_issue()
+  RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
+
+-- Parameterized: returns the next pending issue assigned to a specific worker
+get_and_lock_next_issue(p_worker_id worker_id)
+  RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
+```
+
+Both use `FOR UPDATE SKIP LOCKED` to prevent race conditions when multiple
+workers poll simultaneously.
 
 ## Tests
 
