@@ -179,7 +179,7 @@ def test_patch_status_validation():
     from rouge.core.models import Patch
 
     # Test all valid statuses
-    valid_statuses = ["pending", "completed", "failed"]
+    valid_statuses = ["pending", "started", "completed", "failed"]
     for status in valid_statuses:
         patch = Patch(id=1, issue_id=10, description="Test", status=status)
         assert patch.status == status
@@ -217,12 +217,7 @@ def test_patch_status_before_validation():
     assert patch.status == "pending"
 
 
-def test_issue_patch_statuses():
-    """Test that Issue accepts patch-related statuses."""
-    # Test patch pending status
-    issue = Issue(id=1, description="Test", status="patch pending")
-    assert issue.status == "patch pending"
-
-    # Test patched status
-    issue = Issue(id=1, description="Test", status="patched")
-    assert issue.status == "patched"
+def test_issue_failed_status():
+    """Test that Issue accepts failed status."""
+    issue = Issue(id=1, description="Test", status="failed")
+    assert issue.status == "failed"
