@@ -20,13 +20,16 @@ def get_next_issue(
     logger: Optional[logging.Logger] = None,
 ) -> Optional[Tuple[int, str, str, str]]:
     """
-    Retrieve the next pending or patch pending issue from the database.
+    Atomically retrieve and lock the next pending issue via RPC.
 
-    Queries the issues table directly (no RPC). Selects issues where type is
-    'main' or 'patch' and status is 'pending' or 'patch pending'.
+    Calls the ``get_and_lock_next_issue`` Postgres RPC function which uses
+    ``FOR UPDATE SKIP LOCKED`` to atomically select and lock an issue,
+    preventing race conditions when multiple workers poll simultaneously.
 
     Args:
-        worker_id: Unique identifier for the worker requesting the issue
+        worker_id: Unique identifier for the worker requesting the issue.
+            Passed as ``p_worker_id`` to the RPC so only issues assigned
+            to this worker are returned.
         logger: Optional logger for logging operations
 
     Returns:
@@ -40,22 +43,14 @@ def get_next_issue(
         if logger:
             logger.debug("Fetching next issue for worker %s", worker_id)
 
-        response = (
-            client.table("issues")
-            .select("id,description,status,type")
-            .in_("status", ["pending"])
-            .in_("type", ["main", "patch"])
-            .order("id")
-            .limit(1)
-            .execute()
-        )
+        response = client.rpc("get_and_lock_next_issue", {"p_worker_id": worker_id}).execute()
 
         if response.data and len(response.data) > 0:
             issue = response.data[0]
-            issue_id = issue["id"]
-            description = issue["description"]
-            status = issue["status"]
-            issue_type = issue["type"]
+            issue_id = issue["issue_id"]
+            description = issue["issue_description"]
+            status = issue["issue_status"]
+            issue_type = issue["issue_type"]
             if logger:
                 logger.info(
                     "Locked issue %s (status: %s, type: %s) for processing",

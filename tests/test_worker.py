@@ -63,36 +63,28 @@ class TestGetNextIssue:
         mock_response = Mock()
         mock_response.data = [
             {
-                "id": 123,
-                "description": "Test issue",
-                "status": "pending",
-                "type": "main",
+                "issue_id": 123,
+                "issue_description": "Test issue",
+                "issue_status": "pending",
+                "issue_type": "main",
             }
         ]
-        mock_chain = Mock()
-        mock_chain.in_.return_value = mock_chain
-        mock_chain.order.return_value = mock_chain
-        mock_chain.limit.return_value = mock_chain
-        mock_chain.execute.return_value = mock_response
-        mock_client.table.return_value.select.return_value = mock_chain
+        mock_client.rpc.return_value.execute.return_value = mock_response
 
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
             assert result == (123, "Test issue", "pending", "main")
-            mock_client.table.assert_called_once_with("issues")
+            mock_client.rpc.assert_called_once_with(
+                "get_and_lock_next_issue", {"p_worker_id": "test-worker"}
+            )
 
     def test_get_next_issue_no_issues(self, mock_env):
         """Test when no issues are available."""
         mock_client = Mock()
         mock_response = Mock()
         mock_response.data = []
-        mock_chain = Mock()
-        mock_chain.in_.return_value = mock_chain
-        mock_chain.order.return_value = mock_chain
-        mock_chain.limit.return_value = mock_chain
-        mock_chain.execute.return_value = mock_response
-        mock_client.table.return_value.select.return_value = mock_chain
+        mock_client.rpc.return_value.execute.return_value = mock_response
 
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
@@ -102,7 +94,7 @@ class TestGetNextIssue:
     def test_get_next_issue_database_error(self, mock_env):
         """Test handling database errors."""
         mock_client = Mock()
-        mock_client.table.side_effect = Exception("Database connection failed")
+        mock_client.rpc.side_effect = Exception("Database connection failed")
 
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
