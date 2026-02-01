@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 def generate_review(
     repo_path: str,
-    issue_id: int,
+    issue_id: int | None,
     adw_id: str | None = None,
     base_commit: str | None = None,
 ) -> StepResult[ReviewData]:
@@ -21,7 +21,7 @@ def generate_review(
 
     Args:
         repo_path: Repository root path where .coderabbit.yaml config is located
-        issue_id: Rouge issue ID for tracking
+        issue_id: Optional Rouge issue ID for tracking (None for standalone review)
         adw_id: Optional ADW ID for associating comment with workflow
         base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
@@ -63,22 +63,25 @@ def generate_review(
         review_text = result.stdout
         logger.info("CodeRabbit review generated (%s chars)", len(review_text))
 
-        # Insert progress comment with artifact preview
-        payload = CommentPayload(
-            issue_id=issue_id,
-            adw_id=adw_id,
-            text="CodeRabbit review generated",
-            raw={
-                "review_text": review_text[:500],
-            },  # First 500 chars for preview
-            source="system",
-            kind="artifact",
-        )
-        status, msg = emit_comment_from_payload(payload)
-        if status != "success":
-            logger.error("Failed to insert review artifact comment: %s", msg)
+        # Insert progress comment with artifact preview (only if issue_id is provided)
+        if issue_id is not None:
+            payload = CommentPayload(
+                issue_id=issue_id,
+                adw_id=adw_id,
+                text="CodeRabbit review generated",
+                raw={
+                    "review_text": review_text[:500],
+                },  # First 500 chars for preview
+                source="system",
+                kind="artifact",
+            )
+            status, msg = emit_comment_from_payload(payload)
+            if status != "success":
+                logger.error("Failed to insert review artifact comment: %s", msg)
+            else:
+                logger.debug("Review artifact comment inserted: %s", msg)
         else:
-            logger.debug("Review artifact comment inserted: %s", msg)
+            logger.debug("Skipping review artifact comment (no issue_id)")
 
         return StepResult.ok(ReviewData(review_text=review_text))
 

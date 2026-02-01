@@ -19,7 +19,7 @@ ADDRESS_REVIEW_REQUIRED_FIELDS = {
 
 
 def address_review_issues(
-    issue_id: int,
+    issue_id: int | None,
     adw_id: str,
     review_text: str,
     stream_handler: Optional[Callable[[str], None]] = None,
@@ -30,7 +30,7 @@ def address_review_issues(
     the issues identified in the review step.
 
     Args:
-        issue_id: Issue ID
+        issue_id: Optional Issue ID (None for standalone review)
         adw_id: ADW workflow ID
         review_text: The review text containing issues to address
         stream_handler: Optional handler for streaming output
