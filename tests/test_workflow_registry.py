@@ -28,8 +28,16 @@ class DummyStep(WorkflowStep):
     def name(self) -> str:
         return self._name
 
-    def run(self, context: WorkflowContext) -> StepResult:
+    def run(self, _context: WorkflowContext) -> StepResult:
         return StepResult.ok(None)
+
+
+@pytest.fixture(autouse=True)
+def _reset_workflow_registry_fixture():
+    """Reset the global registry singleton before and after each test."""
+    reset_workflow_registry()
+    yield
+    reset_workflow_registry()
 
 
 # ---------------------------------------------------------------------------
@@ -152,13 +160,6 @@ class TestWorkflowRegistry:
 
 
 class TestSingleton:
-    @pytest.fixture(autouse=True)
-    def _reset_singleton(self):
-        """Reset the global registry singleton before and after each test."""
-        reset_workflow_registry()
-        yield
-        reset_workflow_registry()
-
     def test_get_workflow_registry_returns_same_instance(self):
         """get_workflow_registry() returns the same object on repeated calls."""
         first = get_workflow_registry()
@@ -221,13 +222,6 @@ class TestIsRegistryEnabled:
 
 
 class TestGetPipelineForType:
-    @pytest.fixture(autouse=True)
-    def _reset_singleton(self):
-        """Reset the global registry singleton before and after each test."""
-        reset_workflow_registry()
-        yield
-        reset_workflow_registry()
-
     def test_flag_disabled_main_returns_default_pipeline(self, monkeypatch):
         """With the flag disabled, get_pipeline_for_type('main') returns the default pipeline."""
         monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
