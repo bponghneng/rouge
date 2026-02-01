@@ -70,6 +70,34 @@ def test_execute_adw_workflow_patch_type(monkeypatch):
     assert calls["pipeline"] == "patch-pipeline"
 
 
+def test_execute_adw_workflow_code_review_routes_to_loop(monkeypatch):
+    """workflow_type='code-review' should delegate to execute_code_review_loop."""
+    calls = {}
+
+    def fake_loop(workflow_id, config=None):
+        calls["args"] = (workflow_id, config)
+        return True, workflow_id
+
+    monkeypatch.setattr("rouge.adw.adw.execute_code_review_loop", fake_loop)
+
+    success, workflow_id = execute_adw_workflow(
+        issue_id=None,
+        adw_id="cr-route-001",
+        workflow_type="code-review",
+        config={"base_commit": "abc123"},
+    )
+
+    assert success is True
+    assert workflow_id == "cr-route-001"
+    assert calls["args"] == ("cr-route-001", {"base_commit": "abc123"})
+
+
+def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
+    """workflow_type='main' with issue_id=None should raise ValueError."""
+    with pytest.raises(ValueError, match="issue_id is required"):
+        execute_adw_workflow(issue_id=None, workflow_type="main")
+
+
 def test_execute_adw_workflow_unknown_type_raises(monkeypatch):
     """Unknown workflow type should raise ValueError with available types."""
 
