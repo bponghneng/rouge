@@ -24,22 +24,26 @@ def main(
         "--adw-id",
         help="Optional workflow identifier (auto-generated if omitted)",
     ),
-    patch_mode: bool = typer.Option(
-        False,
-        "--patch-mode",
-        help="Use patch pipeline instead of default pipeline",
+    workflow_type: str = typer.Option(
+        "main",
+        "--workflow-type",
+        "-w",
+        help=(
+            "Workflow type to execute (e.g. main, patch). "
+            "Set ROUGE_USE_WORKFLOW_REGISTRY=true to enable full registry routing."
+        ),
     ),
 ) -> None:
     """
     Rouge ADW - Agent Development Workflow runner.
     """
     if issue_id is None:
-        typer.echo("Usage: rouge-adw <issue_id> [--adw-id <workflow-id>] [--patch-mode]")
+        typer.echo("Usage: rouge-adw <issue_id> [--adw-id <workflow-id>] [--workflow-type <type>]")
         typer.echo("Use 'rouge-adw --help' for more information")
         raise typer.Exit()
 
     try:
-        success, workflow_id = execute_adw_workflow(issue_id, adw_id, patch_mode=patch_mode)
+        success, workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type=workflow_type)
         if success:
             typer.echo(f"Workflow {workflow_id} completed successfully")
         else:
