@@ -62,7 +62,14 @@ def execute_code_review_loop(
         for step in steps:
             log_step_start(step.name)
 
-            result = step.run(context)
+            try:
+                result = step.run(context)
+            except Exception as e:
+                # Convert exception to failed result for consistent handling
+                logger.exception("Step '%s' raised exception", step.name)
+                from rouge.core.workflow.types import StepResult
+
+                result = StepResult(success=False, error=str(e))
 
             if not result.success:
                 if step.is_critical:
