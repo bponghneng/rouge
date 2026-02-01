@@ -724,28 +724,6 @@ class TestWorkflowRouting:
             assert result is False
             mock_workflow.assert_called_once_with(123, "main", "Main issue")
 
-    def test_execute_workflow_catches_patch_exception(self, worker):
-        """Test execute_workflow catches and handles patch workflow exceptions."""
-        with patch.object(worker, "_execute_workflow") as mock_workflow:
-            with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                mock_workflow.side_effect = Exception("Patch failed")
-
-                result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
-
-                assert result is False
-                mock_update.assert_called_once_with(123, "pending", worker.logger)
-
-    def test_execute_workflow_catches_main_exception(self, worker):
-        """Test execute_workflow catches and handles main workflow exceptions."""
-        with patch.object(worker, "_execute_workflow") as mock_workflow:
-            with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                mock_workflow.side_effect = Exception("Main failed")
-
-                result = worker.execute_workflow(123, "Main issue", "pending", "main")
-
-                assert result is False
-                mock_update.assert_called_once_with(123, "pending", worker.logger)
-
 
 class TestWorkerConfig:
     """Tests for WorkerConfig."""

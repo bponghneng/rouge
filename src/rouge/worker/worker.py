@@ -159,6 +159,7 @@ class IssueWorker:
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
+        adw_id = None
         try:
             if workflow_type == "patch":
                 # Fetch the issue to get adw_id directly from the issues row
@@ -222,13 +223,16 @@ class IssueWorker:
 
         except ValueError:
             self._handle_workflow_failure(issue_id, workflow_type, "ValueError during workflow")
-            raise
+            update_issue_status(issue_id, "pending", self.logger)
+            return adw_id, False
         except subprocess.TimeoutExpired:
             self._handle_workflow_failure(issue_id, workflow_type, "Workflow timed out")
-            raise
+            update_issue_status(issue_id, "pending", self.logger)
+            return adw_id, False
         except Exception:
             self._handle_workflow_failure(issue_id, workflow_type, "Unexpected error in workflow")
-            raise
+            update_issue_status(issue_id, "pending", self.logger)
+            return adw_id, False
 
     def execute_workflow(
         self, issue_id: int, description: str, _status: str, issue_type: str
@@ -249,19 +253,8 @@ class IssueWorker:
         Returns:
             True if workflow executed successfully, False otherwise
         """
-        try:
-            _, success = self._execute_workflow(issue_id, issue_type, description)
-            return success
-
-        except subprocess.TimeoutExpired:
-            self.logger.exception("Workflow timed out for issue %s", issue_id)
-            update_issue_status(issue_id, "pending", self.logger)
-            return False
-
-        except Exception:
-            self.logger.exception("Error executing workflow for issue %s", issue_id)
-            update_issue_status(issue_id, "pending", self.logger)
-            return False
+        _, success = self._execute_workflow(issue_id, issue_type, description)
+        return success
 
     def run(self) -> None:
         """
