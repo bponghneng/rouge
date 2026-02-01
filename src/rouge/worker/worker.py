@@ -140,7 +140,7 @@ class IssueWorker:
 
     def _execute_workflow(
         self, issue_id: int, workflow_type: str, description: str = ""
-    ) -> tuple[str, bool]:
+    ) -> tuple[str | None, bool]:
         """Execute a rouge-adw workflow for the given issue.
 
         Handles all workflow types by determining the adw_id and building the
