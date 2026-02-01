@@ -1,6 +1,7 @@
 """Tests for workflow registry module."""
 
 import logging
+from typing import Generator
 
 import pytest
 
@@ -33,7 +34,7 @@ class DummyStep(WorkflowStep):
 
 
 @pytest.fixture(autouse=True)
-def _reset_workflow_registry_fixture():
+def _reset_workflow_registry_fixture() -> Generator[None, None, None]:
     """Reset the global registry singleton before and after each test."""
     reset_workflow_registry()
     yield
