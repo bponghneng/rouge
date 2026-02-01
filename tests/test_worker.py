@@ -174,7 +174,9 @@ class TestExecuteWorkflow:
                     assert cmd[2] == "rouge-adw"
                     assert cmd[3] == "--adw-id"
                     assert cmd[4] == "test-adw"
-                    assert cmd[5] == "456"
+                    assert cmd[5] == "--workflow-type"
+                    assert cmd[6] == "main"
+                    assert cmd[7] == "456"
 
     def test_execute_workflow_command_from_path(self, worker):
         """Test workflow command uses rouge-adw from PATH when available."""
@@ -195,7 +197,9 @@ class TestExecuteWorkflow:
                     assert cmd[0] == "rouge-adw"
                     assert cmd[1] == "--adw-id"
                     assert cmd[2] == "test-adw"
-                    assert cmd[3] == "456"
+                    assert cmd[3] == "--workflow-type"
+                    assert cmd[4] == "main"
+                    assert cmd[5] == "456"
 
     def test_execute_workflow_command_from_env_var(self, worker, monkeypatch):
         """Test workflow command uses ROUGE_ADW_COMMAND when set."""
@@ -219,11 +223,15 @@ class TestExecuteWorkflow:
                     adw_idx = cmd.index("rouge-adw")
                     assert cmd[adw_idx + 1] == "--adw-id"
                     assert cmd[adw_idx + 2] == "test-adw"
-                    assert cmd[adw_idx + 3] == "456"
+                    assert cmd[adw_idx + 3] == "--workflow-type"
+                    assert cmd[adw_idx + 4] == "main"
+                    assert cmd[adw_idx + 5] == "456"
                 else:
                     # Fallback: just verify the command contains expected args
                     assert "--adw-id" in cmd
                     assert "test-adw" in cmd
+                    assert "--workflow-type" in cmd
+                    assert "main" in cmd
                     assert "456" in cmd
 
 
@@ -623,40 +631,34 @@ class TestWorkflowRouting:
     """Tests for workflow routing based on issue type."""
 
     def test_execute_workflow_routes_to_main_for_main_type(self, worker):
-        """Test that execute_workflow calls _execute_main_workflow for type='main'."""
-        with patch.object(worker, "_execute_main_workflow") as mock_main:
-            with patch.object(worker, "_execute_patch_workflow") as mock_patch:
-                mock_main.return_value = ("adw-test-123", True)
+        """Test that execute_workflow calls _execute_workflow for type='main'."""
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("adw-test-123", True)
 
-                result = worker.execute_workflow(123, "Test issue", "pending", "main")
+            result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
-                assert result is True
-                mock_main.assert_called_once_with(123, "Test issue")
-                mock_patch.assert_not_called()
+            assert result is True
+            mock_workflow.assert_called_once_with(123, "main", "Test issue")
 
     def test_execute_workflow_routes_to_patch_for_patch_type(self, worker):
-        """Test that execute_workflow calls _execute_patch_workflow for type='patch'."""
-        with patch.object(worker, "_execute_main_workflow") as mock_main:
-            with patch.object(worker, "_execute_patch_workflow") as mock_patch:
-                mock_patch.return_value = ("patch-adw-test-123", True)
+        """Test that execute_workflow calls _execute_workflow for type='patch'."""
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("patch-adw-test-123", True)
 
-                result = worker.execute_workflow(456, "Patch issue", "pending", "patch")
+            result = worker.execute_workflow(456, "Patch issue", "pending", "patch")
 
-                assert result is True
-                mock_patch.assert_called_once_with(456)
-                mock_main.assert_not_called()
+            assert result is True
+            mock_workflow.assert_called_once_with(456, "patch", "Patch issue")
 
     def test_execute_workflow_defaults_to_main_for_unknown_type(self, worker):
-        """Test that execute_workflow defaults to main workflow for unknown types."""
-        with patch.object(worker, "_execute_main_workflow") as mock_main:
-            with patch.object(worker, "_execute_patch_workflow") as mock_patch:
-                mock_main.return_value = ("adw-test-789", True)
+        """Test execute_workflow passes unknown type to _execute_workflow (registry)."""
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("adw-test-789", True)
 
-                result = worker.execute_workflow(789, "Unknown type issue", "pending", "unknown")
+            result = worker.execute_workflow(789, "Unknown type issue", "pending", "unknown")
 
-                assert result is True
-                mock_main.assert_called_once_with(789, "Unknown type issue")
-                mock_patch.assert_not_called()
+            assert result is True
+            mock_workflow.assert_called_once_with(789, "unknown", "Unknown type issue")
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
     def test_run_loop_routes_patch_issue_to_patch_workflow(self, worker):
@@ -704,29 +706,29 @@ class TestWorkflowRouting:
 
     def test_execute_workflow_handles_patch_failure(self, worker):
         """Test execute_workflow handles patch workflow failure correctly."""
-        with patch.object(worker, "_execute_patch_workflow") as mock_patch:
-            mock_patch.return_value = ("patch-adw-test-fail", False)
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("patch-adw-test-fail", False)
 
             result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
 
             assert result is False
-            mock_patch.assert_called_once_with(123)
+            mock_workflow.assert_called_once_with(123, "patch", "Patch issue")
 
     def test_execute_workflow_handles_main_failure(self, worker):
         """Test execute_workflow handles main workflow failure correctly."""
-        with patch.object(worker, "_execute_main_workflow") as mock_main:
-            mock_main.return_value = ("adw-test-fail", False)
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("adw-test-fail", False)
 
             result = worker.execute_workflow(123, "Main issue", "pending", "main")
 
             assert result is False
-            mock_main.assert_called_once_with(123, "Main issue")
+            mock_workflow.assert_called_once_with(123, "main", "Main issue")
 
     def test_execute_workflow_catches_patch_exception(self, worker):
         """Test execute_workflow catches and handles patch workflow exceptions."""
-        with patch.object(worker, "_execute_patch_workflow") as mock_patch:
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                mock_patch.side_effect = Exception("Patch failed")
+                mock_workflow.side_effect = Exception("Patch failed")
 
                 result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
 
@@ -735,9 +737,9 @@ class TestWorkflowRouting:
 
     def test_execute_workflow_catches_main_exception(self, worker):
         """Test execute_workflow catches and handles main workflow exceptions."""
-        with patch.object(worker, "_execute_main_workflow") as mock_main:
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                mock_main.side_effect = Exception("Main failed")
+                mock_workflow.side_effect = Exception("Main failed")
 
                 result = worker.execute_workflow(123, "Main issue", "pending", "main")
 
