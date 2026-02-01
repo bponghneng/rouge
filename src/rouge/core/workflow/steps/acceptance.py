@@ -80,10 +80,16 @@ class ValidateAcceptanceStep(WorkflowStep):
             logger.warning("No plan or patch_plan available for acceptance validation")
             return StepResult.fail("No plan or patch_plan available for acceptance validation")
 
-        acceptance_handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
+        try:
+            issue_id = context.require_issue_id
+        except RuntimeError as e:
+            logger.error("Missing issue_id: %s", e)
+            return StepResult.fail(str(e))
+
+        acceptance_handler = make_progress_comment_handler(issue_id, context.adw_id)
         acceptance_result = notify_plan_acceptance(
             plan_text,
-            context.require_issue_id,
+            issue_id,
             context.adw_id,
             stream_handler=acceptance_handler,
         )
