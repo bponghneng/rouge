@@ -8,6 +8,7 @@ import typer
 
 from rouge import __version__
 from rouge.cli.artifact import app as artifact_app
+from rouge.cli.commands.code_review import app as code_review_app
 from rouge.cli.step import app as step_app
 from rouge.core.database import create_issue, init_db_env
 from rouge.core.utils import make_adw_id
@@ -33,6 +34,7 @@ app = typer.Typer(
 # Register subcommands
 app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
+app.add_typer(code_review_app, name="code-review")
 
 
 def version_callback(value: bool):
