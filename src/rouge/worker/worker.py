@@ -126,102 +126,74 @@ class IssueWorker:
         # Fallback to uv run (development mode)
         return ["uv", "run", "rouge-adw"]
 
-    def _execute_main_workflow(self, issue_id: int, description: str) -> tuple[str, bool]:
-        """Execute the main rouge-adw workflow for a new issue.
-
-        Args:
-            issue_id: The ID of the issue to process
-            description: The issue description
-
-        Returns:
-            Tuple of (workflow_id, success) where success is True if workflow completed
-
-        Raises:
-            subprocess.TimeoutExpired: If workflow times out
-            Exception: If workflow execution fails
-        """
-        workflow_id = make_adw_id()
-        self.logger.info("Executing main workflow %s for issue %s", workflow_id, issue_id)
-        self.logger.debug("Issue description: %s", description)
-
-        cmd = self._get_base_cmd() + [
-            "--adw-id",
-            workflow_id,
-            str(issue_id),
-        ]
-
-        # Execute the workflow with a timeout
-        # Note: Not capturing output allows real-time logging from rouge-adw
-        # Use configured working directory if set; otherwise fall back to current cwd
-        result = subprocess.run(
-            cmd,
-            timeout=self.config.workflow_timeout,
-            cwd=self.config.working_dir or Path.cwd(),
-        )
-
-        if result.returncode == 0:
-            self.logger.info("Successfully completed issue %s (workflow %s)", issue_id, workflow_id)
-            update_issue_status(issue_id, "completed", self.logger)
-            return workflow_id, True
-        else:
-            self.logger.error(
-                "Workflow %s failed for issue %s with exit code %s",
-                workflow_id,
-                issue_id,
-                result.returncode,
-            )
-            update_issue_status(issue_id, "pending", self.logger)
-            return workflow_id, False
-
-    def _handle_patch_failure(self, issue_id: int, reason: str) -> None:
-        """Handle patch workflow failure by logging and updating status.
+    def _handle_workflow_failure(self, issue_id: int, workflow_type: str, reason: str) -> None:
+        """Handle workflow failure by logging with exception context.
 
         Args:
             issue_id: The ID of the issue
+            workflow_type: The type of workflow that failed
             reason: Description of the failure reason
         """
-        self.logger.exception("Patch workflow failed for issue %s: %s", issue_id, reason)
+        self.logger.exception(
+            "%s workflow failed for issue %s: %s", workflow_type.capitalize(), issue_id, reason
+        )
 
-    def _execute_patch_workflow(self, issue_id: int) -> tuple[str, bool]:
-        """Execute the patch workflow for an issue of type 'patch'.
+    def _execute_workflow(
+        self, issue_id: int, workflow_type: str, description: str = ""
+    ) -> tuple[str, bool]:
+        """Execute a rouge-adw workflow for the given issue.
+
+        Handles all workflow types by determining the adw_id and building the
+        appropriate command with --workflow-type.
 
         Args:
-            issue_id: The ID of the patch issue to process
+            issue_id: The ID of the issue to process
+            workflow_type: The workflow type (e.g. "main", "patch")
+            description: The issue description (used for logging on non-patch types)
 
         Returns:
-            Tuple of (patch_workflow_id, success) where success is True if completed
+            Tuple of (adw_id, success) where success is True if workflow completed
 
         Raises:
-            ValueError: If issue not found or adw_id missing
+            ValueError: If patch issue has no adw_id
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
         try:
-            # Fetch the issue to get adw_id directly from the issues row
-            # Note: The Pydantic validator ensures adw_id is trimmed and non-empty if not None
-            issue = fetch_issue(issue_id)
-            if issue.adw_id is None:
-                raise ValueError(f"Issue {issue_id} has no adw_id")
+            if workflow_type == "patch":
+                # Fetch the issue to get adw_id directly from the issues row
+                # Note: The Pydantic validator ensures adw_id is trimmed and non-empty if not None
+                issue = fetch_issue(issue_id)
+                if issue.adw_id is None:
+                    raise ValueError(f"Issue {issue_id} has no adw_id")
 
-            # For patch issues, use the adw_id directly from the issue
-            adw_id = issue.adw_id.strip()
-            if not adw_id:
-                raise ValueError(f"Issue {issue_id} has no adw_id")
-            self.logger.info(
-                "Executing patch workflow %s for issue %s",
-                adw_id,
-                issue_id,
-            )
-            self.logger.debug("Issue description: %s", issue.description)
+                adw_id = issue.adw_id.strip()
+                if not adw_id:
+                    raise ValueError(f"Issue {issue_id} has no adw_id")
+
+                self.logger.info(
+                    "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
+                )
+                self.logger.debug("Issue description: %s", issue.description)
+            else:
+                # For "main" and any other type, generate a new adw_id
+                adw_id = make_adw_id()
+                self.logger.info(
+                    "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
+                )
+                self.logger.debug("Issue description: %s", description)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
                 adw_id,
-                "--patch-mode",
+                "--workflow-type",
+                workflow_type,
                 str(issue_id),
             ]
 
             # Execute the workflow with a timeout
+            # Note: Not capturing output allows real-time logging from rouge-adw
+            # Use configured working directory if set; otherwise fall back to current cwd
             result = subprocess.run(
                 cmd,
                 timeout=self.config.workflow_timeout,
@@ -230,7 +202,8 @@ class IssueWorker:
 
             if result.returncode == 0:
                 self.logger.info(
-                    "Successfully completed patch workflow %s for issue %s",
+                    "Successfully completed %s workflow %s for issue %s",
+                    workflow_type,
                     adw_id,
                     issue_id,
                 )
@@ -238,7 +211,8 @@ class IssueWorker:
                 return adw_id, True
             else:
                 self.logger.error(
-                    "Patch workflow %s failed for issue %s with exit code %s",
+                    "%s workflow %s failed for issue %s with exit code %s",
+                    workflow_type.capitalize(),
                     adw_id,
                     issue_id,
                     result.returncode,
@@ -247,13 +221,13 @@ class IssueWorker:
                 return adw_id, False
 
         except ValueError:
-            self._handle_patch_failure(issue_id, "ValueError during patch workflow")
+            self._handle_workflow_failure(issue_id, workflow_type, "ValueError during workflow")
             raise
         except subprocess.TimeoutExpired:
-            self._handle_patch_failure(issue_id, "Patch workflow timed out")
+            self._handle_workflow_failure(issue_id, workflow_type, "Workflow timed out")
             raise
         except Exception:
-            self._handle_patch_failure(issue_id, "Unexpected error in patch workflow")
+            self._handle_workflow_failure(issue_id, workflow_type, "Unexpected error in workflow")
             raise
 
     def execute_workflow(
@@ -262,23 +236,21 @@ class IssueWorker:
         """
         Execute the appropriate workflow for the given issue based on type.
 
-        Routes to either main workflow (for 'main' type issues) or patch workflow
-        (for 'patch' type issues).
+        Delegates to _execute_workflow with the issue_type as the workflow_type,
+        which determines how the adw_id is resolved and which --workflow-type flag
+        is passed to rouge-adw.
 
         Args:
             issue_id: The ID of the issue to process
             description: The issue description
             _status: The issue status (unused, kept for interface compatibility)
-            issue_type: The issue type ('main' or 'patch') - determines workflow routing
+            issue_type: The workflow type (e.g. 'main', 'patch') passed to rouge-adw
 
         Returns:
             True if workflow executed successfully, False otherwise
         """
         try:
-            if issue_type == "patch":
-                _, success = self._execute_patch_workflow(issue_id)
-            else:
-                _, success = self._execute_main_workflow(issue_id, description)
+            _, success = self._execute_workflow(issue_id, issue_type, description)
             return success
 
         except subprocess.TimeoutExpired:
