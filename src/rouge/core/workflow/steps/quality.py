@@ -44,7 +44,12 @@ class CodeQualityStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         try:
-            quality_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
+            # Only create progress handler if we have an issue_id
+            quality_handler = (
+                make_progress_comment_handler(context.issue_id, context.adw_id)
+                if context.issue_id is not None
+                else None
+            )
 
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
@@ -95,22 +100,23 @@ class CodeQualityStep(WorkflowStep):
                 logger.debug("Saved quality_check artifact for workflow %s", context.adw_id)
 
             # Insert progress comment - best-effort, non-blocking
-            payload = CommentPayload(
-                issue_id=context.issue_id,
-                adw_id=context.adw_id,
-                text="Code quality checks completed.",
-                raw={
-                    "text": "Code quality checks completed.",
-                    "result": parse_result.data,
-                },
-                source="system",
-                kind="workflow",
-            )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
+            if context.issue_id is not None:
+                payload = CommentPayload(
+                    issue_id=context.issue_id,
+                    adw_id=context.adw_id,
+                    text="Code quality checks completed.",
+                    raw={
+                        "text": "Code quality checks completed.",
+                        "result": parse_result.data,
+                    },
+                    source="system",
+                    kind="workflow",
+                )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
 
             return StepResult.ok(None, parsed_data=parse_result.data)
 
