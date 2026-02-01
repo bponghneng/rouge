@@ -15,6 +15,7 @@ def mock_context():
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
+    context.require_issue_id = 10
     context.adw_id = "test-adw-patch"
     context.issue = None
     context.data = {}
