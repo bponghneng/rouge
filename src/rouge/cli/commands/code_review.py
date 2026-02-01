@@ -46,6 +46,7 @@ def run_code_review(
         ...,
         "--base-commit",
         help="Git reference (branch, tag, or SHA) to compare against",
+        show_default=False,
     ),
 ) -> None:
     """Run a code review workflow against a base commit.
