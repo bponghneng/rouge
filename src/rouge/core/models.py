@@ -181,7 +181,7 @@ class CommentPayload(BaseModel):
     The Comment model represents the Supabase persistence shape.
     """
 
-    issue_id: int
+    issue_id: Optional[int]
     adw_id: Optional[str] = ""
     text: str = Field(..., min_length=1)
     raw: Optional[dict] = None

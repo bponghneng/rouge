@@ -64,7 +64,7 @@ class ClaudeAgentTemplateRequest(BaseModel):
     slash_command: SlashCommand
     args: List[str]
     adw_id: str
-    issue_id: int
+    issue_id: Optional[int]
     model: Literal["sonnet", "opus"] = "sonnet"
 
 

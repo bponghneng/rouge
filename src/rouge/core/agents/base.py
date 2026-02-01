@@ -31,7 +31,7 @@ class AgentExecuteRequest(BaseModel):
     """
 
     prompt: str
-    issue_id: int
+    issue_id: Optional[int]
     adw_id: str
     agent_name: str
     model: Optional[str] = None
