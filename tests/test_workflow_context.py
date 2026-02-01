@@ -156,6 +156,43 @@ class TestWorkflowContextArtifacts:
 
         assert result is None
 
+    def test_load_artifact_if_missing_loads_real_artifact(self, tmp_path):
+        """Test load_artifact_if_missing loads and extracts real artifact from store."""
+        from rouge.core.workflow.artifacts import PlanArtifact
+        from rouge.core.workflow.types import PlanData
+
+        # Create artifact store and write a real plan artifact
+        store = ArtifactStore(workflow_id="adw-real-plan", base_path=tmp_path)
+        plan_data = PlanData(
+            plan="Test implementation plan",
+            summary="Brief summary",
+        )
+        plan_artifact = PlanArtifact(
+            workflow_id="adw-real-plan",
+            plan_data=plan_data,
+        )
+        store.write_artifact(plan_artifact)
+
+        # Create context and load artifact
+        ctx = WorkflowContext(
+            adw_id="adw-real-plan",
+            issue_id=None,
+            artifact_store=store,
+        )
+
+        result = ctx.load_artifact_if_missing(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        # Assert the loaded data matches what was written
+        assert result is not None
+        assert result.plan == "Test implementation plan"
+        assert result.summary == "Brief summary"
+        assert ctx.data["plan_data"] == result
+
     def test_load_issue_artifact_if_missing_returns_none_without_store(self):
         """Test load_issue_artifact_if_missing returns None when no store and issue_id is None."""
         ctx = WorkflowContext(adw_id="adw-no-issue", issue_id=None)

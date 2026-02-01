@@ -29,7 +29,12 @@ class FetchIssueStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        issue_id = context.require_issue_id
+        try:
+            issue_id = context.require_issue_id
+        except RuntimeError as e:
+            # Handle missing issue_id from require_issue_id
+            logger.error("Missing issue_id: %s", e)
+            return StepResult.fail(str(e))
 
         try:
             issue = fetch_issue(issue_id)
@@ -72,5 +77,5 @@ class FetchIssueStep(WorkflowStep):
             logger.exception("Error fetching issue")
             return StepResult.fail(f"Error fetching issue: {e}")
         except Exception as e:
-            logger.exception("Unexpected error fetching issue")
-            return StepResult.fail(f"Unexpected error fetching issue: {e}")
+            logger.exception("Unexpected error fetching issue (not related to require_issue_id)")
+            return StepResult.fail(f"Failed to fetch issue: {e}")
