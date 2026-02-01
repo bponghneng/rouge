@@ -39,7 +39,27 @@ def execute_code_review_loop(
     Returns:
         Tuple of (success, workflow_id) where success is True if the
         review became clean within the allowed iterations.
+
+    Raises:
+        ValueError: If max_iterations is not a positive integer or if
+            config contains reserved keys.
     """
+    # Validate max_iterations
+    if not isinstance(max_iterations, int) or max_iterations < 1:
+        raise ValueError(f"max_iterations must be a positive integer, got: {max_iterations}")
+
+    # Define reserved keys that should not be in caller-provided config
+    RESERVED_KEYS = {"review_is_clean"}
+
+    # Validate config doesn't contain reserved keys
+    if config is not None:
+        conflicting_keys = RESERVED_KEYS & config.keys()
+        if conflicting_keys:
+            raise ValueError(
+                f"config contains reserved keys: {conflicting_keys}. "
+                f"Reserved keys are: {RESERVED_KEYS}"
+            )
+
     steps = get_pipeline_for_type("code-review")
     artifact_store = ArtifactStore(workflow_id)
 
@@ -58,6 +78,10 @@ def execute_code_review_loop(
 
     for iteration in range(1, max_iterations + 1):
         logger.info("=== Code-review iteration %d/%d ===", iteration, max_iterations)
+
+        # Reset review_is_clean flag at the start of each iteration
+        # to prevent stale values from causing premature success
+        context.data["review_is_clean"] = False
 
         for step in steps:
             log_step_start(step.name)
