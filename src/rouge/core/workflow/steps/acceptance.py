@@ -80,10 +80,10 @@ class ValidateAcceptanceStep(WorkflowStep):
             logger.warning("No plan or patch_plan available for acceptance validation")
             return StepResult.fail("No plan or patch_plan available for acceptance validation")
 
-        acceptance_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
+        acceptance_handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
         acceptance_result = notify_plan_acceptance(
             plan_text,
-            context.issue_id,
+            context.require_issue_id,
             context.adw_id,
             stream_handler=acceptance_handler,
         )
@@ -114,7 +114,7 @@ class ValidateAcceptanceStep(WorkflowStep):
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
-            issue_id=context.issue_id,
+            issue_id=context.require_issue_id,
             adw_id=context.adw_id,
             text="Plan acceptance validation completed",
             raw={"text": "Plan acceptance validation completed."},

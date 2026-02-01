@@ -37,7 +37,7 @@ class FetchPatchStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        issue_id = context.issue_id
+        issue_id = context.require_issue_id
 
         try:
             # Fetch issue from database (should be type='patch')

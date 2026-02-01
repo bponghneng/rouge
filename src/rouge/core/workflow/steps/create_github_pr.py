@@ -48,7 +48,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             skip_msg = "PR creation skipped: no PR details in context"
             logger.info(skip_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
@@ -70,7 +70,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             skip_msg = "PR creation skipped: PR title is empty"
             logger.info(skip_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
@@ -90,7 +90,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             skip_msg = "PR creation skipped: GITHUB_PAT environment variable not set"
             logger.info(skip_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
@@ -110,7 +110,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             logger.info(skip_msg)
             logger.debug("Current PATH: %s", os.environ.get("PATH", ""))
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=skip_msg,
                 raw={"output": "pull-request-skipped", "reason": skip_msg},
@@ -186,7 +186,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                     result.stderr,
                 )
                 payload = CommentPayload(
-                    issue_id=context.issue_id,
+                    issue_id=context.require_issue_id,
                     adw_id=context.adw_id,
                     text=error_msg,
                     raw={"output": "pull-request-failed", "error": error_msg},
@@ -221,7 +221,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
                 "url": pr_url,
             }
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=f"Pull request created: {pr_url}",
                 raw=comment_data,
@@ -240,7 +240,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             error_msg = "gh pr create timed out after 120 seconds"
             logger.warning(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pull-request-failed", "error": error_msg},
@@ -257,7 +257,7 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             error_msg = f"Error creating pull request: {e}"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pull-request-failed", "error": error_msg},

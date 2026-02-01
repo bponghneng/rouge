@@ -56,7 +56,7 @@ class ImplementStep(WorkflowStep):
             logger.error("Cannot implement: no plan available")
             return StepResult.fail("Cannot implement: no plan available")
 
-        implement_response = implement_plan(plan_text, context.issue_id, context.adw_id)
+        implement_response = implement_plan(plan_text, context.require_issue_id, context.adw_id)
 
         if not implement_response.success:
             logger.error("Error implementing solution: %s", implement_response.error)
@@ -84,7 +84,7 @@ class ImplementStep(WorkflowStep):
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
-            issue_id=context.issue_id,
+            issue_id=context.require_issue_id,
             adw_id=context.adw_id,
             text="Implementation complete.",
             raw={"text": "Implementation complete."},

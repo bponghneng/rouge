@@ -51,7 +51,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             error_msg = "No existing PR/MR found for patch update"
             logger.warning(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pr-update-failed", "error": error_msg},
@@ -72,7 +72,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             error_msg = "PR/MR URL is empty in artifact"
             logger.warning(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pr-update-failed", "error": error_msg},
@@ -99,7 +99,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             error_msg = f"Unknown platform: {platform}"
             logger.warning(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pr-update-failed", "error": error_msg},
@@ -117,7 +117,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             skip_msg = f"PR update skipped: {pat_name} environment variable not set"
             logger.info(skip_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=skip_msg,
                 raw={"output": "pr-update-skipped", "reason": skip_msg},
@@ -150,7 +150,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 error_msg = "Cannot push: not on a branch (detached HEAD state)"
                 logger.error(error_msg)
                 payload = CommentPayload(
-                    issue_id=context.issue_id,
+                    issue_id=context.require_issue_id,
                     adw_id=context.adw_id,
                     text=error_msg,
                     raw={"output": "pr-update-failed", "error": error_msg},
@@ -186,7 +186,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 )
                 logger.warning(error_msg)
                 payload = CommentPayload(
-                    issue_id=context.issue_id,
+                    issue_id=context.require_issue_id,
                     adw_id=context.adw_id,
                     text=error_msg,
                     raw={"output": "pr-update-failed", "error": error_msg},
@@ -205,7 +205,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             # Emit progress comment indicating commits were added
             comment_msg = "Commits pushed to branch"
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=comment_msg,
                 raw={
@@ -228,7 +228,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             error_msg = "git push timed out after 60 seconds"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pr-update-failed", "error": error_msg},
@@ -245,7 +245,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             error_msg = f"Error updating PR/MR with patch commits: {e}"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "pr-update-failed", "error": error_msg},
