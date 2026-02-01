@@ -21,18 +21,39 @@ class WorkflowContext:
     """Shared state passed between workflow steps.
 
     Attributes:
-        issue_id: The Rouge issue ID being processed
         adw_id: Workflow ID for tracking
+        issue_id: The Rouge issue ID being processed (None for standalone workflows)
         issue: The fetched Issue object (set by FetchIssueStep)
         data: Dictionary to store intermediate step data
         artifact_store: Optional ArtifactStore for artifact persistence
     """
 
-    issue_id: int
     adw_id: str
+    issue_id: Optional[int] = None
     issue: Optional[Issue] = None
     data: Dict[str, Any] = field(default_factory=dict)
     artifact_store: Optional["ArtifactStore"] = None
+
+    @property
+    def require_issue_id(self) -> int:
+        """Return issue_id, raising if it is None.
+
+        Use this property in workflow steps that require a valid issue ID
+        (e.g. issue-based pipelines).  Standalone workflows such as
+        ``code-review`` set ``issue_id=None`` and should not call this.
+
+        Returns:
+            The issue ID as an ``int``.
+
+        Raises:
+            RuntimeError: If ``issue_id`` is ``None``.
+        """
+        if self.issue_id is None:
+            raise RuntimeError(
+                "issue_id is required for this workflow step but is None. "
+                "This step cannot be used in standalone (issue-free) workflows."
+            )
+        return self.issue_id
 
     @property
     def artifacts_enabled(self) -> bool:
