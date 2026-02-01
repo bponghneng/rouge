@@ -33,12 +33,12 @@ def emit_comment_from_payload(payload: CommentPayload) -> tuple[str, str]:
         payload: A CommentPayload object containing the comment details.
 
     Returns:
-        A tuple of (status, message) where status is "success" or "error"
+        A tuple of (status, message) where status is "success", "skipped", or "error"
         and message contains details about the operation result.
     """
     # Skip comment creation if issue_id is None
     if payload.issue_id is None:
-        return ("error", "Cannot create comment without issue_id")
+        return ("skipped", "Cannot create comment without issue_id")
 
     comment = Comment(
         comment=payload.text,
