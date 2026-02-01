@@ -34,7 +34,7 @@ app = typer.Typer(
 # Register subcommands
 app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
-app.add_typer(code_review_app, name="code-review")
+app.add_typer(code_review_app, name="code-review", help="Run code review commands")
 
 
 def version_callback(value: bool):
