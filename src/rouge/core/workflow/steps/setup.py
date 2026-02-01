@@ -136,7 +136,7 @@ class SetupStep(WorkflowStep):
             logger.debug("Created and checked out branch %s", branch_name)
 
             # Step 4: Persist branch name to database
-            update_issue_branch(context.issue_id, branch_name)
+            update_issue_branch(context.require_issue_id, branch_name)
             logger.debug("Persisted branch name %s for issue %s", branch_name, context.issue_id)
 
             logger.info("Git environment setup complete: branch=%s", branch_name)

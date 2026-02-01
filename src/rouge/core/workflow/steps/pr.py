@@ -47,14 +47,14 @@ class PreparePullRequestStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         try:
-            pr_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
+            pr_handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
 
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 slash_command="/adw-pull-request",
                 args=[],
                 adw_id=context.adw_id,
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 model="sonnet",
             )
 
@@ -70,7 +70,7 @@ class PreparePullRequestStep(WorkflowStep):
 
             # Emit raw LLM response for debugging visibility
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text="PR preparation LLM response received",
                 raw={
@@ -111,7 +111,7 @@ class PreparePullRequestStep(WorkflowStep):
 
             # Insert progress comment - best-effort, non-blocking
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text="Pull request prepared.",
                 raw={"text": "Pull request prepared.", "result": parse_result.data},
@@ -142,11 +142,11 @@ class PreparePullRequestStep(WorkflowStep):
             context: Workflow context
         """
         # Update status to "completed" - best-effort, non-blocking
-        update_status(context.issue_id, "completed")
+        update_status(context.require_issue_id, "completed")
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
-            issue_id=context.issue_id,
+            issue_id=context.require_issue_id,
             adw_id=context.adw_id,
             text="Solution implemented successfully",
             raw={"text": "Solution implemented successfully."},

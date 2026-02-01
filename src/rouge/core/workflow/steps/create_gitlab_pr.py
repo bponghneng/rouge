@@ -71,7 +71,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             skip_msg = "MR creation skipped: no PR details in context"
             logger.info(skip_msg)
             _emit_and_log(
-                context.issue_id,
+                context.require_issue_id,
                 context.adw_id,
                 skip_msg,
                 {"output": "merge-request-skipped", "reason": skip_msg},
@@ -86,7 +86,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             skip_msg = "MR creation skipped: MR title is empty"
             logger.info(skip_msg)
             _emit_and_log(
-                context.issue_id,
+                context.require_issue_id,
                 context.adw_id,
                 skip_msg,
                 {"output": "merge-request-skipped", "reason": skip_msg},
@@ -99,7 +99,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             skip_msg = "MR creation skipped: GITLAB_PAT environment variable not set"
             logger.info(skip_msg)
             _emit_and_log(
-                context.issue_id,
+                context.require_issue_id,
                 context.adw_id,
                 skip_msg,
                 {"output": "merge-request-skipped", "reason": skip_msg},
@@ -170,7 +170,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                     result.stderr,
                 )
                 payload = CommentPayload(
-                    issue_id=context.issue_id,
+                    issue_id=context.require_issue_id,
                     adw_id=context.adw_id,
                     text=error_msg,
                     raw={"output": "merge-request-failed", "error": error_msg},
@@ -205,7 +205,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
                 "url": mr_url,
             }
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=f"Merge request created: {mr_url}",
                 raw=comment_data,
@@ -224,7 +224,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             error_msg = "glab mr create timed out after 120 seconds"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
@@ -241,7 +241,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             error_msg = "glab CLI not found, skipping MR creation"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
@@ -258,7 +258,7 @@ class CreateGitLabPullRequestStep(WorkflowStep):
             error_msg = f"Error creating merge request: {e}"
             logger.exception(error_msg)
             payload = CommentPayload(
-                issue_id=context.issue_id,
+                issue_id=context.require_issue_id,
                 adw_id=context.adw_id,
                 text=error_msg,
                 raw={"output": "merge-request-failed", "error": error_msg},
