@@ -16,6 +16,7 @@ Main components:
 - shared: Common constants and helper functions
 - types: Unified result types for consistent error handling
 - workflow_io: Shared I/O utilities for steps
+- workflow_registry: Feature-flagged workflow type registry (see ROUGE_USE_WORKFLOW_REGISTRY)
 """
 
 # Import and re-export public API for backward compatibility
@@ -33,6 +34,7 @@ from rouge.core.workflow.types import (
     ReviewData,
     StepResult,
 )
+from rouge.core.workflow.workflow_registry import WorkflowRegistry, get_pipeline_for_type
 
 # Export public API
 __all__ = [
@@ -54,4 +56,7 @@ __all__ = [
     "PlanData",
     "ImplementData",
     "ReviewData",
+    # Workflow registry
+    "get_pipeline_for_type",
+    "WorkflowRegistry",
 ]
