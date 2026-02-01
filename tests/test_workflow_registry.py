@@ -276,3 +276,153 @@ class TestGetPipelineForType:
 
         with pytest.raises(ValueError, match="Unknown workflow type: unknown"):
             get_pipeline_for_type("unknown")
+
+
+# ---------------------------------------------------------------------------
+# TestCLIToRegistryFlow — integration tests for execute_adw_workflow routing
+# ---------------------------------------------------------------------------
+
+
+class TestCLIToRegistryFlow:
+    """Integration tests verifying that execute_adw_workflow routes through
+    get_pipeline_for_type and passes a valid pipeline to execute_workflow.
+    """
+
+    def test_adw_workflow_uses_registry_for_main(self, monkeypatch):
+        """Calling execute_adw_workflow with workflow_type='main' uses the real
+        get_pipeline_for_type('main') and passes a non-empty WorkflowStep pipeline
+        to execute_workflow.
+        """
+        from rouge.adw.adw import execute_adw_workflow
+
+        captured: dict = {}
+
+        def fake_execute_workflow(issue_id, adw_id, pipeline=None):
+            captured["issue_id"] = issue_id
+            captured["adw_id"] = adw_id
+            captured["pipeline"] = pipeline
+            return True
+
+        monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute_workflow)
+        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
+        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
+
+        success, wf_id = execute_adw_workflow(42, workflow_type="main")
+
+        assert success is True
+        assert wf_id == "fixed-adw-id"
+        assert captured["issue_id"] == 42
+        assert captured["adw_id"] == "fixed-adw-id"
+
+        pipeline = captured["pipeline"]
+        assert isinstance(pipeline, list)
+        assert len(pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in pipeline)
+
+    def test_adw_workflow_uses_registry_for_patch(self, monkeypatch):
+        """Calling execute_adw_workflow with workflow_type='patch' uses the real
+        get_pipeline_for_type('patch') and passes a valid WorkflowStep pipeline
+        to execute_workflow.
+        """
+        from rouge.adw.adw import execute_adw_workflow
+
+        captured: dict = {}
+
+        def fake_execute_workflow(issue_id, adw_id, pipeline=None):
+            captured["issue_id"] = issue_id
+            captured["adw_id"] = adw_id
+            captured["pipeline"] = pipeline
+            return True
+
+        monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute_workflow)
+        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
+        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
+
+        success, wf_id = execute_adw_workflow(99, workflow_type="patch")
+
+        assert success is True
+        assert wf_id == "fixed-adw-id"
+
+        pipeline = captured["pipeline"]
+        assert isinstance(pipeline, list)
+        assert len(pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in pipeline)
+
+    def test_adw_workflow_unknown_type_raises_with_flag_disabled(self, monkeypatch):
+        """With the registry flag NOT set, execute_adw_workflow with an unknown
+        workflow_type raises ValueError containing 'Registry is disabled'.
+        """
+        from rouge.adw.adw import execute_adw_workflow
+
+        monkeypatch.setattr("rouge.adw.adw.execute_workflow", lambda *a, **kw: True)
+        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
+        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
+
+        with pytest.raises(ValueError, match="Registry is disabled"):
+            execute_adw_workflow(1, workflow_type="custom")
+
+    def test_adw_workflow_unknown_type_raises_with_flag_enabled(self, monkeypatch):
+        """With the registry flag SET to 'true', execute_adw_workflow with an unknown
+        workflow_type raises ValueError containing 'Unknown workflow type: custom'.
+        """
+        from rouge.adw.adw import execute_adw_workflow
+
+        monkeypatch.setattr("rouge.adw.adw.execute_workflow", lambda *a, **kw: True)
+        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
+        monkeypatch.setenv(WORKFLOW_REGISTRY_FLAG, "true")
+
+        with pytest.raises(ValueError, match="Unknown workflow type: custom"):
+            execute_adw_workflow(1, workflow_type="custom")
+
+
+# ---------------------------------------------------------------------------
+# TestFeatureFlagBehavior — integration tests for feature flag routing
+# ---------------------------------------------------------------------------
+
+
+class TestFeatureFlagBehavior:
+    """Integration tests verifying get_pipeline_for_type behavior with the
+    feature flag enabled and disabled.
+    """
+
+    def test_flag_disabled_main_and_patch_work(self, monkeypatch):
+        """With the flag unset, both 'main' and 'patch' return valid pipelines."""
+        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
+
+        main_pipeline = get_pipeline_for_type("main")
+        assert isinstance(main_pipeline, list)
+        assert len(main_pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in main_pipeline)
+
+        patch_pipeline = get_pipeline_for_type("patch")
+        assert isinstance(patch_pipeline, list)
+        assert len(patch_pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in patch_pipeline)
+
+    def test_flag_disabled_custom_type_fails_clearly(self, monkeypatch):
+        """With the flag unset, a custom type raises ValueError with 'Registry is disabled'."""
+        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
+
+        with pytest.raises(ValueError, match="Registry is disabled"):
+            get_pipeline_for_type("custom")
+
+    def test_flag_enabled_main_and_patch_work(self, monkeypatch):
+        """With the flag set to 'true', both 'main' and 'patch' return valid pipelines."""
+        monkeypatch.setenv(WORKFLOW_REGISTRY_FLAG, "true")
+
+        main_pipeline = get_pipeline_for_type("main")
+        assert isinstance(main_pipeline, list)
+        assert len(main_pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in main_pipeline)
+
+        patch_pipeline = get_pipeline_for_type("patch")
+        assert isinstance(patch_pipeline, list)
+        assert len(patch_pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in patch_pipeline)
+
+    def test_flag_enabled_custom_type_fails_with_available_list(self, monkeypatch):
+        """With the flag set to 'true', a custom type raises ValueError listing available types."""
+        monkeypatch.setenv(WORKFLOW_REGISTRY_FLAG, "true")
+
+        with pytest.raises(ValueError, match="Available:"):
+            get_pipeline_for_type("custom")
