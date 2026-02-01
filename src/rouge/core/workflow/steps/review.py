@@ -70,10 +70,6 @@ class GenerateReviewStep(WorkflowStep):
         repo_path = get_repo_path()
 
         base_commit = context.data.get("base_commit")
-        # generate_review requires issue_id; this step should only run in issue-based workflows
-        if context.issue_id is None:
-            logger.error("Cannot generate review without an issue_id")
-            return StepResult.fail("Cannot generate review without an issue_id")
 
         review_result = generate_review(
             repo_path, context.issue_id, context.adw_id, base_commit=base_commit
@@ -185,11 +181,6 @@ class AddressReviewStep(WorkflowStep):
             if context.issue_id is not None
             else None
         )
-        # address_review_issues requires issue_id;
-        # this step should only run in issue-based workflows
-        if context.issue_id is None:
-            logger.error("Cannot address review issues without an issue_id")
-            return StepResult.fail("Cannot address review issues without an issue_id")
 
         review_issues_result = address_review_issues(
             context.issue_id,
