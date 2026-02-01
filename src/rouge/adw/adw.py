@@ -140,11 +140,10 @@ def execute_adw_workflow(
 
     # Backward compatibility: patch_mode flag overrides workflow_type
     if patch_mode:
-        success = execute_workflow(
-            issue_id,
-            workflow_id,
-            pipeline=get_patch_pipeline(),
-        )
+        pipeline = get_patch_pipeline()
     else:
-        success = execute_workflow(issue_id, workflow_id)
+        # Get the pipeline for the specified workflow type
+        pipeline = get_pipeline_for_type(workflow_type)
+
+    success = execute_workflow(issue_id, workflow_id, pipeline=pipeline)
     return success, workflow_id
