@@ -181,12 +181,20 @@ class CommentPayload(BaseModel):
     The Comment model represents the Supabase persistence shape.
     """
 
-    issue_id: Optional[int]
+    issue_id: Optional[int] = Field(default=None, description="Rouge issue ID for tracking")
     adw_id: Optional[str] = ""
     text: str = Field(..., min_length=1)
     raw: Optional[dict] = None
     source: CommentSource = "system"
     kind: str = Field(..., min_length=1)
+
+    @field_validator("issue_id")
+    @classmethod
+    def validate_issue_id(cls, v: Optional[int]) -> Optional[int]:
+        """Validate issue_id is positive when provided."""
+        if v is not None and v <= 0:
+            raise ValueError("issue_id must be greater than 0")
+        return v
 
     @field_validator("text")
     @classmethod
