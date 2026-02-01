@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 def generate_review(
-    repo_path: str, issue_id: int, adw_id: str | None = None
+    repo_path: str,
+    issue_id: int,
+    adw_id: str | None = None,
+    base_commit: str | None = None,
 ) -> StepResult[ReviewData]:
     """Generate CodeRabbit review output.
 
@@ -20,6 +23,7 @@ def generate_review(
         repo_path: Repository root path where .coderabbit.yaml config is located
         issue_id: Rouge issue ID for tracking
         adw_id: Optional ADW ID for associating comment with workflow
+        base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
     Returns:
         StepResult with ReviewData containing review text
@@ -40,6 +44,10 @@ def generate_review(
             "--config",
             config_path,
         ]
+
+        if base_commit:
+            cmd.extend(["--base-commit", base_commit])
+            logger.debug("Using base commit: %s", base_commit)
 
         logger.debug("Executing CodeRabbit command: %s", " ".join(cmd))
         logger.debug("Running from directory: %s", repo_path)

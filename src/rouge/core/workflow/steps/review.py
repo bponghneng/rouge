@@ -69,7 +69,15 @@ class GenerateReviewStep(WorkflowStep):
 
         repo_path = get_repo_path()
 
-        review_result = generate_review(repo_path, context.issue_id, context.adw_id)
+        base_commit = context.data.get("base_commit")
+        # generate_review requires issue_id; this step should only run in issue-based workflows
+        if context.issue_id is None:
+            logger.error("Cannot generate review without an issue_id")
+            return StepResult.fail("Cannot generate review without an issue_id")
+
+        review_result = generate_review(
+            repo_path, context.issue_id, context.adw_id, base_commit=base_commit
+        )
 
         if not review_result.success:
             logger.error("Failed to generate CodeRabbit review: %s", review_result.error)
@@ -102,19 +110,20 @@ class GenerateReviewStep(WorkflowStep):
             logger.debug("Saved review artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        payload = CommentPayload(
-            issue_id=context.issue_id,
-            adw_id=context.adw_id,
-            text="CodeRabbit review complete.",
-            raw={"text": "CodeRabbit review complete."},
-            source="system",
-            kind="workflow",
-        )
-        status, msg = emit_comment_from_payload(payload)
-        if status == "success":
-            logger.debug(msg)
-        else:
-            logger.error(msg)
+        if context.issue_id is not None:
+            payload = CommentPayload(
+                issue_id=context.issue_id,
+                adw_id=context.adw_id,
+                text="CodeRabbit review complete.",
+                raw={"text": "CodeRabbit review complete."},
+                source="system",
+                kind="workflow",
+            )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
         return StepResult.ok(None)
 
@@ -170,7 +179,18 @@ class AddressReviewStep(WorkflowStep):
             logger.warning("No review text available, skipping address review")
             return StepResult.ok(None)
 
-        review_handler = make_progress_comment_handler(context.issue_id, context.adw_id)
+        # Only create handler if we have an issue_id
+        review_handler = (
+            make_progress_comment_handler(context.issue_id, context.adw_id)
+            if context.issue_id is not None
+            else None
+        )
+        # address_review_issues requires issue_id;
+        # this step should only run in issue-based workflows
+        if context.issue_id is None:
+            logger.error("Cannot address review issues without an issue_id")
+            return StepResult.fail("Cannot address review issues without an issue_id")
+
         review_issues_result = address_review_issues(
             context.issue_id,
             context.adw_id,
@@ -203,18 +223,19 @@ class AddressReviewStep(WorkflowStep):
             logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        payload = CommentPayload(
-            issue_id=context.issue_id,
-            adw_id=context.adw_id,
-            text="Review issues addressed, re-running review.",
-            raw={"text": "Review issues addressed, re-running review."},
-            source="system",
-            kind="workflow",
-        )
-        status, msg = emit_comment_from_payload(payload)
-        if status == "success":
-            logger.debug(msg)
-        else:
-            logger.error(msg)
+        if context.issue_id is not None:
+            payload = CommentPayload(
+                issue_id=context.issue_id,
+                adw_id=context.adw_id,
+                text="Review issues addressed, re-running review.",
+                raw={"text": "Review issues addressed, re-running review."},
+                source="system",
+                kind="workflow",
+            )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
 
         return StepResult.ok(None, rerun_from=GENERATE_REVIEW_STEP_NAME)
