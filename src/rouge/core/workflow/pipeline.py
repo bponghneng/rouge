@@ -241,6 +241,32 @@ def get_default_pipeline() -> List[WorkflowStep]:
     return steps
 
 
+def get_code_review_pipeline() -> List[WorkflowStep]:
+    """Create the code-review workflow pipeline.
+
+    The code-review workflow runs an automated review loop on commits
+    without requiring an issue.  It generates a review, addresses any
+    findings, and finishes with a code-quality pass.
+
+    Pipeline sequence:
+    1. GenerateReviewStep  - Generate review of the current changes
+    2. AddressReviewStep   - Address any review feedback
+    3. CodeQualityStep     - Run code quality checks
+
+    Returns:
+        List of WorkflowStep instances in execution order
+    """
+    # Import here to avoid circular imports
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+
+    return [
+        GenerateReviewStep(),
+        AddressReviewStep(),
+        CodeQualityStep(),
+    ]
+
+
 def get_patch_pipeline() -> List[WorkflowStep]:
     """Create the patch workflow pipeline.
 
