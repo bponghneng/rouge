@@ -48,6 +48,10 @@ def execute_code_review_loop(
     if not isinstance(max_iterations, int) or max_iterations < 1:
         raise ValueError(f"max_iterations must be a positive integer, got: {max_iterations}")
 
+    # Validate config type
+    if config is not None and not isinstance(config, dict):
+        raise ValueError(f"config must be a dict or None, got: {type(config).__name__}")
+
     # Define reserved keys that should not be in caller-provided config
     RESERVED_KEYS = {"review_is_clean"}
 
@@ -157,6 +161,13 @@ def execute_adw_workflow(
         Tuple of (success flag, workflow identifier).
     """
     workflow_id = adw_id or make_adw_id()
+
+    # Validate that patch_mode is not used with code-review workflow
+    if workflow_type == "code-review" and patch_mode:
+        raise ValueError(
+            "patch_mode cannot be used with workflow_type='code-review'. "
+            "Use patch_mode with 'main' or 'patch' workflow types only."
+        )
 
     # Route code-review workflows to the dedicated loop
     if workflow_type == "code-review":
