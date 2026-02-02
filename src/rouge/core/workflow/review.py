@@ -11,6 +11,20 @@ from rouge.core.workflow.types import ReviewData, StepResult
 logger = logging.getLogger(__name__)
 
 
+def _parse_timeout_seconds() -> int:
+    """Parse CODERABBIT_TIMEOUT_SECONDS from environment with safe fallback.
+
+    Returns:
+        Timeout in seconds, defaulting to 600 (10 minutes) if env var is
+        missing or malformed.
+    """
+    try:
+        return int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
+    except (ValueError, TypeError):
+        logger.warning("Invalid CODERABBIT_TIMEOUT_SECONDS value, using default 600 seconds")
+        return 600
+
+
 def generate_review(
     repo_path: str,
     issue_id: int | None,
@@ -30,7 +44,7 @@ def generate_review(
     """
     try:
         # Read timeout from environment variable with default of 600 seconds (10 minutes)
-        timeout_seconds = int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
+        timeout_seconds = _parse_timeout_seconds()
 
         # Build absolute config path and validate it exists (config must be in repo root)
         config_path = os.path.join(repo_path, ".coderabbit.yaml")
@@ -93,7 +107,7 @@ def generate_review(
         return StepResult.ok(ReviewData(review_text=review_text))
 
     except subprocess.TimeoutExpired:
-        timeout_seconds = int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
+        timeout_seconds = _parse_timeout_seconds()
         logger.exception("CodeRabbit review timed out after %s seconds", timeout_seconds)
         return StepResult.fail(f"CodeRabbit review timed out after {timeout_seconds} seconds")
     except Exception as e:
