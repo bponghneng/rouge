@@ -63,25 +63,24 @@ def generate_review(
         review_text = result.stdout
         logger.info("CodeRabbit review generated (%s chars)", len(review_text))
 
-        # Insert progress comment with artifact preview (only if issue_id is provided)
-        if issue_id is not None:
-            payload = CommentPayload(
-                issue_id=issue_id,
-                adw_id=adw_id,
-                text="CodeRabbit review generated",
-                raw={
-                    "review_text": review_text[:500],
-                },  # First 500 chars for preview
-                source="system",
-                kind="artifact",
-            )
-            status, msg = emit_comment_from_payload(payload)
-            if status != "success":
-                logger.error("Failed to insert review artifact comment: %s", msg)
-            else:
-                logger.debug("Review artifact comment inserted: %s", msg)
+        # Emit comment with full review text (logs to console for standalone workflows)
+        payload = CommentPayload(
+            issue_id=issue_id,
+            adw_id=adw_id,
+            text="CodeRabbit review generated",
+            raw={
+                "review_text": review_text,
+            },
+            source="system",
+            kind="artifact",
+        )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug("Review artifact comment inserted: %s", msg)
+        elif status == "skipped":
+            logger.debug(msg)
         else:
-            logger.debug("Skipping review artifact comment (no issue_id)")
+            logger.error("Failed to insert review artifact comment: %s", msg)
 
         return StepResult.ok(ReviewData(review_text=review_text))
 
