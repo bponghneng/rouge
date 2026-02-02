@@ -18,8 +18,12 @@ Example:
     logger.debug(msg) if status == "success" else logger.error(msg)
 """
 
+import logging
+
 from rouge.core.database import create_comment
 from rouge.core.models import Comment, CommentPayload
+
+logger = logging.getLogger(__name__)
 
 
 def emit_comment_from_payload(payload: CommentPayload) -> tuple[str, str]:
@@ -38,7 +42,14 @@ def emit_comment_from_payload(payload: CommentPayload) -> tuple[str, str]:
     """
     # Skip comment creation if issue_id is None
     if payload.issue_id is None:
-        return ("skipped", "Cannot create comment without issue_id")
+        logger.debug("Skipping comment emission - issue_id is None")
+        logger.info("📝 %s", payload.text)
+        if payload.raw:
+            # Log sanitized version of raw data to avoid exposing PII
+            raw_str = str(payload.raw)
+            sanitized = raw_str[:100] + "..." if len(raw_str) > 100 else raw_str
+            logger.debug("Raw data (truncated): %s", sanitized)
+        return ("skipped", "No issue_id - logged to console")
 
     comment = Comment(
         comment=payload.text,
