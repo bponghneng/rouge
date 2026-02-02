@@ -138,9 +138,7 @@ def test_patch_command_success(mock_execute):
     mock_execute.assert_called_once()
     # Verify workflow_type="patch" was passed
     call_args = mock_execute.call_args
-    assert call_args[1].get("workflow_type") == "patch" or (
-        len(call_args[0]) >= 3 and call_args[0][2] == "patch"
-    )
+    assert call_args.kwargs.get("workflow_type") == "patch"
 
 
 @patch("rouge.cli.cli.execute_adw_workflow")
@@ -150,6 +148,30 @@ def test_patch_command_failure(mock_execute):
 
     result = runner.invoke(app, ["patch", "123"])
     assert result.exit_code == 1
+
+
+@patch("rouge.cli.cli.execute_adw_workflow")
+@patch("rouge.cli.cli.os.chdir")
+def test_patch_command_with_working_dir(mock_chdir, mock_execute, tmp_path):
+    """Test patch command with working directory."""
+    mock_execute.return_value = (True, "some-workflow-id")
+
+    result = runner.invoke(
+        app,
+        ["patch", "123", "--working-dir", str(tmp_path)],
+    )
+    assert result.exit_code == 0
+    mock_chdir.assert_called_once()
+
+
+def test_patch_command_relative_working_dir_fails():
+    """Test patch command with relative working directory fails."""
+    result = runner.invoke(
+        app,
+        ["patch", "123", "--working-dir", "relative/path"],
+    )
+    assert result.exit_code != 0
+    assert "absolute path" in result.output.lower()
 
 
 @patch("rouge.cli.cli.execute_adw_workflow")
