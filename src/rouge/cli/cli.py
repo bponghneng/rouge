@@ -190,7 +190,13 @@ def _prepare_workflow(working_dir: Optional[Path], adw_id: Optional[str]) -> str
             typer.echo("Error: --working-dir must be an absolute path", err=True)
             raise typer.Exit(1)
         target_dir = target_dir.resolve()
-        os.chdir(target_dir)
+        if not target_dir.exists():
+            typer.echo(f"Error: --working-dir does not exist: {target_dir}", err=True)
+            raise typer.Exit(1)
+        if not target_dir.is_dir():
+            typer.echo(f"Error: --working-dir is not a directory: {target_dir}", err=True)
+            raise typer.Exit(1)
+        os.chdir(str(target_dir))
         typer.echo(f"Working directory set to {target_dir}")
 
     return adw_id or make_adw_id()
