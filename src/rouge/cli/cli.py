@@ -1,6 +1,8 @@
 """Rouge CLI - Workflow management CLI."""
 
+import logging
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -13,6 +15,13 @@ from rouge.cli.step import app as step_app
 from rouge.core.database import create_issue, init_db_env
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
+
+# Configure logging for CLI commands
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 # Load environment variables
 env_file_path = Path.cwd() / ".env"
