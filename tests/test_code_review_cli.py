@@ -34,6 +34,7 @@ class TestResolveToSha:
         assert sha == "abc123def456"
         mock_run.assert_called_once_with(
             ["git", "rev-parse", "main"],
+            cwd="/Users/bponghneng/git/rouge/rouge",
             capture_output=True,
             text=True,
             check=True,

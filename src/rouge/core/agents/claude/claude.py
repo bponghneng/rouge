@@ -287,6 +287,9 @@ class ClaudeAgent(CodingAgent):
             # Use current environment for subprocess
             env = os.environ.copy()
 
+            # Import here to avoid circular dependency
+            from rouge.core.workflow.shared import get_working_dir
+
             stderr_lines: List[str] = []
 
             with open(output_file, "w") as f:
@@ -296,6 +299,7 @@ class ClaudeAgent(CodingAgent):
                     stderr=subprocess.PIPE,
                     text=True,
                     env=env,
+                    cwd=get_working_dir(),
                 )
 
                 assert process.stdout is not None
