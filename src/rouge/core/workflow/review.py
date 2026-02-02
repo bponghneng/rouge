@@ -29,11 +29,17 @@ def generate_review(
         StepResult with ReviewData containing review text
     """
     try:
+        # Read timeout from environment variable with default of 600 seconds (10 minutes)
+        timeout_seconds = int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
+
         # Build absolute config path and validate it exists (config must be in repo root)
         config_path = os.path.join(repo_path, ".coderabbit.yaml")
         if not os.path.exists(config_path):
             return StepResult.fail(f"CodeRabbit config not found at {config_path}")
+
+        logger.info("Generating CodeRabbit review from %s", repo_path)
         logger.debug("Using CodeRabbit config at %s", config_path)
+        logger.debug("CodeRabbit timeout: %s seconds", timeout_seconds)
 
         # Build CodeRabbit command
         # Note: Uses direct 'coderabbit --prompt-only' instead of 'coderabbit review --prompt-only'
@@ -53,7 +59,9 @@ def generate_review(
         logger.debug("Running from directory: %s", repo_path)
 
         # Execute CodeRabbit review from repo_path
-        result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(
+            cmd, cwd=repo_path, capture_output=True, text=True, timeout=timeout_seconds
+        )
 
         if result.returncode != 0:
             logger.error("CodeRabbit review failed with code %s", result.returncode)
@@ -85,8 +93,9 @@ def generate_review(
         return StepResult.ok(ReviewData(review_text=review_text))
 
     except subprocess.TimeoutExpired:
-        logger.exception("CodeRabbit review timed out after 300 seconds")
-        return StepResult.fail("CodeRabbit review timed out after 300 seconds")
+        timeout_seconds = int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
+        logger.exception("CodeRabbit review timed out after %s seconds", timeout_seconds)
+        return StepResult.fail(f"CodeRabbit review timed out after {timeout_seconds} seconds")
     except Exception as e:
         logger.exception("Failed to generate review")
         return StepResult.fail(f"Failed to generate review: {e}")
