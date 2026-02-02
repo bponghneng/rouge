@@ -51,21 +51,27 @@ class GenerateReviewStep(WorkflowStep):
         """Generate review and store result in context.
 
         Args:
-            context: Workflow context with plan artifact
+            context: Workflow context with optional plan artifact
 
         Returns:
             StepResult with success status and optional error message
         """
-        plan_data = context.load_artifact_if_missing(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: a.plan_data,
-        )
+        # For issue-based workflows, we expect plan data for context
+        # For standalone code-review workflows (issue_id=None), plan is not required
+        if context.issue_id is not None:
+            plan_data = context.load_artifact_if_missing(
+                "plan_data",
+                "plan",
+                PlanArtifact,
+                lambda a: a.plan_data,
+            )
 
-        if plan_data is None:
-            logger.warning("No plan data available, skipping review generation")
-            return StepResult.fail("No plan data available, skipping review generation")
+            if plan_data is None:
+                logger.warning("No plan data available for issue-based workflow")
+                return StepResult.fail("No plan data available for issue-based workflow")
+        else:
+            # Standalone code-review workflow - no plan needed
+            logger.debug("Code-review workflow without issue - proceeding without plan data")
 
         repo_path = get_repo_path()
 
