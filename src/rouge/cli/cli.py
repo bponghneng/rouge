@@ -183,6 +183,19 @@ def new_patch(
         raise typer.Exit(1)
 
 
+def _prepare_workflow(working_dir: Optional[Path], adw_id: Optional[str]) -> str:
+    if working_dir:
+        target_dir = working_dir.expanduser()
+        if not target_dir.is_absolute():
+            typer.echo("Error: --working-dir must be an absolute path", err=True)
+            raise typer.Exit(1)
+        target_dir = target_dir.resolve()
+        os.chdir(target_dir)
+        typer.echo(f"Working directory set to {target_dir}")
+
+    return adw_id or make_adw_id()
+
+
 @app.command()
 def run(
     issue_id: int,
@@ -203,19 +216,7 @@ def run(
         rouge run 123
         rouge run 123 --adw-id abc12345
     """
-    # Adjust working directory if requested
-    if working_dir:
-        target_dir = working_dir.expanduser()
-        if not target_dir.is_absolute():
-            typer.echo("Error: --working-dir must be an absolute path", err=True)
-            raise typer.Exit(1)
-        target_dir = target_dir.resolve()
-        os.chdir(target_dir)
-        typer.echo(f"Working directory set to {target_dir}")
-
-    # Generate ADW ID if not provided
-    if not adw_id:
-        adw_id = make_adw_id()
+    adw_id = _prepare_workflow(working_dir, adw_id)
 
     # Execute workflow
     success, _workflow_id = execute_adw_workflow(issue_id, adw_id)
@@ -244,19 +245,7 @@ def patch(
         rouge patch 123
         rouge patch 123 --adw-id abc12345
     """
-    # Adjust working directory if requested
-    if working_dir:
-        target_dir = working_dir.expanduser()
-        if not target_dir.is_absolute():
-            typer.echo("Error: --working-dir must be an absolute path", err=True)
-            raise typer.Exit(1)
-        target_dir = target_dir.resolve()
-        os.chdir(target_dir)
-        typer.echo(f"Working directory set to {target_dir}")
-
-    # Generate ADW ID if not provided
-    if not adw_id:
-        adw_id = make_adw_id()
+    adw_id = _prepare_workflow(working_dir, adw_id)
 
     # Execute workflow
     success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
