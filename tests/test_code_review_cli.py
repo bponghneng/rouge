@@ -21,9 +21,11 @@ runner = CliRunner()
 class TestResolveToSha:
     """Tests for the resolve_to_sha helper function."""
 
+    @patch("rouge.cli.commands.code_review.get_repo_path")
     @patch("rouge.cli.commands.code_review.subprocess.run")
-    def test_successful_resolution(self, mock_run):
+    def test_successful_resolution(self, mock_run, mock_get_repo_path):
         """resolve_to_sha should return the stripped stdout from git rev-parse."""
+        mock_get_repo_path.return_value = "/mock/repo/path"
         mock_run.return_value = MagicMock(
             stdout="abc123def456\n",
             returncode=0,
@@ -34,7 +36,7 @@ class TestResolveToSha:
         assert sha == "abc123def456"
         mock_run.assert_called_once_with(
             ["git", "rev-parse", "main"],
-            cwd="/Users/bponghneng/git/rouge/rouge",
+            cwd="/mock/repo/path",
             capture_output=True,
             text=True,
             check=True,
