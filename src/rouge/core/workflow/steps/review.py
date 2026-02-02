@@ -124,6 +124,8 @@ class GenerateReviewStep(WorkflowStep):
             status, msg = emit_comment_from_payload(payload)
             if status == "success":
                 logger.debug(msg)
+            elif status == "skipped":
+                logger.debug(msg)
             else:
                 logger.error(msg)
 
@@ -231,6 +233,8 @@ class AddressReviewStep(WorkflowStep):
             )
             status, msg = emit_comment_from_payload(payload)
             if status == "success":
+                logger.debug(msg)
+            elif status == "skipped":
                 logger.debug(msg)
             else:
                 logger.error(msg)
