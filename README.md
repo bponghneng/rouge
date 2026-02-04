@@ -61,7 +61,6 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `DEV_SEC_OPS_PLATFORM` | optional | Platform for PR/MR creation: `"github"` or `"gitlab"`. If not set, PR/MR creation step is skipped. |
 | `ROUGE_WORKFLOW_TIMEOUT_SECONDS` | optional | Workflow execution timeout in seconds (default: 3600). |
 | `CODERABBIT_TIMEOUT_SECONDS` | optional | Timeout for CodeRabbit review generation in seconds (default: 600). |
-| `ROUGE_USE_WORKFLOW_REGISTRY` | optional | Enable experimental workflow registry for data-driven workflow routing (default: disabled). When enabled, workflow type resolution uses registry lookup instead of hardcoded functions. |
 
 Create a `.env` file in the directory where you are running the `rouge` commands from, or set the variables directly in your shell environment.
 

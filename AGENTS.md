@@ -93,23 +93,15 @@ Apply these principles when evaluating whether complex patterns, or advanced opt
 - `src/rouge/tui/` - Textual-based terminal user interface components
 - `tests/` - Unit tests for all modules
 
-**Workflow Registry (Feature-Flagged)**:
+**Workflow Registry**:
 
 The `workflow_registry.py` module provides a declarative workflow type registration
-system for centralizing workflow routing. It is gated behind the
-`ROUGE_USE_WORKFLOW_REGISTRY` feature flag (disabled by default).
+system for centralizing workflow routing. All workflow type resolution goes through
+the `WorkflowRegistry` singleton, which supports registering additional workflow
+types without modifying routing code.
 
-When disabled, the two built-in workflow types ("main" and "patch") continue to
-resolve directly through `get_default_pipeline()` and `get_patch_pipeline()`. When
-enabled, all workflow type resolution goes through the `WorkflowRegistry` singleton,
-which supports registering additional workflow types without modifying routing code.
-
-Legacy adapter pattern: the built-in "main" and "patch" definitions wrap the existing
-pipeline factory functions as callables, so registry-based resolution produces
-identical pipelines.
-
-Entry point: `get_pipeline_for_type(workflow_type)` is the unified public API that
-dispatches based on the feature flag state.
+Entry point: `get_pipeline_for_type(workflow_type)` is the unified public API for
+resolving a workflow type to its pipeline.
 
 **Key Dependencies**:
 

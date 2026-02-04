@@ -1,18 +1,13 @@
 """Workflow registry for managing and resolving workflow pipelines by type.
 
-Provides a registry of workflow definitions that can be looked up by type ID,
-gated behind a feature flag for safe incremental rollout. When the feature flag
-is disabled, the module falls back to direct pipeline function calls.
+Provides a registry of workflow definitions that can be looked up by type ID.
 """
 
 import logging
-import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from rouge.core.workflow.step_base import WorkflowStep
-
-WORKFLOW_REGISTRY_FLAG = "ROUGE_USE_WORKFLOW_REGISTRY"
 
 logger = logging.getLogger(__name__)
 
@@ -191,32 +186,14 @@ def reset_workflow_registry() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Feature-flag helpers and public API
+# Public API
 # ---------------------------------------------------------------------------
-
-
-def is_registry_enabled() -> bool:
-    """Check whether the workflow registry feature flag is enabled.
-
-    Returns:
-        True if the ROUGE_USE_WORKFLOW_REGISTRY env var is set to a truthy value
-    """
-    return os.environ.get(WORKFLOW_REGISTRY_FLAG, "").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
 
 
 def get_pipeline_for_type(workflow_type: str) -> List[WorkflowStep]:
     """Resolve a workflow type to its pipeline of steps.
 
-    When the registry feature flag is disabled, this falls back to direct
-    calls to the pipeline factory functions for the built-in types
-    ("main", "patch", and "code-review"), ensuring zero behavior change.
-
-    When the feature flag is enabled, resolution is delegated to the
-    global WorkflowRegistry which supports additional registered types.
+    Delegates to the global WorkflowRegistry for resolution.
 
     Args:
         workflow_type: The workflow type ID (e.g., "main", "patch")
@@ -227,22 +204,4 @@ def get_pipeline_for_type(workflow_type: str) -> List[WorkflowStep]:
     Raises:
         ValueError: If the workflow type is unknown
     """
-    if not is_registry_enabled():
-        if workflow_type == "main":
-            from rouge.core.workflow.pipeline import get_default_pipeline
-
-            return get_default_pipeline()
-        if workflow_type == "patch":
-            from rouge.core.workflow.pipeline import get_patch_pipeline
-
-            return get_patch_pipeline()
-        if workflow_type == "code-review":
-            from rouge.core.workflow.pipeline import get_code_review_pipeline
-
-            return get_code_review_pipeline()
-        raise ValueError(
-            f"Unknown workflow type: {workflow_type}. "
-            "Registry is disabled; only 'main', 'patch', and 'code-review' are available."
-        )
-
     return get_workflow_registry().get_pipeline(workflow_type)
