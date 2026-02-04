@@ -12,6 +12,7 @@ import logging
 import os
 import subprocess
 import threading
+from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
@@ -247,10 +248,10 @@ class OpenCodeAgent(CodingAgent):
             if request.output_path:
                 output_file = request.output_path
             else:
-                agents_dir = os.environ.get(
-                    "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
-                )
-                output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
+                from rouge.core.workflow.shared import get_working_dir
+
+                agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
+                output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
                 output_file = os.path.join(output_dir, "raw_output.jsonl")
 
             # Create output directory if needed

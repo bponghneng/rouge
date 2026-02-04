@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import threading
+from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from dotenv import load_dotenv
@@ -191,9 +192,11 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     # Remove leading slash for filename
     command_name = slash_command[1:]
 
-    # Create directory structure using current working directory or env override
-    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
-    prompt_dir = os.path.join(agents_dir, adw_id, agent_name, "prompts")
+    # Create directory structure using get_working_dir() as base
+    from rouge.core.workflow.shared import get_working_dir
+
+    agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
+    prompt_dir = os.path.join(agents_log_dir, adw_id, agent_name, "prompts")
     os.makedirs(prompt_dir, exist_ok=True)
 
     # Save prompt to file
@@ -251,10 +254,10 @@ class ClaudeAgent(CodingAgent):
             if request.output_path:
                 output_file = request.output_path
             else:
-                agents_dir = os.environ.get(
-                    "ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents")
-                )
-                output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
+                from rouge.core.workflow.shared import get_working_dir
+
+                agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
+                output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
                 output_file = os.path.join(output_dir, "raw_output.jsonl")
 
             # Check if Claude Code CLI is installed
@@ -450,9 +453,11 @@ def execute_claude_template(
     # Construct prompt from slash command and args
     prompt = f"{request.slash_command} {' '.join(request.args)}"
 
-    # Create output directory with adw_id using current working directory
-    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
-    output_dir = os.path.join(agents_dir, request.adw_id, request.agent_name)
+    # Create output directory with adw_id using get_working_dir() as base
+    from rouge.core.workflow.shared import get_working_dir
+
+    agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
+    output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
     os.makedirs(output_dir, exist_ok=True)
 
     # Build output file path
