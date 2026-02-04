@@ -22,7 +22,6 @@ import time
 from pathlib import Path
 from types import FrameType
 
-from rouge.core.database import fetch_issue, init_db_env
 from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
