@@ -367,10 +367,10 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Run code quality checks (linting, type checking)",
     )
 
-    # 9. ValidateAcceptanceStep: requires plan (or patch_plan), produces acceptance
+    # 9. ValidateAcceptanceStep: requires plan, produces acceptance
     registry.register(
         ValidateAcceptanceStep,
-        dependencies=["plan", "patch_plan"],
+        dependencies=["plan"],
         outputs=["acceptance"],
         description="Validate implementation against acceptance criteria",
     )
@@ -399,22 +399,22 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. BuildPatchPlanStep: requires issue, patch, plan; produces patch_plan
+    # 13. BuildPatchPlanStep: requires patch issue, produces plan
     registry.register(
         BuildPatchPlanStep,
-        dependencies=["issue", "patch", "plan"],
-        outputs=["patch_plan"],
+        dependencies=["patch"],
+        outputs=["plan"],
         is_critical=True,
-        description="Build patch-specific plan contextualized against original plan",
+        description="Build standalone implementation plan for patch issue",
     )
 
-    # 14. UpdatePRCommitsStep: requires pull_request, pushes commits
+    # 14. UpdatePRCommitsStep: detects PR via CLI, pushes commits
     registry.register(
         UpdatePRCommitsStep,
-        dependencies=["pull_request"],
+        dependencies=[],
         outputs=[],
         is_critical=False,
-        description="Push patch commits to existing PR/MR",
+        description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
     )
 
 
