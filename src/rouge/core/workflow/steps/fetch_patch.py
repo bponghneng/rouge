@@ -6,6 +6,7 @@ from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PatchArtifact
+from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -66,15 +67,17 @@ class FetchPatchStep(WorkflowStep):
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved patch artifact for workflow %s", context.adw_id)
 
-            # Emit progress comment with patch description
+            # Update status to "started" - best-effort, non-blocking
+            update_status(issue_id, "started")
+
+            # Emit progress comment
             payload = CommentPayload(
                 issue_id=issue_id,
                 adw_id=context.adw_id,
-                text=f"Patch fetched: {issue.description}",
+                text="Workflow started. Patch fetched and validated.",
                 raw={
                     "issue_id": issue_id,
-                    "description": issue.description,
-                    "type": issue.type,
+                    "text": "Workflow started. Patch fetched and validated.",
                 },
                 source="system",
                 kind="workflow",

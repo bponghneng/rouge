@@ -48,11 +48,13 @@ def sample_main_issue():
     )
 
 
+@patch("rouge.core.workflow.steps.fetch_patch.update_status")
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_success(
     mock_fetch_issue,
     mock_emit,
+    mock_update_status,
     mock_context,
     sample_patch_issue,
 ):
@@ -66,6 +68,9 @@ def test_fetch_patch_step_success(
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
 
+    # Verify status was updated to "started"
+    mock_update_status.assert_called_once_with(10, "started")
+
     # Verify patch artifact was saved
     assert mock_context.artifact_store.write_artifact.call_count == 1
 
@@ -74,8 +79,10 @@ def test_fetch_patch_step_success(
     assert isinstance(artifact_call, PatchArtifact)
     assert artifact_call.patch == sample_patch_issue
 
-    # Verify progress comment was emitted
+    # Verify progress comment was emitted with correct text
     mock_emit.assert_called_once()
+    payload = mock_emit.call_args[0][0]
+    assert payload.text == "Workflow started. Patch fetched and validated."
 
 
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
@@ -113,11 +120,13 @@ def test_fetch_patch_step_issue_not_found(
     assert "Issue not found" in result.error
 
 
+@patch("rouge.core.workflow.steps.fetch_patch.update_status")
 @patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
 def test_fetch_patch_step_without_artifact_store(
     mock_fetch_issue,
     mock_emit,
+    mock_update_status,
     mock_context,
     sample_patch_issue,
 ):
