@@ -2,23 +2,21 @@
 Rouge directory structure management.
 
 This module provides centralized path management for runtime directories
-following the XDG Base Directory specification.
+using get_working_dir() as the single source of truth for the base path.
 """
 
-import os
 from pathlib import Path
+
+from rouge.core.workflow.shared import get_working_dir
 
 
 class RougePaths:
-    """Manage Rouge directory structure following XDG Base Directory specification."""
+    """Manage Rouge directory structure using get_working_dir() as base path."""
 
     @staticmethod
     def get_base_dir() -> Path:
         """Get base Rouge directory."""
-        base = os.getenv("ROUGE_DATA_DIR")
-        if base:
-            return Path(base)
-        return Path.home() / ".rouge"
+        return Path(get_working_dir()) / ".rouge"
 
     @staticmethod
     def get_logs_dir() -> Path:
