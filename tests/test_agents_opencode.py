@@ -146,7 +146,7 @@ def test_convert_jsonl_to_json(tmp_path):
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_execute_prompt_success(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path
 ):
     """Test successful OpenCodeAgent execution."""
     mock_wd.return_value = str(tmp_path)
@@ -187,7 +187,7 @@ def test_opencode_agent_execute_prompt_success(
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_execute_prompt_error(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path
 ):
     """Test OpenCodeAgent execution with error."""
     mock_wd.return_value = str(tmp_path)
@@ -217,7 +217,7 @@ def test_opencode_agent_execute_prompt_error(
 
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
-def test_opencode_agent_cli_not_installed(mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_agent_cli_not_installed(mock_check, mock_wd, tmp_path):
     """Test OpenCodeAgent when CLI is not installed."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = "Error: OpenCode CLI is not installed"
@@ -238,7 +238,9 @@ def test_opencode_agent_cli_not_installed(mock_check, mock_wd, tmp_path, monkeyp
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_with_stream_handler(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_agent_with_stream_handler(
+    mock_popen, mock_check, mock_wd, tmp_path
+):
     """Test OpenCodeAgent with stream handler invocation."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -318,7 +320,7 @@ def test_opencode_command_construction(mock_popen, mock_check, mock_wd, tmp_path
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_model_selection(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_model_selection(mock_popen, mock_check, mock_wd, tmp_path):
     """Test OpenCode model parameter handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -350,7 +352,7 @@ def test_opencode_model_selection(mock_popen, mock_check, mock_wd, tmp_path, mon
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_exception_handling(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_agent_exception_handling(mock_popen, mock_check, mock_wd, tmp_path):
     """Test OpenCodeAgent exception handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -375,7 +377,7 @@ def test_opencode_agent_exception_handling(mock_popen, mock_check, mock_wd, tmp_
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_stream_handler_exception(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch, caplog
+    mock_popen, mock_check, mock_wd, tmp_path, caplog
 ):
     """Test that stream handler exceptions don't interrupt execution."""
     mock_wd.return_value = str(tmp_path)
