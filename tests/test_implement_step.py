@@ -156,8 +156,8 @@ class TestImplementStepRun:
 class TestImplementStepRerunBehavior:
     """Tests for ImplementStep rerun behavior when plan is missing."""
 
-    def test_rerun_from_building_patch_plan_when_no_plan(self, mock_context):
-        """Test that ImplementStep requests rerun from 'Building patch plan' when plan is missing (default)."""
+    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_context):
+        """Test that ImplementStep requests rerun from 'Building implementation plan' when plan is missing (default)."""
         mock_context.data = {}
 
         def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -170,7 +170,7 @@ class TestImplementStepRerunBehavior:
 
         assert result.success is False
         assert "no plan available" in result.error
-        assert result.rerun_from == "Building patch plan"
+        assert result.rerun_from == "Building implementation plan"
 
     def test_rerun_from_custom_plan_step_when_no_plan(self, mock_context):
         """Test that ImplementStep requests rerun from custom plan step name when plan is missing."""

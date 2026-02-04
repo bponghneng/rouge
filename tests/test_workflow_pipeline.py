@@ -336,6 +336,8 @@ class TestGetDefaultPipeline:
                 f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
             )
 
+        assert pipeline[4].plan_step_name == "Building implementation plan"
+
         # Verify critical flags
         assert pipeline[0].is_critical  # Setup
         assert pipeline[1].is_critical  # Fetch
@@ -385,6 +387,8 @@ class TestGetPatchPipeline:
             assert isinstance(step, expected_type), (
                 f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
             )
+
+        assert pipeline[2].plan_step_name == "Building patch plan"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch

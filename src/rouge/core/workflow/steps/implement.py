@@ -18,14 +18,14 @@ logger = logging.getLogger(__name__)
 class ImplementStep(WorkflowStep):
     """Execute implementation of the plan."""
 
-    def __init__(self, plan_step_name: str = "Building patch plan"):
+    def __init__(self, plan_step_name: str | None = None):
         """Initialize ImplementStep.
 
         Args:
             plan_step_name: Name of the preceding plan step for rerun messages.
-                Defaults to "Building patch plan" for backward compatibility.
+                Defaults to "Building implementation plan" when not provided.
         """
-        self.plan_step_name = plan_step_name
+        self.plan_step_name = plan_step_name or "Building implementation plan"
 
     @property
     def name(self) -> str:
