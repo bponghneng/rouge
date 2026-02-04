@@ -15,7 +15,6 @@ Example:
 """
 
 import logging
-import os
 import shutil
 import signal
 import subprocess
@@ -23,7 +22,7 @@ import time
 from pathlib import Path
 from types import FrameType
 
-from rouge.core.database import fetch_issue, init_db_env
+from rouge.core.database import fetch_issue
 from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
@@ -42,27 +41,8 @@ class IssueWorker:
         """
         self.config = config
         self.running = True
-        self._working_dir_note = None
-        if self.config.working_dir is not None:
-            os.chdir(self.config.working_dir)
-            self._working_dir_note = f"Working directory set to {self.config.working_dir}"
-            # Re-initialize env vars from the new working directory
-            # This ensures we pick up the .env file from the target directory
-            # First try the working directory itself, then its parent
-            env_file_path = Path(self.config.working_dir) / ".env"
-            if env_file_path.is_file():
-                init_db_env(dotenv_path=env_file_path)
-            else:
-                env_file_path = Path(self.config.working_dir).parent / ".env"
-                if env_file_path.is_file():
-                    init_db_env(dotenv_path=env_file_path)
-                else:
-                    # Fallback to default load_dotenv behavior if not found
-                    init_db_env()
 
         self.logger = self.setup_logging()
-        if self._working_dir_note:
-            self.logger.info(self._working_dir_note)
 
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self._handle_shutdown)
@@ -194,11 +174,9 @@ class IssueWorker:
 
             # Execute the workflow with a timeout
             # Note: Not capturing output allows real-time logging from rouge-adw
-            # Use configured working directory if set; otherwise fall back to current cwd
             result = subprocess.run(
                 cmd,
                 timeout=self.config.workflow_timeout,
-                cwd=self.config.working_dir or Path.cwd(),
             )
 
             if result.returncode == 0:
