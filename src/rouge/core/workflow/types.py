@@ -9,11 +9,12 @@ from typing import Any, Dict, Generic, Literal, Optional, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-# Slash commands that can be output from classify step
-ClassifySlashCommand = Literal[
+# Slash commands that can be used to build plans
+PlanSlashCommand = Literal[
     "/adw-chore-plan",
     "/adw-bug-plan",
     "/adw-feature-plan",
+    "/adw-patch-plan",
 ]
 
 # Generic type parameter for StepResult data payload
@@ -139,11 +140,11 @@ class ClassifyData(BaseModel):
     """Data payload for issue classification results.
 
     Attributes:
-        command: The slash command to execute (e.g., "/triage:feature")
+        command: The slash command to execute (e.g., "/adw-feature-plan")
         classification: Normalized classification dict with "type" and "level"
     """
 
-    command: ClassifySlashCommand
+    command: PlanSlashCommand
     classification: Dict[str, str]
 
 
