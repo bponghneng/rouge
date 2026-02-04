@@ -28,7 +28,7 @@ def main(
         "main",
         "--workflow-type",
         "-w",
-        help="Workflow type to execute (e.g. main, patch, code-review).",
+        help="Workflow type to execute (e.g. main, patch, codereview).",
     ),
 ) -> None:
     """

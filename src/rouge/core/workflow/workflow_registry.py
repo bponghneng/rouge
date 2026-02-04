@@ -159,7 +159,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     )
     registry.register(
         WorkflowDefinition(
-            type_id="code-review",
+            type_id="codereview",
             pipeline=get_code_review_pipeline,
             description="Automated code review loop for commits",
         )
