@@ -250,14 +250,14 @@ class OpenCodeAgent(CodingAgent):
             else:
                 from rouge.core.workflow.shared import get_working_dir
 
-                agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
-                output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
-                output_file = os.path.join(output_dir, "raw_output.jsonl")
+                agents_log_dir = Path(get_working_dir()) / ".rouge" / "agents" / "logs"
+                output_dir = agents_log_dir / request.adw_id / request.agent_name
+                output_file = str(output_dir / "raw_output.jsonl")
 
             # Create output directory if needed
-            output_dir = os.path.dirname(output_file)
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
+            output_dir_path = Path(output_file).parent
+            if output_dir_path:
+                output_dir_path.mkdir(parents=True, exist_ok=True)
 
             # Extract model from provider options or use default
             model = request.provider_options.get("model", "zai-coding-plan/glm-4.6")
