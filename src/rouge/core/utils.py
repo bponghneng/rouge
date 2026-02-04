@@ -17,7 +17,7 @@ def make_adw_id() -> str:
 def _get_log_level() -> int:
     """Get log level from ROUGE_LOG_LEVEL environment variable.
 
-    Supports: DEBUG, INFO, WARNING, ERROR (case-insensitive).
+    Supports: DEBUG, INFO, WARNING, ERROR, CRITICAL (case-insensitive).
     Defaults to INFO if not set or invalid.
 
     Returns:
@@ -29,6 +29,7 @@ def _get_log_level() -> int:
         "INFO": logging.INFO,
         "WARNING": logging.WARNING,
         "ERROR": logging.ERROR,
+        "CRITICAL": logging.CRITICAL,
     }
     return level_map.get(level_str, logging.INFO)
 
@@ -44,7 +45,7 @@ def setup_logger(
     """Set up logger that writes to both console and file using adw_id.
 
     Log level is configurable via ROUGE_LOG_LEVEL environment variable.
-    Supported values: DEBUG, INFO, WARNING, ERROR (case-insensitive).
+    Supported values: DEBUG, INFO, WARNING, ERROR, CRITICAL (case-insensitive).
     Default: INFO.
 
     Args:
