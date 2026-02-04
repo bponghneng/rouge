@@ -6,13 +6,20 @@ import os
 import subprocess
 from typing import Optional, Tuple
 
+from rouge.core.agent import execute_template
+from rouge.core.agents.claude import ClaudeAgentTemplateRequest
+from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.shared import get_repo_path
+from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
+
+# Required fields for compose-commits output JSON
+COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
 
 
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
@@ -153,6 +160,76 @@ class UpdatePRCommitsStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         repo_path = get_repo_path()
+
+        # Compose conventional commits from unstaged changes
+        try:
+            handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
+
+            request = ClaudeAgentTemplateRequest(
+                agent_name=AGENT_COMMIT_COMPOSER,
+                slash_command="/adw-compose-commits",
+                args=[],
+                adw_id=context.adw_id,
+                issue_id=context.require_issue_id,
+                model="sonnet",
+            )
+
+            logger.debug(
+                "compose_commits request: %s",
+                request.model_dump_json(indent=2, by_alias=True),
+            )
+
+            response = execute_template(request, stream_handler=handler)
+
+            logger.debug("compose_commits response: success=%s", response.success)
+            logger.debug("Compose commits LLM response: %s", response.output)
+
+            if not response.success:
+                error_msg = f"Compose commits failed: {response.output}"
+                logger.warning(error_msg)
+                _emit_and_log(
+                    context.require_issue_id,
+                    context.adw_id,
+                    error_msg,
+                    {"output": "compose-commits-failed", "error": error_msg},
+                )
+                return StepResult.fail(error_msg)
+
+            # Parse and validate JSON output
+            parse_result = parse_and_validate_json(
+                response.output,
+                COMPOSE_COMMITS_REQUIRED_FIELDS,
+                step_name="compose_commits",
+            )
+            if not parse_result.success:
+                error_msg = parse_result.error or "Compose commits JSON parsing failed"
+                logger.warning("Compose commits JSON parsing failed: %s", error_msg)
+                _emit_and_log(
+                    context.require_issue_id,
+                    context.adw_id,
+                    error_msg,
+                    {"output": "compose-commits-failed", "error": error_msg},
+                )
+                return StepResult.fail(error_msg)
+
+            logger.info("Commits composed successfully")
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                "Commits composed successfully.",
+                {"output": "compose-commits-done", "result": parse_result.data},
+            )
+
+        except Exception as e:
+            error_msg = f"Compose commits failed: {e}"
+            logger.warning(error_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "compose-commits-failed", "error": error_msg},
+            )
+            return StepResult.fail(error_msg)
 
         # Detect platform and PR/MR URL
         platform, pr_url = self._detect_pr_platform(repo_path)
