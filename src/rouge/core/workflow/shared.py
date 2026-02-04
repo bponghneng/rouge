@@ -13,6 +13,7 @@ AGENT_VALIDATOR = "sdlc_validator"
 AGENT_CODE_QUALITY_CHECKER = "sdlc_code_quality_checker"
 AGENT_PATCH_PLANNER = "patch_planner"
 AGENT_PULL_REQUEST_BUILDER = "sdlc_pull_request_builder"
+AGENT_COMMIT_COMPOSER = "commit_composer"
 
 
 def get_repo_path() -> str:
