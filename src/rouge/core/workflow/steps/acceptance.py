@@ -7,7 +7,7 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.acceptance import notify_plan_acceptance
-from rouge.core.workflow.artifacts import AcceptanceArtifact, PatchPlanArtifact, PlanArtifact
+from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -27,30 +27,17 @@ class ValidateAcceptanceStep(WorkflowStep):
         return False
 
     def _load_plan_text(self, context: WorkflowContext) -> Optional[str]:
-        """Load plan text from patch_plan or plan artifact.
+        """Load plan text from the plan artifact.
 
-        Tries to load patch_plan first (for patch workflows), falling back
-        to plan (for main workflows) if patch_plan is not available.
+        Both main and patch workflows now store their plans as PlanArtifact,
+        so a single lookup is sufficient.
 
         Args:
             context: Workflow context with artifact store
 
         Returns:
-            Plan text string, or None if neither artifact is available
+            Plan text string, or None if no plan artifact is available
         """
-        # First, try to load patch_plan (for patch workflows)
-        patch_plan_data = context.load_artifact_if_missing(
-            "patch_plan_data",
-            "patch_plan",
-            PatchPlanArtifact,
-            lambda a: a.patch_plan_data,
-        )
-
-        if patch_plan_data is not None:
-            logger.info("Using patch_plan for acceptance validation")
-            return patch_plan_data.patch_plan_content
-
-        # Fall back to plan (for main workflows)
         plan_data = context.load_artifact_if_missing(
             "plan_data",
             "plan",
