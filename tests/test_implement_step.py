@@ -153,6 +153,67 @@ class TestImplementStepRun:
         assert saved_artifact.implement_data == sample_implement_data
 
 
+class TestImplementStepRerunBehavior:
+    """Tests for ImplementStep rerun behavior when plan is missing."""
+
+    def test_rerun_from_building_patch_plan_when_no_plan(self, mock_context):
+        """Test that ImplementStep requests rerun from 'Building patch plan' when plan is missing (default)."""
+        mock_context.data = {}
+
+        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            return None
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+
+        step = ImplementStep()
+        result = step.run(mock_context)
+
+        assert result.success is False
+        assert "no plan available" in result.error
+        assert result.rerun_from == "Building patch plan"
+
+    def test_rerun_from_custom_plan_step_when_no_plan(self, mock_context):
+        """Test that ImplementStep requests rerun from custom plan step name when plan is missing."""
+        mock_context.data = {}
+
+        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            return None
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+
+        step = ImplementStep(plan_step_name="Building implementation plan")
+        result = step.run(mock_context)
+
+        assert result.success is False
+        assert "no plan available" in result.error
+        assert result.rerun_from == "Building implementation plan"
+
+    def test_no_rerun_from_when_plan_available(
+        self,
+        mock_context,
+        sample_plan_data,
+        sample_implement_data,
+    ):
+        """Test that ImplementStep does not set rerun_from when plan is available."""
+        mock_context.data = {"plan_data": sample_plan_data}
+
+        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+            return mock_context.data.get(context_key)
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+
+        with patch("rouge.core.workflow.steps.implement.implement_plan") as mock_impl:
+            with patch("rouge.core.workflow.steps.implement.emit_comment_from_payload") as mock_e:
+                mock_impl.return_value = StepResult.ok(sample_implement_data)
+                mock_e.return_value = ("success", "ok")
+
+                step = ImplementStep()
+                result = step.run(mock_context)
+
+                assert result.success is True
+                assert result.rerun_from is None
+
+
 class TestImplementStepProperties:
     """Tests for ImplementStep properties."""
 

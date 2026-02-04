@@ -725,6 +725,80 @@ class TestWorkflowRouting:
             mock_workflow.assert_called_once_with(123, "main", "Main issue")
 
 
+class TestPatchWorkflowAdwId:
+    """Tests verifying patch workflows generate unique ADW IDs."""
+
+    def test_patch_workflow_generates_unique_adw_id(self, worker):
+        """Test that patch workflows generate unique ADW IDs via make_adw_id()."""
+        generated_ids = []
+
+        def capture_adw_id():
+            adw_id = f"mock-{len(generated_ids)}"
+            generated_ids.append(adw_id)
+            return adw_id
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result):
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id", side_effect=capture_adw_id):
+                    worker.execute_workflow(100, "Patch issue", "pending", "patch")
+                    worker.execute_workflow(200, "Another patch", "pending", "patch")
+
+        assert len(generated_ids) == 2
+        assert generated_ids[0] != generated_ids[1]
+
+    def test_patch_workflow_does_not_reuse_parent_adw_id(self, worker):
+        """Test that patch workflows do not reuse any parent ADW ID.
+
+        After decoupling, all workflow types use make_adw_id() to generate
+        a fresh unique identifier rather than inheriting from a parent.
+        """
+        adw_ids_used = []
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch(
+                    "rouge.worker.worker.make_adw_id",
+                    side_effect=["patch-abc", "main-xyz"],
+                ):
+                    # Execute a patch workflow
+                    worker.execute_workflow(100, "Patch issue", "pending", "patch")
+                    # Execute a main workflow
+                    worker.execute_workflow(200, "Main issue", "pending", "main")
+
+                    # Collect the adw_id arguments from subprocess.run calls
+                    for call in mock_run.call_args_list:
+                        cmd = call[0][0]
+                        if "--adw-id" in cmd:
+                            adw_idx = cmd.index("--adw-id")
+                            adw_ids_used.append(cmd[adw_idx + 1])
+
+        # Both should have unique generated IDs
+        assert len(adw_ids_used) == 2
+        assert adw_ids_used[0] == "patch-abc"
+        assert adw_ids_used[1] == "main-xyz"
+        assert adw_ids_used[0] != adw_ids_used[1]
+
+    def test_make_adw_id_called_for_every_workflow_type(self, worker):
+        """Test that make_adw_id is called once per workflow execution."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result):
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch(
+                    "rouge.worker.worker.make_adw_id", return_value="unique-id"
+                ) as mock_make:
+                    worker.execute_workflow(100, "Issue", "pending", "patch")
+
+                    mock_make.assert_called_once()
+
+
 class TestWorkerConfig:
     """Tests for WorkerConfig."""
 

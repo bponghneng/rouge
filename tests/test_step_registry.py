@@ -420,7 +420,12 @@ class TestGlobalRegistry:
         assert "issue" in fetch_meta.outputs
 
     def test_dependency_chain_resolution(self):
-        """Test resolving full dependency chain for late step."""
+        """Test resolving full dependency chain for late step.
+
+        ImplementStep depends on "plan", which can be produced by either
+        BuildPlanStep (main) or BuildPatchPlanStep (patch). The resolver
+        picks one valid chain.
+        """
         registry = get_step_registry()
 
         # Find the implement step
@@ -434,11 +439,16 @@ class TestGlobalRegistry:
 
         deps = registry.resolve_dependencies(implement_step_name)
 
-        # Should have at least fetch, classify, plan
-        assert len(deps) >= 3
+        # Should have at least a fetch step and a plan-building step
+        assert len(deps) >= 2
+        assert any("Building" in dep for dep in deps), "Should depend on a plan building step"
 
     def test_build_patch_plan_step_registration(self):
-        """Test BuildPatchPlanStep is registered with correct metadata."""
+        """Test BuildPatchPlanStep is registered with correct metadata.
+
+        After decoupling, BuildPatchPlanStep only depends on the patch artifact
+        and produces a regular plan artifact (not a separate patch_plan).
+        """
         registry = get_step_registry()
 
         # Find the patch plan step - exact name is "Building patch plan"
@@ -452,12 +462,17 @@ class TestGlobalRegistry:
 
         metadata = registry.get_step_metadata(patch_plan_step_name)
         assert metadata is not None
-        assert metadata.dependencies == ["issue", "patch", "plan"]
-        assert metadata.outputs == ["patch_plan"]
+        assert metadata.dependencies == ["patch"]
+        assert metadata.outputs == ["plan"]
         assert metadata.is_critical is True
 
     def test_update_pr_commits_step_registration(self):
-        """Test UpdatePRCommitsStep is registered with correct metadata."""
+        """Test UpdatePRCommitsStep is registered with correct metadata.
+
+        After decoupling, UpdatePRCommitsStep detects PRs via gh/glab CLI
+        rather than loading parent PullRequestArtifact, so it has no artifact
+        dependencies.
+        """
         registry = get_step_registry()
 
         # Find the update PR commits step - exact name is "Updating pull request with patch commits"
@@ -471,7 +486,7 @@ class TestGlobalRegistry:
 
         metadata = registry.get_step_metadata(update_pr_commits_step_name)
         assert metadata is not None
-        assert metadata.dependencies == ["pull_request"]
+        assert metadata.dependencies == []
         assert metadata.outputs == []
         assert metadata.is_critical is False
 
@@ -481,22 +496,18 @@ class TestGlobalRegistry:
 
         issues = registry.validate_registry()
 
-        # Filter out expected issues for artifacts without producers.
-        # The 'patch' artifact is fetched externally (not produced by a step),
-        # but 'patch_plan' IS produced by BuildPatchPlanStep, so we:
-        # - Exclude issues mentioning 'patch' (external artifact, expected to have no producer)
-        # - BUT keep issues mentioning 'patch_plan' (should have a producer, so any issue is real)
-        filtered_issues = [
-            issue
-            for issue in issues
-            if "patch" not in issue.lower() or "patch_plan" in issue.lower()
-        ]
-
-        # Should have no critical issues
-        assert filtered_issues == [], f"Registry validation issues: {filtered_issues}"
+        # Should have no issues -- all artifact dependencies are now resolvable.
+        # Both 'plan' producers (BuildPlanStep and BuildPatchPlanStep) and
+        # 'patch' producer (FetchPatchStep) are registered.
+        assert issues == [], f"Registry validation issues: {issues}"
 
     def test_patch_plan_dependency_resolution(self):
-        """Test dependency resolution for BuildPatchPlanStep."""
+        """Test dependency resolution for BuildPatchPlanStep.
+
+        After decoupling, BuildPatchPlanStep only depends on the patch artifact
+        produced by FetchPatchStep. It no longer depends on FetchIssueStep or
+        BuildPlanStep from a parent workflow.
+        """
         registry = get_step_registry()
 
         # Find the patch plan step - exact name is "Building patch plan"
@@ -510,9 +521,14 @@ class TestGlobalRegistry:
 
         deps = registry.resolve_dependencies(patch_plan_step_name)
 
-        # Should include steps that produce issue and plan
-        # (patch is an external artifact, not produced by a step)
-        assert any("Fetching" in dep for dep in deps), "Should depend on FetchIssueStep"
-        assert any("Building implementation plan" in dep for dep in deps), (
-            "Should depend on BuildPlanStep"
+        # Should only include FetchPatchStep (produces patch artifact)
+        assert any("Fetching pending patch" in dep for dep in deps), (
+            "Should depend on FetchPatchStep"
+        )
+        # Should NOT depend on FetchIssueStep or BuildPlanStep (decoupled)
+        assert not any("Fetching issue" in dep for dep in deps), (
+            "Should not depend on FetchIssueStep"
+        )
+        assert not any("Building implementation plan" in dep for dep in deps), (
+            "Should not depend on BuildPlanStep"
         )
