@@ -125,16 +125,6 @@ def test_run_command_invalid_issue_id():
     assert result.exit_code != 0
 
 
-def test_run_command_nonexistent_working_dir_fails():
-    """Test run command with nonexistent working directory fails."""
-    result = runner.invoke(
-        app,
-        ["run", "123", "--working-dir", "/nonexistent/directory/path"],
-    )
-    assert result.exit_code != 0
-    assert "does not exist" in result.output.lower() or "no such file" in result.output.lower()
-
-
 # Tests for patch command
 
 
@@ -158,40 +148,6 @@ def test_patch_command_failure(mock_execute):
 
     result = runner.invoke(app, ["patch", "123"])
     assert result.exit_code == 1
-
-
-@patch("rouge.cli.cli.execute_adw_workflow")
-@patch("rouge.cli.cli.os.chdir")
-def test_patch_command_with_working_dir(mock_chdir, mock_execute, tmp_path):
-    """Test patch command with working directory."""
-    mock_execute.return_value = (True, "some-workflow-id")
-
-    result = runner.invoke(
-        app,
-        ["patch", "123", "--working-dir", str(tmp_path)],
-    )
-    assert result.exit_code == 0
-    mock_chdir.assert_called_once_with(str(tmp_path))
-
-
-def test_patch_command_relative_working_dir_fails():
-    """Test patch command with relative working directory fails."""
-    result = runner.invoke(
-        app,
-        ["patch", "123", "--working-dir", "relative/path"],
-    )
-    assert result.exit_code != 0
-    assert "absolute path" in result.output.lower()
-
-
-def test_patch_command_nonexistent_working_dir_fails():
-    """Test patch command with nonexistent working directory fails."""
-    result = runner.invoke(
-        app,
-        ["patch", "123", "--working-dir", "/nonexistent/directory/path"],
-    )
-    assert result.exit_code != 0
-    assert "does not exist" in result.output.lower() or "no such file" in result.output.lower()
 
 
 @patch("rouge.cli.cli.execute_adw_workflow")

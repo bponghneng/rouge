@@ -145,7 +145,9 @@ def test_convert_jsonl_to_json(tmp_path):
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_execute_prompt_success(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_agent_execute_prompt_success(
+    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+):
     """Test successful OpenCodeAgent execution."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -184,7 +186,9 @@ def test_opencode_agent_execute_prompt_success(mock_popen, mock_check, mock_wd, 
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_execute_prompt_error(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_opencode_agent_execute_prompt_error(
+    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+):
     """Test OpenCodeAgent execution with error."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None

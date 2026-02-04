@@ -1,8 +1,6 @@
 import logging
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from rouge.core.workflow.pipeline import (
     WorkflowRunner,
     get_default_pipeline,

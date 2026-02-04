@@ -55,7 +55,9 @@ def test_setup_logger_file_handler(tmp_path, monkeypatch):
         logger.debug("Debug message")
         logger.info("Info message")
 
-        log_file = tmp_path / ".rouge" / "agents" / "logs" / adw_id / "adw_plan_build" / "execution.log"
+        log_file = (
+            tmp_path / ".rouge" / "agents" / "logs" / adw_id / "adw_plan_build" / "execution.log"
+        )
         content = log_file.read_text()
 
         assert "Debug message" in content

@@ -101,7 +101,16 @@ def test_save_prompt(tmp_path, monkeypatch):
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
         save_prompt("/implement plan.md", "test123", "ops")
 
-        expected_file = tmp_path / ".rouge" / "agents" / "logs" / "test123" / "ops" / "prompts" / "implement.txt"
+        expected_file = (
+            tmp_path
+            / ".rouge"
+            / "agents"
+            / "logs"
+            / "test123"
+            / "ops"
+            / "prompts"
+            / "implement.txt"
+        )
         assert expected_file.exists()
         assert expected_file.read_text() == "/implement plan.md"
 
