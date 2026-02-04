@@ -150,7 +150,7 @@ def test_iter_assistant_items_includes_task_tool_use():
     assert items[1]["input"] == {"action": "create", "task_id": "task-123"}
 
 
-def test_save_prompt(tmp_path, monkeypatch):
+def test_save_prompt(tmp_path):
     """Test saving prompt to file."""
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
         save_prompt("/implement plan.md", "test123", "ops")
@@ -173,7 +173,7 @@ def test_save_prompt(tmp_path, monkeypatch):
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_success(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path
 ):
     """Test successful ClaudeAgent execution."""
     mock_wd.return_value = str(tmp_path)
@@ -236,7 +236,7 @@ def test_claude_agent_execute_prompt_cli_not_installed(mock_check):
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_with_stream_handler(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path
 ):
     """Test ClaudeAgent calls stream handler."""
     mock_wd.return_value = str(tmp_path)
@@ -283,7 +283,7 @@ def test_claude_agent_execute_prompt_with_stream_handler(
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_error_handling(
-    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path
 ):
     """Test ClaudeAgent error handling."""
     mock_wd.return_value = str(tmp_path)

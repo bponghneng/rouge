@@ -96,7 +96,7 @@ def test_get_claude_env_with_github_pat(monkeypatch):
     assert env.get("GH_TOKEN") == "test_pat"
 
 
-def test_save_prompt(tmp_path, monkeypatch):
+def test_save_prompt(tmp_path):
     """Test saving prompt to file."""
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
         save_prompt("/implement plan.md", "test123", "ops")
@@ -125,7 +125,6 @@ def test_prompt_claude_code_success(
     mock_create_comment,
     mock_wd,
     tmp_path,
-    monkeypatch,
 ):
     """Test successful Claude Code execution."""
     mock_wd.return_value = str(tmp_path)
@@ -186,7 +185,7 @@ def test_prompt_claude_code_cli_not_installed(mock_check, mock_create_comment):
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_execute_template(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_execute_template(mock_popen, mock_check, mock_wd, tmp_path):
     """Test executing template with slash command."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -227,7 +226,7 @@ def test_execute_template(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_require_json_false(
-    mock_popen, mock_check, mock_create_comment, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_create_comment, mock_wd, tmp_path
 ):
     """Test execute_template with require_json=False allows plain text output."""
     mock_wd.return_value = str(tmp_path)
@@ -271,7 +270,7 @@ def test_execute_template_require_json_false(
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_sanitizes_markdown_fence(
-    mock_popen, mock_check, mock_create_comment, mock_wd, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_create_comment, mock_wd, tmp_path
 ):
     """Test execute_template strips Markdown fences before parsing JSON."""
     mock_wd.return_value = str(tmp_path)
