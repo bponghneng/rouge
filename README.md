@@ -31,18 +31,17 @@ uv run rouge --help
 
 # Execute a workflow from the CLI
 uv run rouge run 123
-uv run rouge run 123 --working-dir "C:\Users\bpong\git\rouge"
 
 # Run the headless ADW command
 uv run rouge-adw 123
 
 # Start a background worker
 uv run rouge-worker --worker-id alleycat-1
-uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rouge"
 ```
 
-> **Note:** The worker shells out to `uv run rouge-adw`. Use the `--working-dir`
-> flag to specify the directory where the worker should execute workflow operations.
+> **Note:** The worker shells out to `uv run rouge-adw`. All runtime data is stored
+> under `<WORKING_DIR>/.rouge/`, where `WORKING_DIR` defaults to the current
+> directory and can be overridden via the `WORKING_DIR` environment variable.
 
 ## Environment & Configuration
 
@@ -52,8 +51,7 @@ uv run rouge-worker --worker-id alleycat-1 --working-dir "C:\Users\bpong\git\rou
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key used by the CLI/worker. |
 | `ANTHROPIC_API_KEY` | ✅ for workflow execution | Allows the workflow to call Claude via the local CLI. |
 | `ROUGE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
-| `ROUGE_AGENTS_DIR` | optional | Override for `.rouge/logs/agents` directory. |
-| `ROUGE_DATA_DIR` / `ROUGE_RUNTIME_DIR` | optional | Custom storage locations for PID/state/log files. |
+| `WORKING_DIR` | optional | Base directory for all runtime data under `.rouge/` (defaults to current directory). |
 | `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
 | `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
 | `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
@@ -119,16 +117,14 @@ You can run the worker directly. If installed globally, omit `uv run`.
 cd rouge
 uv run rouge-worker --worker-id alleycat-1 \
   --poll-interval 10 \
-  --log-level INFO \
-  --working-dir "/path/to/process/issues/in" # Optional, if different from current dir
+  --log-level INFO
 ```
 
 **After global installation:**
 ```bash
 rouge-worker --worker-id alleycat-1 \
   --poll-interval 10 \
-  --log-level INFO \
-  --working-dir "/path/to/process/issues/in" # Optional, if different from current dir
+  --log-level INFO
 ```
 
 Required flag:
@@ -139,7 +135,6 @@ Optional flags:
 
 - `--poll-interval` – seconds between Supabase polls (default `10`).
 - `--log-level` – `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default `INFO`).
-- `--working-dir` – absolute directory to switch into before polling (default: current directory). This is where `rouge-adw` will execute its operations.
 - `--workflow-timeout` – workflow execution timeout in seconds (default `3600`).
 
 ## CLI Commands
@@ -154,8 +149,8 @@ For asynchronous workflow processing, use the worker daemon (see Worker Features
 ## Artifact-Based Workflow
 
 Rouge supports typed workflow artifacts that persist step inputs/outputs to disk.
-Artifacts are stored under `~/.rouge/workflows/<workflow-id>/` by default, or
-`$ROUGE_DATA_DIR/workflows/<workflow-id>/` when `ROUGE_DATA_DIR` is set.
+Artifacts are stored under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`, where
+`WORKING_DIR` defaults to the current directory.
 
 Artifact-focused commands:
 
@@ -173,10 +168,6 @@ Single-step execution requires artifacts from a prior run (or manually created
 files in the workflow directory). Full workflow execution (`rouge run`,
 `rouge-adw`, `rouge-worker`) always enables artifacts; use the step/artifact
 commands to inspect or modify artifacts after a run.
-
-If you run `rouge step run` outside the project directory, pass `--working-dir`
-to load `.env` from that directory (or its parent), matching the worker's
-`--working-dir` behavior.
 
 ## Worker Features
 
