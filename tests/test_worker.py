@@ -358,8 +358,9 @@ class TestSignalHandling:
 class TestCommandLineInterface:
     """Tests for command line argument parsing."""
 
-    def test_main_with_required_args(self, mock_env):
+    def test_main_with_required_args(self, mock_env, monkeypatch):
         """Test main function with required arguments."""
+        monkeypatch.delenv("ROUGE_LOG_LEVEL", raising=False)
         test_args = ["rouge-worker", "--worker-id", "test-worker"]
 
         with patch("sys.argv", test_args):

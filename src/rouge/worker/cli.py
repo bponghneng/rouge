@@ -55,11 +55,15 @@ Examples:
         help="Number of seconds to wait between polls (default: 10)",
     )
 
+    default_log_level = os.environ.get("ROUGE_LOG_LEVEL", "INFO").upper()
+    if default_log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+        default_log_level = "INFO"
+
     parser.add_argument(
         "--log-level",
-        default="INFO",
+        default=default_log_level,
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help="Logging level (default: INFO)",
+        help=f"Logging level (default: {default_log_level})",
     )
 
     parser.add_argument(
