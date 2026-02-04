@@ -87,7 +87,7 @@ Apply these principles when evaluating whether complex patterns, or advanced opt
 - `src/rouge/worker/` - Background daemon for polling and processing issues from Supabase
 - `src/rouge/core/` - Shared foundation: Supabase client, models, utilities, workflow orchestration
 - `src/rouge/core/workflow/` - Workflow pipeline with steps (fetch, classify, plan, implement, review)
-- `src/rouge/core/workflow/artifacts.py` - Typed artifacts and filesystem-backed store under `.rouge/workflows/<workflow-id>/` (or `$ROUGE_DATA_DIR`)
+- `src/rouge/core/workflow/artifacts.py` - Typed artifacts and filesystem-backed store under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`
 - `src/rouge/core/workflow/step_registry.py` - Step registry with artifact dependencies/outputs
 - `src/rouge/core/agents/` - AI agent integrations (Claude, OpenCode)
 - `src/rouge/tui/` - Textual-based terminal user interface components
