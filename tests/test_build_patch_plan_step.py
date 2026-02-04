@@ -59,7 +59,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
             plan="## Patch Plan\nFix typo",
             summary="Plan for patch: Fix typo in README",
         )
-        mock_build.return_value = StepResult.ok(plan_data, session_id="sess-1")
+        mock_build.return_value = StepResult.ok(plan_data, metadata={"session_id": "sess-1"})
         mock_emit.return_value = ("success", "ok")
 
         step = BuildPatchPlanStep()
