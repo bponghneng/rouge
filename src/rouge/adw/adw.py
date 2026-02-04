@@ -19,9 +19,9 @@ def execute_code_review_loop(
     config: Optional[Dict[str, Any]] = None,
     max_iterations: int = 10,
 ) -> tuple[bool, str]:
-    """Execute the code-review workflow loop.
+    """Execute the codereview workflow loop.
 
-    Runs the code-review pipeline repeatedly until either the review is
+    Runs the codereview pipeline repeatedly until either the review is
     clean (no actionable issues) or the maximum number of iterations is
     reached.  Each iteration executes all pipeline steps in order.
     Critical step failures abort the loop immediately.
@@ -64,7 +64,7 @@ def execute_code_review_loop(
                 f"Reserved keys are: {RESERVED_KEYS}"
             )
 
-    steps = get_pipeline_for_type("code-review")
+    steps = get_pipeline_for_type("codereview")
     artifact_store = ArtifactStore(workflow_id)
 
     context = WorkflowContext(
@@ -77,11 +77,11 @@ def execute_code_review_loop(
     if config is not None:
         context.data.update(config)
 
-    logger.info("Starting code-review loop (max %d iterations)", max_iterations)
+    logger.info("Starting codereview loop (max %d iterations)", max_iterations)
     logger.info("Workflow ID: %s", workflow_id)
 
     for iteration in range(1, max_iterations + 1):
-        logger.info("=== Code-review iteration %d/%d ===", iteration, max_iterations)
+        logger.info("=== Codereview iteration %d/%d ===", iteration, max_iterations)
 
         # Reset review_is_clean flag at the start of each iteration
         # to prevent stale values from causing premature success
@@ -105,7 +105,7 @@ def execute_code_review_loop(
                     error_msg = f"Critical step '{step.name}' failed"
                     if result.error:
                         error_msg += f": {result.error}"
-                    logger.error("%s, aborting code-review loop", error_msg)
+                    logger.error("%s, aborting codereview loop", error_msg)
                     return False, workflow_id
                 else:
                     log_step_end(step.name, result.success)
@@ -122,7 +122,7 @@ def execute_code_review_loop(
             return True, workflow_id
 
     logger.warning(
-        "Code-review loop exhausted %d iterations without clean review",
+        "Codereview loop exhausted %d iterations without clean review",
         max_iterations,
     )
     return False, workflow_id
@@ -142,35 +142,35 @@ def execute_adw_workflow(
     - ``"main"`` (default): Full issue-based workflow pipeline.
     - ``"patch"``: Patch pipeline for existing issues (also triggered
       by ``patch_mode=True`` for backward compatibility).
-    - ``"code-review"``: Standalone review loop that does not require
+    - ``"codereview"``: Standalone review loop that does not require
       an issue.
 
     Args:
         issue_id: The ID of the issue to process.  Required for
             ``"main"`` and ``"patch"`` workflows; ignored for
-            ``"code-review"``.
+            ``"codereview"``.
         adw_id: Optional workflow identifier (auto-generated if missing).
         patch_mode: If True, use the patch pipeline.  Kept for backward
             compatibility -- equivalent to ``workflow_type="patch"``.
         workflow_type: The type of workflow to execute.  One of
-            ``"main"``, ``"patch"``, or ``"code-review"``.
+            ``"main"``, ``"patch"``, or ``"codereview"``.
         config: Optional configuration dict passed to the workflow
-            (used by ``"code-review"`` to seed context data).
+            (used by ``"codereview"`` to seed context data).
 
     Returns:
         Tuple of (success flag, workflow identifier).
     """
     workflow_id = adw_id or make_adw_id()
 
-    # Validate that patch_mode is not used with code-review workflow
-    if workflow_type == "code-review" and patch_mode:
+    # Validate that patch_mode is not used with codereview workflow
+    if workflow_type == "codereview" and patch_mode:
         raise ValueError(
-            "patch_mode cannot be used with workflow_type='code-review'. "
+            "patch_mode cannot be used with workflow_type='codereview'. "
             "Use patch_mode with 'main' or 'patch' workflow types only."
         )
 
-    # Route code-review workflows to the dedicated loop
-    if workflow_type == "code-review":
+    # Route codereview workflows to the dedicated loop
+    if workflow_type == "codereview":
         return execute_code_review_loop(
             workflow_id=workflow_id,
             config=config,

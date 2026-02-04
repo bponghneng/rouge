@@ -164,7 +164,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     )
     registry.register(
         WorkflowDefinition(
-            type_id="code-review",
+            type_id="codereview",
             pipeline=get_code_review_pipeline,
             description="Automated code review loop for commits",
         )
@@ -213,7 +213,7 @@ def get_pipeline_for_type(workflow_type: str) -> List[WorkflowStep]:
 
     When the registry feature flag is disabled, this falls back to direct
     calls to the pipeline factory functions for the built-in types
-    ("main", "patch", and "code-review"), ensuring zero behavior change.
+    ("main", "patch", and "codereview"), ensuring zero behavior change.
 
     When the feature flag is enabled, resolution is delegated to the
     global WorkflowRegistry which supports additional registered types.
@@ -236,13 +236,13 @@ def get_pipeline_for_type(workflow_type: str) -> List[WorkflowStep]:
             from rouge.core.workflow.pipeline import get_patch_pipeline
 
             return get_patch_pipeline()
-        if workflow_type == "code-review":
+        if workflow_type == "codereview":
             from rouge.core.workflow.pipeline import get_code_review_pipeline
 
             return get_code_review_pipeline()
         raise ValueError(
             f"Unknown workflow type: {workflow_type}. "
-            "Registry is disabled; only 'main', 'patch', and 'code-review' are available."
+            "Registry is disabled; only 'main', 'patch', and 'codereview' are available."
         )
 
     return get_workflow_registry().get_pipeline(workflow_type)

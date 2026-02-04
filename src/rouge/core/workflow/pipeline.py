@@ -242,9 +242,9 @@ def get_default_pipeline() -> List[WorkflowStep]:
 
 
 def get_code_review_pipeline() -> List[WorkflowStep]:
-    """Create the code-review workflow pipeline.
+    """Create the codereview workflow pipeline.
 
-    The code-review workflow runs an automated review loop on commits.
+    The codereview workflow runs an automated review loop on commits.
     Note: This workflow can run with or without an issue_id. When issue_id
     is provided, GenerateReviewStep and AddressReviewStep will emit progress
     comments via emit_comment_from_payload. When issue_id is None, these

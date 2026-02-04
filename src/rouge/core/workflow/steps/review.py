@@ -57,7 +57,7 @@ class GenerateReviewStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         # For issue-based workflows, we expect plan data for context
-        # For standalone code-review workflows (issue_id=None), plan is not required
+        # For standalone codereview workflows (issue_id=None), plan is not required
         if context.issue_id is not None:
             plan_data = context.load_artifact_if_missing(
                 "plan_data",
@@ -70,8 +70,8 @@ class GenerateReviewStep(WorkflowStep):
                 logger.warning("No plan data available for issue-based workflow")
                 return StepResult.fail("No plan data available for issue-based workflow")
         else:
-            # Standalone code-review workflow - no plan needed
-            logger.debug("Code-review workflow without issue - proceeding without plan data")
+            # Standalone codereview workflow - no plan needed
+            logger.debug("Codereview workflow without issue - proceeding without plan data")
 
         repo_path = get_repo_path()
 
