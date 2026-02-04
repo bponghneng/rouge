@@ -6,6 +6,7 @@ import sys
 import uuid
 from logging import Handler
 from logging.handlers import RotatingFileHandler
+from pathlib import Path
 from typing import Optional
 
 
@@ -59,10 +60,11 @@ def setup_logger(
     Returns:
         Configured logger instance
     """
-    # Create log directory: .rouge/logs/agents/{adw_id}/{trigger_type}/
-    # Use current working directory as base or environment variable override
-    agents_dir = os.environ.get("ROUGE_AGENTS_DIR", os.path.join(os.getcwd(), ".rouge/logs/agents"))
-    log_dir = os.path.join(agents_dir, adw_id, trigger_type)
+    # Create log directory: .rouge/agents/logs/{adw_id}/{trigger_type}/
+    from rouge.core.workflow.shared import get_working_dir
+
+    agents_log_dir = Path(get_working_dir()) / ".rouge/agents/logs"
+    log_dir = str(agents_log_dir / adw_id / trigger_type)
 
     # Atomic directory creation with proper error handling
     try:
