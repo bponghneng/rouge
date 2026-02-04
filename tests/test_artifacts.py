@@ -292,10 +292,10 @@ class TestArtifactStore:
 
     def test_store_initialization_with_rouge_paths(self, tmp_path):
         """Test ArtifactStore uses RougePaths.get_workflows_dir() by default."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
             store = ArtifactStore("adw-default-123")
 
-            assert store.workflow_dir == tmp_path / "workflows" / "adw-default-123"
+            assert store.workflow_dir == tmp_path / ".rouge" / "workflows" / "adw-default-123"
             assert store.workflow_dir.exists()
 
     def test_write_artifact(self, tmp_path):
