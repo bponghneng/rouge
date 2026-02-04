@@ -3,7 +3,10 @@
 import json
 import subprocess
 from io import StringIO
+from pathlib import Path
 from unittest.mock import Mock, patch
+
+import pytest
 
 from rouge.core.agents.base import AgentExecuteRequest
 from rouge.core.agents.opencode import (
@@ -146,8 +149,8 @@ def test_convert_jsonl_to_json(tmp_path):
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_execute_prompt_success(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test successful OpenCodeAgent execution."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -187,8 +190,8 @@ def test_opencode_agent_execute_prompt_success(
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_execute_prompt_error(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test OpenCodeAgent execution with error."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -217,7 +220,7 @@ def test_opencode_agent_execute_prompt_error(
 
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
-def test_opencode_agent_cli_not_installed(mock_check, mock_wd, tmp_path):
+def test_opencode_agent_cli_not_installed(mock_check: Mock, mock_wd: Mock, tmp_path: Path) -> None:
     """Test OpenCodeAgent when CLI is not installed."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = "Error: OpenCode CLI is not installed"
@@ -239,8 +242,8 @@ def test_opencode_agent_cli_not_installed(mock_check, mock_wd, tmp_path):
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_with_stream_handler(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test OpenCodeAgent with stream handler invocation."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -320,7 +323,9 @@ def test_opencode_command_construction(mock_popen, mock_check, mock_wd, tmp_path
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_model_selection(mock_popen, mock_check, mock_wd, tmp_path):
+def test_opencode_model_selection(
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test OpenCode model parameter handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -352,7 +357,9 @@ def test_opencode_model_selection(mock_popen, mock_check, mock_wd, tmp_path):
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_exception_handling(mock_popen, mock_check, mock_wd, tmp_path):
+def test_opencode_agent_exception_handling(
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test OpenCodeAgent exception handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -377,8 +384,12 @@ def test_opencode_agent_exception_handling(mock_popen, mock_check, mock_wd, tmp_
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
 def test_opencode_agent_stream_handler_exception(
-    mock_popen, mock_check, mock_wd, tmp_path, caplog
-):
+    mock_popen: Mock,
+    mock_check: Mock,
+    mock_wd: Mock,
+    tmp_path: Path,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     """Test that stream handler exceptions don't interrupt execution."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
