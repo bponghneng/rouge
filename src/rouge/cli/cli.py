@@ -2,6 +2,7 @@
 
 import logging
 import os
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -11,10 +12,10 @@ import typer
 from rouge import __version__
 from rouge.adw.adw import execute_adw_workflow
 from rouge.cli.artifact import app as artifact_app
-from rouge.cli.commands.code_review import app as code_review_app
 from rouge.cli.step import app as step_app
 from rouge.core.database import create_issue, init_db_env
 from rouge.core.utils import make_adw_id
+from rouge.core.workflow.shared import get_repo_path
 
 # Configure logging for CLI commands
 logging.basicConfig(
@@ -43,7 +44,6 @@ app = typer.Typer(
 # Register subcommands
 app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
-app.add_typer(code_review_app, name="code-review", help="Run code review commands")
 
 
 def version_callback(value: bool):
@@ -255,6 +255,79 @@ def patch(
 
     # Execute workflow
     success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
+
+    if not success:
+        raise typer.Exit(1)
+
+
+def resolve_to_sha(ref: str) -> str:
+    """Resolve a git reference to a full SHA.
+
+    Runs ``git rev-parse <ref>`` to validate the reference and return the
+    resolved commit SHA.
+
+    Args:
+        ref: A git reference such as a branch name, tag, or commit SHA.
+
+    Returns:
+        The full SHA string for the resolved reference.
+
+    Raises:
+        typer.Exit: If the reference cannot be resolved.
+    """
+    repo_path = get_repo_path()
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", ref],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        typer.echo(f"Error: Invalid git reference '{ref}' (from {repo_path})", err=True)
+        typer.echo(f"stderr: {e.stderr if hasattr(e, 'stderr') else 'N/A'}", err=True)
+        raise typer.Exit(1)
+    except FileNotFoundError:
+        typer.echo("Error: git is not installed or not in PATH", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def codereview(
+    base_commit: str = typer.Option(
+        ...,
+        "--base-commit",
+        help="Git reference (branch, tag, or SHA) to compare against",
+        show_default=False,
+    ),
+    adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
+    working_dir: Optional[Path] = typer.Option(
+        None,
+        "--working-dir",
+        help="Absolute directory to switch into before launching the workflow.",
+    ),
+):
+    """Run a code review workflow against a base commit.
+
+    Resolves the provided git reference to a SHA, then executes the
+    codereview workflow pipeline.
+
+    Example:
+        rouge codereview --base-commit main
+        rouge codereview --base-commit abc1234
+    """
+    adw_id = _prepare_workflow(working_dir, adw_id)
+
+    sha = resolve_to_sha(base_commit)
+    typer.echo(f"Resolved base commit: {sha}")
+
+    success, _workflow_id = execute_adw_workflow(
+        adw_id=adw_id,
+        workflow_type="codereview",
+        config={"base_commit": sha},
+    )
 
     if not success:
         raise typer.Exit(1)
