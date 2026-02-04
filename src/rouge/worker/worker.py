@@ -23,7 +23,7 @@ import time
 from pathlib import Path
 from types import FrameType
 
-from rouge.core.database import fetch_issue, init_db_env
+from rouge.core.database import init_db_env
 from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
@@ -143,46 +143,29 @@ class IssueWorker:
     ) -> tuple[str | None, bool]:
         """Execute a rouge-adw workflow for the given issue.
 
-        Handles all workflow types by determining the adw_id and building the
-        appropriate command with --workflow-type.
+        Generates a new adw_id and builds the appropriate command with
+        --workflow-type for all workflow types.
 
         Args:
             issue_id: The ID of the issue to process
             workflow_type: The workflow type (e.g. "main", "patch")
-            description: The issue description (used for logging on non-patch types)
+            description: The issue description (used for logging)
 
         Returns:
             Tuple of (adw_id, success) where success is True if workflow completed
 
         Raises:
-            ValueError: If patch issue has no adw_id
             subprocess.TimeoutExpired: If workflow times out
             Exception: If workflow execution fails
         """
         adw_id = None
         try:
-            if workflow_type == "patch":
-                # Fetch the issue to get adw_id directly from the issues row
-                # Note: The Pydantic validator ensures adw_id is trimmed and non-empty if not None
-                issue = fetch_issue(issue_id)
-                if issue.adw_id is None:
-                    raise ValueError(f"Issue {issue_id} has no adw_id")
-
-                adw_id = issue.adw_id.strip()
-                if not adw_id:
-                    raise ValueError(f"Issue {issue_id} has no adw_id")
-
-                self.logger.info(
-                    "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
-                )
-                self.logger.debug("Issue description: %s", issue.description)
-            else:
-                # For "main" and any other type, generate a new adw_id
-                adw_id = make_adw_id()
-                self.logger.info(
-                    "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
-                )
-                self.logger.debug("Issue description: %s", description)
+            # Generate a new adw_id for all workflow types
+            adw_id = make_adw_id()
+            self.logger.info(
+                "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
+            )
+            self.logger.debug("Issue description: %s", description)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
@@ -221,10 +204,6 @@ class IssueWorker:
                 update_issue_status(issue_id, "pending", self.logger)
                 return adw_id, False
 
-        except ValueError:
-            self._handle_workflow_failure(issue_id, workflow_type, "ValueError during workflow")
-            update_issue_status(issue_id, "pending", self.logger)
-            return adw_id, False
         except subprocess.TimeoutExpired:
             self._handle_workflow_failure(issue_id, workflow_type, "Workflow timed out")
             update_issue_status(issue_id, "pending", self.logger)
