@@ -5,6 +5,7 @@ verifying that the step works independently without loading parent artifacts.
 """
 
 import json
+import os
 import subprocess
 from unittest.mock import Mock, patch
 
@@ -30,7 +31,7 @@ def mock_context():
 class TestDetectPrPlatform:
     """Tests for _detect_pr_platform via DEV_SEC_OPS_PLATFORM."""
 
-    def test_detects_github_pr_via_gh(self, mock_context):
+    def test_detects_github_pr_via_gh(self):
         """Test detection of GitHub PR using gh CLI."""
         step = UpdatePRCommitsStep()
         gh_output = json.dumps({"url": "https://github.com/org/repo/pull/42"})
@@ -49,7 +50,7 @@ class TestDetectPrPlatform:
         cmd = mock_run.call_args[0][0]
         assert cmd == ["gh", "pr", "view", "--json", "url"]
 
-    def test_detects_gitlab_mr_via_glab(self, mock_context):
+    def test_detects_gitlab_mr_via_glab(self):
         """Test detection of GitLab MR using glab CLI."""
         step = UpdatePRCommitsStep()
         glab_output = json.dumps({"web_url": "https://gitlab.com/org/repo/-/merge_requests/7"})
@@ -67,11 +68,14 @@ class TestDetectPrPlatform:
         cmd = mock_run.call_args[0][0]
         assert cmd == ["glab", "mr", "view", "--output", "json"]
 
-    def test_returns_none_when_env_missing(self, mock_context):
+    def test_returns_none_when_env_missing(self):
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is unset."""
         step = UpdatePRCommitsStep()
 
-        with patch.dict("os.environ", {}, clear=True):
+        # Create a copy of environ without DEV_SEC_OPS_PLATFORM
+        env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
+
+        with patch.dict("os.environ", env_without_platform, clear=True):
             with patch("subprocess.run") as mock_run:
                 platform, url = step._detect_pr_platform("/fake/repo")
 
@@ -79,7 +83,7 @@ class TestDetectPrPlatform:
         assert url is None
         mock_run.assert_not_called()
 
-    def test_returns_none_when_env_invalid(self, mock_context):
+    def test_returns_none_when_env_invalid(self):
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is invalid."""
         step = UpdatePRCommitsStep()
 
@@ -91,7 +95,7 @@ class TestDetectPrPlatform:
         assert url is None
         mock_run.assert_not_called()
 
-    def test_returns_none_when_cli_missing(self, mock_context):
+    def test_returns_none_when_cli_missing(self):
         """Test returns (None, None) when CLI is missing."""
         step = UpdatePRCommitsStep()
 
@@ -102,7 +106,7 @@ class TestDetectPrPlatform:
         assert platform is None
         assert url is None
 
-    def test_returns_none_when_both_cli_fail(self, mock_context):
+    def test_returns_none_when_github_cli_fails(self):
         """Test returns (None, None) when the selected CLI command fails."""
         step = UpdatePRCommitsStep()
 
@@ -117,7 +121,7 @@ class TestDetectPrPlatform:
         assert platform is None
         assert url is None
 
-    def test_handles_gh_timeout(self, mock_context):
+    def test_handles_gh_timeout(self):
         """Test handles timeout from gh command gracefully."""
         step = UpdatePRCommitsStep()
 
@@ -131,7 +135,7 @@ class TestDetectPrPlatform:
         assert platform is None
         assert url is None
 
-    def test_handles_invalid_json_from_gh(self, mock_context):
+    def test_handles_invalid_json_from_gh(self):
         """Test handles invalid JSON output from gh gracefully."""
         step = UpdatePRCommitsStep()
 
@@ -154,8 +158,13 @@ class TestRunWhenPlatformMissing:
         """Test step fails when DEV_SEC_OPS_PLATFORM is not set."""
         step = UpdatePRCommitsStep()
 
-        with patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"):
-            with patch.dict("os.environ", {}, clear=True):
+        # Create a copy of environ without DEV_SEC_OPS_PLATFORM
+        env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
+
+        with patch(
+            "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
+        ):
+            with patch.dict("os.environ", env_without_platform, clear=True):
                 with patch(
                     "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
                     return_value=("success", "ok"),

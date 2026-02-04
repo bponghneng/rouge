@@ -368,11 +368,12 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        # Check step count (should be 8 steps)
-        assert len(pipeline) == 8
+        # Check step count (should be 9 steps including SetupStep)
+        assert len(pipeline) == 9
 
         # Verify order and types
         expected_types = [
+            SetupStep,
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
@@ -388,15 +389,16 @@ class TestGetPatchPipeline:
                 f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
             )
 
-        assert pipeline[2].plan_step_name == "Building patch plan"
+        assert pipeline[3].plan_step_name == "Building patch plan"
 
         # Verify critical flags
-        assert pipeline[0].is_critical  # Fetch patch
-        assert pipeline[1].is_critical  # Build patch plan
-        assert pipeline[2].is_critical  # Implement
-        assert not pipeline[3].is_critical  # Review (best effort)
-        assert not pipeline[4].is_critical  # Address review (best effort)
-        assert not pipeline[5].is_critical  # Code quality
+        assert pipeline[0].is_critical  # Setup
+        assert pipeline[1].is_critical  # Fetch patch
+        assert pipeline[2].is_critical  # Build patch plan
+        assert pipeline[3].is_critical  # Implement
+        assert not pipeline[4].is_critical  # Review (best effort)
+        assert not pipeline[5].is_critical  # Address review (best effort)
+        assert not pipeline[6].is_critical  # Code quality
         assert not pipeline[6].is_critical  # Validate patch acceptance (best effort)
         assert not pipeline[7].is_critical  # Update PR commits (best effort)
 
@@ -426,6 +428,7 @@ class TestGetPatchPipeline:
         pipeline = get_patch_pipeline()
 
         expected_types = [
+            SetupStep,
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
