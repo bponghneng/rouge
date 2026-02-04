@@ -161,17 +161,212 @@ class TestRunWhenPlatformMissing:
         # Create a copy of environ without DEV_SEC_OPS_PLATFORM
         env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
 
+        # Mock compose-commits dependencies (runs before platform detection)
+        mock_response = Mock(success=True, output='{"output": "commits-composed"}')
+        mock_parse = Mock(success=True, data={"output": "commits-composed"}, error=None)
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+
         with patch(
             "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
         ):
-            with patch.dict("os.environ", env_without_platform, clear=True):
+            with patch(
+                "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
+                return_value=lambda x: None,
+            ):
                 with patch(
-                    "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
-                    return_value=("success", "ok"),
+                    "rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest",
+                    return_value=mock_request_instance,
                 ):
-                    result = step.run(mock_context)
+                    with patch(
+                        "rouge.core.workflow.steps.update_pr_commits.execute_template",
+                        return_value=mock_response,
+                    ):
+                        with patch(
+                            "rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json",
+                            return_value=mock_parse,
+                        ):
+                            with patch.dict("os.environ", env_without_platform, clear=True):
+                                with patch(
+                                    "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+                                    return_value=("success", "ok"),
+                                ):
+                                    result = step.run(mock_context)
 
         assert result.success is False
+
+
+class TestComposeCommits:
+    """Tests for compose-commits integration in UpdatePRCommitsStep.run."""
+
+    def test_compose_commits_called_before_push(self, mock_context):
+        """Test that execute_template is called with /adw-compose-commits before push."""
+        step = UpdatePRCommitsStep()
+
+        mock_response = Mock(success=True, output='{"output": "commits-composed"}')
+        mock_parse = Mock(success=True, data={"output": "commits-composed"}, error=None)
+
+        # Mock ClaudeAgentTemplateRequest to bypass Pydantic slash_command validation
+        mock_request_instance = Mock(
+            slash_command="/adw-compose-commits",
+            agent_name="commit_composer",
+        )
+        mock_request_instance.model_dump_json.return_value = "{}"
+
+        # Mock subprocess.run for branch check and push
+        branch_result = Mock(returncode=0, stdout="feature-branch\n", stderr="")
+        push_result = Mock(returncode=0, stdout="", stderr="")
+
+        def subprocess_side_effect(cmd, **_kwargs):
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return branch_result
+            if cmd[0] == "git" and cmd[1] == "push":
+                return push_result
+            # gh pr view for platform detection
+            return Mock(
+                returncode=0,
+                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1"}),
+            )
+
+        with patch(
+            "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
+        ):
+            with patch(
+                "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
+                return_value=lambda x: None,
+            ):
+                with patch(
+                    "rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest",
+                    return_value=mock_request_instance,
+                ):
+                    with patch(
+                        "rouge.core.workflow.steps.update_pr_commits.execute_template",
+                        return_value=mock_response,
+                    ) as mock_exec:
+                        with patch(
+                            "rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json",
+                            return_value=mock_parse,
+                        ):
+                            with patch.dict(
+                                "os.environ",
+                                {"DEV_SEC_OPS_PLATFORM": "github", "GITHUB_PAT": "fake-token"},
+                            ):
+                                with patch("subprocess.run", side_effect=subprocess_side_effect):
+                                    with patch(
+                                        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+                                        return_value=("success", "ok"),
+                                    ):
+                                        result = step.run(mock_context)
+
+        # Verify execute_template was called once with compose-commits request
+        mock_exec.assert_called_once()
+        call_args = mock_exec.call_args
+        request = call_args[0][0]
+        assert request.slash_command == "/adw-compose-commits"
+        assert result.success is True
+
+    def test_compose_commits_failure_stops_push(self, mock_context):
+        """Test that a failed compose-commits prevents git push."""
+        step = UpdatePRCommitsStep()
+
+        mock_response = Mock(success=False, output="Error composing commits")
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+
+        with patch(
+            "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
+        ):
+            with patch(
+                "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
+                return_value=lambda x: None,
+            ):
+                with patch(
+                    "rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest",
+                    return_value=mock_request_instance,
+                ):
+                    with patch(
+                        "rouge.core.workflow.steps.update_pr_commits.execute_template",
+                        return_value=mock_response,
+                    ):
+                        with patch(
+                            "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+                            return_value=("success", "ok"),
+                        ):
+                            with patch("subprocess.run") as mock_subprocess:
+                                result = step.run(mock_context)
+
+        assert result.success is False
+        mock_subprocess.assert_not_called()
+
+    def test_compose_commits_invalid_json_stops_push(self, mock_context):
+        """Test that invalid JSON from compose-commits prevents git push."""
+        step = UpdatePRCommitsStep()
+
+        mock_response = Mock(success=True, output="not valid json")
+        mock_parse = Mock(success=False, error="Invalid JSON", data=None)
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+
+        with patch(
+            "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
+        ):
+            with patch(
+                "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
+                return_value=lambda x: None,
+            ):
+                with patch(
+                    "rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest",
+                    return_value=mock_request_instance,
+                ):
+                    with patch(
+                        "rouge.core.workflow.steps.update_pr_commits.execute_template",
+                        return_value=mock_response,
+                    ):
+                        with patch(
+                            "rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json",
+                            return_value=mock_parse,
+                        ):
+                            with patch(
+                                "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+                                return_value=("success", "ok"),
+                            ):
+                                with patch("subprocess.run") as mock_subprocess:
+                                    result = step.run(mock_context)
+
+        assert result.success is False
+        mock_subprocess.assert_not_called()
+
+    def test_compose_commits_exception_stops_push(self, mock_context):
+        """Test that an exception from execute_template prevents git push."""
+        step = UpdatePRCommitsStep()
+
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+
+        with patch(
+            "rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo"
+        ):
+            with patch(
+                "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
+                return_value=lambda x: None,
+            ):
+                with patch(
+                    "rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest",
+                    return_value=mock_request_instance,
+                ):
+                    with patch(
+                        "rouge.core.workflow.steps.update_pr_commits.execute_template",
+                        side_effect=RuntimeError("agent failed"),
+                    ):
+                        with patch(
+                            "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+                            return_value=("success", "ok"),
+                        ):
+                            with patch("subprocess.run") as mock_subprocess:
+                                result = step.run(mock_context)
+
+        assert result.success is False
+        mock_subprocess.assert_not_called()
 
 
 class TestUpdatePRCommitsStepProperties:
