@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import subprocess
+import traceback
 from typing import Optional, Tuple
 
 from rouge.core.agent import execute_template
@@ -222,12 +223,13 @@ class UpdatePRCommitsStep(WorkflowStep):
 
         except Exception as e:
             error_msg = f"Compose commits failed: {e}"
-            logger.warning(error_msg)
+            tb = traceback.format_exc()
+            logger.exception(error_msg)
             _emit_and_log(
                 context.require_issue_id,
                 context.adw_id,
                 error_msg,
-                {"output": "compose-commits-failed", "error": error_msg},
+                {"output": "compose-commits-failed", "error": error_msg, "traceback": tb},
             )
             return StepResult.fail(error_msg)
 
