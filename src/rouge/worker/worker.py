@@ -15,7 +15,6 @@ Example:
 """
 
 import logging
-import os
 import shutil
 import signal
 import subprocess
@@ -23,8 +22,8 @@ import time
 from pathlib import Path
 from types import FrameType
 
-from rouge.core.database import init_db_env
-from rouge.core.utils import _get_log_level, make_adw_id
+from rouge.core.database import fetch_issue, init_db_env
+from rouge.core.utils import make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -64,8 +63,6 @@ class IssueWorker:
             init_db_env()
 
         self.logger = self.setup_logging()
-        if self._working_dir_note:
-            self.logger.info(self._working_dir_note)
 
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self._handle_shutdown)
@@ -180,11 +177,9 @@ class IssueWorker:
 
             # Execute the workflow with a timeout
             # Note: Not capturing output allows real-time logging from rouge-adw
-            # Use configured working directory if set; otherwise fall back to current cwd
             result = subprocess.run(
                 cmd,
                 timeout=self.config.workflow_timeout,
-                cwd=self.config.working_dir or Path.cwd(),
             )
 
             if result.returncode == 0:
