@@ -256,8 +256,7 @@ class OpenCodeAgent(CodingAgent):
 
             # Create output directory if needed
             output_dir_path = Path(output_file).parent
-            if output_dir_path:
-                output_dir_path.mkdir(parents=True, exist_ok=True)
+            output_dir_path.mkdir(parents=True, exist_ok=True)
 
             # Extract model from provider options or use default
             model = request.provider_options.get("model", "zai-coding-plan/glm-4.6")
