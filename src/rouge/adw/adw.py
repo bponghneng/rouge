@@ -6,7 +6,6 @@ from typing import Any, Dict, Optional
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
 from rouge.core.workflow.artifacts import ArtifactStore
-from rouge.core.workflow.pipeline import get_patch_pipeline
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
 from rouge.core.workflow.workflow_registry import get_pipeline_for_type
@@ -132,7 +131,6 @@ def execute_adw_workflow(
     issue_id: Optional[int] = None,
     adw_id: Optional[str] = None,
     *,
-    patch_mode: bool = False,
     workflow_type: str = "main",
     config: Optional[Dict[str, Any]] = None,
 ) -> tuple[bool, str]:
@@ -140,8 +138,7 @@ def execute_adw_workflow(
 
     Supports multiple workflow types:
     - ``"main"`` (default): Full issue-based workflow pipeline.
-    - ``"patch"``: Patch pipeline for existing issues (also triggered
-      by ``patch_mode=True`` for backward compatibility).
+    - ``"patch"``: Patch pipeline for existing issues.
     - ``"code-review"``: Standalone review loop that does not require
       an issue.
 
@@ -150,8 +147,6 @@ def execute_adw_workflow(
             ``"main"`` and ``"patch"`` workflows; ignored for
             ``"code-review"``.
         adw_id: Optional workflow identifier (auto-generated if missing).
-        patch_mode: If True, use the patch pipeline.  Kept for backward
-            compatibility -- equivalent to ``workflow_type="patch"``.
         workflow_type: The type of workflow to execute.  One of
             ``"main"``, ``"patch"``, or ``"code-review"``.
         config: Optional configuration dict passed to the workflow
@@ -161,13 +156,6 @@ def execute_adw_workflow(
         Tuple of (success flag, workflow identifier).
     """
     workflow_id = adw_id or make_adw_id()
-
-    # Validate that patch_mode is not used with code-review workflow
-    if workflow_type == "code-review" and patch_mode:
-        raise ValueError(
-            "patch_mode cannot be used with workflow_type='code-review'. "
-            "Use patch_mode with 'main' or 'patch' workflow types only."
-        )
 
     # Route code-review workflows to the dedicated loop
     if workflow_type == "code-review":
@@ -180,12 +168,8 @@ def execute_adw_workflow(
     if issue_id is None:
         raise ValueError(f"issue_id is required for workflow_type={workflow_type!r}")
 
-    # Backward compatibility: patch_mode flag overrides workflow_type
-    if patch_mode:
-        pipeline = get_patch_pipeline()
-    else:
-        # Get the pipeline for the specified workflow type
-        pipeline = get_pipeline_for_type(workflow_type)
+    # Get the pipeline for the specified workflow type
+    pipeline = get_pipeline_for_type(workflow_type)
 
     success = execute_workflow(issue_id, workflow_id, pipeline=pipeline)
     return success, workflow_id
