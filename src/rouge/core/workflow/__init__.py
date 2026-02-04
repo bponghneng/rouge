@@ -16,7 +16,7 @@ Main components:
 - shared: Common constants and helper functions
 - types: Unified result types for consistent error handling
 - workflow_io: Shared I/O utilities for steps
-- workflow_registry: Feature-flagged workflow type registry (see ROUGE_USE_WORKFLOW_REGISTRY)
+- workflow_registry: Workflow type registry for pipeline routing
 """
 
 # Import and re-export public API for backward compatibility
