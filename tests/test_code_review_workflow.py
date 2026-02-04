@@ -1,8 +1,8 @@
-"""Tests for the code-review workflow: registry, pipeline, and loop behaviour.
+"""Tests for the codereview workflow: registry, pipeline, and loop behaviour.
 
 Complements tests in test_adw.py (loop orchestration) and
 test_workflow_registry.py (generic registry mechanics) by focusing on
-code-review-specific registration, pipeline composition, and integration
+codereview-specific registration, pipeline composition, and integration
 between the registry and the loop.
 """
 
@@ -37,25 +37,25 @@ def _reset_registry() -> Generator[None, None, None]:
 
 
 class TestCodeReviewRegistration:
-    """Verify the code-review workflow is registered in the global registry."""
+    """Verify the codereview workflow is registered in the global registry."""
 
     def test_code_review_is_registered(self):
-        """The default registry should contain a 'code-review' workflow type."""
+        """The default registry should contain a 'codereview' workflow type."""
         registry = get_workflow_registry()
 
-        assert registry.is_registered("code-review")
+        assert registry.is_registered("codereview")
 
     def test_code_review_in_list_types(self):
-        """'code-review' should appear in the registry's list of available types."""
+        """'codereview' should appear in the registry's list of available types."""
         registry = get_workflow_registry()
         types = registry.list_types()
 
-        assert "code-review" in types
+        assert "codereview" in types
 
     def test_registry_pipeline_returns_workflow_steps(self):
         """get_pipeline via the registry should return a list of WorkflowStep instances."""
         registry = get_workflow_registry()
-        pipeline = registry.get_pipeline("code-review")
+        pipeline = registry.get_pipeline("codereview")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) > 0
@@ -68,10 +68,10 @@ class TestCodeReviewRegistration:
 
 
 class TestCodeReviewPipeline:
-    """Verify the code-review pipeline contains the correct steps in order."""
+    """Verify the codereview pipeline contains the correct steps in order."""
 
     def test_pipeline_contains_three_steps(self):
-        """The code-review pipeline should contain exactly 3 steps."""
+        """The codereview pipeline should contain exactly 3 steps."""
         pipeline = get_code_review_pipeline()
 
         assert len(pipeline) == 3
@@ -102,7 +102,7 @@ class TestCodeReviewPipeline:
         assert len(pipeline[2].name) > 0
 
     def test_all_steps_are_best_effort(self):
-        """All steps in the code-review pipeline should be non-critical (best-effort).
+        """All steps in the codereview pipeline should be non-critical (best-effort).
 
         The review pipeline is used in a loop where individual step failures
         are tolerated; only the loop orchestrator decides whether to abort.
@@ -150,23 +150,23 @@ class TestCodeReviewPipeline:
 
 
 class TestGetPipelineForTypeCodeReview:
-    """Verify get_pipeline_for_type resolves 'code-review' correctly."""
+    """Verify get_pipeline_for_type resolves 'codereview' correctly."""
 
     def test_flag_disabled_returns_code_review_pipeline(self, monkeypatch):
-        """With registry flag disabled, 'code-review' should still resolve."""
+        """With registry flag disabled, 'codereview' should still resolve."""
         monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
 
-        pipeline = get_pipeline_for_type("code-review")
+        pipeline = get_pipeline_for_type("codereview")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) == 3
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
     def test_flag_enabled_returns_code_review_pipeline(self, monkeypatch):
-        """With registry flag enabled, 'code-review' should resolve via registry."""
+        """With registry flag enabled, 'codereview' should resolve via registry."""
         monkeypatch.setenv(WORKFLOW_REGISTRY_FLAG, "true")
 
-        pipeline = get_pipeline_for_type("code-review")
+        pipeline = get_pipeline_for_type("codereview")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) == 3
@@ -176,7 +176,7 @@ class TestGetPipelineForTypeCodeReview:
         """Pipeline from get_pipeline_for_type should match get_code_review_pipeline."""
         monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
 
-        from_helper = get_pipeline_for_type("code-review")
+        from_helper = get_pipeline_for_type("codereview")
         from_direct = get_code_review_pipeline()
 
         assert len(from_helper) == len(from_direct)
@@ -255,7 +255,7 @@ def _patch_loop_deps(monkeypatch, tmp_path, pipeline):
 class TestCodeReviewLoopBehaviour:
     """Loop behaviour tests complementary to test_adw.py.
 
-    These tests focus on code-review-specific scenarios not covered by
+    These tests focus on codereview-specific scenarios not covered by
     the generic loop tests in test_adw.py.
     """
 

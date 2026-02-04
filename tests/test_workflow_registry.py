@@ -168,16 +168,16 @@ class TestSingleton:
 
         assert first is second
 
-    def test_register_default_workflows_registers_main_patch_and_code_review(self):
+    def test_register_default_workflows_registers_main_patch_and_codereview(self):
         """
-        The default singleton has 'main', 'patch', and 'code-review'
+        The default singleton has 'main', 'patch', and 'codereview'
         workflow types registered.
         """
         registry = get_workflow_registry()
 
         assert registry.is_registered("main")
         assert registry.is_registered("patch")
-        assert registry.is_registered("code-review")
+        assert registry.is_registered("codereview")
 
     def test_reset_workflow_registry_clears_singleton(self):
         """reset_workflow_registry() causes get_workflow_registry() to create a new instance."""
