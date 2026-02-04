@@ -206,11 +206,6 @@ def _prepare_workflow(working_dir: Optional[Path], adw_id: Optional[str]) -> str
 def run(
     issue_id: int,
     adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
-    working_dir: Optional[Path] = typer.Option(
-        None,
-        "--working-dir",
-        help="Absolute directory to switch into before launching the workflow.",
-    ),
 ):
     """Execute the adw_plan_build workflow for an issue.
 
@@ -222,10 +217,9 @@ def run(
         rouge run 123
         rouge run 123 --adw-id abc12345
     """
-    adw_id = _prepare_workflow(working_dir, adw_id)
-
-    # Execute workflow
-    success, _workflow_id = execute_adw_workflow(issue_id, adw_id)
+    # Generate ADW ID if not provided
+    if not adw_id:
+        adw_id = make_adw_id()
 
     if not success:
         raise typer.Exit(1)
