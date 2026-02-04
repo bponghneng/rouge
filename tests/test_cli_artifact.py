@@ -120,7 +120,9 @@ class TestArtifactDeleteCommand:
         """Test artifact delete command when artifact doesn't exist."""
         with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create workflow directory but no artifact
-            (tmp_path / ".rouge" / "workflows" / "adw-delete-test").mkdir(parents=True, exist_ok=True)
+            (tmp_path / ".rouge" / "workflows" / "adw-delete-test").mkdir(
+                parents=True, exist_ok=True
+            )
 
             result = runner.invoke(app, ["artifact", "delete", "adw-delete-test", "issue"])
             assert result.exit_code == 1
