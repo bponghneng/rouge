@@ -2,8 +2,9 @@
 
 This step prepares the git environment for a workflow by:
 1. Checking out the default branch
-2. Resetting to the latest origin state
-3. Creating a new feature branch for the workflow
+2. Fetching the latest origin state
+3. Resetting to the latest origin state
+4. Creating a new feature branch for the workflow
 
 WARNING: This step uses destructive git operations (git reset --hard) which
 will discard any uncommitted changes. This is acceptable for worker environments
@@ -100,7 +101,24 @@ class SetupStep(WorkflowStep):
                 return StepResult.fail(error_msg)
             logger.debug("Checked out %s branch", default_branch)
 
-            # Step 2: Reset to origin state (destructive operation)
+            # Step 2: Fetch latest origin state
+            fetch_result = subprocess.run(
+                ["git", "fetch", "origin"],
+                capture_output=True,
+                text=True,
+                timeout=GIT_TIMEOUT,
+                cwd=repo_path,
+            )
+            if fetch_result.returncode != 0:
+                error_msg = (
+                    "git fetch origin failed "
+                    f"(exit code {fetch_result.returncode}): {fetch_result.stderr}"
+                )
+                logger.error(error_msg)
+                return StepResult.fail(error_msg)
+            logger.debug("Fetched latest origin state")
+
+            # Step 3: Reset to origin state (destructive operation)
             reset_result = subprocess.run(
                 ["git", "reset", "--hard", f"origin/{default_branch}"],
                 capture_output=True,
@@ -117,7 +135,7 @@ class SetupStep(WorkflowStep):
                 return StepResult.fail(error_msg)
             logger.debug("Reset to origin/%s", default_branch)
 
-            # Step 3: Create and checkout new workflow branch
+            # Step 4: Create and checkout new workflow branch
             branch_name = f"adw-{adw_id}"
             create_branch_result = subprocess.run(
                 ["git", "checkout", "-b", branch_name],

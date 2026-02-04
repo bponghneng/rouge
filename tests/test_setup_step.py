@@ -42,11 +42,16 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
     """Test successful git setup with all commands succeeding."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock all three git commands succeeding
+    # Mock all four git commands succeeding
     mock_checkout_result = Mock()
     mock_checkout_result.returncode = 0
     mock_checkout_result.stdout = ""
     mock_checkout_result.stderr = ""
+
+    mock_fetch_result = Mock()
+    mock_fetch_result.returncode = 0
+    mock_fetch_result.stdout = ""
+    mock_fetch_result.stderr = ""
 
     mock_reset_result = Mock()
     mock_reset_result.returncode = 0
@@ -60,6 +65,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
 
     mock_subprocess.side_effect = [
         mock_checkout_result,
+        mock_fetch_result,
         mock_reset_result,
         mock_create_branch_result,
     ]
@@ -69,7 +75,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
 
     assert result.success is True
     assert result.error is None
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
     # Verify git checkout main was called first
     checkout_call = mock_subprocess.call_args_list[0]
@@ -77,14 +83,20 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
     assert checkout_call[1]["cwd"] == "/path/to/repo"
     assert checkout_call[1]["timeout"] == GIT_TIMEOUT
 
-    # Verify git reset was called second
-    reset_call = mock_subprocess.call_args_list[1]
+    # Verify git fetch was called second
+    fetch_call = mock_subprocess.call_args_list[1]
+    assert fetch_call[0][0] == ["git", "fetch", "origin"]
+    assert fetch_call[1]["cwd"] == "/path/to/repo"
+    assert fetch_call[1]["timeout"] == GIT_TIMEOUT
+
+    # Verify git reset was called third
+    reset_call = mock_subprocess.call_args_list[2]
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/main"]
     assert reset_call[1]["cwd"] == "/path/to/repo"
     assert reset_call[1]["timeout"] == GIT_TIMEOUT
 
-    # Verify git checkout -b was called third
-    branch_call = mock_subprocess.call_args_list[2]
+    # Verify git checkout -b was called fourth
+    branch_call = mock_subprocess.call_args_list[3]
     assert branch_call[0][0] == ["git", "checkout", "-b", "adw-test123"]
     assert branch_call[1]["cwd"] == "/path/to/repo"
     assert branch_call[1]["timeout"] == GIT_TIMEOUT
@@ -119,7 +131,7 @@ def test_setup_step_custom_default_branch(
     assert checkout_call[0][0] == ["git", "checkout", "develop"]
 
     # Verify custom branch was used in reset
-    reset_call = mock_subprocess.call_args_list[1]
+    reset_call = mock_subprocess.call_args_list[2]
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/develop"]
 
 
@@ -150,7 +162,7 @@ def test_setup_step_default_branch_fallback(
     checkout_call = mock_subprocess.call_args_list[0]
     assert checkout_call[0][0] == ["git", "checkout", "main"]
 
-    reset_call = mock_subprocess.call_args_list[1]
+    reset_call = mock_subprocess.call_args_list[2]
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/main"]
 
 
@@ -199,7 +211,7 @@ def test_setup_step_destructive_ops_case_insensitive(
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "TRUE"})
@@ -223,7 +235,7 @@ def test_setup_step_destructive_ops_uppercase(
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
 
 # === Failure Handling Tests ===
@@ -260,18 +272,23 @@ def test_setup_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles git reset failure."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock checkout success, reset failure
+    # Mock checkout success, fetch success, reset failure
     mock_checkout_result = Mock()
     mock_checkout_result.returncode = 0
     mock_checkout_result.stdout = ""
     mock_checkout_result.stderr = ""
+
+    mock_fetch_result = Mock()
+    mock_fetch_result.returncode = 0
+    mock_fetch_result.stdout = ""
+    mock_fetch_result.stderr = ""
 
     mock_reset_result = Mock()
     mock_reset_result.returncode = 1
     mock_reset_result.stdout = ""
     mock_reset_result.stderr = "fatal: ambiguous argument 'origin/main'"
 
-    mock_subprocess.side_effect = [mock_checkout_result, mock_reset_result]
+    mock_subprocess.side_effect = [mock_checkout_result, mock_fetch_result, mock_reset_result]
 
     step = SetupStep()
     result = step.run(context)
@@ -280,7 +297,7 @@ def test_setup_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
     assert "git reset --hard origin/main failed" in result.error
     assert "exit code 1" in result.error
     assert "ambiguous argument" in result.error
-    assert mock_subprocess.call_count == 2  # Should stop after reset fails
+    assert mock_subprocess.call_count == 3  # Should stop after reset fails
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
@@ -290,11 +307,16 @@ def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path,
     """Test setup handles git checkout -b failure."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock checkout and reset success, branch creation failure
+    # Mock checkout, fetch, and reset success, branch creation failure
     mock_checkout_result = Mock()
     mock_checkout_result.returncode = 0
     mock_checkout_result.stdout = ""
     mock_checkout_result.stderr = ""
+
+    mock_fetch_result = Mock()
+    mock_fetch_result.returncode = 0
+    mock_fetch_result.stdout = ""
+    mock_fetch_result.stderr = ""
 
     mock_reset_result = Mock()
     mock_reset_result.returncode = 0
@@ -306,7 +328,12 @@ def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path,
     mock_branch_result.stdout = ""
     mock_branch_result.stderr = "fatal: A branch named 'adw-test123' already exists"
 
-    mock_subprocess.side_effect = [mock_checkout_result, mock_reset_result, mock_branch_result]
+    mock_subprocess.side_effect = [
+        mock_checkout_result,
+        mock_fetch_result,
+        mock_reset_result,
+        mock_branch_result,
+    ]
 
     step = SetupStep()
     result = step.run(context)
@@ -315,7 +342,7 @@ def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path,
     assert "git checkout -b adw-test123 failed" in result.error
     assert "exit code 128" in result.error
     assert "already exists" in result.error
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
 
 # === Timeout Handling Tests ===
@@ -347,14 +374,20 @@ def test_setup_step_reset_timeout(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles timeout on git reset."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock checkout success, reset timeout
+    # Mock checkout success, fetch success, reset timeout
     mock_checkout_result = Mock()
     mock_checkout_result.returncode = 0
     mock_checkout_result.stdout = ""
     mock_checkout_result.stderr = ""
 
+    mock_fetch_result = Mock()
+    mock_fetch_result.returncode = 0
+    mock_fetch_result.stdout = ""
+    mock_fetch_result.stderr = ""
+
     mock_subprocess.side_effect = [
         mock_checkout_result,
+        mock_fetch_result,
         subprocess.TimeoutExpired(
             cmd=["git", "reset", "--hard", "origin/main"], timeout=GIT_TIMEOUT
         ),
@@ -374,11 +407,16 @@ def test_setup_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path,
     """Test setup handles timeout on git checkout -b."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock checkout and reset success, branch creation timeout
+    # Mock checkout, fetch, and reset success, branch creation timeout
     mock_checkout_result = Mock()
     mock_checkout_result.returncode = 0
     mock_checkout_result.stdout = ""
     mock_checkout_result.stderr = ""
+
+    mock_fetch_result = Mock()
+    mock_fetch_result.returncode = 0
+    mock_fetch_result.stdout = ""
+    mock_fetch_result.stderr = ""
 
     mock_reset_result = Mock()
     mock_reset_result.returncode = 0
@@ -387,6 +425,7 @@ def test_setup_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path,
 
     mock_subprocess.side_effect = [
         mock_checkout_result,
+        mock_fetch_result,
         mock_reset_result,
         subprocess.TimeoutExpired(
             cmd=["git", "checkout", "-b", "adw-test123"], timeout=GIT_TIMEOUT
@@ -471,7 +510,7 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _moc
         result = step.run(context)
 
         assert result.success is True
-        branch_call = mock_subprocess.call_args_list[2]
+        branch_call = mock_subprocess.call_args_list[3]
         assert branch_call[0][0] == ["git", "checkout", "-b", expected_branch]
 
 
