@@ -223,7 +223,7 @@ def get_default_pipeline() -> List[WorkflowStep]:
         FetchIssueStep(),
         ClassifyStep(),
         BuildPlanStep(),
-        ImplementStep(),
+        ImplementStep(plan_step_name="Building implementation plan"),
         GenerateReviewStep(),
         AddressReviewStep(),
         CodeQualityStep(),
@@ -273,9 +273,10 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
 def get_patch_pipeline() -> List[WorkflowStep]:
     """Create the patch workflow pipeline.
 
-    The patch workflow is a subset of the default workflow, designed to process
-    patches against an existing issue that has already been through the main
-    workflow.
+    The patch workflow is a fully decoupled pipeline designed to process patch
+    issues independently. Each patch workflow receives its own unique ADW ID and
+    operates in a separate artifact directory, without accessing or depending on
+    any parent workflow's artifacts.
 
     Routing:
     --------
@@ -289,19 +290,26 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 
     Assumptions:
     - SetupStep is NOT needed: The repository is already set up from the main workflow
-    - ClassifyStep is NOT needed: The classification exists in parent workflow artifacts
-    - PR/MR creation steps are NOT needed: Patch commits will be added to the
-      existing PR/MR created by the main workflow
+    - ClassifyStep is NOT needed: The patch issue description is self-contained
+    - PR/MR creation steps are NOT needed: Patch commits are pushed to the
+      existing branch and the associated PR/MR updates automatically
+
+    Each patch workflow has a unique ADW ID and its own artifact directory. All
+    steps read and write artifacts within this directory; no artifacts are loaded
+    from any parent or prior workflow.
 
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch patch data; writes PatchArtifact only
-    2. BuildPatchPlanStep - Build a plan specific to the patch changes
-    3. ImplementStep - Implement using patch_plan (or fall back to plan from parent)
+    1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
+    2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
+       writes a standard PlanArtifact (no parent issue or plan is referenced)
+    3. ImplementStep - Implement the plan by loading PlanArtifact from the current
+       patch workflow's artifact directory
     4. GenerateReviewStep - Generate review of the implementation
     5. AddressReviewStep - Address any review feedback
     6. CodeQualityStep - Run code quality checks
     7. ValidateAcceptanceStep - Validate patch meets acceptance criteria
-    8. UpdatePRCommitsStep - Update existing PR with new commits (fails if no PR)
+    8. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
+       PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
@@ -318,7 +326,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
         BuildPatchPlanStep(),
-        ImplementStep(),
+        ImplementStep(plan_step_name="Building patch plan"),
         GenerateReviewStep(),
         AddressReviewStep(),
         CodeQualityStep(),
