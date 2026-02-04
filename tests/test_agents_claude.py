@@ -155,7 +155,16 @@ def test_save_prompt(tmp_path, monkeypatch):
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
         save_prompt("/implement plan.md", "test123", "ops")
 
-        expected_file = tmp_path / ".rouge" / "agents" / "logs" / "test123" / "ops" / "prompts" / "implement.txt"
+        expected_file = (
+            tmp_path
+            / ".rouge"
+            / "agents"
+            / "logs"
+            / "test123"
+            / "ops"
+            / "prompts"
+            / "implement.txt"
+        )
         assert expected_file.exists()
         assert expected_file.read_text() == "/implement plan.md"
 
@@ -163,7 +172,9 @@ def test_save_prompt(tmp_path, monkeypatch):
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_claude_agent_execute_prompt_success(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_claude_agent_execute_prompt_success(
+    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+):
     """Test successful ClaudeAgent execution."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -271,7 +282,9 @@ def test_claude_agent_execute_prompt_with_stream_handler(
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_claude_agent_execute_prompt_error_handling(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
+def test_claude_agent_execute_prompt_error_handling(
+    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
+):
     """Test ClaudeAgent error handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
