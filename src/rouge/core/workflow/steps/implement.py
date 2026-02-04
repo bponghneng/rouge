@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 class ImplementStep(WorkflowStep):
     """Execute implementation of the plan."""
 
-    def __init__(self, plan_step_name: str | None = None):
+    def __init__(self, plan_step_name: str | None = None) -> None:
         """Initialize ImplementStep.
 
         Args:

@@ -289,7 +289,6 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     status-based routing (which used 'pending' vs 'patch pending' statuses).
 
     Assumptions:
-    - SetupStep is NOT needed: The repository is already set up from the main workflow
     - ClassifyStep is NOT needed: The patch issue description is self-contained
     - PR/MR creation steps are NOT needed: Patch commits are pushed to the
       existing branch and the associated PR/MR updates automatically
@@ -299,16 +298,17 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     from any parent or prior workflow.
 
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
-    2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
+    1. SetupStep - Initialize repository and git state for the patch workflow
+    2. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
+    3. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
        writes a standard PlanArtifact (no parent issue or plan is referenced)
-    3. ImplementStep - Implement the plan by loading PlanArtifact from the current
+    4. ImplementStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
-    4. GenerateReviewStep - Generate review of the implementation
-    5. AddressReviewStep - Address any review feedback
-    6. CodeQualityStep - Run code quality checks
-    7. ValidateAcceptanceStep - Validate patch meets acceptance criteria
-    8. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
+    5. GenerateReviewStep - Generate review of the implementation
+    6. AddressReviewStep - Address any review feedback
+    7. CodeQualityStep - Run code quality checks
+    8. ValidateAcceptanceStep - Validate patch meets acceptance criteria
+    9. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
@@ -321,9 +321,11 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.setup import SetupStep
     from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 
     steps: List[WorkflowStep] = [
+        SetupStep(),
         FetchPatchStep(),
         BuildPatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
