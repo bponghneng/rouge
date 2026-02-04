@@ -24,7 +24,7 @@ from pathlib import Path
 from types import FrameType
 
 from rouge.core.database import init_db_env
-from rouge.core.utils import make_adw_id
+from rouge.core.utils import _get_log_level, make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -59,6 +59,9 @@ class IssueWorker:
                 else:
                     # Fallback to default load_dotenv behavior if not found
                     init_db_env()
+        else:
+            # Always load .env from current directory when no --working-dir is set
+            init_db_env()
 
         self.logger = self.setup_logging()
         if self._working_dir_note:
@@ -92,9 +95,9 @@ class IssueWorker:
         file_handler = logging.FileHandler(log_file)
         file_handler.setLevel(logging.DEBUG)
 
-        # Console handler
+        # Console handler - use _get_log_level() to respect ROUGE_LOG_LEVEL env var
         console_handler = logging.StreamHandler()
-        console_handler.setLevel(getattr(logging, self.config.log_level))
+        console_handler.setLevel(_get_log_level())
 
         # Formatter
         formatter = logging.Formatter(
