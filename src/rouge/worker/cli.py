@@ -3,7 +3,6 @@
 import argparse
 import os
 import sys
-from pathlib import Path
 
 from .config import WorkerConfig
 from .worker import IssueWorker
@@ -67,13 +66,6 @@ Examples:
     )
 
     parser.add_argument(
-        "--working-dir",
-        type=Path,
-        default=None,
-        help="Absolute directory the worker should switch to before starting.",
-    )
-
-    parser.add_argument(
         "--workflow-timeout",
         type=int,
         default=default_timeout,
@@ -87,7 +79,6 @@ Examples:
         worker_id=args.worker_id,
         poll_interval=args.poll_interval,
         log_level=args.log_level,
-        working_dir=args.working_dir,
         workflow_timeout=args.workflow_timeout,
     )
 
