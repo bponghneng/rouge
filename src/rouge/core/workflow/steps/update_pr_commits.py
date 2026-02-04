@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import shutil
 import subprocess
 from typing import Optional, Tuple
 
@@ -48,9 +47,8 @@ class UpdatePRCommitsStep(WorkflowStep):
     This step is used in patch workflows to add new commits to an existing
     PR/MR. It does not create new PRs/MRs.
 
-    Platform detection is performed via git CLI tools (``gh`` for GitHub,
-    ``glab`` for GitLab) rather than loading artifacts from a parent workflow,
-    allowing patch workflows to operate independently.
+    Platform detection is driven by ``DEV_SEC_OPS_PLATFORM`` and uses the
+    corresponding git CLI tool (``gh`` for GitHub, ``glab`` for GitLab).
     """
 
     @property
@@ -65,8 +63,9 @@ class UpdatePRCommitsStep(WorkflowStep):
     def _detect_pr_platform(self, repo_path: str) -> Tuple[Optional[str], Optional[str]]:
         """Detect the existing PR/MR platform and URL using git CLI tools.
 
-        Tries ``gh pr view`` (GitHub) first, then ``glab mr view`` (GitLab).
-        Returns the first platform that succeeds.
+        Uses DEV_SEC_OPS_PLATFORM to select either GitHub or GitLab and
+        invokes the corresponding CLI. If the env var is missing or invalid,
+        returns (None, None).
 
         Args:
             repo_path: Path to the repository root
@@ -75,8 +74,14 @@ class UpdatePRCommitsStep(WorkflowStep):
             Tuple of (platform, url) where platform is "github" or "gitlab",
             or (None, None) if no PR/MR is detected or no CLI tool is available.
         """
-        # Try GitHub first via gh CLI
-        if shutil.which("gh"):
+        platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
+        if platform not in {"github", "gitlab"}:
+            logger.warning(
+                "DEV_SEC_OPS_PLATFORM is not set to a supported platform (github/gitlab)"
+            )
+            return (None, None)
+
+        if platform == "github":
             github_pat = os.environ.get("GITHUB_PAT")
             env = os.environ.copy()
             if github_pat:
@@ -103,10 +108,8 @@ class UpdatePRCommitsStep(WorkflowStep):
                 OSError,
                 subprocess.SubprocessError,
             ):
-                logger.debug("gh pr view failed or timed out, trying GitLab")
-
-        # Try GitLab via glab CLI
-        if shutil.which("glab"):
+                logger.debug("gh pr view failed or timed out")
+        else:
             gitlab_pat = os.environ.get("GITLAB_PAT")
             env = os.environ.copy()
             if gitlab_pat:
@@ -140,8 +143,8 @@ class UpdatePRCommitsStep(WorkflowStep):
     def run(self, context: WorkflowContext) -> StepResult:
         """Push new commits to an existing PR/MR.
 
-        Detects the PR/MR platform by running git CLI tools (``gh`` or ``glab``)
-        rather than loading artifacts from a parent workflow.
+        Detects the PR/MR platform by running the CLI indicated by
+        DEV_SEC_OPS_PLATFORM rather than loading artifacts from a parent workflow.
 
         Args:
             context: Workflow context
@@ -150,23 +153,6 @@ class UpdatePRCommitsStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         repo_path = get_repo_path()
-
-        # Check if any CLI tool is available
-        has_gh = shutil.which("gh") is not None
-        has_glab = shutil.which("glab") is not None
-
-        if not has_gh and not has_glab:
-            skip_msg = (
-                "PR update skipped: neither gh (GitHub) nor glab (GitLab) " "CLI found in PATH"
-            )
-            logger.warning(skip_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                skip_msg,
-                {"output": "pr-update-skipped", "reason": skip_msg},
-            )
-            return StepResult.ok(None)
 
         # Detect platform and PR/MR URL
         platform, pr_url = self._detect_pr_platform(repo_path)
