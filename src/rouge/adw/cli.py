@@ -28,10 +28,7 @@ def main(
         "main",
         "--workflow-type",
         "-w",
-        help=(
-            "Workflow type to execute (e.g. main, patch). "
-            "Set ROUGE_USE_WORKFLOW_REGISTRY=true to enable full registry routing."
-        ),
+        help="Workflow type to execute (e.g. main, patch, code-review).",
     ),
 ) -> None:
     """
