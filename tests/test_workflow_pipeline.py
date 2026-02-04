@@ -1,5 +1,5 @@
 import logging
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,6 +27,8 @@ from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestSt
 from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
 from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 from rouge.core.workflow.types import StepResult
+
+_WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
 
 
 class DummyStep(WorkflowStep):
@@ -154,8 +156,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step1, step2])
 
         with caplog.at_level(logging.INFO):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-adw-1")
 
         assert success
@@ -170,8 +171,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step1, step2, step3])
 
         with caplog.at_level(logging.ERROR):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-adw-2")
 
         assert not success
@@ -186,8 +186,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step1, step2, step3])
 
         with caplog.at_level(logging.WARNING):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-adw-3")
 
         assert success
@@ -202,8 +201,7 @@ class TestWorkflowRunner:
         mock_step.run.return_value = StepResult.ok(None)
 
         runner = WorkflowRunner([mock_step])
-        with pytest.MonkeyPatch.context() as mp:
-            mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             runner.run(issue_id=123, adw_id="test-adw-4")
 
         mock_step.run.assert_called_once()
@@ -221,8 +219,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step_a, step_b, step_c])
 
         with caplog.at_level(logging.INFO):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-rerun-signal")
 
         assert success
@@ -243,8 +240,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([target_step, rerun_step, final_step])
 
         with caplog.at_level(logging.WARNING):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-max-rerun")
 
         assert success
@@ -268,8 +264,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step_a, rerun_b, step_c, rerun_d, step_e])
 
         with caplog.at_level(logging.INFO):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-multi-rerun")
 
         assert success
@@ -293,8 +288,7 @@ class TestWorkflowRunner:
         runner = WorkflowRunner([step1, bad_rerun, step3])
 
         with caplog.at_level(logging.WARNING):
-            with pytest.MonkeyPatch.context() as mp:
-                mp.setenv("ROUGE_DATA_DIR", str(tmp_path))
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-invalid-rerun")
 
         assert success

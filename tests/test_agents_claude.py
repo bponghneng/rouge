@@ -15,6 +15,8 @@ from rouge.core.agents.claude import (
     save_prompt,
 )
 
+_WORKING_DIR_PATCH = "rouge.core.workflow.shared.get_working_dir"
+
 
 def test_check_claude_installed_success():
     """Test checking for Claude Code CLI success."""
@@ -150,20 +152,20 @@ def test_iter_assistant_items_includes_task_tool_use():
 
 def test_save_prompt(tmp_path, monkeypatch):
     """Test saving prompt to file."""
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
+        save_prompt("/implement plan.md", "test123", "ops")
 
-    save_prompt("/implement plan.md", "test123", "ops")
-
-    expected_file = tmp_path / "test123" / "ops" / "prompts" / "implement.txt"
-    assert expected_file.exists()
-    assert expected_file.read_text() == "/implement plan.md"
+        expected_file = tmp_path / ".rouge" / "agents" / "logs" / "test123" / "ops" / "prompts" / "implement.txt"
+        assert expected_file.exists()
+        assert expected_file.read_text() == "/implement plan.md"
 
 
+@patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_claude_agent_execute_prompt_success(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_claude_agent_execute_prompt_success(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
     """Test successful ClaudeAgent execution."""
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
     # Mock successful execution
@@ -219,13 +221,14 @@ def test_claude_agent_execute_prompt_cli_not_installed(mock_check):
     assert response.error_detail is not None
 
 
+@patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_with_stream_handler(
-    mock_popen, mock_check, tmp_path, monkeypatch
+    mock_popen, mock_check, mock_wd, tmp_path, monkeypatch
 ):
     """Test ClaudeAgent calls stream handler."""
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
     result_msg = {
@@ -265,11 +268,12 @@ def test_claude_agent_execute_prompt_with_stream_handler(
     assert len(handler_calls) > 0
 
 
+@patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
-def test_claude_agent_execute_prompt_error_handling(mock_popen, mock_check, tmp_path, monkeypatch):
+def test_claude_agent_execute_prompt_error_handling(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
     """Test ClaudeAgent error handling."""
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
     result_msg = {

@@ -1,6 +1,7 @@
 """Tests for utility functions."""
 
 import logging
+from unittest.mock import patch
 
 from rouge.core.utils import get_logger, make_adw_id, setup_logger
 
@@ -21,51 +22,49 @@ def test_make_adw_id_unique():
 
 def test_setup_logger(tmp_path, monkeypatch):
     """Test logger setup with temp directory."""
-    # Use temp directory for agents
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    # Mock get_working_dir to return tmp_path so logs go under tmp_path/.rouge/agents/logs/
+    with patch("rouge.core.workflow.shared.get_working_dir", return_value=str(tmp_path)):
+        adw_id = "test1234"
+        logger = setup_logger(adw_id, "test_trigger")
 
-    adw_id = "test1234"
-    logger = setup_logger(adw_id, "test_trigger")
+        assert logger.name == f"rouge_{adw_id}"
+        assert logger.level == logging.DEBUG
 
-    assert logger.name == f"rouge_{adw_id}"
-    assert logger.level == logging.DEBUG
+        # Check log directory was created
+        expected_dir = tmp_path / ".rouge" / "agents" / "logs" / adw_id / "test_trigger"
+        assert expected_dir.exists()
 
-    # Check log directory was created
-    expected_dir = tmp_path / adw_id / "test_trigger"
-    assert expected_dir.exists()
+        # Check log file was created
+        log_file = expected_dir / "execution.log"
+        assert log_file.exists()
 
-    # Check log file was created
-    log_file = expected_dir / "execution.log"
-    assert log_file.exists()
+        # Check handlers
+        assert len(logger.handlers) == 2
 
-    # Check handlers
-    assert len(logger.handlers) == 2
-
-    # Clean up - close handlers before clearing
-    for handler in logger.handlers:
-        handler.close()
-    logger.handlers.clear()
+        # Clean up - close handlers before clearing
+        for handler in logger.handlers:
+            handler.close()
+        logger.handlers.clear()
 
 
 def test_setup_logger_file_handler(tmp_path, monkeypatch):
     """Test logger file handler writes correctly."""
-    monkeypatch.setenv("ROUGE_AGENTS_DIR", str(tmp_path))
+    with patch("rouge.core.workflow.shared.get_working_dir", return_value=str(tmp_path)):
+        adw_id = "test5678"
+        logger = setup_logger(adw_id)
+        logger.debug("Debug message")
+        logger.info("Info message")
 
-    adw_id = "test5678"
-    logger = setup_logger(adw_id)
-    logger.debug("Debug message")
-    logger.info("Info message")
+        log_file = tmp_path / ".rouge" / "agents" / "logs" / adw_id / "adw_plan_build" / "execution.log"
+        content = log_file.read_text()
 
-    log_file = tmp_path / adw_id / "adw_plan_build" / "execution.log"
-    content = log_file.read_text()
+        assert "Debug message" in content
+        assert "Info message" in content
 
-    assert "Debug message" in content
-    assert "Info message" in content
-
-    # Clean up - close handlers before clearing
-    for handler in logger.handlers:
-        handler.close()
-    logger.handlers.clear()
+        # Clean up - close handlers before clearing
+        for handler in logger.handlers:
+            handler.close()
+        logger.handlers.clear()
 
 
 def test_get_logger():
