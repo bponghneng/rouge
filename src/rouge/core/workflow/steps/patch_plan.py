@@ -6,83 +6,16 @@ artifacts (original issue or original plan).
 """
 
 import logging
-from collections.abc import Callable
-from typing import Optional
 
-from rouge.core.agent import execute_template
-from rouge.core.agents.claude import ClaudeAgentTemplateRequest
-from rouge.core.models import CommentPayload, Issue
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import (
-    PlanArtifact,
-)
-from rouge.core.workflow.shared import AGENT_PATCH_PLANNER
+from rouge.core.workflow.artifacts import PlanArtifact
+from rouge.core.workflow.plan import build_plan
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import PlanData, StepResult
+from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
-
-
-def build_patch_plan(
-    issue: Issue,
-    adw_id: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
-) -> StepResult[PlanData]:
-    """Build a standalone implementation plan for a patch issue.
-
-    Args:
-        issue: The patch issue (type='patch') with its own description
-        adw_id: Workflow ID for tracking
-        stream_handler: Optional callback for streaming output
-
-    Returns:
-        StepResult with PlanData containing the implementation plan
-    """
-    # Build prompt from the patch issue description
-    patch_context = f"""## Issue Description
-{issue.description}
-"""
-
-    request = ClaudeAgentTemplateRequest(
-        agent_name=AGENT_PATCH_PLANNER,
-        slash_command="/adw-patch-plan",
-        args=[patch_context],
-        adw_id=adw_id,
-        issue_id=issue.id,
-        model="sonnet",
-    )
-    logger.debug(
-        "build_patch_plan request: %s",
-        request.model_dump_json(indent=2, by_alias=True),
-    )
-
-    # Execute template without requiring JSON - plan is markdown output
-    response = execute_template(request, stream_handler=stream_handler, require_json=False)
-    logger.debug(
-        "build_patch_plan response: %s",
-        response.model_dump_json(indent=2, by_alias=True),
-    )
-
-    if not response.success:
-        return StepResult.fail(response.output or "Unknown error")
-
-    # Guard against None output even when success is True
-    if response.output is None:
-        error_msg = "Patch plan agent returned success but no output"
-        logger.error(error_msg)
-        return StepResult.fail(error_msg, session_id=response.session_id)
-
-    # Build PlanData from response - generate summary from issue description
-    summary = f"Plan for patch: {issue.description[:100]}"
-    return StepResult.ok(
-        PlanData(
-            plan=response.output,
-            summary=summary,
-            session_id=response.session_id,
-        ),
-        session_id=response.session_id,
-    )
 
 
 class BuildPatchPlanStep(WorkflowStep):
@@ -91,7 +24,7 @@ class BuildPatchPlanStep(WorkflowStep):
     This step builds an implementation plan directly from the patch issue
     description, without referencing any parent workflow artifacts. It:
     1. Uses the patch issue from context (set by FetchPatchStep on context.issue)
-    2. Generates a standalone implementation plan via the patch planner agent
+    2. Generates a standalone implementation plan via the shared plan builder
     3. Stores the result in context and as a PlanArtifact
     """
 
@@ -126,11 +59,7 @@ class BuildPatchPlanStep(WorkflowStep):
         plan_handler = make_progress_comment_handler(issue.id, context.adw_id)
 
         # Build standalone plan from patch issue description
-        plan_response = build_patch_plan(
-            issue,
-            context.adw_id,
-            stream_handler=plan_handler,
-        )
+        plan_response = build_plan(issue, "/adw-patch-plan", context.adw_id, plan_handler)
 
         if not plan_response.success:
             logger.error("Error building patch plan: %s", plan_response.error)
@@ -152,22 +81,23 @@ class BuildPatchPlanStep(WorkflowStep):
             context.artifact_store.write_artifact(artifact)
             logger.debug("Saved plan artifact for workflow %s", context.adw_id)
 
-        # Emit progress comment with plan summary
-        plan_data_result = plan_response.data
-        comment_text = (
-            f"Patch plan created: {plan_data_result.summary}"
-            if plan_data_result
-            else "Patch plan created"
+        # Build progress comment from parsed plan data
+        parsed_data = plan_response.metadata.get("parsed_data", {})
+        # Extract title from one of: chore, bug, feature keys
+        title = (
+            parsed_data.get("chore")
+            or parsed_data.get("bug")
+            or parsed_data.get("feature")
+            or "Implementation plan created"
         )
+        summary = parsed_data.get("summary", "")
+        comment_text = f"{title}\n\n{summary}" if summary else title
 
         payload = CommentPayload(
             issue_id=issue.id,
             adw_id=context.adw_id,
             text=comment_text,
-            raw={
-                "issue_id": issue.id,
-                "issue_description": issue.description,
-            },
+            raw={"text": comment_text, "parsed": parsed_data},
             source="system",
             kind="workflow",
         )
@@ -177,5 +107,4 @@ class BuildPatchPlanStep(WorkflowStep):
         else:
             logger.error(msg)
 
-        # Return the result from build_patch_plan to preserve session_id
-        return plan_response
+        return StepResult.ok(None)

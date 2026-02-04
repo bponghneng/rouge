@@ -8,7 +8,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
-from rouge.core.workflow.types import ClassifyData, ClassifySlashCommand, StepResult
+from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def classify_issue(
     if normalized_level not in valid_levels:
         return StepResult.fail(f"Invalid complexity level selected: {complexity_level}")
 
-    triage_command = cast(ClassifySlashCommand, f"/adw-{normalized_type}-plan")
+    triage_command = cast(PlanSlashCommand, f"/adw-{normalized_type}-plan")
     normalized_classification = {
         "type": normalized_type,
         "level": normalized_level,

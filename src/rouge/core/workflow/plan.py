@@ -8,7 +8,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.types import ClassifySlashCommand, PlanData, StepResult
+from rouge.core.workflow.types import PlanData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ PLAN_REQUIRED_FIELDS = {
 
 def build_plan(
     issue: Issue,
-    command: ClassifySlashCommand,
+    command: PlanSlashCommand,
     adw_id: str,
     stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[PlanData]:
@@ -31,7 +31,7 @@ def build_plan(
 
     Args:
         issue: The Rouge issue to plan for
-        command: The triage command to use (e.g., /triage:feature)
+        command: The planning command to use (e.g., /adw-feature-plan)
         adw_id: Workflow ID for tracking
         stream_handler: Optional callback for streaming output
 
