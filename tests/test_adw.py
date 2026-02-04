@@ -71,7 +71,7 @@ def test_execute_adw_workflow_patch_type(monkeypatch):
 
 
 def test_execute_adw_workflow_code_review_routes_to_loop(monkeypatch):
-    """workflow_type='code-review' should delegate to execute_code_review_loop."""
+    """workflow_type='codereview' should delegate to execute_code_review_loop."""
     calls = {}
 
     def fake_loop(workflow_id, config=None):
@@ -83,7 +83,7 @@ def test_execute_adw_workflow_code_review_routes_to_loop(monkeypatch):
     success, workflow_id = execute_adw_workflow(
         issue_id=None,
         adw_id="cr-route-001",
-        workflow_type="code-review",
+        workflow_type="codereview",
         config={"base_commit": "abc123"},
     )
 

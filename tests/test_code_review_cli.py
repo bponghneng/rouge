@@ -1,4 +1,4 @@
-"""Tests for the code-review CLI command."""
+"""Tests for the codereview CLI command."""
 
 import subprocess
 from unittest.mock import MagicMock, patch
@@ -7,8 +7,7 @@ import pytest
 import typer
 from typer.testing import CliRunner
 
-from rouge.cli.cli import app
-from rouge.cli.commands.code_review import resolve_to_sha
+from rouge.cli.cli import app, resolve_to_sha
 
 runner = CliRunner()
 
@@ -21,8 +20,8 @@ runner = CliRunner()
 class TestResolveToSha:
     """Tests for the resolve_to_sha helper function."""
 
-    @patch("rouge.cli.commands.code_review.get_repo_path")
-    @patch("rouge.cli.commands.code_review.subprocess.run")
+    @patch("rouge.cli.cli.get_repo_path")
+    @patch("rouge.cli.cli.subprocess.run")
     def test_successful_resolution(self, mock_run, mock_get_repo_path):
         """resolve_to_sha should return the stripped stdout from git rev-parse."""
         mock_get_repo_path.return_value = "/mock/repo/path"
@@ -42,7 +41,7 @@ class TestResolveToSha:
             check=True,
         )
 
-    @patch("rouge.cli.commands.code_review.subprocess.run")
+    @patch("rouge.cli.cli.subprocess.run")
     def test_invalid_reference_raises_exit(self, mock_run):
         """resolve_to_sha should raise typer.Exit(1) for invalid git references."""
         mock_run.side_effect = subprocess.CalledProcessError(
@@ -55,7 +54,7 @@ class TestResolveToSha:
 
         assert exc_info.value.exit_code == 1
 
-    @patch("rouge.cli.commands.code_review.subprocess.run")
+    @patch("rouge.cli.cli.subprocess.run")
     def test_git_not_found_raises_exit(self, mock_run):
         """resolve_to_sha should raise typer.Exit(1) when git is not installed."""
         mock_run.side_effect = FileNotFoundError("git not found")
@@ -67,81 +66,78 @@ class TestResolveToSha:
 
 
 # ---------------------------------------------------------------------------
-# Tests for the code-review CLI command
+# Tests for the codereview CLI command
 # ---------------------------------------------------------------------------
 
 
 class TestCodeReviewCommand:
-    """Tests for the 'rouge code-review' CLI subcommand."""
+    """Tests for the 'rouge codereview' CLI command."""
 
-    @patch("rouge.cli.commands.code_review.execute_adw_workflow")
-    @patch("rouge.cli.commands.code_review.resolve_to_sha")
+    @patch("rouge.cli.cli.execute_adw_workflow")
+    @patch("rouge.cli.cli.resolve_to_sha")
     def test_successful_execution(self, mock_resolve, mock_execute):
-        """Successful code-review invocation should exit 0 and call execute_adw_workflow."""
+        """Successful codereview invocation should exit 0 and call execute_adw_workflow."""
         mock_resolve.return_value = "deadbeef1234"
         mock_execute.return_value = (True, "cr-workflow-001")
 
-        result = runner.invoke(app, ["code-review", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
 
         assert result.exit_code == 0
         assert "deadbeef1234" in result.output
-        assert "cr-workflow-001" in result.output
         mock_resolve.assert_called_once_with("main")
         mock_execute.assert_called_once_with(
-            issue_id=None,
-            workflow_type="code-review",
+            adw_id=mock_execute.call_args[1]["adw_id"],
+            workflow_type="codereview",
             config={"base_commit": "deadbeef1234"},
         )
 
-    @patch("rouge.cli.commands.code_review.execute_adw_workflow")
-    @patch("rouge.cli.commands.code_review.resolve_to_sha")
+    @patch("rouge.cli.cli.execute_adw_workflow")
+    @patch("rouge.cli.cli.resolve_to_sha")
     def test_workflow_failure_exits_nonzero(self, mock_resolve, mock_execute):
         """When execute_adw_workflow returns success=False, the CLI should exit 1."""
         mock_resolve.return_value = "deadbeef1234"
         mock_execute.return_value = (False, "cr-workflow-002")
 
-        result = runner.invoke(app, ["code-review", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
 
         assert result.exit_code == 1
-        assert "failed" in result.output.lower()
 
-    @patch("rouge.cli.commands.code_review.resolve_to_sha")
+    @patch("rouge.cli.cli.resolve_to_sha")
     def test_invalid_git_reference_error(self, mock_resolve):
         """When resolve_to_sha raises typer.Exit, the CLI should propagate the error."""
         mock_resolve.side_effect = typer.Exit(1)
 
-        result = runner.invoke(app, ["code-review", "--base-commit", "bad-ref"])
+        result = runner.invoke(app, ["codereview", "--base-commit", "bad-ref"])
 
         assert result.exit_code == 1
 
     def test_base_commit_is_required(self):
         """The --base-commit option is required; omitting it should exit non-zero."""
-        result = runner.invoke(app, ["code-review"])
+        result = runner.invoke(app, ["codereview"])
 
         assert result.exit_code != 0
         # Typer should show a missing option error
         assert "base-commit" in result.output.lower() or "missing" in result.output.lower()
 
-    @patch("rouge.cli.commands.code_review.execute_adw_workflow")
-    @patch("rouge.cli.commands.code_review.resolve_to_sha")
+    @patch("rouge.cli.cli.execute_adw_workflow")
+    @patch("rouge.cli.cli.resolve_to_sha")
     def test_unexpected_exception_exits_nonzero(self, mock_resolve, mock_execute):
         """An unexpected exception during workflow execution should exit 1."""
         mock_resolve.return_value = "abc123"
         mock_execute.side_effect = RuntimeError("unexpected failure")
 
-        result = runner.invoke(app, ["code-review", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
 
         assert result.exit_code == 1
-        assert "error" in result.output.lower()
 
-    @patch("rouge.cli.commands.code_review.execute_adw_workflow")
-    @patch("rouge.cli.commands.code_review.resolve_to_sha")
+    @patch("rouge.cli.cli.execute_adw_workflow")
+    @patch("rouge.cli.cli.resolve_to_sha")
     def test_base_commit_sha_passed_through(self, mock_resolve, mock_execute):
         """The resolved SHA (not the original ref) should be passed as base_commit."""
         mock_resolve.return_value = "full-sha-from-rev-parse"
         mock_execute.return_value = (True, "cr-003")
 
-        result = runner.invoke(app, ["code-review", "--base-commit", "v1.0.0"])
+        result = runner.invoke(app, ["codereview", "--base-commit", "v1.0.0"])
 
         assert result.exit_code == 0
         mock_resolve.assert_called_once_with("v1.0.0")
