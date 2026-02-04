@@ -2,6 +2,7 @@
 
 import json
 from io import StringIO
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from rouge.core.agents.base import AgentExecuteRequest
@@ -150,7 +151,7 @@ def test_iter_assistant_items_includes_task_tool_use():
     assert items[1]["input"] == {"action": "create", "task_id": "task-123"}
 
 
-def test_save_prompt(tmp_path):
+def test_save_prompt(tmp_path: Path) -> None:
     """Test saving prompt to file."""
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
         save_prompt("/implement plan.md", "test123", "ops")
@@ -173,8 +174,8 @@ def test_save_prompt(tmp_path):
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_success(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test successful ClaudeAgent execution."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -214,7 +215,7 @@ def test_claude_agent_execute_prompt_success(
 
 
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
-def test_claude_agent_execute_prompt_cli_not_installed(mock_check):
+def test_claude_agent_execute_prompt_cli_not_installed(mock_check: Mock) -> None:
     """Test ClaudeAgent handles CLI not installed."""
     mock_check.return_value = "Error: Claude Code CLI is not installed"
 
@@ -236,8 +237,8 @@ def test_claude_agent_execute_prompt_cli_not_installed(mock_check):
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_with_stream_handler(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test ClaudeAgent calls stream handler."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -283,8 +284,8 @@ def test_claude_agent_execute_prompt_with_stream_handler(
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_claude_agent_execute_prompt_error_handling(
-    mock_popen, mock_check, mock_wd, tmp_path
-):
+    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
     """Test ClaudeAgent error handling."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
