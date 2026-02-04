@@ -1,4 +1,4 @@
-"""Implementation step implementations."""
+"""Implementation step."""
 
 import logging
 
@@ -6,7 +6,6 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     ImplementationArtifact,
-    PatchPlanArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.implement import implement_plan
@@ -18,6 +17,15 @@ logger = logging.getLogger(__name__)
 
 class ImplementStep(WorkflowStep):
     """Execute implementation of the plan."""
+
+    def __init__(self, plan_step_name: str = "Building patch plan"):
+        """Initialize ImplementStep.
+
+        Args:
+            plan_step_name: Name of the preceding plan step for rerun messages.
+                Defaults to "Building patch plan" for backward compatibility.
+        """
+        self.plan_step_name = plan_step_name
 
     @property
     def name(self) -> str:
@@ -32,29 +40,21 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load patch_plan first (for patch workflows), fall back to plan
-        patch_plan_data = context.load_artifact_if_missing(
-            "patch_plan_data",
-            "patch_plan",
-            PatchPlanArtifact,
-            lambda a: a.patch_plan_data,
+        # Load plan from current workflow artifacts
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
         )
-
-        if patch_plan_data is not None:
-            plan_text = patch_plan_data.patch_plan_content
-        else:
-            # Fall back to original plan
-            plan_data = context.load_artifact_if_missing(
-                "plan_data",
-                "plan",
-                PlanArtifact,
-                lambda a: a.plan_data,
-            )
-            plan_text = plan_data.plan if plan_data is not None else None
+        plan_text = plan_data.plan if plan_data is not None else None
 
         if plan_text is None:
             logger.error("Cannot implement: no plan available")
-            return StepResult.fail("Cannot implement: no plan available")
+            return StepResult.fail(
+                "Cannot implement: no plan available",
+                rerun_from=self.plan_step_name,
+            )
 
         implement_response = implement_plan(plan_text, context.require_issue_id, context.adw_id)
 
