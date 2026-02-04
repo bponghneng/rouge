@@ -1,7 +1,7 @@
 """Tests for the codereview CLI command."""
 
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 import typer
@@ -86,7 +86,7 @@ class TestCodeReviewCommand:
         assert "deadbeef1234" in result.output
         mock_resolve.assert_called_once_with("main")
         mock_execute.assert_called_once_with(
-            adw_id=mock_execute.call_args[1]["adw_id"],
+            adw_id=ANY,
             workflow_type="codereview",
             config={"base_commit": "deadbeef1234"},
         )
