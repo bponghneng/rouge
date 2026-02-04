@@ -1,8 +1,8 @@
-"""Tests for the code-review workflow: registry, pipeline, and loop behaviour.
+"""Tests for the codereview workflow: registry, pipeline, and loop behaviour.
 
 Complements tests in test_adw.py (loop orchestration) and
 test_workflow_registry.py (generic registry mechanics) by focusing on
-code-review-specific registration, pipeline composition, and integration
+codereview-specific registration, pipeline composition, and integration
 between the registry and the loop.
 """
 
@@ -36,25 +36,25 @@ def _reset_registry() -> Generator[None, None, None]:
 
 
 class TestCodeReviewRegistration:
-    """Verify the code-review workflow is registered in the global registry."""
+    """Verify the codereview workflow is registered in the global registry."""
 
-    def test_code_review_is_registered(self):
-        """The default registry should contain a 'code-review' workflow type."""
+    def test_codereview_is_registered(self):
+        """The default registry should contain a 'codereview' workflow type."""
         registry = get_workflow_registry()
 
-        assert registry.is_registered("code-review")
+        assert registry.is_registered("codereview")
 
-    def test_code_review_in_list_types(self):
-        """'code-review' should appear in the registry's list of available types."""
+    def test_codereview_in_list_types(self):
+        """'codereview' should appear in the registry's list of available types."""
         registry = get_workflow_registry()
         types = registry.list_types()
 
-        assert "code-review" in types
+        assert "codereview" in types
 
     def test_registry_pipeline_returns_workflow_steps(self):
         """get_pipeline via the registry should return a list of WorkflowStep instances."""
         registry = get_workflow_registry()
-        pipeline = registry.get_pipeline("code-review")
+        pipeline = registry.get_pipeline("codereview")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) > 0
@@ -67,10 +67,10 @@ class TestCodeReviewRegistration:
 
 
 class TestCodeReviewPipeline:
-    """Verify the code-review pipeline contains the correct steps in order."""
+    """Verify the codereview pipeline contains the correct steps in order."""
 
     def test_pipeline_contains_three_steps(self):
-        """The code-review pipeline should contain exactly 3 steps."""
+        """The codereview pipeline should contain exactly 3 steps."""
         pipeline = get_code_review_pipeline()
 
         assert len(pipeline) == 3
@@ -86,9 +86,9 @@ class TestCodeReviewPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
     def test_pipeline_step_names(self):
         """Each step should expose the expected human-readable name."""
@@ -101,7 +101,7 @@ class TestCodeReviewPipeline:
         assert len(pipeline[2].name) > 0
 
     def test_all_steps_are_best_effort(self):
-        """All steps in the code-review pipeline should be non-critical (best-effort).
+        """All steps in the codereview pipeline should be non-critical (best-effort).
 
         The review pipeline is used in a loop where individual step failures
         are tolerated; only the loop orchestrator decides whether to abort.
@@ -109,12 +109,12 @@ class TestCodeReviewPipeline:
         pipeline = get_code_review_pipeline()
 
         for step in pipeline:
-            assert not step.is_critical, (
-                f"Step '{step.name}' should be best-effort (is_critical=False)"
-            )
+            assert (
+                not step.is_critical
+            ), f"Step '{step.name}' should be best-effort (is_critical=False)"
 
     def test_pipeline_does_not_include_issue_dependent_steps(self):
-        """Code-review pipeline should not contain steps that require an issue."""
+        """Codereview pipeline should not contain steps that require an issue."""
         from rouge.core.workflow.steps import (
             BuildPlanStep,
             ClassifyStep,
@@ -138,9 +138,9 @@ class TestCodeReviewPipeline:
         pipeline = get_code_review_pipeline()
 
         for step in pipeline:
-            assert not isinstance(step, issue_dependent_types), (
-                f"Code-review pipeline should not contain {type(step).__name__}"
-            )
+            assert not isinstance(
+                step, issue_dependent_types
+            ), f"Codereview pipeline should not contain {type(step).__name__}"
 
 
 # ---------------------------------------------------------------------------
@@ -149,11 +149,11 @@ class TestCodeReviewPipeline:
 
 
 class TestGetPipelineForTypeCodeReview:
-    """Verify get_pipeline_for_type resolves 'code-review' correctly."""
+    """Verify get_pipeline_for_type resolves 'codereview' correctly."""
 
-    def test_returns_code_review_pipeline(self):
-        """get_pipeline_for_type('code-review') should resolve via registry."""
-        pipeline = get_pipeline_for_type("code-review")
+    def test_returns_codereview_pipeline(self):
+        """get_pipeline_for_type('codereview') should resolve via registry."""
+        pipeline = get_pipeline_for_type("codereview")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) == 3
@@ -161,7 +161,7 @@ class TestGetPipelineForTypeCodeReview:
 
     def test_pipeline_matches_direct_call(self):
         """Pipeline from get_pipeline_for_type should match get_code_review_pipeline."""
-        from_helper = get_pipeline_for_type("code-review")
+        from_helper = get_pipeline_for_type("codereview")
         from_direct = get_code_review_pipeline()
 
         assert len(from_helper) == len(from_direct)
@@ -240,7 +240,7 @@ def _patch_loop_deps(monkeypatch, tmp_path, pipeline):
 class TestCodeReviewLoopBehaviour:
     """Loop behaviour tests complementary to test_adw.py.
 
-    These tests focus on code-review-specific scenarios not covered by
+    These tests focus on codereview-specific scenarios not covered by
     the generic loop tests in test_adw.py.
     """
 
@@ -368,7 +368,7 @@ class TestCodeReviewLoopBehaviour:
         assert failing_quality.call_count == 1
 
     def test_context_issue_id_is_none(self, monkeypatch, tmp_path):
-        """Code-review loop should create a context with issue_id=None."""
+        """Codereview loop should create a context with issue_id=None."""
         from rouge.adw.adw import execute_code_review_loop
 
         captured = {}
