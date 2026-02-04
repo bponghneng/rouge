@@ -332,9 +332,9 @@ class TestGetDefaultPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
         assert pipeline[4].plan_step_name == "Building implementation plan"
 
@@ -368,12 +368,11 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        # Check step count (should be 9 steps including SetupStep)
-        assert len(pipeline) == 9
+        # Check step count (should be 8)
+        assert len(pipeline) == 8
 
         # Verify order and types
         expected_types = [
-            SetupStep,
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
@@ -385,20 +384,19 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-        assert pipeline[3].plan_step_name == "Building patch plan"
+        assert pipeline[2].plan_step_name == "Building patch plan"
 
         # Verify critical flags
-        assert pipeline[0].is_critical  # Setup
-        assert pipeline[1].is_critical  # Fetch patch
-        assert pipeline[2].is_critical  # Build patch plan
-        assert pipeline[3].is_critical  # Implement
-        assert not pipeline[4].is_critical  # Review (best effort)
-        assert not pipeline[5].is_critical  # Address review (best effort)
-        assert not pipeline[6].is_critical  # Code quality
+        assert pipeline[0].is_critical  # Fetch patch
+        assert pipeline[1].is_critical  # Build patch plan
+        assert pipeline[2].is_critical  # Implement
+        assert not pipeline[3].is_critical  # Review (best effort)
+        assert not pipeline[4].is_critical  # Address review (best effort)
+        assert not pipeline[5].is_critical  # Code quality
         assert not pipeline[6].is_critical  # Validate patch acceptance (best effort)
         assert not pipeline[7].is_critical  # Update PR commits (best effort)
 
@@ -410,9 +408,9 @@ class TestGetPatchPipeline:
 
         pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(step, pr_step_types), (
-                "Patch pipeline should not include PR creation steps"
-            )
+            assert not isinstance(
+                step, pr_step_types
+            ), "Patch pipeline should not include PR creation steps"
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
         """Verify patch pipeline ends with UpdatePRCommitsStep."""
@@ -428,7 +426,6 @@ class TestGetPatchPipeline:
         pipeline = get_patch_pipeline()
 
         expected_types = [
-            SetupStep,
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
@@ -440,6 +437,6 @@ class TestGetPatchPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(step, expected_type), (
-                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-            )
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
