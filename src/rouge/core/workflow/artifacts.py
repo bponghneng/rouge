@@ -16,7 +16,6 @@ from rouge.core.models import Issue
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
-    PatchPlanData,
     PlanData,
     ReviewData,
 )
@@ -45,7 +44,6 @@ ArtifactType = Literal[
     "pr_metadata",
     "pull_request",
     "patch",
-    "patch_plan",
 ]
 
 
@@ -198,17 +196,6 @@ class PatchArtifact(Artifact):
     patch: Issue
 
 
-class PatchPlanArtifact(Artifact):
-    """Artifact containing patch plan results.
-
-    Attributes:
-        patch_plan_data: The patch plan data from the planning step
-    """
-
-    artifact_type: Literal["patch_plan"] = "patch_plan"
-    patch_plan_data: PatchPlanData
-
-
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "issue": IssueArtifact,
@@ -222,7 +209,6 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "pr_metadata": PRMetadataArtifact,
     "pull_request": PullRequestArtifact,
     "patch": PatchArtifact,
-    "patch_plan": PatchPlanArtifact,
 }
 
 
