@@ -1,6 +1,5 @@
 """Tests for artifact CLI commands."""
 
-import os
 from unittest.mock import patch
 
 from typer.testing import CliRunner
@@ -10,6 +9,8 @@ from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import ArtifactStore, IssueArtifact
 
 runner = CliRunner()
+
+_WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
 
 
 class TestArtifactTypesCommand:
@@ -39,16 +40,16 @@ class TestArtifactListCommand:
 
     def test_artifact_list_empty_workflow(self, tmp_path):
         """Test artifact list command for workflow with no artifacts."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             result = runner.invoke(app, ["artifact", "list", "adw-empty-test"])
             assert result.exit_code == 0
             assert "No artifacts found" in result.output
 
     def test_artifact_list_with_artifacts(self, tmp_path):
         """Test artifact list command for workflow with artifacts."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create some test artifacts
-            store = ArtifactStore("adw-test-list", base_path=tmp_path / "workflows")
+            store = ArtifactStore("adw-test-list", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Test issue")
             store.write_artifact(IssueArtifact(workflow_id="adw-test-list", issue=issue))
 
@@ -63,16 +64,16 @@ class TestArtifactShowCommand:
 
     def test_artifact_show_invalid_type(self, tmp_path):
         """Test artifact show command with invalid artifact type."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             result = runner.invoke(app, ["artifact", "show", "adw-test", "invalid_type"])
             assert result.exit_code == 1
             assert "Invalid artifact type" in result.output
 
     def test_artifact_show_not_found(self, tmp_path):
         """Test artifact show command when artifact doesn't exist."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create workflow directory but no artifact
-            (tmp_path / "workflows" / "adw-show-test").mkdir(parents=True, exist_ok=True)
+            (tmp_path / ".rouge" / "workflows" / "adw-show-test").mkdir(parents=True, exist_ok=True)
 
             result = runner.invoke(app, ["artifact", "show", "adw-show-test", "issue"])
             assert result.exit_code == 1
@@ -80,9 +81,9 @@ class TestArtifactShowCommand:
 
     def test_artifact_show_displays_content(self, tmp_path):
         """Test artifact show command displays artifact content."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create test artifact
-            store = ArtifactStore("adw-show-content", base_path=tmp_path / "workflows")
+            store = ArtifactStore("adw-show-content", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=42, description="Test issue for display")
             store.write_artifact(IssueArtifact(workflow_id="adw-show-content", issue=issue))
 
@@ -93,9 +94,9 @@ class TestArtifactShowCommand:
 
     def test_artifact_show_raw_format(self, tmp_path):
         """Test artifact show command with --raw flag."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create test artifact
-            store = ArtifactStore("adw-show-raw", base_path=tmp_path / "workflows")
+            store = ArtifactStore("adw-show-raw", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Raw test")
             store.write_artifact(IssueArtifact(workflow_id="adw-show-raw", issue=issue))
 
@@ -110,16 +111,16 @@ class TestArtifactDeleteCommand:
 
     def test_artifact_delete_invalid_type(self, tmp_path):
         """Test artifact delete command with invalid artifact type."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             result = runner.invoke(app, ["artifact", "delete", "adw-test", "invalid_type"])
             assert result.exit_code == 1
             assert "Invalid artifact type" in result.output
 
     def test_artifact_delete_not_found(self, tmp_path):
         """Test artifact delete command when artifact doesn't exist."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create workflow directory but no artifact
-            (tmp_path / "workflows" / "adw-delete-test").mkdir(parents=True, exist_ok=True)
+            (tmp_path / ".rouge" / "workflows" / "adw-delete-test").mkdir(parents=True, exist_ok=True)
 
             result = runner.invoke(app, ["artifact", "delete", "adw-delete-test", "issue"])
             assert result.exit_code == 1
@@ -127,9 +128,9 @@ class TestArtifactDeleteCommand:
 
     def test_artifact_delete_with_force(self, tmp_path):
         """Test artifact delete command with --force flag."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             # Create test artifact
-            store = ArtifactStore("adw-delete-force", base_path=tmp_path / "workflows")
+            store = ArtifactStore("adw-delete-force", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Delete test")
             store.write_artifact(IssueArtifact(workflow_id="adw-delete-force", issue=issue))
 
@@ -150,7 +151,7 @@ class TestArtifactPathCommand:
 
     def test_artifact_path_shows_directory(self, tmp_path):
         """Test artifact path command shows workflow directory."""
-        with patch.dict(os.environ, {"ROUGE_DATA_DIR": str(tmp_path)}):
+        with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
             result = runner.invoke(app, ["artifact", "path", "adw-path-test"])
             assert result.exit_code == 0
             assert "adw-path-test" in result.output
