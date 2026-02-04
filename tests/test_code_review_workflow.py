@@ -16,7 +16,6 @@ from rouge.core.workflow.steps.quality import CodeQualityStep
 from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_registry import (
-    WORKFLOW_REGISTRY_FLAG,
     get_pipeline_for_type,
     get_workflow_registry,
     reset_workflow_registry,
@@ -152,30 +151,16 @@ class TestCodeReviewPipeline:
 class TestGetPipelineForTypeCodeReview:
     """Verify get_pipeline_for_type resolves 'code-review' correctly."""
 
-    def test_flag_disabled_returns_code_review_pipeline(self, monkeypatch):
-        """With registry flag disabled, 'code-review' should still resolve."""
-        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
-
+    def test_returns_code_review_pipeline(self):
+        """get_pipeline_for_type('code-review') should resolve via registry."""
         pipeline = get_pipeline_for_type("code-review")
 
         assert isinstance(pipeline, list)
         assert len(pipeline) == 3
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_flag_enabled_returns_code_review_pipeline(self, monkeypatch):
-        """With registry flag enabled, 'code-review' should resolve via registry."""
-        monkeypatch.setenv(WORKFLOW_REGISTRY_FLAG, "true")
-
-        pipeline = get_pipeline_for_type("code-review")
-
-        assert isinstance(pipeline, list)
-        assert len(pipeline) == 3
-        assert all(isinstance(step, WorkflowStep) for step in pipeline)
-
-    def test_flag_disabled_pipeline_matches_direct_call(self, monkeypatch):
+    def test_pipeline_matches_direct_call(self):
         """Pipeline from get_pipeline_for_type should match get_code_review_pipeline."""
-        monkeypatch.delenv(WORKFLOW_REGISTRY_FLAG, raising=False)
-
         from_helper = get_pipeline_for_type("code-review")
         from_direct = get_code_review_pipeline()
 
