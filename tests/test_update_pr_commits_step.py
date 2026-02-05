@@ -186,12 +186,12 @@ class TestRunWhenPlatformMissing:
 
         # Mock compose-commits dependencies (runs before platform detection)
         mock_response = Mock(success=True, output='{"output": "commits-composed"}')
-        mock_parse = Mock(success=True, data={"output": "commits-composed"}, error=None)
+        parse_result = Mock(success=True, data={"output": "commits-composed"}, error=None)
         mock_request_instance = Mock()
         mock_request_instance.model_dump_json.return_value = "{}"
         mock_request.return_value = mock_request_instance
         mock_exec.return_value = mock_response
-        mock_parse.return_value = mock_parse
+        mock_parse.return_value = parse_result
 
         result = step.run(mock_context)
 
@@ -233,7 +233,7 @@ class TestComposeCommits:
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
 
         mock_response = Mock(success=True, output='{"output": "commits-composed"}')
-        mock_parse = Mock(success=True, data={"output": "commits-composed"}, error=None)
+        mock_parse_response = Mock(success=True, data={"output": "commits-composed"}, error=None)
 
         # Mock ClaudeAgentTemplateRequest to bypass Pydantic slash_command validation
         mock_request_instance = Mock(
@@ -243,7 +243,7 @@ class TestComposeCommits:
         mock_request_instance.model_dump_json.return_value = "{}"
         mock_request.return_value = mock_request_instance
         mock_exec.return_value = mock_response
-        mock_parse.return_value = mock_parse
+        mock_parse.return_value = mock_parse_response
 
         # Mock subprocess.run for branch check and push
         branch_result = Mock(returncode=0, stdout="feature-branch\n", stderr="")
@@ -374,10 +374,14 @@ class TestComposeCommits:
         mock_exec,
         mock_subprocess,
         _mock_emit,
+        monkeypatch,
         mock_context,
     ):
         """Test that an exception from execute_template prevents git push."""
         step = UpdatePRCommitsStep()
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
 
         mock_request_instance = Mock()
         mock_request_instance.model_dump_json.return_value = "{}"
