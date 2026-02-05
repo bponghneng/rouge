@@ -247,8 +247,9 @@ class UpdatePRCommitsStep(WorkflowStep):
                 step_name="compose_commits",
             )
             if not parse_result.success:
-                sanitized_error = _sanitize_for_logging(parse_result.error)
-                error_msg = sanitized_error or "Compose commits JSON parsing failed"
+                raw_error = parse_result.error or "Compose commits JSON parsing failed"
+                sanitized_error = _sanitize_for_logging(raw_error)
+                error_msg = sanitized_error or raw_error
                 logger.warning("Compose commits JSON parsing failed: %s", error_msg)
                 _emit_and_log(
                     context.require_issue_id,
@@ -270,7 +271,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             sanitized_error = _sanitize_for_logging(str(e))
             error_msg = f"Compose commits failed: {sanitized_error}"
             tb = _sanitize_for_logging(traceback.format_exc())
-            logger.exception(error_msg)
+            logger.error(error_msg)
             _emit_and_log(
                 context.require_issue_id,
                 context.adw_id,
