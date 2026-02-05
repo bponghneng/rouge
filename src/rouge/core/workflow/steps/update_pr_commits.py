@@ -27,7 +27,7 @@ COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
 MAX_LOG_LENGTH = 500
 
 
-def _sanitize_for_logging(text: str, max_length: int = MAX_LOG_LENGTH) -> str:
+def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) -> str:
     """Sanitize text by redacting secrets and truncating to safe length.
 
     Redacts common secret patterns (API keys, tokens, emails) and truncates
