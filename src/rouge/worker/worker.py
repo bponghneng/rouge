@@ -200,16 +200,16 @@ class IssueWorker:
                     issue_id,
                     result.returncode,
                 )
-                update_issue_status(issue_id, "pending", self.logger)
+                update_issue_status(issue_id, "failed", self.logger)
                 return adw_id, False
 
         except subprocess.TimeoutExpired:
             self._handle_workflow_failure(issue_id, workflow_type, "Workflow timed out")
-            update_issue_status(issue_id, "pending", self.logger)
+            update_issue_status(issue_id, "failed", self.logger)
             return adw_id, False
         except Exception:
             self._handle_workflow_failure(issue_id, workflow_type, "Unexpected error in workflow")
-            update_issue_status(issue_id, "pending", self.logger)
+            update_issue_status(issue_id, "failed", self.logger)
             return adw_id, False
 
     def execute_workflow(
