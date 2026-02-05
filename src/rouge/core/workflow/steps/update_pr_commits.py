@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import subprocess
 import traceback
 from typing import Optional, Tuple
@@ -21,6 +22,37 @@ logger = logging.getLogger(__name__)
 
 # Required fields for compose-commits output JSON
 COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
+
+# Max characters to log from LLM response
+MAX_LOG_LENGTH = 500
+
+
+def _sanitize_for_logging(text: str, max_length: int = MAX_LOG_LENGTH) -> str:
+    """Sanitize text by redacting secrets and truncating to safe length.
+
+    Redacts common secret patterns (API keys, tokens, emails) and truncates
+    to max_length characters to prevent logging of sensitive/verbose content.
+
+    Args:
+        text: Text to sanitize
+        max_length: Maximum length of returned string
+
+    Returns:
+        Sanitized and truncated text safe for logging
+    """
+    # Redact common secret patterns
+    sanitized = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", text)
+    sanitized = re.sub(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b", "[GITHUB_TOKEN]", sanitized)
+    sanitized = re.sub(
+        r"\b(?:glpat|gldt|gloas|glcbt)-[A-Za-z0-9_-]{20,}\b", "[GITLAB_TOKEN]", sanitized
+    )
+    sanitized = re.sub(r"\bsk-[A-Za-z0-9]{20,}\b", "[API_KEY]", sanitized)
+    sanitized = re.sub(r"\b[A-Za-z0-9]{32,}\b", "[TOKEN]", sanitized)
+
+    # Truncate if longer than max_length
+    if len(sanitized) > max_length:
+        return sanitized[:max_length] + "..."
+    return sanitized
 
 
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
@@ -183,7 +215,7 @@ class UpdatePRCommitsStep(WorkflowStep):
             response = execute_template(request, stream_handler=handler)
 
             logger.debug("compose_commits response: success=%s", response.success)
-            logger.debug("Compose commits LLM response: %s", response.output)
+            logger.debug("Compose commits LLM response: %s", _sanitize_for_logging(response.output))
 
             if not response.success:
                 error_msg = f"Compose commits failed: {response.output}"
