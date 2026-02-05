@@ -15,6 +15,7 @@ Example:
 """
 
 import logging
+import os
 import shutil
 import signal
 import subprocess
@@ -22,7 +23,8 @@ import time
 from pathlib import Path
 from types import FrameType
 
-from rouge.core.utils import make_adw_id
+from rouge.core.database import init_db_env
+from rouge.core.utils import _get_log_level, make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status

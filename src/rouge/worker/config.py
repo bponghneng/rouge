@@ -1,6 +1,7 @@
 """Configuration management for the Rouge Worker."""
 
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -12,12 +13,14 @@ class WorkerConfig:
         poll_interval: Number of seconds to wait between polls
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         workflow_timeout: Timeout in seconds for workflow execution
+        working_dir: Optional directory to run worker from
     """
 
     worker_id: str
     poll_interval: int = 10
     log_level: str = "INFO"
     workflow_timeout: int = 3600  # 1 hour default
+    working_dir: Optional[str] = None
 
     def __post_init__(self):
         """Validate configuration values."""
