@@ -131,7 +131,7 @@ class TestExecuteWorkflow:
                 result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "pending", worker.logger)
+                mock_update.assert_called_once_with(123, "failed", worker.logger)
 
     def test_execute_workflow_timeout(self, worker):
         """Test workflow execution timeout."""
@@ -140,7 +140,7 @@ class TestExecuteWorkflow:
                 result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "pending", worker.logger)
+                mock_update.assert_called_once_with(123, "failed", worker.logger)
 
     def test_execute_workflow_exception(self, worker):
         """Test workflow execution with unexpected exception."""
@@ -149,7 +149,7 @@ class TestExecuteWorkflow:
                 result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "pending", worker.logger)
+                mock_update.assert_called_once_with(123, "failed", worker.logger)
 
     def test_execute_workflow_command_format(self, worker):
         """Test workflow command is formatted correctly."""
