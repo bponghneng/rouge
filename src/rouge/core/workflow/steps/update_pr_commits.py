@@ -44,6 +44,9 @@ def _sanitize_for_logging(text: str, max_length: int = MAX_LOG_LENGTH) -> str:
     Returns:
         Sanitized and truncated text safe for logging
     """
+    if text is None:
+        return "[None]"
+
     # Redact common secret patterns
     sanitized = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", text)
     # GitHub tokens: prefix + 36-40 chars (ghp_, gho_, ghu_, ghs_, ghr_)
