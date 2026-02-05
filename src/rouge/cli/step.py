@@ -5,8 +5,9 @@ from typing import Optional
 import typer
 
 from rouge.core.utils import make_adw_id
-from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
+from rouge.core.workflow.pipeline import WorkflowRunner
 from rouge.core.workflow.step_registry import get_step_registry
+from rouge.core.workflow.workflow_registry import get_pipeline_for_type
 
 app = typer.Typer(help="Workflow step management commands")
 
@@ -52,6 +53,12 @@ def run_step(
         "-a",
         help="Workflow ID for artifacts (auto-generated for dependency-free steps)",
     ),
+    workflow_type: str = typer.Option(
+        "main",
+        "--workflow-type",
+        "-w",
+        help="Workflow type to use for pipeline lookup. Valid values: main, patch, codereview.",
+    ),
 ) -> None:
     """Run a single workflow step using artifacts for dependencies.
 
@@ -64,6 +71,7 @@ def run_step(
     Example:
         rouge step run "Fetching issue from Supabase" --issue-id 123
         rouge step run "Classifying issue" --issue-id 123 --adw-id abc12345
+        rouge step run "Applying patch" --issue-id 123 --workflow-type patch
     """
     # Query the step registry to check dependencies
     registry = get_step_registry()
@@ -90,7 +98,11 @@ def run_step(
 
     typer.echo(f"Running step '{step_name}' for issue {issue_id} (workflow: {adw_id})")
 
-    pipeline = get_default_pipeline()
+    try:
+        pipeline = get_pipeline_for_type(workflow_type)
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
     runner = WorkflowRunner(pipeline)
 
     try:
