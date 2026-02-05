@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from dotenv import load_dotenv
+from dotenv import find_dotenv, load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
@@ -27,7 +27,8 @@ def init_db_env(dotenv_path: Optional[Path] = None) -> None:
     if dotenv_path:
         load_dotenv(dotenv_path)
     else:
-        load_dotenv()
+        # Ensure we search from the current working directory, not the caller's file path.
+        load_dotenv(find_dotenv(usecwd=True))
 
 
 class SupabaseConfig:
