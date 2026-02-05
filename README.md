@@ -121,6 +121,7 @@ uv run rouge-worker --worker-id alleycat-1 \
 ```
 
 **After global installation:**
+
 ```bash
 rouge-worker --worker-id alleycat-1 \
   --poll-interval 10 \
