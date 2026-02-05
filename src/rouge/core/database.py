@@ -28,7 +28,11 @@ def init_db_env(dotenv_path: Optional[Path] = None) -> None:
         load_dotenv(dotenv_path)
     else:
         # Ensure we search from the current working directory, not the caller's file path.
-        load_dotenv(find_dotenv(usecwd=True))
+        found_path = find_dotenv(usecwd=True)
+        if found_path:
+            load_dotenv(found_path)
+        else:
+            logger.debug("No .env file found from cwd search; skipping dotenv load")
 
 
 class SupabaseConfig:
