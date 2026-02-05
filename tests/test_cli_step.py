@@ -4,6 +4,7 @@ from typer.testing import CliRunner
 
 from rouge.cli.cli import app
 from rouge.core.workflow.step_registry import reset_step_registry
+from rouge.core.workflow.workflow_registry import reset_workflow_registry
 
 runner = CliRunner()
 
@@ -102,12 +103,14 @@ class TestStepRunCommand:
     """Tests for 'rouge step run' command."""
 
     def setup_method(self):
-        """Reset step registry before each test."""
+        """Reset step and workflow registries before each test."""
         reset_step_registry()
+        reset_workflow_registry()
 
     def teardown_method(self):
-        """Reset step registry after each test."""
+        """Reset step and workflow registries after each test."""
         reset_step_registry()
+        reset_workflow_registry()
 
     def test_step_run_missing_issue_id(self):
         """Test step run command requires issue-id."""
@@ -175,3 +178,48 @@ class TestStepRunCommand:
         # The step will fail during execution but CLI validation should pass
         assert "Running step" in result.output
         assert "explicit1" in result.output
+
+    def test_step_run_with_workflow_type_patch(self):
+        """Test step run with --workflow-type patch accepts a patch pipeline step."""
+        result = runner.invoke(
+            app,
+            [
+                "step",
+                "run",
+                "Fetching pending patch",
+                "--issue-id",
+                "1",
+                "--workflow-type",
+                "patch",
+            ],
+        )
+        # The step will fail during execution (no Supabase connection)
+        # but CLI validation should pass and the step should start running
+        assert "Running step" in result.output
+
+    def test_step_run_with_invalid_workflow_type(self):
+        """Test step run with an invalid --workflow-type shows an error."""
+        result = runner.invoke(
+            app,
+            [
+                "step",
+                "run",
+                "Fetching issue from Supabase",
+                "--issue-id",
+                "1",
+                "--workflow-type",
+                "invalid",
+            ],
+        )
+        assert result.exit_code == 1
+        assert "Unknown workflow type" in result.output or "Available" in result.output
+
+    def test_step_run_default_workflow_type(self):
+        """Test step run without --workflow-type uses main pipeline by default."""
+        result = runner.invoke(
+            app,
+            ["step", "run", "Fetching issue from Supabase", "--issue-id", "1"],
+        )
+        # The step will fail during execution (no Supabase connection)
+        # but CLI validation should pass and the step should start running
+        assert "Running step" in result.output
