@@ -33,6 +33,10 @@ def _sanitize_for_logging(text: str, max_length: int = MAX_LOG_LENGTH) -> str:
     Redacts common secret patterns (API keys, tokens, emails) and truncates
     to max_length characters to prevent logging of sensitive/verbose content.
 
+    Pattern matching is intentionally conservative to err on the side of safety.
+    The final catch-all pattern may redact some non-sensitive data (e.g., hashes),
+    but this trade-off is acceptable given the security risk of logging secrets.
+
     Args:
         text: Text to sanitize
         max_length: Maximum length of returned string
@@ -42,11 +46,15 @@ def _sanitize_for_logging(text: str, max_length: int = MAX_LOG_LENGTH) -> str:
     """
     # Redact common secret patterns
     sanitized = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", text)
+    # GitHub tokens: prefix + 36-40 chars (ghp_, gho_, ghu_, ghs_, ghr_)
     sanitized = re.sub(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b", "[GITHUB_TOKEN]", sanitized)
+    # GitLab tokens: prefix + 20+ chars (glpat-, gldt-, gloas-, glcbt-)
     sanitized = re.sub(
         r"\b(?:glpat|gldt|gloas|glcbt)-[A-Za-z0-9_-]{20,}\b", "[GITLAB_TOKEN]", sanitized
     )
+    # OpenAI-style API keys: sk- prefix
     sanitized = re.sub(r"\bsk-[A-Za-z0-9]{20,}\b", "[API_KEY]", sanitized)
+    # Generic long alphanumeric tokens (catch-all for safety)
     sanitized = re.sub(r"\b[A-Za-z0-9]{32,}\b", "[TOKEN]", sanitized)
 
     # Truncate if longer than max_length
