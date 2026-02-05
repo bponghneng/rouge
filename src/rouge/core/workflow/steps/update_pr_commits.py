@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import traceback
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -38,7 +38,7 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
     but this trade-off is acceptable given the security risk of logging secrets.
 
     Args:
-        text: Text to sanitize
+        text: Text to sanitize (None is converted to "[None]")
         max_length: Maximum length of returned string
 
     Returns:
@@ -66,7 +66,7 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
     return sanitized
 
 
-def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
+def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
     """Helper to emit comment and log based on status.
 
     Args:
@@ -229,7 +229,8 @@ class UpdatePRCommitsStep(WorkflowStep):
             logger.debug("Compose commits LLM response: %s", _sanitize_for_logging(response.output))
 
             if not response.success:
-                error_msg = f"Compose commits failed: {response.output}"
+                sanitized_output = _sanitize_for_logging(response.output)
+                error_msg = f"Compose commits failed: {sanitized_output}"
                 logger.warning(error_msg)
                 _emit_and_log(
                     context.require_issue_id,
