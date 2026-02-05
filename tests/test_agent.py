@@ -228,7 +228,7 @@ def test_execute_template(
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_require_json_false(
-    mock_popen: Mock, mock_check: Mock, mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
+    mock_popen: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
 ) -> None:
     """Test execute_template with require_json=False allows plain text output."""
     mock_wd.return_value = str(tmp_path)
@@ -272,7 +272,7 @@ def test_execute_template_require_json_false(
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.Popen")
 def test_execute_template_sanitizes_markdown_fence(
-    mock_popen: Mock, mock_check: Mock, mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
+    mock_popen: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
 ) -> None:
     """Test execute_template strips Markdown fences before parsing JSON."""
     mock_wd.return_value = str(tmp_path)
