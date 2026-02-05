@@ -195,13 +195,12 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     # Create directory structure using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
 
-    agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
-    prompt_dir = os.path.join(agents_log_dir, adw_id, agent_name, "prompts")
-    os.makedirs(prompt_dir, exist_ok=True)
+    prompt_dir = Path(get_working_dir()) / ".rouge/agents/logs" / adw_id / agent_name / "prompts"
+    os.makedirs(str(prompt_dir), exist_ok=True)
 
     # Save prompt to file
-    prompt_file = os.path.join(prompt_dir, f"{command_name}.txt")
-    with open(prompt_file, "w") as f:
+    prompt_file = prompt_dir / f"{command_name}.txt"
+    with open(str(prompt_file), "w") as f:
         f.write(prompt)
 
     _DEFAULT_LOGGER.debug("Saved prompt to: %s", prompt_file)
@@ -256,9 +255,9 @@ class ClaudeAgent(CodingAgent):
             else:
                 from rouge.core.workflow.shared import get_working_dir
 
-                agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
-                output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
-                output_file = os.path.join(output_dir, "raw_output.jsonl")
+                agents_log_dir = Path(get_working_dir()) / ".rouge" / "agents" / "logs"
+                output_dir = agents_log_dir / request.adw_id / request.agent_name
+                output_file = str(output_dir / "raw_output.jsonl")
 
             # Check if Claude Code CLI is installed
             error_msg = check_claude_installed()
@@ -275,9 +274,9 @@ class ClaudeAgent(CodingAgent):
             save_prompt(request.prompt, request.adw_id, request.agent_name)
 
             # Create output directory if needed
-            output_dir = os.path.dirname(output_file)
-            if output_dir:
-                os.makedirs(output_dir, exist_ok=True)
+            output_file_dir = os.path.dirname(output_file)
+            if output_file_dir:
+                os.makedirs(output_file_dir, exist_ok=True)
 
             # Build command - always use stream-json format, verbose, and skip permissions
             cmd = [CLAUDE_PATH, "-p", request.prompt]
@@ -456,12 +455,12 @@ def execute_claude_template(
     # Create output directory with adw_id using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
 
-    agents_log_dir = str(Path(get_working_dir()) / ".rouge/agents/logs")
-    output_dir = os.path.join(agents_log_dir, request.adw_id, request.agent_name)
-    os.makedirs(output_dir, exist_ok=True)
+    agents_log_dir = Path(get_working_dir()) / ".rouge" / "agents" / "logs"
+    output_dir = agents_log_dir / request.adw_id / request.agent_name
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     # Build output file path
-    output_file = os.path.join(output_dir, "raw_output.jsonl")
+    output_file = str(output_dir / "raw_output.jsonl")
 
     # Create AgentExecuteRequest
     agent_request = AgentExecuteRequest(
