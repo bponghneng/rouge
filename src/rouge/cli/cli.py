@@ -90,14 +90,140 @@ def generate_title(description: Optional[str]) -> str:
     return " ".join(words[:10]) + "..."
 
 
+def validate_new_args(
+    description: Optional[str],
+    spec_file: Optional[Path],
+    title: Optional[str],
+) -> None:
+    """Validate arguments for the new command.
+
+    Performs validation checks for mutual exclusion, required inputs,
+    and spec-file title requirement.
+
+    Args:
+        description: The issue description text (or None)
+        spec_file: Path to file containing issue description (or None)
+        title: Explicit title for the issue (or None)
+
+    Raises:
+        typer.Exit: If validation fails
+    """
+    # Validation: description and spec-file are mutually exclusive
+    if description and spec_file:
+        typer.echo(
+            "Error: Cannot use both description argument and --spec-file option",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: must provide either description or spec-file
+    if not description and not spec_file:
+        typer.echo(
+            "Error: Must provide either a description argument or --spec-file option",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: spec-file requires explicit --title
+    if spec_file and not title:
+        typer.echo(
+            "Error: --spec-file requires explicit --title option",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+def read_spec_file(spec_file: Path) -> str:
+    """Read and validate content from a spec file.
+
+    Reads the file content with UTF-8 encoding and validates that the file
+    exists, is a regular file, and contains non-empty content.
+
+    Args:
+        spec_file: Path to the spec file to read
+
+    Returns:
+        The stripped content of the spec file
+
+    Raises:
+        typer.Exit: If the file cannot be read or is invalid
+    """
+    if not spec_file.exists():
+        typer.echo(f"Error: File not found: {spec_file}", err=True)
+        raise typer.Exit(1)
+
+    if not spec_file.is_file():
+        typer.echo(f"Error: Path is not a file: {spec_file}", err=True)
+        raise typer.Exit(1)
+
+    try:
+        content = spec_file.read_text(encoding="utf-8").strip()
+    except UnicodeDecodeError:
+        typer.echo(f"Error: File is not valid UTF-8: {spec_file}", err=True)
+        raise typer.Exit(1)
+
+    if not content:
+        typer.echo("Error: File is empty", err=True)
+        raise typer.Exit(1)
+
+    return content
+
+
+def prepare_issue(
+    description: Optional[str],
+    spec_file: Optional[Path],
+    title: Optional[str],
+) -> tuple[str, str]:
+    """Prepare issue title and description from inputs.
+
+    Orchestrates reading from spec_file or validating the description,
+    and generates a title if needed.
+
+    Args:
+        description: The issue description text (or None)
+        spec_file: Path to file containing issue description (or None)
+        title: Explicit title for the issue (or None)
+
+    Returns:
+        A tuple of (issue_title, issue_description)
+
+    Raises:
+        typer.Exit: If validation fails
+    """
+    if spec_file:
+        # Read from file
+        issue_description = read_spec_file(spec_file)
+        # title is guaranteed to be non-None when spec_file is used (validated by validate_new_args)
+        assert title is not None, "title must be provided with spec_file"
+        issue_title = title
+    else:
+        # Use description argument
+        issue_description = description.strip() if description else ""
+
+        if not issue_description:
+            typer.echo("Error: Description cannot be empty", err=True)
+            raise typer.Exit(1)
+
+        # Auto-generate title if not provided
+        issue_title = title if title else generate_title(issue_description)
+
+    return (issue_title, issue_description)
+
+
 @app.command()
 def new(
     description: Optional[str] = typer.Argument(None, help="The issue description text"),
-    title: Optional[str] = typer.Option(None, "--title", "-t", help="Explicit title for the issue"),
-    spec_file: Optional[Path] = typer.Option(
-        None, "--spec-file", "-f", help="Path to file containing issue description"
+    title: Optional[str] = typer.Option(
+        None, "--title", "-t", help="Explicit title for the issue", show_default=True
     ),
-):
+    spec_file: Optional[Path] = typer.Option(
+        None,
+        "--spec-file",
+        "-f",
+        help="Path to file containing issue description",
+        show_default=True,
+    ),
+) -> None:
     """Create a new issue.
 
     Supports multiple input modes:
@@ -110,65 +236,10 @@ def new(
         rouge new "Implement dark mode" --title "Dark mode feature"
         rouge new --spec-file feature-spec.txt --title "New feature"
     """
+    validate_new_args(description, spec_file, title)
+    issue_title, issue_description = prepare_issue(description, spec_file, title)
+
     try:
-        # Validation: description and spec-file are mutually exclusive
-        if description and spec_file:
-            typer.echo(
-                "Error: Cannot use both description argument and --spec-file option",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-        # Validation: must provide either description or spec-file
-        if not description and not spec_file:
-            typer.echo(
-                "Error: Must provide either a description argument or --spec-file option",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-        # Validation: spec-file requires explicit --title
-        if spec_file and not title:
-            typer.echo(
-                "Error: --spec-file requires explicit --title option",
-                err=True,
-            )
-            raise typer.Exit(1)
-
-        # Determine the description content
-        if spec_file:
-            # Read from file
-            if not spec_file.exists():
-                typer.echo(f"Error: File not found: {spec_file}", err=True)
-                raise typer.Exit(1)
-
-            if not spec_file.is_file():
-                typer.echo(f"Error: Path is not a file: {spec_file}", err=True)
-                raise typer.Exit(1)
-
-            try:
-                issue_description = spec_file.read_text(encoding="utf-8").strip()
-            except UnicodeDecodeError:
-                typer.echo(f"Error: File is not valid UTF-8: {spec_file}", err=True)
-                raise typer.Exit(1)
-
-            if not issue_description:
-                typer.echo("Error: File is empty", err=True)
-                raise typer.Exit(1)
-
-            issue_title = title  # Already validated that title is provided
-        else:
-            # Use description argument
-            issue_description = description.strip() if description else ""
-
-            if not issue_description:
-                typer.echo("Error: Description cannot be empty", err=True)
-                raise typer.Exit(1)
-
-            # Auto-generate title if not provided
-            issue_title = title if title else generate_title(issue_description)
-
-        # Create issue in database
         issue = create_issue(description=issue_description, title=issue_title)
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
