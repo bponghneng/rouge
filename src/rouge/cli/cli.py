@@ -193,8 +193,10 @@ def prepare_issue(
     if spec_file:
         # Read from file
         issue_description = read_spec_file(spec_file)
-        # title is guaranteed to be non-None when spec_file is used (validated by validate_new_args)
-        assert title is not None, "title must be provided with spec_file"
+        # Validate that --title was provided with --spec-file
+        if title is None:
+            typer.echo("Error: --spec-file requires explicit --title option", err=True)
+            raise typer.Exit(1)
         issue_title = title
     else:
         # Use description argument
