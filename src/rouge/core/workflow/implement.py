@@ -1,10 +1,13 @@
 """Implementation functionality for workflow orchestration."""
 
+import json
 import logging
 
-from rouge.core.agent import execute_implement_plan
-from rouge.core.agents import AgentExecuteResponse
+from rouge.core.agent import execute_template
+from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
+from rouge.core.workflow.schemas import IMPLEMENT_SCHEMA
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
 from rouge.core.workflow.types import ImplementData, StepResult
 
@@ -21,10 +24,10 @@ IMPLEMENT_REQUIRED_FIELDS = {
 
 
 def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[ImplementData]:
-    """Implement the plan using configured provider.
+    """Implement the plan using Claude Code.
 
-    Uses the provider configured via ROUGE_IMPLEMENT_PROVIDER environment variable.
-    Defaults to Claude if not set.
+    Executes the /adw-implement-plan slash command with the plan content
+    and JSON schema enforcement via Claude CLI's --json-schema flag.
 
     Args:
         plan_content: The plan content (markdown) to implement
@@ -34,12 +37,21 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
     Returns:
         StepResult with ImplementData containing output and optional session_id
     """
-    # Use new execute_implement_plan helper which handles provider selection
-    response: AgentExecuteResponse = execute_implement_plan(
-        plan_content=plan_content,
-        issue_id=issue_id,
-        adw_id=adw_id,
+    # Create ClaudeAgentTemplateRequest for implementation
+    request = ClaudeAgentTemplateRequest(
         agent_name=AGENT_PLAN_IMPLEMENTOR,
+        slash_command="/adw-implement-plan",
+        args=[plan_content],
+        adw_id=adw_id,
+        issue_id=issue_id,
+        model="sonnet",
+        json_schema=json.dumps(IMPLEMENT_SCHEMA),
+    )
+
+    # Execute template with progress comment handler
+    response = execute_template(
+        request,
+        stream_handler=make_progress_comment_handler(issue_id, adw_id),
     )
 
     logger.debug(

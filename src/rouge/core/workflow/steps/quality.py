@@ -1,5 +1,6 @@
 """Code quality step implementation."""
 
+import json
 import logging
 
 from rouge.core.agent import execute_template
@@ -9,6 +10,7 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import QualityCheckArtifact
+from rouge.core.workflow.schemas import CODE_QUALITY_SCHEMA
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -58,6 +60,7 @@ class CodeQualityStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.issue_id,
                 model="sonnet",
+                json_schema=json.dumps(CODE_QUALITY_SCHEMA),
             )
 
             logger.debug(

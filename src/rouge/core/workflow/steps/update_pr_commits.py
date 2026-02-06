@@ -14,6 +14,7 @@ from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.workflow.schemas import COMPOSE_COMMITS_SCHEMA
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -216,6 +217,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
+                json_schema=json.dumps(COMPOSE_COMMITS_SCHEMA),
             )
 
             logger.debug(
