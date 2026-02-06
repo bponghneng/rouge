@@ -182,15 +182,16 @@ def test_build_plan_success(mock_execute, sample_issue):
     assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
 
 
-@patch("rouge.core.workflow.implement.execute_implement_plan")
-def test_implement_plan_success(mock_execute):
+@patch("rouge.core.workflow.implement.make_progress_comment_handler")
+@patch("rouge.core.workflow.implement.execute_template")
+def test_implement_plan_success(mock_execute, _mock_handler):
     """Test successful plan implementation."""
     implement_json = (
         '{"files_modified": ["src/main.py"], "git_diff_stat": "1 file changed", '
         '"output": "implement", '
         '"status": "completed", "summary": "Implementation complete"}'
     )
-    mock_execute.return_value = Mock(
+    mock_execute.return_value = ClaudeAgentPromptResponse(
         output=implement_json,
         success=True,
         session_id="test123",
