@@ -196,10 +196,8 @@ def prepare_issue(
     if spec_file:
         # Read from file
         issue_description = read_spec_file(spec_file)
-        # Validate that --title was provided with --spec-file
-        if title is None:
-            typer.echo("Error: --spec-file requires explicit --title option", err=True)
-            raise typer.Exit(1)
+        # title is guaranteed non-None here due to validation in validate_new_args
+        assert title is not None
         issue_title = title
     else:
         # Use description argument
@@ -251,10 +249,9 @@ def new(
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
+    except typer.Exit:
+        raise
     except Exception as e:
-        # Don't catch typer.Exit - let it propagate
-        if isinstance(e, typer.Exit):
-            raise
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
