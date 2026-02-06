@@ -161,6 +161,9 @@ def read_spec_file(spec_file: Path) -> str:
     except UnicodeDecodeError:
         typer.echo(f"Error: File is not valid UTF-8: {spec_file}", err=True)
         raise typer.Exit(1)
+    except OSError as err:
+        typer.echo(f"Error: Cannot read file: {spec_file}: {err}", err=True)
+        raise typer.Exit(1)
 
     if not content:
         typer.echo("Error: File is empty", err=True)
