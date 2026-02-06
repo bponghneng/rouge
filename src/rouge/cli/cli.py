@@ -68,117 +68,117 @@ def main(
     pass
 
 
-@app.command()
-def create(description: str):
-    """Create a new issue from description string.
+def generate_title(description: Optional[str]) -> str:
+    """Generate a short title from a description.
+
+    Takes the first 10 words of the description and appends "..." if the
+    description is longer.
 
     Args:
-        description: The issue description text
+        description: The full description text (or None)
 
-    Example:
-        rouge create "Fix login authentication bug"
+    Returns:
+        A shortened title string (first 10 words with "..." if truncated)
     """
-    try:
-        # Create issue in database
-        issue = create_issue(description)
-        typer.echo(f"{issue.id}")  # Output only the ID for scripting
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+    if not description or not description.strip():
+        return ""
+
+    words = description.split()
+    if len(words) <= 10:
+        return " ".join(words)
+
+    return " ".join(words[:10]) + "..."
 
 
 @app.command()
-def create_from_file(file_path: Path):
-    """Create a new issue from description file.
-
-    Args:
-        file_path: Path to file containing issue description
-
-    Example:
-        rouge create-from-file issue-description.txt
-    """
-    try:
-        # Validate file exists
-        if not file_path.exists():
-            typer.echo(f"Error: File not found: {file_path}", err=True)
-            raise typer.Exit(1)
-
-        # Validate it's a file, not a directory
-        if not file_path.is_file():
-            typer.echo(f"Error: Path is not a file: {file_path}", err=True)
-            raise typer.Exit(1)
-
-        # Read file content
-        description = file_path.read_text(encoding="utf-8").strip()
-
-        if not description:
-            typer.echo("Error: File is empty", err=True)
-            raise typer.Exit(1)
-
-        # Create issue in database
-        issue = create_issue(description)
-        typer.echo(f"{issue.id}")  # Output only the ID for scripting
-
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except UnicodeDecodeError:
-        typer.echo(f"Error: File is not valid UTF-8: {file_path}", err=True)
-        raise typer.Exit(1)
-    except Exception as e:
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
-
-
-@app.command()
-def new_patch(
-    file_path: Path = typer.Argument(
-        ..., help="Path to file containing patch description", metavar="PATCH_FILE"
+def new(
+    description: Optional[str] = typer.Argument(None, help="The issue description text"),
+    title: Optional[str] = typer.Option(None, "--title", "-t", help="Explicit title for the issue"),
+    spec_file: Optional[Path] = typer.Option(
+        None, "--spec-file", "-f", help="Path to file containing issue description"
     ),
 ):
-    """Create a new patch issue from description file.
+    """Create a new issue.
 
-    Args:
-        file_path: Path to file containing patch description
+    Supports multiple input modes:
+    - Description only: `rouge new "Fix the login bug"` (auto-generates title)
+    - Description + title: `rouge new "Fix the login bug" --title "Login fix"`
+    - Spec file + title: `rouge new --spec-file spec.txt --title "Feature X"`
 
-    Example:
-        rouge new-patch patch-description.txt
+    Examples:
+        rouge new "Fix authentication bug in login flow"
+        rouge new "Implement dark mode" --title "Dark mode feature"
+        rouge new --spec-file feature-spec.txt --title "New feature"
     """
     try:
-        # Validate file exists
-        if not file_path.exists():
-            typer.echo(f"Error: File not found: {file_path}", err=True)
+        # Validation: description and spec-file are mutually exclusive
+        if description and spec_file:
+            typer.echo(
+                "Error: Cannot use both description argument and --spec-file option",
+                err=True,
+            )
             raise typer.Exit(1)
 
-        # Validate it's a file, not a directory
-        if not file_path.is_file():
-            typer.echo(f"Error: Path is not a file: {file_path}", err=True)
+        # Validation: must provide either description or spec-file
+        if not description and not spec_file:
+            typer.echo(
+                "Error: Must provide either a description argument or --spec-file option",
+                err=True,
+            )
             raise typer.Exit(1)
 
-        # Read file content
-        description = file_path.read_text(encoding="utf-8").strip()
-
-        if not description:
-            typer.echo("Error: File is empty", err=True)
+        # Validation: spec-file requires explicit --title
+        if spec_file and not title:
+            typer.echo(
+                "Error: --spec-file requires explicit --title option",
+                err=True,
+            )
             raise typer.Exit(1)
 
-        # Create patch issue in database
-        issue = create_issue(
-            description=description,
-            issue_type="patch",
-        )
+        # Determine the description content
+        if spec_file:
+            # Read from file
+            if not spec_file.exists():
+                typer.echo(f"Error: File not found: {spec_file}", err=True)
+                raise typer.Exit(1)
+
+            if not spec_file.is_file():
+                typer.echo(f"Error: Path is not a file: {spec_file}", err=True)
+                raise typer.Exit(1)
+
+            try:
+                issue_description = spec_file.read_text(encoding="utf-8").strip()
+            except UnicodeDecodeError:
+                typer.echo(f"Error: File is not valid UTF-8: {spec_file}", err=True)
+                raise typer.Exit(1)
+
+            if not issue_description:
+                typer.echo("Error: File is empty", err=True)
+                raise typer.Exit(1)
+
+            issue_title = title  # Already validated that title is provided
+        else:
+            # Use description argument
+            issue_description = description.strip() if description else ""
+
+            if not issue_description:
+                typer.echo("Error: Description cannot be empty", err=True)
+                raise typer.Exit(1)
+
+            # Auto-generate title if not provided
+            issue_title = title if title else generate_title(issue_description)
+
+        # Create issue in database
+        issue = create_issue(description=issue_description, title=issue_title)
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(1)
-    except UnicodeDecodeError:
-        typer.echo(f"Error: File is not valid UTF-8: {file_path}", err=True)
-        raise typer.Exit(1)
     except Exception as e:
+        # Don't catch typer.Exit - let it propagate
+        if isinstance(e, typer.Exit):
+            raise
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 

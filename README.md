@@ -142,8 +142,23 @@ Optional flags:
 
 Workflows can be executed directly using:
 - `rouge run <issue-id>` - Execute workflow synchronously in foreground
-- `rouge create "description"` - Create a new issue from description string
-- `rouge create-from-file <file>` - Create a new issue from description file
+
+### Creating Issues
+
+Use `rouge new` to create issues with multiple input patterns:
+
+```bash
+# Description only (title auto-generated from description)
+uv run rouge new "Fix the login button styling on mobile"
+
+# Description with explicit title
+uv run rouge new "Fix the login button styling on mobile" --title "Mobile login button fix"
+
+# From spec file with title
+uv run rouge new --spec-file spec.md --title "Implement feature X"
+```
+
+For full options, run `uv run rouge new --help`.
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 
