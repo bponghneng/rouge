@@ -178,6 +178,16 @@ def test_new_command_directory_instead_of_file(tmp_path):
     assert "not a file" in result.output.lower()
 
 
+def test_new_command_non_utf8_spec_file(tmp_path):
+    """Test new command with non-UTF-8 spec file."""
+    spec_file = tmp_path / "bad.txt"
+    spec_file.write_bytes(b"\xff\xfe")
+
+    result = runner.invoke(app, ["new", "--spec-file", str(spec_file), "--title", "Title"])
+    assert result.exit_code == 1
+    assert "not valid UTF-8" in result.output
+
+
 def test_new_command_empty_description():
     """Test new command with empty string description.
 
