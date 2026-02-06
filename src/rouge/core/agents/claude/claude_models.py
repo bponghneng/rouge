@@ -59,6 +59,18 @@ class ClaudeAgentTemplateRequest(BaseModel):
 
     Used for executing slash commands through the Claude Code CLI
     with specific arguments and configuration.
+
+    Attributes:
+        agent_name: Name of the agent executing the command.
+        slash_command: The slash command to execute.
+        args: List of arguments to pass to the slash command.
+        adw_id: Agent Development Workflow identifier.
+        issue_id: Optional issue identifier.
+        model: Claude model to use (sonnet or opus).
+        json_schema: Optional JSON schema string to pass to Claude CLI via
+            --json-schema flag. When provided, Claude will structure its
+            output according to this schema. Should be a valid JSON string
+            representing the schema definition.
     """
 
     agent_name: str
@@ -67,6 +79,7 @@ class ClaudeAgentTemplateRequest(BaseModel):
     adw_id: str
     issue_id: Optional[int]
     model: Literal["sonnet", "opus"] = "sonnet"
+    json_schema: Optional[str] = None
 
 
 class ClaudeAgentResultMessage(BaseModel):

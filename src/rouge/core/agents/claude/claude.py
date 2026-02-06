@@ -278,6 +278,9 @@ class ClaudeAgent(CodingAgent):
             if output_file_dir:
                 os.makedirs(output_file_dir, exist_ok=True)
 
+            # Extract json_schema from provider_options if provided
+            json_schema = request.provider_options.get("json_schema")
+
             # Build command - always use stream-json format, verbose, and skip permissions
             cmd = [CLAUDE_PATH, "-p", request.prompt]
             cmd.extend(["--model", model])
@@ -285,6 +288,8 @@ class ClaudeAgent(CodingAgent):
             cmd.append("--verbose")
             if dangerously_skip_permissions:
                 cmd.append("--dangerously-skip-permissions")
+            if json_schema:
+                cmd.extend(["--json-schema", json_schema])
 
             # Use current environment for subprocess
             env = os.environ.copy()
@@ -462,6 +467,11 @@ def execute_claude_template(
     # Build output file path
     output_file = str(output_dir / "raw_output.jsonl")
 
+    # Build provider options with json_schema if provided
+    provider_options: Dict[str, Any] = {"dangerously_skip_permissions": True}
+    if request.json_schema:
+        provider_options["json_schema"] = request.json_schema
+
     # Create AgentExecuteRequest
     agent_request = AgentExecuteRequest(
         prompt=prompt,
@@ -470,7 +480,7 @@ def execute_claude_template(
         agent_name=request.agent_name,
         model=request.model,
         output_path=output_file,
-        provider_options={"dangerously_skip_permissions": True},
+        provider_options=provider_options,
     )
 
     # Execute using ClaudeAgent
