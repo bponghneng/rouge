@@ -522,13 +522,13 @@ class TestGlobalRegistry:
         deps = registry.resolve_dependencies(patch_plan_step_name)
 
         # Should only include FetchPatchStep (produces patch artifact)
-        assert any("Fetching pending patch" in dep for dep in deps), (
-            "Should depend on FetchPatchStep"
-        )
+        assert any(
+            "Fetching pending patch" in dep for dep in deps
+        ), "Should depend on FetchPatchStep"
         # Should NOT depend on FetchIssueStep or BuildPlanStep (decoupled)
-        assert not any("Fetching issue" in dep for dep in deps), (
-            "Should not depend on FetchIssueStep"
-        )
-        assert not any("Building implementation plan" in dep for dep in deps), (
-            "Should not depend on BuildPlanStep"
-        )
+        assert not any(
+            "Fetching issue" in dep for dep in deps
+        ), "Should not depend on FetchIssueStep"
+        assert not any(
+            "Building implementation plan" in dep for dep in deps
+        ), "Should not depend on BuildPlanStep"
