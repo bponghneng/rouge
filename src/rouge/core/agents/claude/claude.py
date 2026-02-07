@@ -30,6 +30,10 @@ load_dotenv()
 # Get Claude Code CLI path from environment
 CLAUDE_PATH = os.getenv("CLAUDE_CODE_PATH", "claude")
 
+# Default timeout for Claude CLI operations (10 minutes)
+# Claude Code can take significant time for complex tasks
+CLAUDE_CLI_TIMEOUT = 600
+
 _DEFAULT_LOGGER = logging.getLogger(__name__)
 
 
@@ -435,19 +439,28 @@ class ClaudeAgent(CodingAgent):
 
 def execute_claude_template(
     request: ClaudeAgentTemplateRequest,
-    stream_handler: Optional[Callable[[str], None]] = None,
+    stream_handler: Optional[Callable[[str], None]] = None,  # noqa: ARG001
 ) -> ClaudeAgentPromptResponse:
     """Execute a Claude Code template with slash command and arguments.
 
-    This is a convenience function that maintains backward compatibility
-    with the original execute_template API.
+    This function executes Claude Code CLI with static JSON output format
+    and structured output via json_schema when provided.
+
+    Note: stream_handler is ignored in this implementation because Claude Code
+    is invoked with --output-format json, which returns a single JSON envelope
+    at completion rather than streaming JSONL output. The parameter is kept
+    for backward compatibility with ClaudeAgentTemplateRequest callers that
+    may pass make_progress_comment_handler or similar streaming callbacks.
+    For actual streaming support, the caller should use execute_prompt with
+    a provider that supports line-by-line JSONL output.
 
     Args:
         request: Claude-specific template request
-        stream_handler: Optional callback for streaming output
+        stream_handler: Optional callback for streaming output (not invoked;
+            kept for backward compatibility with existing callers)
 
     Returns:
-        Claude-specific prompt response
+        Claude-specific prompt response with structured_output content
     """
     # Construct prompt from slash command and args
     prompt = f"{request.slash_command} {' '.join(request.args)}"
@@ -459,27 +472,135 @@ def execute_claude_template(
     output_dir = agents_log_dir / request.adw_id / request.agent_name
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Build output file path
-    output_file = str(output_dir / "raw_output.jsonl")
+    # Build output file path (JSON format, not JSONL)
+    output_file = str(output_dir / "raw_output.json")
 
-    # Create AgentExecuteRequest
-    agent_request = AgentExecuteRequest(
-        prompt=prompt,
-        issue_id=request.issue_id,
-        adw_id=request.adw_id,
-        agent_name=request.agent_name,
-        model=request.model,
-        output_path=output_file,
-        provider_options={"dangerously_skip_permissions": True},
-    )
+    # Check if Claude Code CLI is installed
+    error_msg = check_claude_installed()
+    if error_msg:
+        return ClaudeAgentPromptResponse(
+            output=error_msg,
+            success=False,
+            session_id=None,
+        )
 
-    # Execute using ClaudeAgent
-    agent = ClaudeAgent()
-    response = agent.execute_prompt(agent_request, stream_handler=stream_handler)
+    # Save prompt before execution
+    save_prompt(prompt, request.adw_id, request.agent_name)
 
-    # Map back to ClaudeAgentPromptResponse
-    return ClaudeAgentPromptResponse(
-        output=response.output,
-        success=response.success,
-        session_id=response.session_id,
-    )
+    # Build command with JSON output format
+    cmd = [CLAUDE_PATH, "-p", prompt]
+    cmd.extend(["--model", request.model])
+    cmd.extend(["--output-format", "json"])
+    cmd.append("--verbose")
+    cmd.append("--dangerously-skip-permissions")
+
+    # Append json_schema flag if provided
+    if request.json_schema:
+        cmd.extend(["--json-schema", request.json_schema])
+
+    # Use current environment for subprocess
+    env = os.environ.copy()
+
+    try:
+        # Execute subprocess and capture output directly
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            env=env,
+            cwd=get_working_dir(),
+            timeout=CLAUDE_CLI_TIMEOUT,
+        )
+
+        # Write raw output to file for logging
+        with open(output_file, "w") as f:
+            f.write(result.stdout)
+
+        # Parse JSON envelope
+        if result.returncode != 0:
+            error_detail = (
+                result.stderr.strip()
+                if result.stderr
+                else f"Process exited with code {result.returncode}"
+            )
+            _DEFAULT_LOGGER.error("Claude Code execution failed: %s", error_detail)
+            return ClaudeAgentPromptResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=None,
+            )
+
+        # Load and validate JSON envelope
+        try:
+            envelope = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            _DEFAULT_LOGGER.error("Failed to parse JSON output: %s", e)
+            return ClaudeAgentPromptResponse(
+                output=f"Failed to parse JSON output: {e}",
+                success=False,
+                session_id=None,
+            )
+
+        # Validate envelope structure
+        # Hard checks: type == "result", is_error == false, structured_output is dict
+        envelope_type = envelope.get("type")
+        is_error = envelope.get("is_error", False)
+        structured_output = envelope.get("structured_output")
+        session_id = envelope.get("session_id")
+
+        if envelope_type != "result":
+            _DEFAULT_LOGGER.error(
+                "Invalid envelope type: expected 'result', got '%s'", envelope_type
+            )
+            return ClaudeAgentPromptResponse(
+                output=f"Invalid envelope type: expected 'result', got '{envelope_type}'",
+                success=False,
+                session_id=session_id,
+            )
+
+        if is_error:
+            error_result = envelope.get("result", "Unknown error")
+            _DEFAULT_LOGGER.error("Claude Code returned error: %s", error_result)
+            return ClaudeAgentPromptResponse(
+                output=f"Claude Code error: {error_result}",
+                success=False,
+                session_id=session_id,
+            )
+
+        if not isinstance(structured_output, dict):
+            got_type = type(structured_output).__name__ if structured_output is not None else "None"
+            _DEFAULT_LOGGER.error("Invalid structured_output: expected dict, got %s", got_type)
+            return ClaudeAgentPromptResponse(
+                output=f"Invalid structured_output: expected dict, got {got_type}",
+                success=False,
+                session_id=session_id,
+            )
+
+        # Soft check: log warning if subtype exists and is not "success"
+        subtype = envelope.get("subtype")
+        if subtype is not None and subtype != "success":
+            _DEFAULT_LOGGER.warning("Envelope subtype is '%s', expected 'success'", subtype)
+
+        # Return structured_output content as output
+        return ClaudeAgentPromptResponse(
+            output=json.dumps(structured_output),
+            success=True,
+            session_id=session_id,
+        )
+
+    except subprocess.TimeoutExpired as e:
+        error_msg = f"Claude CLI timed out after {CLAUDE_CLI_TIMEOUT} seconds: {e.cmd}"
+        _DEFAULT_LOGGER.error(error_msg)
+        return ClaudeAgentPromptResponse(
+            output=error_msg,
+            success=False,
+            session_id=None,
+        )
+    except Exception as e:
+        error_msg = f"Error executing Claude Code: {e}"
+        _DEFAULT_LOGGER.exception(error_msg)
+        return ClaudeAgentPromptResponse(
+            output=error_msg,
+            success=False,
+            session_id=None,
+        )
