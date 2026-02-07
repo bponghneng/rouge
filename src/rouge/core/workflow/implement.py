@@ -2,9 +2,10 @@
 
 import logging
 
-from rouge.core.agent import execute_implement_plan
-from rouge.core.agents import AgentExecuteResponse
+from rouge.core.agent import execute_template
+from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.workflow.schemas import IMPLEMENT_PLAN_JSON_SCHEMA
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
 from rouge.core.workflow.types import ImplementData, StepResult
 
@@ -21,10 +22,10 @@ IMPLEMENT_REQUIRED_FIELDS = {
 
 
 def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[ImplementData]:
-    """Implement the plan using configured provider.
+    """Implement the plan using Claude provider.
 
-    Uses the provider configured via ROUGE_IMPLEMENT_PROVIDER environment variable.
-    Defaults to Claude if not set.
+    Note: This iteration bypasses ROUGE_IMPLEMENT_PROVIDER and uses Claude only
+    with JSON schema for structured output.
 
     Args:
         plan_content: The plan content (markdown) to implement
@@ -34,13 +35,18 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
     Returns:
         StepResult with ImplementData containing output and optional session_id
     """
-    # Use new execute_implement_plan helper which handles provider selection
-    response: AgentExecuteResponse = execute_implement_plan(
-        plan_content=plan_content,
-        issue_id=issue_id,
-        adw_id=adw_id,
+    # Create template request with JSON schema for structured output
+    request = ClaudeAgentTemplateRequest(
         agent_name=AGENT_PLAN_IMPLEMENTOR,
+        slash_command="/adw-implement-plan",
+        args=[plan_content],
+        adw_id=adw_id,
+        issue_id=issue_id,
+        json_schema=IMPLEMENT_PLAN_JSON_SCHEMA,
     )
+
+    # Execute template with JSON schema
+    response = execute_template(request)
 
     logger.debug(
         "implement response: success=%s, session_id=%s",

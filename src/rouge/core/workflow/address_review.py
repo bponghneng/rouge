@@ -6,6 +6,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.workflow.schemas import IMPLEMENT_REVIEW_JSON_SCHEMA
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,7 @@ def address_review_issues(
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",
+            json_schema=IMPLEMENT_REVIEW_JSON_SCHEMA,
         )
 
         logger.debug(

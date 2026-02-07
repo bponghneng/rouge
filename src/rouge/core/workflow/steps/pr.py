@@ -9,6 +9,7 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PRMetadataArtifact
+from rouge.core.workflow.schemas import PULL_REQUEST_JSON_SCHEMA
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -56,6 +57,7 @@ class PreparePullRequestStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
+                json_schema=PULL_REQUEST_JSON_SCHEMA,
             )
 
             logger.debug(

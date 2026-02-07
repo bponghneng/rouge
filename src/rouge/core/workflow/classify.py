@@ -7,6 +7,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
+from rouge.core.workflow.schemas import CLASSIFY_JSON_SCHEMA
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
 
@@ -41,6 +42,7 @@ def classify_issue(
         adw_id=adw_id,
         issue_id=issue.id,
         model="sonnet",
+        json_schema=CLASSIFY_JSON_SCHEMA,
     )
     logger.debug(
         "classify request: %s",
