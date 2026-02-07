@@ -491,7 +491,6 @@ def execute_claude_template(
     cmd = [CLAUDE_PATH, "-p", prompt]
     cmd.extend(["--model", request.model])
     cmd.extend(["--output-format", "json"])
-    cmd.append("--verbose")
     cmd.append("--dangerously-skip-permissions")
 
     # Append json_schema flag if provided
