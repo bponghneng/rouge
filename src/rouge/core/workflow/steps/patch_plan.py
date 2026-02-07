@@ -83,14 +83,9 @@ class BuildPatchPlanStep(WorkflowStep):
 
         # Build progress comment from parsed plan data
         parsed_data = plan_response.metadata.get("parsed_data", {})
-        # Extract title from one of: chore, bug, feature keys
-        title = (
-            parsed_data.get("chore")
-            or parsed_data.get("bug")
-            or parsed_data.get("feature")
-            or "Implementation plan created"
-        )
         summary = parsed_data.get("summary", "")
+        # Derive title from first non-empty line of summary, or use a default
+        title = summary.split("\n")[0].strip() if summary else "Patch plan generated"
         comment_text = f"{title}\n\n{summary}" if summary else title
 
         payload = CommentPayload(

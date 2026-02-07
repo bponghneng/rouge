@@ -6,6 +6,7 @@ from typing import Callable, Optional
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.workflow.schemas import ACCEPTANCE_JSON_SCHEMA
 from rouge.core.workflow.shared import AGENT_VALIDATOR
 from rouge.core.workflow.types import StepResult
 
@@ -55,6 +56,7 @@ def notify_plan_acceptance(
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",
+            json_schema=ACCEPTANCE_JSON_SCHEMA,
         )
 
         logger.debug(

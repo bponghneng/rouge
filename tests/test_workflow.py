@@ -182,7 +182,7 @@ def test_build_plan_success(mock_execute, sample_issue):
     assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
 
 
-@patch("rouge.core.workflow.implement.execute_implement_plan")
+@patch("rouge.core.workflow.implement.execute_template")
 def test_implement_plan_success(mock_execute):
     """Test successful plan implementation."""
     implement_json = (
@@ -1315,3 +1315,309 @@ def test_prepare_pr_step_emits_raw_llm_response(
 
 
 # Patch status transition tests removed - using update_issue_status instead
+
+
+# === Acceptance Validation Tests ===
+
+
+@patch("rouge.core.workflow.acceptance.execute_template")
+def test_notify_plan_acceptance_success(mock_execute):
+    """Test successful plan acceptance validation with schema-constrained output."""
+    from rouge.core.workflow.acceptance import notify_plan_acceptance
+
+    # Mock response with schema-constrained output format
+    acceptance_json = (
+        '{"output": "acceptance", "notes": ["All requirements met"], '
+        '"plan_title": "Fix Login Bug", "requirements": [{"requirement": "Login functionality must work", "status": "met"}], '
+        '"status": "accepted", "summary": "Plan accepted", "unmet_blocking_requirements": []}'
+    )
+    mock_execute.return_value = ClaudeAgentPromptResponse(
+        output=acceptance_json, success=True, session_id="test123"
+    )
+
+    result = notify_plan_acceptance(
+        plan_content="# Test Plan\n...",
+        issue_id=1,
+        adw_id="adw123",
+    )
+
+    assert result.success
+    assert result.data is None  # notify_plan_acceptance returns None data
+    assert result.metadata.get("parsed_data", {}).get("status") == "accepted"
+
+
+@patch("rouge.core.workflow.acceptance.execute_template")
+def test_notify_plan_acceptance_failure(mock_execute):
+    """Test plan acceptance validation failure."""
+    from rouge.core.workflow.acceptance import notify_plan_acceptance
+
+    mock_execute.return_value = ClaudeAgentPromptResponse(
+        output="Template execution failed", success=False, session_id=None
+    )
+
+    result = notify_plan_acceptance(
+        plan_content="# Test Plan\n...",
+        issue_id=1,
+        adw_id="adw123",
+    )
+
+    assert not result.success
+    assert "Failed to execute" in result.error
+
+
+@patch("rouge.core.workflow.acceptance.execute_template")
+def test_notify_plan_acceptance_empty_plan(mock_execute):
+    """Test plan acceptance validation with empty plan content."""
+    from rouge.core.workflow.acceptance import notify_plan_acceptance
+
+    result = notify_plan_acceptance(
+        plan_content="",
+        issue_id=1,
+        adw_id="adw123",
+    )
+
+    assert not result.success
+    assert "Plan content is empty" in result.error
+    mock_execute.assert_not_called()
+
+
+# === Code Quality Step Tests ===
+
+
+@patch("rouge.core.workflow.steps.quality.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.quality.execute_template")
+@patch("rouge.core.workflow.steps.quality.make_progress_comment_handler")
+def test_code_quality_step_success(mock_handler, mock_execute, mock_emit):
+    """Test successful code quality checks with schema-constrained output."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    mock_handler.return_value = Mock()
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    # Mock response with schema-constrained output format
+    quality_json = (
+        '{"output": "code_quality", '
+        '"tools": [{"name": "ruff", "status": "passed"}, {"name": "mypy", "status": "passed"}]}'
+    )
+    mock_execute.return_value = Mock(
+        output=quality_json,
+        success=True,
+        session_id="test123",
+    )
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = CodeQualityStep()
+    result = step.run(context)
+
+    assert result.success is True
+    assert result.metadata.get("parsed_data", {}).get("output") == "code_quality"
+    assert len(result.metadata.get("parsed_data", {}).get("tools", [])) == 2
+
+
+@patch("rouge.core.workflow.steps.quality.execute_template")
+@patch("rouge.core.workflow.steps.quality.make_progress_comment_handler")
+def test_code_quality_step_failure(mock_handler, mock_execute):
+    """Test code quality step failure."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    mock_handler.return_value = Mock()
+    mock_execute.return_value = Mock(
+        output="Quality check failed",
+        success=False,
+        session_id=None,
+    )
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = CodeQualityStep()
+    result = step.run(context)
+
+    assert result.success is False
+    assert "Code quality checks failed" in result.error
+
+
+@patch("rouge.core.workflow.steps.quality.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.quality.execute_template")
+@patch("rouge.core.workflow.steps.quality.make_progress_comment_handler")
+def test_code_quality_step_invalid_json(mock_handler, mock_execute, mock_emit):
+    """Test code quality step with invalid JSON output."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    mock_handler.return_value = Mock()
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    # Return success but with invalid JSON
+    mock_execute.return_value = Mock(
+        output="not-valid-json",
+        success=True,
+        session_id="test123",
+    )
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = CodeQualityStep()
+    result = step.run(context)
+
+    assert result.success is False
+    # Should fail JSON parsing
+
+
+def test_code_quality_step_is_not_critical():
+    """Test CodeQualityStep is not critical."""
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    step = CodeQualityStep()
+    assert step.is_critical is False
+
+
+def test_code_quality_step_name():
+    """Test CodeQualityStep has correct name."""
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    step = CodeQualityStep()
+    assert step.name == "Running code quality checks"
+
+
+# === PR Preparation Step Full Run Tests ===
+
+
+@patch("rouge.core.workflow.steps.pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.pr.execute_template")
+@patch("rouge.core.workflow.steps.pr.update_status")
+@patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
+def test_prepare_pr_step_success(mock_handler, mock_update_status, mock_execute, mock_emit):
+    """Test successful PR preparation with schema-constrained output."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
+
+    mock_handler.return_value = Mock()
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    # Mock response with schema-constrained output format
+    pr_json = (
+        '{"output": "pull_request", "title": "feat: add new feature", '
+        '"summary": "This PR adds a new feature with tests.", '
+        '"commits": ["abc123", "def456", "ghi789"]}'
+    )
+    mock_execute.return_value = Mock(
+        output=pr_json,
+        success=True,
+        session_id="test123",
+    )
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = PreparePullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    assert "pr_details" in context.data
+    assert context.data["pr_details"]["title"] == "feat: add new feature"
+    assert len(context.data["pr_details"]["commits"]) == 3
+    mock_update_status.assert_called_once_with(1, "completed")
+
+
+@patch("rouge.core.workflow.steps.pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.pr.execute_template")
+@patch("rouge.core.workflow.steps.pr.update_status")
+@patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
+def test_prepare_pr_step_failure(mock_handler, mock_update_status, mock_execute, mock_emit):
+    """Test PR preparation failure still finalizes workflow."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
+
+    mock_handler.return_value = Mock()
+    mock_emit.return_value = ("success", "Comment inserted")
+    mock_execute.return_value = Mock(
+        output="PR preparation failed",
+        success=False,
+        session_id=None,
+    )
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = PreparePullRequestStep()
+    result = step.run(context)
+
+    assert result.success is False
+    assert "Pull request preparation failed" in result.error
+    # Should still finalize workflow
+    mock_update_status.assert_called_once_with(1, "completed")
+
+
+def test_prepare_pr_step_is_not_critical():
+    """Test PreparePullRequestStep is not critical."""
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
+
+    step = PreparePullRequestStep()
+    assert step.is_critical is False
+
+
+def test_prepare_pr_step_name():
+    """Test PreparePullRequestStep has correct name."""
+    from rouge.core.workflow.steps.pr import PreparePullRequestStep
+
+    step = PreparePullRequestStep()
+    assert step.name == "Preparing pull request"
+
+
+# === Validate Acceptance Step Tests ===
+
+
+@patch("rouge.core.workflow.steps.acceptance.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.acceptance.notify_plan_acceptance")
+@patch("rouge.core.workflow.steps.acceptance.make_progress_comment_handler")
+def test_validate_acceptance_step_success(mock_handler, mock_notify, mock_emit):
+    """Test successful acceptance validation step."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+    from rouge.core.workflow.types import PlanData
+
+    mock_handler.return_value = Mock()
+    mock_emit.return_value = ("success", "Comment inserted")
+    mock_notify.return_value = StepResult.ok(None, parsed_data={"status": "accepted"})
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    # Set up plan data in context
+    context.data["plan_data"] = PlanData(plan="# Test Plan\n...", summary="Test plan summary")
+
+    step = ValidateAcceptanceStep()
+    result = step.run(context)
+
+    assert result.success is True
+    mock_notify.assert_called_once()
+
+
+@patch("rouge.core.workflow.steps.acceptance.notify_plan_acceptance")
+@patch("rouge.core.workflow.steps.acceptance.make_progress_comment_handler")
+def test_validate_acceptance_step_no_plan(mock_handler, mock_notify):
+    """Test acceptance validation step when no plan is available."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+
+    mock_handler.return_value = Mock()
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    # No plan data set
+
+    step = ValidateAcceptanceStep()
+    result = step.run(context)
+
+    assert result.success is False
+    assert "No plan or patch_plan available" in result.error
+    mock_notify.assert_not_called()
+
+
+def test_validate_acceptance_step_is_not_critical():
+    """Test ValidateAcceptanceStep is not critical."""
+    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+
+    step = ValidateAcceptanceStep()
+    assert step.is_critical is False
+
+
+def test_validate_acceptance_step_name():
+    """Test ValidateAcceptanceStep has correct name."""
+    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+
+    step = ValidateAcceptanceStep()
+    assert step.name == "Validating plan acceptance"

@@ -7,6 +7,7 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
+from rouge.core.workflow.schemas import PLAN_JSON_SCHEMA
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.types import PlanData, PlanSlashCommand, StepResult
 
@@ -45,6 +46,7 @@ def build_plan(
         adw_id=adw_id,
         issue_id=issue.id,
         model="sonnet",
+        json_schema=PLAN_JSON_SCHEMA,
     )
     logger.debug(
         "build_plan request: %s",
