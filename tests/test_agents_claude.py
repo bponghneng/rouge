@@ -10,11 +10,13 @@ from rouge.core.agents.claude import (
     ClaudeAgent,
     check_claude_installed,
     convert_jsonl_to_json,
+    execute_claude_template,
     get_claude_env,
     iter_assistant_items,
     parse_jsonl_output,
     save_prompt,
 )
+from rouge.core.agents.claude.claude_models import ClaudeAgentTemplateRequest
 
 _WORKING_DIR_PATCH = "rouge.core.workflow.shared.get_working_dir"
 
@@ -319,3 +321,458 @@ def test_claude_agent_execute_prompt_error_handling(
     response = agent.execute_prompt(request)
     assert response.success is False
     assert response.error_detail is not None
+
+
+def test_claude_agent_template_request_json_schema_defaults_to_none() -> None:
+    """Test that json_schema field defaults to None when not provided."""
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["arg1"],
+        adw_id="test123",
+        issue_id=1,
+    )
+    assert request.json_schema is None
+
+
+def test_claude_agent_template_request_json_schema_can_be_set() -> None:
+    """Test that json_schema field can be set to a schema string."""
+    schema = '{"type": "object", "properties": {"result": {"type": "string"}}}'
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["arg1"],
+        adw_id="test123",
+        issue_id=1,
+        json_schema=schema,
+    )
+    assert request.json_schema == schema
+
+
+# =============================================================================
+# Tests for execute_claude_template with JSON envelope parsing
+# =============================================================================
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_command_includes_json_schema(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test that command includes --json-schema when schema is provided."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    # Create a valid JSON envelope response
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": {"classification": "feature"},
+        "session_id": "session123",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    schema = '{"type": "object", "properties": {"classification": {"type": "string"}}}'
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+        json_schema=schema,
+    )
+
+    execute_claude_template(request)
+
+    # Verify the command was called with the correct arguments
+    mock_run.assert_called_once()
+    call_args = mock_run.call_args
+    cmd = call_args[0][0]
+
+    # Check that --json-schema flag is present with the schema
+    assert "--json-schema" in cmd
+    schema_index = cmd.index("--json-schema")
+    assert cmd[schema_index + 1] == schema
+
+    # Check that --output-format json is used (not stream-json)
+    assert "--output-format" in cmd
+    format_index = cmd.index("--output-format")
+    assert cmd[format_index + 1] == "json"
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_command_without_json_schema(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test that command does not include --json-schema when not provided."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    # Create a valid JSON envelope response
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": {"classification": "feature"},
+        "session_id": "session123",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+        # json_schema not provided
+    )
+
+    execute_claude_template(request)
+
+    # Verify the command was called without --json-schema
+    mock_run.assert_called_once()
+    call_args = mock_run.call_args
+    cmd = call_args[0][0]
+
+    assert "--json-schema" not in cmd
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_parses_valid_structured_output(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test JSON envelope parsing with valid structured_output."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    structured_output = {
+        "classification": "feature",
+        "confidence": 0.95,
+        "details": {"category": "new_feature"},
+    }
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": structured_output,
+        "session_id": "session456",
+        "subtype": "success",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is True
+    assert response.session_id == "session456"
+    # Output should be JSON serialization of structured_output
+    assert json.loads(response.output) == structured_output
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_error_when_structured_output_missing(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when structured_output is missing (None)."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    # Envelope without structured_output field
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "session_id": "session789",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Invalid structured_output: expected dict, got None" in response.output
+    assert response.session_id == "session789"
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_error_when_structured_output_not_dict(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when structured_output is not a dict."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    # Envelope with structured_output as a string instead of dict
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": "this is a string, not a dict",
+        "session_id": "session101",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Invalid structured_output: expected dict, got str" in response.output
+    assert response.session_id == "session101"
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_error_when_structured_output_is_list(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when structured_output is a list."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": ["item1", "item2"],
+        "session_id": "session102",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Invalid structured_output: expected dict, got list" in response.output
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_error_when_envelope_type_not_result(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when envelope type is not 'result'."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    envelope = {
+        "type": "message",  # wrong type
+        "is_error": False,
+        "structured_output": {"data": "value"},
+        "session_id": "session103",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Invalid envelope type: expected 'result', got 'message'" in response.output
+    assert response.session_id == "session103"
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_error_when_is_error_true(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when is_error is True in envelope."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    envelope = {
+        "type": "result",
+        "is_error": True,
+        "result": "Something went wrong during execution",
+        "session_id": "session104",
+    }
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=json.dumps(envelope),
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Claude Code error: Something went wrong during execution" in response.output
+    assert response.session_id == "session104"
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_handles_invalid_json_output(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when output is not valid JSON."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout="this is not valid json {{{",
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Failed to parse JSON output" in response.output
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_handles_subprocess_failure(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test error handling when subprocess returns non-zero exit code."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    mock_run.return_value = Mock(
+        returncode=1,
+        stdout="",
+        stderr="Command failed: permission denied",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    response = execute_claude_template(request)
+
+    assert response.success is False
+    assert "Claude Code error: Command failed: permission denied" in response.output
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_execute_claude_template_writes_output_to_json_file(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test that raw output is written to raw_output.json file."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    structured_output = {"result": "success"}
+    envelope = {
+        "type": "result",
+        "is_error": False,
+        "structured_output": structured_output,
+        "session_id": "session105",
+    }
+    raw_json = json.dumps(envelope)
+    mock_run.return_value = Mock(
+        returncode=0,
+        stdout=raw_json,
+        stderr="",
+    )
+
+    request = ClaudeAgentTemplateRequest(
+        agent_name="ops",
+        slash_command="/adw-classify",
+        args=["issue.md"],
+        adw_id="test123",
+        issue_id=1,
+    )
+
+    execute_claude_template(request)
+
+    # Verify the output file was created
+    expected_file = (
+        tmp_path / ".rouge" / "agents" / "logs" / "test123" / "ops" / "raw_output.json"
+    )
+    assert expected_file.exists()
+    assert expected_file.read_text() == raw_json

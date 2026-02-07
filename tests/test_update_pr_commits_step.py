@@ -10,6 +10,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from rouge.core.workflow.schemas import COMPOSE_COMMITS_JSON_SCHEMA
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 
@@ -269,6 +270,11 @@ class TestComposeCommits:
         request = call_args[0][0]
         assert request.slash_command == "/adw-compose-commits"
         assert result.success is True
+
+        # Verify ClaudeAgentTemplateRequest was called with json_schema
+        mock_request.assert_called_once()
+        request_call_kwargs = mock_request.call_args.kwargs
+        assert request_call_kwargs.get("json_schema") == COMPOSE_COMMITS_JSON_SCHEMA
 
     @patch(
         "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
