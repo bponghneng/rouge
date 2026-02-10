@@ -84,7 +84,6 @@ def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptRe
 
 def execute_template(
     request: ClaudeAgentTemplateRequest,
-    stream_handler: Optional[Callable[[str], None]] = None,
     *,
     require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
@@ -96,7 +95,6 @@ def execute_template(
 
     Args:
         request: Claude-specific template request
-        stream_handler: Optional callback for streaming output
         require_json: If True (default), validates output as JSON and emits
             error comments for non-JSON output. If False, skips JSON validation
             and allows plain text output (used by FindPlanFileStep and
@@ -105,7 +103,7 @@ def execute_template(
     Returns:
         Claude-specific prompt response
     """
-    response = execute_claude_template(request, stream_handler=stream_handler)
+    response = execute_claude_template(request)
 
     # Handle JSON validation based on require_json parameter
     if response.success and response.output:
