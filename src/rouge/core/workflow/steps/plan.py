@@ -3,7 +3,6 @@
 import logging
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
     ClassificationArtifact,
@@ -52,12 +51,10 @@ class BuildPlanStep(WorkflowStep):
             logger.error("Cannot build plan: classify_data not available")
             return StepResult.fail("Cannot build plan: classify_data not available")
 
-        plan_handler = make_progress_comment_handler(issue.id, context.adw_id)
         plan_response = build_plan(
             issue,
             classify_data.command,
             context.adw_id,
-            stream_handler=plan_handler,
         )
 
         if not plan_response.success:

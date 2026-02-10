@@ -3,7 +3,6 @@
 import logging
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import ClassificationArtifact, IssueArtifact
 from rouge.core.workflow.classify import classify_issue
@@ -36,8 +35,7 @@ class ClassifyStep(WorkflowStep):
             logger.error("Cannot classify: issue not fetched")
             return StepResult.fail("Cannot classify: issue not fetched")
 
-        classify_handler = make_progress_comment_handler(issue.id, context.adw_id)
-        result = classify_issue(issue, context.adw_id, stream_handler=classify_handler)
+        result = classify_issue(issue, context.adw_id)
 
         if not result.success:
             logger.error("Error classifying issue: %s", result.error)
