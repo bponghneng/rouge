@@ -1,7 +1,6 @@
 """Plan building functionality for workflow orchestration."""
 
 import logging
-from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -25,7 +24,6 @@ def build_plan(
     issue: Issue,
     command: PlanSlashCommand,
     adw_id: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[PlanData]:
     """Build implementation plan for the issue using the specified command.
 
@@ -33,7 +31,6 @@ def build_plan(
         issue: The Rouge issue to plan for
         command: The planning command to use (e.g., /adw-feature-plan)
         adw_id: Workflow ID for tracking
-        stream_handler: Optional callback for streaming output
 
     Returns:
         StepResult with PlanData containing output and optional session_id
@@ -50,7 +47,7 @@ def build_plan(
         "build_plan request: %s",
         request.model_dump_json(indent=2, by_alias=True),
     )
-    response = execute_template(request, stream_handler=stream_handler)
+    response = execute_template(request)
     logger.debug(
         "build_plan response: %s",
         response.model_dump_json(indent=2, by_alias=True),
