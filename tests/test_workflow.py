@@ -426,7 +426,7 @@ def test_address_review_issues_success(mock_request_class, mock_emit_comment, mo
     )
 
     assert result.success
-    mock_execute.assert_called_once_with(mock_request, stream_handler=None, require_json=True)
+    mock_execute.assert_called_once_with(mock_request, require_json=True)
     # emit_comment_from_payload is called twice: once for progress, once for result
     assert mock_emit_comment.call_count == 2
 
@@ -1266,16 +1266,12 @@ def test_prepare_pr_step_store_pr_details_missing_fields():
 @patch("rouge.core.workflow.steps.pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.pr.execute_template")
 @patch("rouge.core.workflow.steps.pr.update_status")
-@patch("rouge.core.workflow.steps.pr.make_progress_comment_handler")
 def test_prepare_pr_step_emits_raw_llm_response(
-    mock_handler, mock_update_status, mock_execute, mock_emit
+    mock_update_status, mock_execute, mock_emit
 ):
     """Test PreparePullRequestStep emits raw LLM response for debugging."""
     from rouge.core.workflow.step_base import WorkflowContext
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
-
-    # Mock progress comment handler
-    mock_handler.return_value = Mock()
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
