@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from rouge.core.agent import execute_claude_template
+from rouge.core.agent import execute_template
 from rouge.core.agents.claude import (
     check_claude_installed,
     get_claude_env,
@@ -77,7 +77,7 @@ def test_save_prompt(tmp_path: Path) -> None:
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.run")
-def test_execute_claude_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path) -> None:
+def test_execute_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path) -> None:
     """Test executing template with slash command."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
@@ -106,7 +106,7 @@ def test_execute_claude_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock
         issue_id=1,
     )
 
-    response = execute_claude_template(request)
+    response = execute_template(request)
     assert response.success is True
 
 
@@ -146,7 +146,7 @@ def test_execute_template_require_json_false(
     )
 
     # Should not error even though structured_output is plain text
-    response = execute_claude_template(request, require_json=False)
+    response = execute_template(request, require_json=False)
     assert response.success is True
     assert response.output == "specs/feature-plan.md"
 
@@ -187,5 +187,5 @@ def test_execute_template_sanitizes_markdown_fence(
     )
 
     # Should successfully parse JSON after stripping fences
-    response = execute_claude_template(request)
+    response = execute_template(request)
     assert response.success is True

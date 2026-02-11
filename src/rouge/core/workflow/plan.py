@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.agent import execute_claude_template
+from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
@@ -47,7 +47,7 @@ def build_plan(
         "build_plan request: %s",
         request.model_dump_json(indent=2, by_alias=True),
     )
-    response = execute_claude_template(request)
+    response = execute_template(request)
     logger.debug(
         "build_plan response: %s",
         response.model_dump_json(indent=2, by_alias=True),
