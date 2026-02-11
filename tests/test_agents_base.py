@@ -88,7 +88,7 @@ def test_coding_agent_valid_implementation():
     """Test that valid CodingAgent implementation works."""
 
     class ValidAgent(CodingAgent):
-        def execute_prompt(self, request, *, stream_handler=None):
+        def execute_prompt(self, request):
             return AgentExecuteResponse(
                 output="Test output",
                 success=True,

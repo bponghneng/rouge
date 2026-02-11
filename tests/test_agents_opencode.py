@@ -6,8 +6,6 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pytest
-
 from rouge.core.agents.base import AgentExecuteRequest
 from rouge.core.agents.opencode import (
     OpenCodeAgent,
@@ -241,50 +239,6 @@ def test_opencode_agent_cli_not_installed(mock_check: Mock, mock_wd: Mock, tmp_p
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
 @patch("subprocess.Popen")
-def test_opencode_agent_with_stream_handler(
-    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
-) -> None:
-    """Test OpenCodeAgent with stream handler invocation."""
-    mock_wd.return_value = str(tmp_path)
-    mock_check.return_value = None
-
-    # Mock process output
-    result_msg = {
-        "type": "result",
-        "is_error": False,
-        "result": "Done",
-        "session_id": "123",
-    }
-    mock_process = Mock()
-    mock_process.returncode = 0
-    mock_process.stdout = StringIO(json.dumps(result_msg) + "\n")
-    mock_process.stderr = StringIO("")
-    mock_popen.return_value = mock_process
-
-    # Create stream handler
-    stream_calls = []
-
-    def handler(line: str):
-        stream_calls.append(line)
-
-    # Execute
-    agent = OpenCodeAgent()
-    request = AgentExecuteRequest(
-        prompt="# Test Plan",
-        issue_id=123,
-        adw_id="test456",
-        agent_name="test_agent",
-    )
-    response = agent.execute_prompt(request, stream_handler=handler)
-
-    # Verify stream handler was called
-    assert len(stream_calls) > 0
-    assert response.success is True
-
-
-@patch(_WORKING_DIR_PATCH)
-@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
-@patch("subprocess.Popen")
 def test_opencode_command_construction(mock_popen, mock_check, mock_wd, tmp_path, monkeypatch):
     """Test OpenCode CLI command construction."""
     mock_wd.return_value = str(tmp_path)
@@ -378,43 +332,3 @@ def test_opencode_agent_exception_handling(
 
     assert response.success is False
     assert "Unexpected error" in response.error_detail
-
-
-@patch(_WORKING_DIR_PATCH)
-@patch("rouge.core.agents.opencode.opencode.check_opencode_installed")
-@patch("subprocess.Popen")
-def test_opencode_agent_stream_handler_exception(
-    mock_popen: Mock,
-    mock_check: Mock,
-    mock_wd: Mock,
-    tmp_path: Path,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test that stream handler exceptions don't interrupt execution."""
-    mock_wd.return_value = str(tmp_path)
-    mock_check.return_value = None
-
-    result_msg = {"type": "result", "is_error": False, "result": "Done"}
-    mock_process = Mock()
-    mock_process.returncode = 0
-    mock_process.stdout = StringIO(json.dumps(result_msg) + "\n")
-    mock_process.stderr = StringIO("")
-    mock_popen.return_value = mock_process
-
-    # Stream handler that raises exception
-    def bad_handler(line: str):
-        raise ValueError("Handler error")
-
-    agent = OpenCodeAgent()
-    request = AgentExecuteRequest(
-        prompt="# Test Plan",
-        issue_id=123,
-        adw_id="test456",
-        agent_name="test_agent",
-    )
-    response = agent.execute_prompt(request)
-
-    # Execution should still succeed despite handler error
-    assert response.success is True
-    # Error should be logged
-    assert "handler error" in caplog.text.lower() or response.success
