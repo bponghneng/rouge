@@ -1,20 +1,21 @@
 """Stream handler factories for agent execution notifications.
 
-This module provides factory functions that create stream handlers
-for processing agent output and inserting progress comments.
+This module previously provided factory functions for creating stream handlers
+to process agent output. With the architectural change to use JSON envelope
+parsing (subprocess.run) instead of JSONL streaming, stream handlers are no
+longer used by agent providers.
 
-Stream handlers follow a specific protocol:
-- Receive raw output chunks (typically line-by-line)
-- Parse and process content independently
-- Handle errors gracefully without raising
-- Never interrupt agent execution
+Progress tracking is now handled via Supabase comments inserted at workflow
+step boundaries. See rouge.core.notifications.comments for comment insertion.
+
+The make_progress_comment_handler function is retained for backward compatibility
+but is no longer passed to agent.execute_prompt().
 """
 
 import json
 import logging
 from typing import Any, Callable, Dict, Iterable
 
-from rouge.core.agents.claude import iter_assistant_items
 from rouge.core.agents.opencode import iter_opencode_items
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
@@ -23,27 +24,29 @@ logger = logging.getLogger(__name__)
 
 
 def make_progress_comment_handler(
-    issue_id: int, adw_id: str, provider: str = "claude"
+    issue_id: int, adw_id: str, provider: str = "opencode"
 ) -> Callable[[str], None]:
-    """Create a stream handler that parses assistant messages and inserts progress comments.
+    """Create a handler that parses assistant messages and inserts progress comments.
 
-    This handler parses JSONL output from agent providers (Claude or OpenCode),
-    extracts assistant text and TodoWrite items, and inserts them as progress comments.
+    This handler parses JSONL output and extracts assistant text and TodoWrite
+    items, inserting them as progress comments.
 
-    The handler is best-effort and never raises exceptions, ensuring agent
-    execution continues even if comment insertion fails.
+    The handler is best-effort and never raises exceptions.
+
+    Note: This handler is no longer passed to agent.execute_prompt() as stream
+    handlers have been removed from the CodingAgent interface. Progress tracking
+    is now handled via Supabase comments at workflow step boundaries.
+
+    This function is retained for backward compatibility and may be used for
+    manual JSONL parsing if needed.
 
     Args:
         issue_id: Issue ID for comment insertion
         adw_id: Workflow ID for logging context
-        provider: Provider name ("claude" or "opencode")
+        provider: Provider name ("opencode" only - Claude uses JSON envelope)
 
     Returns:
-        Stream handler function that processes output lines
-
-    Example:
-        handler = make_progress_comment_handler(123, "adw-456", "opencode")
-        agent.execute_prompt(request, stream_handler=handler)
+        Handler function that processes output lines
     """
 
     def handler(line: str) -> None:
@@ -57,8 +60,13 @@ def make_progress_comment_handler(
             if provider == "opencode":
                 items: Iterable[Dict[str, Any]] = iter_opencode_items(line)
             else:
-                # Default to Claude
-                items = iter_assistant_items(line)
+                # Claude no longer uses streaming - log warning and return
+                logger.warning(
+                    "Stream handler called for provider '%s' but only 'opencode' is supported. "
+                    "Claude now uses JSON envelope parsing from subprocess.run.",
+                    provider,
+                )
+                return
 
             for item in items:
                 try:
@@ -95,17 +103,16 @@ def make_progress_comment_handler(
 
 
 def make_simple_logger_handler() -> Callable[[str], None]:
-    """Create a stream handler that logs raw output lines for debugging.
+    """Create a handler that logs raw output lines for debugging.
 
     This is a simple handler useful for development and debugging,
     logging each output line at debug level.
 
-    Returns:
-        Stream handler function that logs each line
+    Note: This handler is no longer passed to agent.execute_prompt() as stream
+    handlers have been removed from the CodingAgent interface.
 
-    Example:
-        handler = make_simple_logger_handler()
-        agent.execute_prompt(request, stream_handler=handler)
+    Returns:
+        Handler function that logs each line
     """
 
     def handler(line: str) -> None:
