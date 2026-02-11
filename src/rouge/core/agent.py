@@ -8,23 +8,17 @@ For new code, prefer importing from rouge.core.agents directly:
 """
 
 import logging
-from typing import Callable, Optional
 
 from rouge.core.agents import (
     AgentExecuteRequest,
-    AgentExecuteResponse,
     get_agent,
-    get_implement_provider,
 )
 from rouge.core.agents.claude import (
-    ClaudeAgentPromptRequest,
     ClaudeAgentPromptResponse,
     ClaudeAgentTemplateRequest,
-    execute_claude_template,
 )
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 
 logger = logging.getLogger(__name__)
@@ -34,69 +28,19 @@ logger = logging.getLogger(__name__)
 AGENT_REQUIRED_FIELDS = {"output": str}
 
 
-def prompt_claude_code(request: ClaudeAgentPromptRequest) -> ClaudeAgentPromptResponse:
-    """Execute Claude Code with the given prompt configuration.
-
-    Legacy function for backward compatibility. Prefer using get_agent()
-    and AgentExecuteRequest directly for new code.
-
-    Args:
-        request: Claude-specific prompt request
-
-    Returns:
-        Claude-specific prompt response
-    """
-    # Map ClaudeAgentPromptRequest to AgentExecuteRequest
-    agent_request = AgentExecuteRequest(
-        prompt=request.prompt,
-        issue_id=request.issue_id,
-        adw_id=request.adw_id,
-        agent_name=request.agent_name,
-        model=request.model,
-        output_path=request.output_file,
-        provider_options={"dangerously_skip_permissions": request.dangerously_skip_permissions},
-    )
-
-    # Create progress comment handler
-    handler = make_progress_comment_handler(request.issue_id, request.adw_id)
-
-    # Get agent and execute
-    agent = get_agent("claude")
-    response = agent.execute_prompt(agent_request, stream_handler=handler)
-
-    # Insert final progress comment if successful
-    if response.success and response.raw_output_path:
-        payload = CommentPayload(
-            issue_id=request.issue_id,
-            adw_id=request.adw_id,
-            text=f"Output saved to: {response.raw_output_path}",
-            source="agent",
-            kind="claude",
-        )
-        status, msg = emit_comment_from_payload(payload)
-        logger.debug(msg) if status == "success" else logger.error(msg)
-
-    # Map AgentExecuteResponse to ClaudeAgentPromptResponse
-    return ClaudeAgentPromptResponse(
-        output=response.output, success=response.success, session_id=response.session_id
-    )
-
-
 def execute_template(
     request: ClaudeAgentTemplateRequest,
-    stream_handler: Optional[Callable[[str], None]] = None,
     *,
     require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
     """Execute a Claude Code template with slash command and arguments.
 
-    Legacy function for backward compatibility. Delegates to Claude provider
-    template helper. Enforces JSON parsing and emits progress comments with
-    parsed data in the raw field.
+    This function constructs an AgentExecuteRequest and calls agent.execute_prompt()
+    directly. Enforces JSON parsing and emits progress comments with parsed data
+    in the raw field.
 
     Args:
         request: Claude-specific template request
-        stream_handler: Optional callback for streaming output
         require_json: If True (default), validates output as JSON and emits
             error comments for non-JSON output. If False, skips JSON validation
             and allows plain text output (used by FindPlanFileStep and
@@ -105,7 +49,34 @@ def execute_template(
     Returns:
         Claude-specific prompt response
     """
-    response = execute_claude_template(request, stream_handler=stream_handler)
+    # Construct prompt from slash command and args
+    prompt = f"{request.slash_command} {' '.join(request.args)}"
+
+    # Build provider options
+    provider_options: dict[str, object] = {"dangerously_skip_permissions": True}
+    if request.json_schema:
+        provider_options["json_schema"] = request.json_schema
+
+    # Build AgentExecuteRequest
+    agent_request = AgentExecuteRequest(
+        prompt=prompt,
+        issue_id=request.issue_id,
+        adw_id=request.adw_id,
+        agent_name=request.agent_name,
+        model=request.model,
+        provider_options=provider_options,
+    )
+
+    # Get agent and execute directly
+    agent = get_agent("claude")
+    agent_response = agent.execute_prompt(agent_request)
+
+    # Map to ClaudeAgentPromptResponse
+    response = ClaudeAgentPromptResponse(
+        output=agent_response.output,
+        success=agent_response.success,
+        session_id=agent_response.session_id,
+    )
 
     # Handle JSON validation based on require_json parameter
     if response.success and response.output:
@@ -161,105 +132,5 @@ def execute_template(
             status, msg = emit_comment_from_payload(payload)
             logger.debug(msg) if status == "success" else logger.error(msg)
             logger.debug("Template output accepted as plain text (require_json=False)")
-
-    return response
-
-
-def execute_agent_prompt(
-    request: AgentExecuteRequest,
-    provider: Optional[str] = None,
-    *,
-    stream_handler: Optional[Callable[[str], None]] = None,
-) -> AgentExecuteResponse:
-    """Execute agent prompt with specified or default provider.
-
-    This is the new provider-agnostic API for agent execution.
-    Use stream_handler for notifications and progress tracking.
-
-    Args:
-        request: Provider-agnostic execution request
-        provider: Optional provider name (defaults to "claude")
-        stream_handler: Optional callback for streaming output
-
-    Returns:
-        Provider-agnostic execution response
-
-    Example:
-        from rouge.core.agent import execute_agent_prompt
-        from rouge.core.agents import AgentExecuteRequest
-        from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
-
-        request = AgentExecuteRequest(
-            prompt="/implement plan.md",
-            issue_id=123,
-            adw_id="adw-456",
-            agent_name="implementor"
-        )
-        handler = make_progress_comment_handler(123, "adw-456")
-        response = execute_agent_prompt(request, stream_handler=handler)
-    """
-    agent = get_agent(provider)
-    return agent.execute_prompt(request, stream_handler=stream_handler)
-
-
-def execute_implement_plan(
-    plan_content: str, issue_id: int, adw_id: str, agent_name: str
-) -> AgentExecuteResponse:
-    """Execute implementation plan using configured provider.
-
-    This helper function executes the plan using the provider configured
-    via ROUGE_IMPLEMENT_PROVIDER environment variable. It automatically
-    handles progress comment integration and provider-specific formatting.
-
-    Provider selection priority:
-    1. ROUGE_IMPLEMENT_PROVIDER environment variable
-    2. ROUGE_AGENT_PROVIDER environment variable (fallback)
-    3. Default to "claude"
-
-    Args:
-        plan_content: The plan content (markdown) to implement
-        issue_id: Issue ID for tracking
-        adw_id: Workflow ID for tracking
-        agent_name: Agent name for directory structure
-
-    Returns:
-        AgentExecuteResponse with execution results
-
-    Example:
-        from rouge.core.agent import execute_implement_plan
-
-        response = execute_implement_plan(
-            plan_content="# Feature Plan\\n...",
-            issue_id=123,
-            adw_id="adw-456",
-            agent_name="sdlc_implementor"
-        )
-    """
-    # Get the configured provider for implementation
-    provider_name = get_implement_provider()
-    logger.info("Using provider '%s' for implementation", provider_name)
-
-    # Provider-specific prompt construction
-    if provider_name == "claude":
-        # Claude uses /adw-implement-plan with plan content directly
-        prompt = f"/adw-implement-plan {plan_content.lstrip()}"
-    else:
-        # Other providers (e.g., OpenCode) get plan content directly
-        prompt = plan_content
-
-    # Create AgentExecuteRequest
-    request = AgentExecuteRequest(
-        prompt=prompt,
-        issue_id=issue_id,
-        adw_id=adw_id,
-        agent_name=agent_name,
-    )
-
-    # Create progress comment handler
-    handler = make_progress_comment_handler(issue_id, adw_id, provider=provider_name)
-
-    # Get agent and execute
-    agent = get_agent(provider_name)
-    response = agent.execute_prompt(request, stream_handler=handler)
 
     return response

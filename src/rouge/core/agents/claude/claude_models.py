@@ -67,6 +67,7 @@ class ClaudeAgentTemplateRequest(BaseModel):
     adw_id: str
     issue_id: Optional[int]
     model: Literal["sonnet", "opus"] = "sonnet"
+    json_schema: Optional[str] = None
 
 
 class ClaudeAgentResultMessage(BaseModel):
