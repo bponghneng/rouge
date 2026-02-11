@@ -54,6 +54,10 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
     if not response.success:
         return StepResult.fail(response.output)
 
+    # Guard: Check that response.output is present before parsing
+    if not response.output:
+        return StepResult.fail("Implement step returned empty output")
+
     # Parse and validate JSON output with IMPLEMENT_REQUIRED_FIELDS
     parse_result = parse_and_validate_json(
         response.output, IMPLEMENT_REQUIRED_FIELDS, step_name="implement"
