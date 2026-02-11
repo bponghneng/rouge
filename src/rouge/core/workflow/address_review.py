@@ -1,6 +1,6 @@
 import logging
 
-from rouge.core.agent import execute_template
+from rouge.core.agent import execute_claude_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
@@ -59,7 +59,7 @@ def address_review_issues(
         )
 
         # Execute the template
-        response = execute_template(request, require_json=True)
+        response = execute_claude_template(request, require_json=True)
 
         logger.debug("address_review response: success=%s", response.success)
 

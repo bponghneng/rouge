@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.agent import execute_template
+from rouge.core.agent import execute_claude_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.workflow.shared import AGENT_VALIDATOR
@@ -60,7 +60,7 @@ def notify_plan_acceptance(
         )
 
         # Execute template
-        response = execute_template(request)
+        response = execute_claude_template(request)
 
         logger.debug(
             "notify_plan_acceptance response: success=%s",

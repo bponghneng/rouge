@@ -3,7 +3,7 @@
 import logging
 from typing import cast
 
-from rouge.core.agent import execute_template
+from rouge.core.agent import execute_claude_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import Issue
@@ -44,7 +44,7 @@ def classify_issue(
         "classify request: %s",
         request.model_dump_json(indent=2, by_alias=True),
     )
-    response = execute_template(request)
+    response = execute_claude_template(request)
     logger.debug(
         "classify response: %s",
         response.model_dump_json(indent=2, by_alias=True),

@@ -8,7 +8,7 @@ import subprocess
 import traceback
 from typing import Any, Optional, Tuple
 
-from rouge.core.agent import execute_template
+from rouge.core.agent import execute_claude_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
@@ -220,7 +220,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 request.model_dump_json(indent=2, by_alias=True),
             )
 
-            response = execute_template(request)
+            response = execute_claude_template(request)
 
             logger.debug("compose_commits response: success=%s", response.success)
             logger.debug("Compose commits LLM response: %s", _sanitize_for_logging(response.output))
