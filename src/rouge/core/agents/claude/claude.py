@@ -184,14 +184,32 @@ class ClaudeAgent(CodingAgent):
             # Import here to avoid circular dependency
             from rouge.core.workflow.shared import get_working_dir
 
-            # Execute subprocess
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                env=env,
-                cwd=get_working_dir(),
-            )
+            # Get timeout from environment variable (default 30 minutes = 1800 seconds)
+            timeout_seconds = int(os.getenv("ROUGE_PROMPT_TIMEOUT", "1800"))
+
+            # Execute subprocess with timeout
+            try:
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    cwd=get_working_dir(),
+                    timeout=timeout_seconds,
+                )
+            except subprocess.TimeoutExpired as timeout_err:
+                error_msg = (
+                    f"Claude Code execution timed out after {timeout_seconds} seconds. "
+                    f"Command: {' '.join(cmd)}"
+                )
+                _DEFAULT_LOGGER.error(error_msg)
+                return AgentExecuteResponse(
+                    output=error_msg,
+                    success=False,
+                    session_id=None,
+                    raw_output_path=None,
+                    error_detail=str(timeout_err),
+                )
 
             # Parse JSON envelope from stdout
             return self._parse_json_envelope(result)
