@@ -13,7 +13,7 @@ import os
 import subprocess
 import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -213,21 +213,18 @@ class OpenCodeAgent(CodingAgent):
     def execute_prompt(
         self,
         request: AgentExecuteRequest,
-        *,
-        stream_handler: Optional[Callable[[str], None]] = None,
     ) -> AgentExecuteResponse:
         """Execute OpenCode CLI with the given request.
 
         This method handles the complete lifecycle:
         1. Validate CLI is installed
         2. Determine output file path
-        3. Execute subprocess with threading for streaming
+        3. Execute subprocess with threading for output capture
         4. Parse JSONL results
         5. Map to AgentExecuteResponse
 
         Args:
             request: Provider-agnostic execution request
-            stream_handler: Optional callback for streaming output lines
 
         Returns:
             Structured response with results and metadata
@@ -298,16 +295,10 @@ class OpenCodeAgent(CodingAgent):
                 stderr_pipe = process.stderr
 
                 def _stream_stdout() -> None:
-                    """Stream stdout to file and handler."""
+                    """Stream stdout to file."""
                     for line in stdout_pipe:
                         f.write(line)
                         f.flush()
-                        # Call stream handler if provided
-                        if stream_handler:
-                            try:
-                                stream_handler(line)
-                            except Exception as e:
-                                _DEFAULT_LOGGER.error("Stream handler error: %s", e)
                     stdout_pipe.close()
 
                 def _capture_stderr() -> None:

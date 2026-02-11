@@ -9,7 +9,7 @@ focused solely on execution mechanics.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
@@ -67,43 +67,22 @@ class CodingAgent(ABC):
     the full execution lifecycle including:
     - Validating prerequisites (CLI availability, credentials, etc.)
     - Running the agent subprocess or API call
-    - Streaming output through the optional handler
     - Parsing results into standardized response format
     - Handling errors gracefully
 
-    Stream Handler Protocol:
-        If provided, the stream_handler receives raw streaming output
-        (typically line-by-line for CLI tools) as execution progresses.
-        Handlers should:
-        - Parse/process each chunk independently
-        - Handle parsing errors gracefully (log and continue)
-        - Never raise exceptions (would interrupt execution)
-        - Be thread-safe if provider uses threading
-
-    Example:
-        def my_handler(line: str) -> None:
-            try:
-                data = json.loads(line)
-                # Process data...
-            except Exception as e:
-                logger.error(f"Handler error: {e}")
-                # Continue - don't raise
+    Note: Progress tracking is handled via Supabase comments rather than
+    stream handlers. See rouge.core.notifications for comment insertion.
     """
 
     @abstractmethod
     def execute_prompt(
         self,
         request: AgentExecuteRequest,
-        *,
-        stream_handler: Optional[Callable[[str], None]] = None,
     ) -> AgentExecuteResponse:
-        """Execute an agent prompt with optional streaming.
+        """Execute an agent prompt.
 
         Args:
             request: Execution parameters including prompt, IDs, and options
-            stream_handler: Optional callback receiving raw streaming output.
-                          Called for each chunk (typically line) as it arrives.
-                          Should handle all errors internally.
 
         Returns:
             Structured response with output, success status, and metadata
