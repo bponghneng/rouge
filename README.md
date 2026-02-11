@@ -57,6 +57,7 @@ uv run rouge-worker --worker-id alleycat-1
 | `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
 | `GITLAB_PAT` | optional | Personal access token for GitLab (api scope). Required for automatic MR creation when `DEV_SEC_OPS_PLATFORM=gitlab`. Requires `glab` CLI. |
 | `DEV_SEC_OPS_PLATFORM` | optional | Platform for PR/MR creation: `"github"` or `"gitlab"`. If not set, PR/MR creation step is skipped. |
+| `ROUGE_PROMPT_TIMEOUT` | optional | Agent prompt execution timeout in seconds (default: 1800 = 30 minutes). Controls timeout for individual Claude Code CLI calls. |
 | `ROUGE_WORKFLOW_TIMEOUT_SECONDS` | optional | Workflow execution timeout in seconds (default: 3600). |
 | `CODERABBIT_TIMEOUT_SECONDS` | optional | Timeout for CodeRabbit review generation in seconds (default: 600). |
 
