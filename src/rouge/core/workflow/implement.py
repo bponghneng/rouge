@@ -2,7 +2,7 @@
 
 import logging
 
-from rouge.core.agent import execute_claude_template
+from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
@@ -43,7 +43,7 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
     )
 
     # Execute template
-    response = execute_claude_template(request)
+    response = execute_template(request)
 
     logger.debug(
         "implement response: success=%s, session_id=%s",

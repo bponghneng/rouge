@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 AGENT_REQUIRED_FIELDS = {"output": str}
 
 
-def execute_claude_template(
+def execute_template(
     request: ClaudeAgentTemplateRequest,
     *,
     require_json: bool = True,
