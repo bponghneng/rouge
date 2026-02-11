@@ -4,7 +4,6 @@ import logging
 from typing import Optional
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.acceptance import notify_plan_acceptance
 from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
@@ -73,12 +72,10 @@ class ValidateAcceptanceStep(WorkflowStep):
             logger.error("Missing issue_id: %s", e)
             return StepResult.fail(str(e))
 
-        acceptance_handler = make_progress_comment_handler(issue_id, context.adw_id)
         acceptance_result = notify_plan_acceptance(
             plan_text,
             issue_id,
             context.adw_id,
-            stream_handler=acceptance_handler,
         )
 
         if not acceptance_result.success:

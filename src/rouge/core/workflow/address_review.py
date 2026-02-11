@@ -1,5 +1,4 @@
 import logging
-from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -22,7 +21,6 @@ def address_review_issues(
     issue_id: int | None,
     adw_id: str,
     review_text: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult:
     """Address issues found in the review.
 
@@ -33,7 +31,6 @@ def address_review_issues(
         issue_id: Optional Issue ID (None for standalone review)
         adw_id: ADW workflow ID
         review_text: The review text containing issues to address
-        stream_handler: Optional handler for streaming output
 
     Returns:
         StepResult indicating success or failure
@@ -62,7 +59,7 @@ def address_review_issues(
         )
 
         # Execute the template
-        response = execute_template(request, stream_handler=stream_handler, require_json=True)
+        response = execute_template(request, require_json=True)
 
         logger.debug("address_review response: success=%s", response.success)
 

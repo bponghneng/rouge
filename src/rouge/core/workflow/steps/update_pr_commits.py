@@ -12,7 +12,6 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -207,8 +206,6 @@ class UpdatePRCommitsStep(WorkflowStep):
 
         # Compose conventional commits from unstaged changes
         try:
-            handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
-
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
                 slash_command="/adw-compose-commits",
@@ -223,7 +220,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 request.model_dump_json(indent=2, by_alias=True),
             )
 
-            response = execute_template(request, stream_handler=handler)
+            response = execute_template(request)
 
             logger.debug("compose_commits response: success=%s", response.success)
             logger.debug("Compose commits LLM response: %s", _sanitize_for_logging(response.output))

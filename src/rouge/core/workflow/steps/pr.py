@@ -6,7 +6,6 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PRMetadataArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
@@ -47,8 +46,6 @@ class PreparePullRequestStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         try:
-            pr_handler = make_progress_comment_handler(context.require_issue_id, context.adw_id)
-
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 slash_command="/adw-pull-request",
@@ -63,7 +60,7 @@ class PreparePullRequestStep(WorkflowStep):
                 request.model_dump_json(indent=2, by_alias=True),
             )
 
-            response = execute_template(request, stream_handler=pr_handler)
+            response = execute_template(request)
 
             logger.debug("pull_request response: success=%s", response.success)
             logger.debug("PR preparation LLM response: %s", response.output)
