@@ -6,7 +6,6 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import QualityCheckArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
@@ -44,13 +43,6 @@ class CodeQualityStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         try:
-            # Only create progress handler if we have an issue_id
-            quality_handler = (
-                make_progress_comment_handler(context.issue_id, context.adw_id)
-                if context.issue_id is not None
-                else None
-            )
-
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
                 slash_command="/adw-code-quality",
@@ -65,7 +57,7 @@ class CodeQualityStep(WorkflowStep):
                 request.model_dump_json(indent=2, by_alias=True),
             )
 
-            response = execute_template(request, stream_handler=quality_handler)
+            response = execute_template(request)
 
             logger.debug("code_quality response: success=%s", response.success)
 

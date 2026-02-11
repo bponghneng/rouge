@@ -8,7 +8,6 @@ artifacts (original issue or original plan).
 import logging
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PlanArtifact
 from rouge.core.workflow.plan import build_plan
@@ -55,11 +54,8 @@ class BuildPatchPlanStep(WorkflowStep):
             logger.error("Cannot build patch plan: patch issue not available")
             return StepResult.fail("Cannot build patch plan: patch issue not available")
 
-        # Create progress comment handler
-        plan_handler = make_progress_comment_handler(issue.id, context.adw_id)
-
         # Build standalone plan from patch issue description
-        plan_response = build_plan(issue, "/adw-patch-plan", context.adw_id, plan_handler)
+        plan_response = build_plan(issue, "/adw-patch-plan", context.adw_id)
 
         if not plan_response.success:
             logger.error("Error building patch plan: %s", plan_response.error)

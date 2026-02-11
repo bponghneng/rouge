@@ -3,7 +3,6 @@
 import logging
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.agent_stream_handlers import make_progress_comment_handler
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.address_review import address_review_issues
 from rouge.core.workflow.artifacts import PlanArtifact, ReviewAddressedArtifact, ReviewArtifact
@@ -183,18 +182,10 @@ class AddressReviewStep(WorkflowStep):
             logger.warning("No review text available, skipping address review")
             return StepResult.ok(None)
 
-        # Only create handler if we have an issue_id
-        review_handler = (
-            make_progress_comment_handler(context.issue_id, context.adw_id)
-            if context.issue_id is not None
-            else None
-        )
-
         review_issues_result = address_review_issues(
             context.issue_id,
             context.adw_id,
             review_text,
-            stream_handler=review_handler,
         )
 
         if not review_issues_result.success:

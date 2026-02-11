@@ -1,7 +1,7 @@
 """Issue classification functionality for workflow orchestration."""
 
 import logging
-from typing import Callable, Optional, cast
+from typing import cast
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -22,14 +22,12 @@ CLASSIFY_REQUIRED_FIELDS = {
 def classify_issue(
     issue: Issue,
     adw_id: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[ClassifyData]:
     """Classify issue and return appropriate slash command.
 
     Args:
         issue: The issue to classify
         adw_id: Workflow ID for tracking
-        stream_handler: Optional callback for streaming output
 
     Returns:
         StepResult with ClassifyData containing command and classification
@@ -46,7 +44,7 @@ def classify_issue(
         "classify request: %s",
         request.model_dump_json(indent=2, by_alias=True),
     )
-    response = execute_template(request, stream_handler=stream_handler)
+    response = execute_template(request)
     logger.debug(
         "classify response: %s",
         response.model_dump_json(indent=2, by_alias=True),

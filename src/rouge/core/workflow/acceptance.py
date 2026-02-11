@@ -1,7 +1,6 @@
 """Plan acceptance validation functionality for workflow orchestration."""
 
 import logging
-from typing import Callable, Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -27,7 +26,6 @@ def notify_plan_acceptance(
     plan_content: str,
     issue_id: int,
     adw_id: str,
-    stream_handler: Optional[Callable[[str], None]] = None,
 ) -> StepResult[None]:
     """Validate implementation against plan content.
 
@@ -35,7 +33,6 @@ def notify_plan_acceptance(
         plan_content: The plan content (markdown) to validate against
         issue_id: Rouge issue ID for tracking
         adw_id: Workflow ID for tracking
-        stream_handler: Optional callback for streaming output
 
     Returns:
         StepResult with None data (success/failure only)
@@ -63,7 +60,7 @@ def notify_plan_acceptance(
         )
 
         # Execute template
-        response = execute_template(request, stream_handler=stream_handler)
+        response = execute_template(request)
 
         logger.debug(
             "notify_plan_acceptance response: success=%s",
