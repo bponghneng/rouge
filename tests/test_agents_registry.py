@@ -47,7 +47,7 @@ def test_register_agent():
     """Test registering a custom agent."""
 
     class TestAgent(CodingAgent):
-        def execute_prompt(self, request, *, stream_handler=None):
+        def execute_prompt(self, request):
             return AgentExecuteResponse(output="test", success=True)
 
     test_agent = TestAgent()
@@ -61,11 +61,11 @@ def test_register_agent_duplicate_overwrites():
     """Test registering duplicate agent name overwrites existing."""
 
     class TestAgent1(CodingAgent):
-        def execute_prompt(self, request, *, stream_handler=None):
+        def execute_prompt(self, request):
             return AgentExecuteResponse(output="v1", success=True)
 
     class TestAgent2(CodingAgent):
-        def execute_prompt(self, request, *, stream_handler=None):
+        def execute_prompt(self, request):
             return AgentExecuteResponse(output="v2", success=True)
 
     register_agent("test_dup", TestAgent1())
@@ -81,7 +81,7 @@ def test_register_agent_invalid_name():
     """Test registering agent with invalid name raises ValueError."""
 
     class TestAgent(CodingAgent):
-        def execute_prompt(self, request, *, stream_handler=None):
+        def execute_prompt(self, request):
             return AgentExecuteResponse(output="test", success=True)
 
     with pytest.raises(ValueError, match="non-empty string"):

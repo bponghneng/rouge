@@ -1,20 +1,14 @@
 """Tests for Claude Code agent module (legacy facade)."""
 
 import json
-from io import StringIO
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from rouge.core.agent import execute_template, prompt_claude_code
+from rouge.core.agent import execute_template
 from rouge.core.agents.claude import (
     check_claude_installed,
-    convert_jsonl_to_json,
     get_claude_env,
-    parse_jsonl_output,
     save_prompt,
-)
-from rouge.core.agents.claude.claude_models import (
-    ClaudeAgentPromptRequest as AgentPromptRequest,
 )
 from rouge.core.agents.claude.claude_models import (
     ClaudeAgentTemplateRequest as AgentTemplateRequest,
@@ -37,41 +31,6 @@ def test_check_claude_installed_not_found():
         result = check_claude_installed()
         assert result is not None
         assert "not installed" in result
-
-
-def test_parse_jsonl_output(tmp_path):
-    """Test parsing JSONL output file."""
-    jsonl_file = tmp_path / "test.jsonl"
-    messages = [
-        {"type": "message", "data": "test1"},
-        {"type": "result", "is_error": False, "result": "success"},
-    ]
-    with open(jsonl_file, "w") as f:
-        for msg in messages:
-            f.write(json.dumps(msg) + "\n")
-
-    all_messages, result_message = parse_jsonl_output(str(jsonl_file))
-    assert len(all_messages) == 2
-    assert result_message["type"] == "result"
-    assert result_message["result"] == "success"
-
-
-def test_convert_jsonl_to_json(tmp_path):
-    """Test converting JSONL to JSON array."""
-    jsonl_file = tmp_path / "test.jsonl"
-    messages = [
-        {"type": "message", "data": "test1"},
-        {"type": "result", "result": "success"},
-    ]
-    with open(jsonl_file, "w") as f:
-        for msg in messages:
-            f.write(json.dumps(msg) + "\n")
-
-    json_file = convert_jsonl_to_json(str(jsonl_file))
-    assert Path(json_file).exists()
-    with open(json_file) as f:
-        data = json.load(f)
-        assert len(data) == 2
 
 
 def test_get_claude_env(monkeypatch):
@@ -116,100 +75,28 @@ def test_save_prompt(tmp_path: Path) -> None:
 
 
 @patch(_WORKING_DIR_PATCH)
-@patch("rouge.core.notifications.comments.create_comment")
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
-@patch("subprocess.Popen")
-def test_prompt_claude_code_success(
-    mock_popen: Mock,
-    mock_check: Mock,
-    mock_create_comment: Mock,
-    mock_wd: Mock,
-    tmp_path: Path,
-) -> None:
-    """Test successful Claude Code execution."""
-    mock_wd.return_value = str(tmp_path)
-    mock_check.return_value = None
-
-    output_file = tmp_path / "output.jsonl"
-    request = AgentPromptRequest(
-        prompt="/implement plan.md",
-        adw_id="test123",
-        issue_id=1,
-        output_file=str(output_file),
-    )
-
-    # Mock successful execution that writes JSONL output
-    result_msg = {
-        "type": "result",
-        "is_error": False,
-        "result": "Implementation complete",
-        "session_id": "session123",
-    }
-
-    stdout_stream = StringIO(json.dumps(result_msg) + "\n")
-    stderr_stream = StringIO("")
-
-    process_mock = Mock()
-    process_mock.stdout = stdout_stream
-    process_mock.stderr = stderr_stream
-    process_mock.wait.return_value = None
-    process_mock.returncode = 0
-
-    mock_popen.return_value = process_mock
-
-    response = prompt_claude_code(request)
-    assert response.success is True
-    assert response.session_id == "session123"
-    assert mock_create_comment.called
-
-
-@patch("rouge.core.notifications.comments.create_comment")
-@patch("rouge.core.agents.claude.claude.check_claude_installed")
-def test_prompt_claude_code_cli_not_installed(mock_check, mock_create_comment):
-    """Test handling of Claude Code CLI not installed."""
-    mock_check.return_value = "Error: Claude Code CLI is not installed"
-
-    request = AgentPromptRequest(
-        prompt="/implement plan.md",
-        adw_id="test123",
-        issue_id=1,
-        output_file="/tmp/output.jsonl",
-    )
-
-    response = prompt_claude_code(request)
-    assert response.success is False
-    assert "not installed" in response.output
-    mock_create_comment.assert_not_called()
-
-
-@patch(_WORKING_DIR_PATCH)
-@patch("rouge.core.agents.claude.claude.check_claude_installed")
-@patch("subprocess.Popen")
-def test_execute_template(
-    mock_popen: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
-) -> None:
+@patch("subprocess.run")
+def test_execute_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path) -> None:
     """Test executing template with slash command."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
-    # Mock successful execution
-    result_msg = {
+    # Mock successful execution with JSON envelope
+    result_envelope = {
         "type": "result",
+        "subtype": "success",
         "is_error": False,
-        "result": "Success",
         "session_id": "test",
+        "duration_ms": 1234,
+        "structured_output": {"status": "Success"},
     }
 
-    stdout_stream = StringIO(json.dumps(result_msg) + "\n")
-    stderr_stream = StringIO("")
-
-    process_mock = Mock()
-    process_mock.stdout = stdout_stream
-    process_mock.stderr = stderr_stream
-    process_mock.wait.return_value = None
-    process_mock.returncode = 0
-
-    mock_popen.return_value = process_mock
+    mock_run.return_value = Mock(
+        stdout=json.dumps(result_envelope),
+        stderr="",
+        returncode=0,
+    )
 
     request = AgentTemplateRequest(
         agent_name="ops",
@@ -226,32 +113,29 @@ def test_execute_template(
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.notifications.comments.create_comment")
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
-@patch("subprocess.Popen")
+@patch("subprocess.run")
 def test_execute_template_require_json_false(
-    mock_popen: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
+    mock_run: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
 ) -> None:
     """Test execute_template with require_json=False allows plain text output."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
-    # Mock execution that returns plain text (not JSON)
-    result_msg = {
+    # Mock execution that returns plain text in structured_output
+    result_envelope = {
         "type": "result",
+        "subtype": "success",
         "is_error": False,
-        "result": "specs/feature-plan.md",
         "session_id": "test",
+        "duration_ms": 1234,
+        "structured_output": "specs/feature-plan.md",
     }
 
-    stdout_stream = StringIO(json.dumps(result_msg) + "\n")
-    stderr_stream = StringIO("")
-
-    process_mock = Mock()
-    process_mock.stdout = stdout_stream
-    process_mock.stderr = stderr_stream
-    process_mock.wait.return_value = None
-    process_mock.returncode = 0
-
-    mock_popen.return_value = process_mock
+    mock_run.return_value = Mock(
+        stdout=json.dumps(result_envelope),
+        stderr="",
+        returncode=0,
+    )
 
     request = AgentTemplateRequest(
         agent_name="ops",
@@ -261,7 +145,7 @@ def test_execute_template_require_json_false(
         issue_id=1,
     )
 
-    # Should not error even though output is not JSON
+    # Should not error even though structured_output is plain text
     response = execute_template(request, require_json=False)
     assert response.success is True
     assert response.output == "specs/feature-plan.md"
@@ -270,32 +154,29 @@ def test_execute_template_require_json_false(
 @patch(_WORKING_DIR_PATCH)
 @patch("rouge.core.notifications.comments.create_comment")
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
-@patch("subprocess.Popen")
+@patch("subprocess.run")
 def test_execute_template_sanitizes_markdown_fence(
-    mock_popen: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
+    mock_run: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
 ) -> None:
     """Test execute_template strips Markdown fences before parsing JSON."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
-    # Mock execution that returns JSON wrapped in Markdown fences
-    result_msg = {
+    # Mock execution that returns JSON wrapped in Markdown fences in structured_output
+    result_envelope = {
         "type": "result",
+        "subtype": "success",
         "is_error": False,
-        "result": '```json\n{"status": "success"}\n```',
         "session_id": "test",
+        "duration_ms": 1234,
+        "structured_output": '```json\n{"status": "success"}\n```',
     }
 
-    stdout_stream = StringIO(json.dumps(result_msg) + "\n")
-    stderr_stream = StringIO("")
-
-    process_mock = Mock()
-    process_mock.stdout = stdout_stream
-    process_mock.stderr = stderr_stream
-    process_mock.wait.return_value = None
-    process_mock.returncode = 0
-
-    mock_popen.return_value = process_mock
+    mock_run.return_value = Mock(
+        stdout=json.dumps(result_envelope),
+        stderr="",
+        returncode=0,
+    )
 
     request = AgentTemplateRequest(
         agent_name="ops",

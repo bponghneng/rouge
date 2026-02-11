@@ -163,15 +163,10 @@ class TestRunWhenPlatformMissing:
     @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
     @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch(
-        "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
-        return_value=lambda x: None,
-    )
     @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
     def test_fails_when_env_missing(
         self,
         _mock_get_repo_path,
-        _mock_progress_handler,
         mock_request,
         mock_exec,
         mock_parse,
@@ -209,15 +204,10 @@ class TestComposeCommits:
     @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
     @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch(
-        "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
-        return_value=lambda x: None,
-    )
     @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
     def test_compose_commits_called_before_push(
         self,
         _mock_get_repo_path,
-        _mock_progress_handler,
         mock_request,
         mock_exec,
         mock_parse,
@@ -277,15 +267,10 @@ class TestComposeCommits:
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
     @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch(
-        "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
-        return_value=lambda x: None,
-    )
     @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
     def test_compose_commits_failure_stops_push(
         self,
         _mock_get_repo_path,
-        _mock_progress_handler,
         mock_request,
         mock_exec,
         mock_subprocess,
@@ -318,15 +303,10 @@ class TestComposeCommits:
     @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
     @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch(
-        "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
-        return_value=lambda x: None,
-    )
     @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
     def test_compose_commits_invalid_json_stops_push(
         self,
         _mock_get_repo_path,
-        _mock_progress_handler,
         mock_request,
         mock_exec,
         mock_parse,
@@ -361,15 +341,10 @@ class TestComposeCommits:
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
     @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch(
-        "rouge.core.workflow.steps.update_pr_commits.make_progress_comment_handler",
-        return_value=lambda x: None,
-    )
     @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
     def test_compose_commits_exception_stops_push(
         self,
         _mock_get_repo_path,
-        _mock_progress_handler,
         mock_request,
         mock_exec,
         mock_subprocess,
