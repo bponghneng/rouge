@@ -28,16 +28,17 @@ logger = logging.getLogger(__name__)
 AGENT_REQUIRED_FIELDS = {"output": str}
 
 
-def execute_template(
+def execute_claude_template(
     request: ClaudeAgentTemplateRequest,
     *,
     require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
     """Execute a Claude Code template with slash command and arguments.
 
-    This function constructs an AgentExecuteRequest and calls agent.execute_prompt()
-    directly. Enforces JSON parsing and emits progress comments with parsed data
-    in the raw field.
+    This is a Claude-specific function that uses the Claude agent provider
+    exclusively. It constructs an AgentExecuteRequest and calls the Claude
+    agent's execute_prompt() directly. Enforces JSON parsing and emits progress
+    comments with parsed data in the raw field.
 
     Args:
         request: Claude-specific template request
