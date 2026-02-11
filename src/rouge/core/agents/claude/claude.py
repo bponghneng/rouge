@@ -1,8 +1,8 @@
 """Claude Code provider implementation.
 
 This module extracts all Claude Code-specific logic from the original agent.py
-into a dedicated provider implementation. It handles CLI invocation, JSONL
-parsing, subprocess management, and streaming output.
+into a dedicated provider implementation. It handles CLI invocation, subprocess
+management, and JSON envelope parsing from stdout.
 """
 
 import json
@@ -10,9 +10,8 @@ import logging
 import os
 import re
 import subprocess
-import threading
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Optional
 
 from dotenv import load_dotenv
 
@@ -21,8 +20,6 @@ from rouge.core.agents.base import (
     AgentExecuteResponse,
     CodingAgent,
 )
-
-from .claude_models import ClaudeAgentPromptResponse, ClaudeAgentTemplateRequest
 
 # Load environment variables
 load_dotenv()
@@ -91,96 +88,6 @@ def get_claude_env() -> Dict[str, str]:
     return {k: v for k, v in required_env_vars.items() if v is not None}
 
 
-def parse_jsonl_output(
-    output_file: str,
-) -> Tuple[List[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """Parse JSONL output file and return all messages and the result message.
-
-    Returns:
-        Tuple of (all_messages, result_message) where result_message is None if not found
-    """
-    try:
-        with open(output_file, "r") as f:
-            # Read all lines and parse each as JSON
-            messages = [json.loads(line) for line in f if line.strip()]
-
-            # Find the result message (should be the last one)
-            result_message = None
-            for message in reversed(messages):
-                if message.get("type") == "result":
-                    result_message = message
-                    break
-
-            return messages, result_message
-    except Exception as e:
-        _DEFAULT_LOGGER.error("Error parsing JSONL file %s: %s", output_file, e)
-        return [], None
-
-
-def convert_jsonl_to_json(jsonl_file: str) -> str:
-    """Convert JSONL file to JSON array file.
-
-    Creates a .json file with the same name as the .jsonl file,
-    containing all messages as a JSON array.
-
-    Returns:
-        Path to the created JSON file
-    """
-    # Create JSON filename by replacing .jsonl with .json
-    json_file = jsonl_file.replace(".jsonl", ".json")
-
-    # Parse the JSONL file
-    messages, _ = parse_jsonl_output(jsonl_file)
-
-    # Write as JSON array
-    with open(json_file, "w") as f:
-        json.dump(messages, f, indent=2)
-
-    _DEFAULT_LOGGER.debug("Created JSON file: %s", json_file)
-    return json_file
-
-
-def iter_assistant_items(line: str) -> Iterable[Dict[str, Any]]:
-    """Yield assistant text/TodoWrite/Task items parsed from a Claude CLI stdout line.
-
-    This function is critical for real-time streaming progress comments.
-    It parses JSONL lines and extracts relevant content items from assistant messages.
-    """
-    stripped = line.strip()
-    if not stripped:
-        return []
-
-    try:
-        parsed = json.loads(stripped)
-    except json.JSONDecodeError:
-        return []
-
-    if parsed.get("type") != "assistant":
-        return []
-
-    message = parsed.get("message")
-    if not isinstance(message, dict):
-        return []
-
-    content_items = message.get("content")
-    if not isinstance(content_items, list):
-        return []
-
-    selected: List[Dict[str, Any]] = []
-    for item in content_items:
-        if not isinstance(item, dict):
-            continue
-
-        item_type = item.get("type")
-        is_text = item_type == "text"
-        is_todo = item_type == "tool_use" and item.get("name") == "TodoWrite"
-        is_task = item_type == "tool_use" and item.get("name") == "Task"
-
-        if is_text or is_todo or is_task:
-            selected.append(item)
-    return selected
-
-
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     """Save a prompt to the appropriate logging directory."""
     # Extract slash command from prompt
@@ -210,20 +117,19 @@ class ClaudeAgent(CodingAgent):
     """Claude Code CLI provider implementation.
 
     This class integrates the Claude Code CLI as a coding agent provider,
-    handling subprocess execution, JSONL streaming, and result parsing.
+    handling subprocess execution and JSON envelope parsing.
 
-    The implementation preserves all original behavior including:
-    - Threading for stdout/stderr streaming
-    - Session ID extraction with fallback logic
-    - Directory structure conventions (.rouge/logs/agents/{adw_id}/{agent_name}/)
-    - Error handling and timeout management
+    Key features:
+    - Uses subprocess.run with --output-format json for synchronous execution
+    - Supports --json-schema for structured output validation
+    - Parses JSON envelope to extract structured_output
+    - Session ID extraction from envelope metadata
+    - Error handling for invalid envelopes and execution failures
     """
 
     def execute_prompt(
         self,
         request: AgentExecuteRequest,
-        *,
-        stream_handler: Optional[Callable[[str], None]] = None,
     ) -> AgentExecuteResponse:
         """Execute Claude Code CLI with the given request.
 
@@ -231,13 +137,12 @@ class ClaudeAgent(CodingAgent):
         1. Map AgentExecuteRequest to Claude-specific parameters
         2. Validate CLI is installed
         3. Save prompt for logging
-        4. Execute subprocess with threading for streaming
-        5. Parse JSONL results
+        4. Execute subprocess with subprocess.run
+        5. Parse JSON envelope from stdout
         6. Map back to AgentExecuteResponse
 
         Args:
             request: Provider-agnostic execution request
-            stream_handler: Optional callback for streaming output lines
 
         Returns:
             Structured response with results and metadata
@@ -248,16 +153,7 @@ class ClaudeAgent(CodingAgent):
             dangerously_skip_permissions = request.provider_options.get(
                 "dangerously_skip_permissions", True
             )
-
-            # Determine output file path
-            if request.output_path:
-                output_file = request.output_path
-            else:
-                from rouge.core.workflow.shared import get_working_dir
-
-                agents_log_dir = Path(get_working_dir()) / ".rouge" / "agents" / "logs"
-                output_dir = agents_log_dir / request.adw_id / request.agent_name
-                output_file = str(output_dir / "raw_output.jsonl")
+            json_schema = request.provider_options.get("json_schema")
 
             # Check if Claude Code CLI is installed
             error_msg = check_claude_installed()
@@ -273,16 +169,12 @@ class ClaudeAgent(CodingAgent):
             # Save prompt before execution
             save_prompt(request.prompt, request.adw_id, request.agent_name)
 
-            # Create output directory if needed
-            output_file_dir = os.path.dirname(output_file)
-            if output_file_dir:
-                os.makedirs(output_file_dir, exist_ok=True)
-
-            # Build command - always use stream-json format, verbose, and skip permissions
+            # Build command - use json format (not stream-json)
             cmd = [CLAUDE_PATH, "-p", request.prompt]
             cmd.extend(["--model", model])
-            cmd.extend(["--output-format", "stream-json"])
-            cmd.append("--verbose")
+            cmd.extend(["--output-format", "json"])
+            if json_schema:
+                cmd.extend(["--json-schema", json_schema])
             if dangerously_skip_permissions:
                 cmd.append("--dangerously-skip-permissions")
 
@@ -292,134 +184,17 @@ class ClaudeAgent(CodingAgent):
             # Import here to avoid circular dependency
             from rouge.core.workflow.shared import get_working_dir
 
-            stderr_lines: List[str] = []
-
-            with open(output_file, "w") as f:
-                process = subprocess.Popen(
-                    cmd,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    env=env,
-                    cwd=get_working_dir(),
-                )
-
-                assert process.stdout is not None
-                assert process.stderr is not None
-                stdout_pipe = process.stdout
-                stderr_pipe = process.stderr
-
-                def _stream_stdout() -> None:
-                    for line in stdout_pipe:
-                        f.write(line)
-                        f.flush()
-                        # Call stream handler if provided
-                        if stream_handler:
-                            try:
-                                stream_handler(line)
-                            except Exception as e:
-                                _DEFAULT_LOGGER.error("Stream handler error: %s", e)
-                    stdout_pipe.close()
-
-                def _capture_stderr() -> None:
-                    for line in stderr_pipe:
-                        stderr_lines.append(line)
-                    stderr_pipe.close()
-
-                stdout_thread = threading.Thread(target=_stream_stdout, daemon=True)
-                stderr_thread = threading.Thread(target=_capture_stderr, daemon=True)
-                stdout_thread.start()
-                stderr_thread.start()
-
-                process.wait()
-
-                stdout_thread.join()
-                stderr_thread.join()
-
-            returncode = process.returncode or 0
-            stderr_output = "".join(stderr_lines)
-
-            # Parse results
-            messages: List[Dict[str, Any]] = []
-            result_message: Optional[Dict[str, Any]] = None
-            if os.path.exists(output_file):
-                messages, result_message = parse_jsonl_output(output_file)
-                convert_jsonl_to_json(output_file)
-
-                # Fallback: pick the last message with result/session_id if parser
-                # did not classify it (helps during mocked tests)
-                if not result_message and messages:
-                    for message in reversed(messages):
-                        if message.get("type") == "result" or message.get("session_id"):
-                            result_message = message
-                            break
-
-            # Map results to AgentExecuteResponse
-            if returncode == 0:
-                if result_message:
-                    session_id = result_message.get("session_id")
-                    is_error = result_message.get("is_error", False)
-                    result_text = result_message.get("result", "")
-
-                    return AgentExecuteResponse(
-                        output=result_text,
-                        success=not is_error,
-                        session_id=session_id,
-                        raw_output_path=output_file,
-                        error_detail=None if not is_error else result_text,
-                    )
-
-                if messages:
-                    return AgentExecuteResponse(
-                        output=json.dumps(messages[-1]),
-                        success=True,
-                        session_id=None,
-                        raw_output_path=output_file,
-                        error_detail=None,
-                    )
-
-                with open(output_file, "r") as f:
-                    raw_output = f.read()
-                return AgentExecuteResponse(
-                    output=raw_output,
-                    success=True,
-                    session_id=None,
-                    raw_output_path=output_file,
-                    error_detail=None,
-                )
-
-            # Handle error case
-            error_detail = stderr_output.strip()
-            session_id = None
-            if result_message:
-                session_id = result_message.get("session_id")
-                result_text = result_message.get("result", "").strip()
-                if result_text:
-                    error_detail = result_text
-            elif messages:
-                last_message = messages[-1]
-                error_detail = (
-                    last_message.get("result")
-                    or last_message.get("error")
-                    or json.dumps(last_message)
-                )
-            elif os.path.exists(output_file):
-                with open(output_file, "r") as f:
-                    file_content = f.read().strip()
-                    if file_content:
-                        error_detail = file_content
-
-            if not error_detail:
-                error_detail = f"Process exited with code {returncode}"
-
-            error_msg = f"Claude Code error: {error_detail}"
-            return AgentExecuteResponse(
-                output=error_msg,
-                success=False,
-                session_id=session_id,
-                raw_output_path=output_file if os.path.exists(output_file) else None,
-                error_detail=error_detail,
+            # Execute subprocess
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=get_working_dir(),
             )
+
+            # Parse JSON envelope from stdout
+            return self._parse_json_envelope(result)
 
         except Exception as e:
             error_msg = f"Error executing Claude Code: {e}"
@@ -432,54 +207,126 @@ class ClaudeAgent(CodingAgent):
                 error_detail=str(e),
             )
 
+    def _parse_json_envelope(
+        self, result: subprocess.CompletedProcess[str]
+    ) -> AgentExecuteResponse:
+        """Parse JSON envelope from Claude Code CLI output.
 
-def execute_claude_template(
-    request: ClaudeAgentTemplateRequest,
-    stream_handler: Optional[Callable[[str], None]] = None,
-) -> ClaudeAgentPromptResponse:
-    """Execute a Claude Code template with slash command and arguments.
+        Expected envelope structure:
+        {
+            "type": "result",
+            "subtype": "success" | "error_max_turns" | ...,
+            "is_error": false,
+            "session_id": "...",
+            "duration_ms": 12345,
+            "structured_output": { ... }  // or serialized JSON string
+        }
 
-    This is a convenience function that maintains backward compatibility
-    with the original execute_template API.
+        Args:
+            result: Completed subprocess result with stdout/stderr
 
-    Args:
-        request: Claude-specific template request
-        stream_handler: Optional callback for streaming output
+        Returns:
+            AgentExecuteResponse with parsed data or error details
+        """
+        stdout = result.stdout.strip()
+        stderr = result.stderr.strip()
 
-    Returns:
-        Claude-specific prompt response
-    """
-    # Construct prompt from slash command and args
-    prompt = f"{request.slash_command} {' '.join(request.args)}"
+        # Handle empty stdout
+        if not stdout:
+            error_detail = stderr if stderr else f"Process exited with code {result.returncode}"
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=None,
+                raw_output_path=None,
+                error_detail=error_detail,
+            )
 
-    # Create output directory with adw_id using get_working_dir() as base
-    from rouge.core.workflow.shared import get_working_dir
+        # Parse JSON envelope
+        try:
+            envelope = json.loads(stdout)
+        except json.JSONDecodeError as e:
+            error_detail = f"Invalid JSON in Claude Code output: {e}"
+            _DEFAULT_LOGGER.error("%s. Raw output: %s", error_detail, stdout[:500])
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=None,
+                raw_output_path=None,
+                error_detail=error_detail,
+            )
 
-    agents_log_dir = Path(get_working_dir()) / ".rouge" / "agents" / "logs"
-    output_dir = agents_log_dir / request.adw_id / request.agent_name
-    output_dir.mkdir(parents=True, exist_ok=True)
+        # Validate envelope structure
+        if not isinstance(envelope, dict):
+            error_detail = f"Expected JSON object, got {type(envelope).__name__}"
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=None,
+                raw_output_path=None,
+                error_detail=error_detail,
+            )
 
-    # Build output file path
-    output_file = str(output_dir / "raw_output.jsonl")
+        envelope_type = envelope.get("type")
+        if envelope_type != "result":
+            error_detail = f"Expected envelope type 'result', got '{envelope_type}'"
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=envelope.get("session_id"),
+                raw_output_path=None,
+                error_detail=error_detail,
+            )
 
-    # Create AgentExecuteRequest
-    agent_request = AgentExecuteRequest(
-        prompt=prompt,
-        issue_id=request.issue_id,
-        adw_id=request.adw_id,
-        agent_name=request.agent_name,
-        model=request.model,
-        output_path=output_file,
-        provider_options={"dangerously_skip_permissions": True},
-    )
+        # Extract metadata
+        session_id = envelope.get("session_id")
+        duration_ms = envelope.get("duration_ms")
+        subtype = envelope.get("subtype")
+        is_error = envelope.get("is_error", False)
 
-    # Execute using ClaudeAgent
-    agent = ClaudeAgent()
-    response = agent.execute_prompt(agent_request, stream_handler=stream_handler)
+        # Log warning for non-success subtypes
+        if subtype and subtype != "success":
+            _DEFAULT_LOGGER.warning(
+                "Claude Code returned subtype '%s' (session_id=%s, duration_ms=%s)",
+                subtype,
+                session_id,
+                duration_ms,
+            )
 
-    # Map back to ClaudeAgentPromptResponse
-    return ClaudeAgentPromptResponse(
-        output=response.output,
-        success=response.success,
-        session_id=response.session_id,
-    )
+        # Check for hard error
+        if is_error:
+            error_text = envelope.get("result", "Unknown error")
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_text}",
+                success=False,
+                session_id=session_id,
+                raw_output_path=None,
+                error_detail=error_text,
+            )
+
+        # Extract structured_output
+        structured_output = envelope.get("structured_output")
+        if structured_output is None:
+            error_detail = "Missing 'structured_output' in envelope"
+            _DEFAULT_LOGGER.error("%s. Envelope keys: %s", error_detail, list(envelope.keys()))
+            return AgentExecuteResponse(
+                output=f"Claude Code error: {error_detail}",
+                success=False,
+                session_id=session_id,
+                raw_output_path=None,
+                error_detail=error_detail,
+            )
+
+        # Serialize structured_output to JSON string if it's not already a string
+        if isinstance(structured_output, str):
+            output = structured_output
+        else:
+            output = json.dumps(structured_output)
+
+        return AgentExecuteResponse(
+            output=output,
+            success=True,
+            session_id=session_id,
+            raw_output_path=None,
+            error_detail=None,
+        )
