@@ -52,7 +52,8 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
     )
 
     if not response.success:
-        return StepResult.fail(response.output)
+        error_message = response.output or "Implement step failed"
+        return StepResult.fail(error_message)
 
     # Guard: Check that response.output is present before parsing
     if not response.output:
