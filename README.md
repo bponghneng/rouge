@@ -169,17 +169,34 @@ Rouge supports typed workflow artifacts that persist step inputs/outputs to disk
 Artifacts are stored under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`, where
 `WORKING_DIR` defaults to the current directory.
 
+**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `classify`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
+
 Artifact-focused commands:
 
-- `rouge step list` - List registered workflow steps and dependencies.
-- `rouge step run <step-name> --issue-id <id> --adw-id <workflow-id>` - Run a single step using stored artifacts.
-- `rouge step deps <step-name>` - Show dependency chain.
+- `rouge step list` - List registered workflow steps with slugs and dependencies.
+- `rouge step run <step-slug> --issue-id <id> --adw-id <workflow-id>` - Run a single step using stored artifacts.
+- `rouge step deps <step-slug>` - Show dependency chain for a step.
 - `rouge step validate` - Validate step registry for missing producers or cycles.
 - `rouge artifact list <workflow-id>` - List artifacts for a workflow.
 - `rouge artifact show <workflow-id> <artifact-type>` - Display artifact JSON.
 - `rouge artifact delete <workflow-id> <artifact-type>` - Remove a stored artifact.
 - `rouge artifact types` - List available artifact types.
 - `rouge artifact path <workflow-id>` - Show the artifact directory path.
+
+**Examples**:
+```bash
+# List all steps with their slugs
+uv run rouge step list
+
+# Run a single step (no dependencies)
+uv run rouge step run fetch-issue --issue-id 123
+
+# Run a step with dependencies (requires --adw-id)
+uv run rouge step run classify --issue-id 123 --adw-id abc12345
+
+# Show what steps must run before implementation
+uv run rouge step deps implement
+```
 
 Single-step execution requires artifacts from a prior run (or manually created
 files in the workflow directory). Full workflow execution (`rouge run`,
