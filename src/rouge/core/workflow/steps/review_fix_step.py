@@ -256,7 +256,3 @@ class ReviewFixStep(WorkflowStep):
                 logger.error(msg)
 
         return StepResult.ok(None, rerun_from=CODE_REVIEW_STEP_NAME)
-
-
-# Backwards compatibility alias
-AddressReviewStep = ReviewFixStep
