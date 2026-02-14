@@ -19,6 +19,18 @@ IMPLEMENT_REQUIRED_FIELDS = {
     "summary": str,
 }
 
+IMPLEMENT_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "files_modified": { "type": "array", "items": { "type": "string" } },
+    "git_diff_stat": { "type": "string" },
+    "output": { "type": "string", "enum": ["implement-plan"] },
+    "status": { "type": "string" },
+    "summary": { "type": "string" }
+  },
+  "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
+}"""
+
 
 def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[ImplementData]:
     """Implement the plan using Claude Code template.
@@ -40,6 +52,7 @@ def implement_plan(plan_content: str, issue_id: int, adw_id: str) -> StepResult[
         issue_id=issue_id,
         adw_id=adw_id,
         agent_name=AGENT_PLAN_IMPLEMENTOR,
+        json_schema=IMPLEMENT_JSON_SCHEMA,
     )
 
     # Execute template

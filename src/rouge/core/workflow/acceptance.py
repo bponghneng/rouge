@@ -21,6 +21,44 @@ ACCEPTANCE_REQUIRED_FIELDS = {
     "unmet_blocking_requirements": list,
 }
 
+ACCEPTANCE_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "output": { "type": "string" },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "plan_title": { "type": "string" },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "required": ["id", "section", "description", "status", "blocking", "evidence"],
+        "properties": {
+          "id": { "type": "string" },
+          "section": { "type": "string" },
+          "description": { "type": "string" },
+          "status": { "type": "string", "enum": ["met", "not_met", "unknown"] },
+          "blocking": { "type": "boolean" },
+          "evidence": { "type": "string" }
+        }
+      }
+    },
+    "status": { "type": "string", "enum": ["pass", "fail", "partial"] },
+    "summary": { "type": "string" },
+    "unmet_blocking_requirements": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "required": [
+    "output",
+    "notes",
+    "plan_title",
+    "requirements",
+    "status",
+    "summary",
+    "unmet_blocking_requirements"
+  ]
+}"""
+
 
 def notify_plan_acceptance(
     plan_content: str,
@@ -52,6 +90,7 @@ def notify_plan_acceptance(
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",
+            json_schema=ACCEPTANCE_JSON_SCHEMA,
         )
 
         logger.debug(

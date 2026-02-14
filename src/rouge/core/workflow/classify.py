@@ -18,6 +18,19 @@ CLASSIFY_REQUIRED_FIELDS = {
     "level": str,
 }
 
+CLASSIFY_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "level": {
+      "type": "string",
+      "enum": ["simple", "average", "complex", "critical"]
+    },
+    "output": { "type": "string", "const": "classify" },
+    "type": { "type": "string", "enum": ["bug", "chore", "feature"] }
+  },
+  "required": ["level", "output", "type"]
+}"""
+
 
 def classify_issue(
     issue: Issue,
@@ -39,6 +52,7 @@ def classify_issue(
         adw_id=adw_id,
         issue_id=issue.id,
         model="sonnet",
+        json_schema=CLASSIFY_JSON_SCHEMA,
     )
     logger.debug(
         "classify request: %s",

@@ -22,6 +22,26 @@ logger = logging.getLogger(__name__)
 # Required fields for compose-commits output JSON
 COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
 
+COMPOSE_COMMITS_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "output": { "type": "string", "const": "compose-commits" },
+    "summary": { "type": "string" },
+    "commits": {
+      "type": "array",
+      "items": {
+        "required": ["message", "sha"],
+        "properties": {
+          "message": { "type": "string" },
+          "sha": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "required": ["output", "summary", "commits"]
+}"""
+
 # Max characters to log from LLM response
 MAX_LOG_LENGTH = 500
 
@@ -213,6 +233,7 @@ class UpdatePRCommitsStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
+                json_schema=COMPOSE_COMMITS_JSON_SCHEMA,
             )
 
             logger.debug(
