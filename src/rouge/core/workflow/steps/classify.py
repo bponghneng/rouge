@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 CLASSIFY_REQUIRED_FIELDS = {
     "type": str,
     "level": str,
+    "output": str,
 }
 
 CLASSIFY_JSON_SCHEMA = """{
@@ -76,7 +77,7 @@ class ClassifyStep(WorkflowStep):
         )
 
         if not response.success:
-            return StepResult.fail(response.output)
+            return StepResult.fail(response.output or "Agent failed without output")
 
         logger.debug("Classifier raw output: %s", response.output)
 
@@ -92,6 +93,11 @@ class ClassifyStep(WorkflowStep):
         assert (
             classification_data is not None
         ), "classification_data should not be None after success check"
+
+        # Validate output field
+        if classification_data.get("output") != "classify":
+            return StepResult.fail("Invalid output field in classification")
+
         issue_type = classification_data["type"]
         complexity_level = classification_data["level"]
 
