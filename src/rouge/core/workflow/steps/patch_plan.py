@@ -97,6 +97,10 @@ class BuildPatchPlanStep(WorkflowStep):
         if not response.success:
             return StepResult.fail(response.output or "Agent failure: no output")
 
+        # Guard: Check that response.output is present before parsing
+        if not response.output:
+            return StepResult.fail("No output from template execution")
+
         # Parse and validate JSON output
         parse_result = parse_and_validate_json(
             response.output, PLAN_REQUIRED_FIELDS, step_name="build_plan"
