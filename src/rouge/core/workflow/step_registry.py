@@ -23,6 +23,7 @@ class StepMetadata:
 
     Attributes:
         step_class: The WorkflowStep subclass
+        slug: Unique slug identifier for the step (kebab-case)
         dependencies: List of artifact types required as input
         outputs: List of artifact types produced as output
         is_critical: Whether the step is critical (workflow aborts on failure)
@@ -30,6 +31,7 @@ class StepMetadata:
     """
 
     step_class: Type[WorkflowStep]
+    slug: str = ""
     dependencies: List[ArtifactType] = field(default_factory=list)
     outputs: List[ArtifactType] = field(default_factory=list)
     is_critical: bool = True
@@ -46,6 +48,7 @@ class StepRegistry:
     def __init__(self) -> None:
         """Initialize an empty step registry."""
         self._steps: Dict[str, StepMetadata] = {}
+        self._slug_to_name: Dict[str, str] = {}
 
     def register(
         self,
@@ -54,6 +57,7 @@ class StepRegistry:
         outputs: Optional[List[ArtifactType]] = None,
         is_critical: Optional[bool] = None,
         description: Optional[str] = None,
+        slug: Optional[str] = None,
     ) -> None:
         """Register a workflow step with its metadata.
 
@@ -63,13 +67,28 @@ class StepRegistry:
             outputs: List of artifact types produced as output
             is_critical: Whether the step is critical (uses step's default if not specified)
             description: Optional description of what the step does
+            slug: Optional unique slug identifier (kebab-case)
+
+        Raises:
+            ValueError: If the slug is already registered to a different step
         """
         # Create a temporary instance to get the step name and is_critical flag
         temp_instance = step_class()
         step_name = temp_instance.name
 
+        # Validate slug uniqueness if provided
+        if slug:
+            if slug in self._slug_to_name:
+                existing_step = self._slug_to_name[slug]
+                if existing_step != step_name:
+                    raise ValueError(
+                        f"Slug '{slug}' is already registered for step '{existing_step}'"
+                    )
+            self._slug_to_name[slug] = step_name
+
         metadata = StepMetadata(
             step_class=step_class,
+            slug=slug or "",
             dependencies=dependencies or [],
             outputs=outputs or [],
             is_critical=is_critical if is_critical is not None else temp_instance.is_critical,
@@ -77,7 +96,7 @@ class StepRegistry:
         )
 
         self._steps[step_name] = metadata
-        logger.debug("Registered step: %s", step_name)
+        logger.debug("Registered step: %s (slug: %s)", step_name, slug or "none")
 
     def get_step_metadata(self, step_name: str) -> Optional[StepMetadata]:
         """Get metadata for a registered step.
@@ -102,6 +121,34 @@ class StepRegistry:
         metadata = self._steps.get(step_name)
         return metadata.step_class if metadata else None
 
+    def get_step_by_slug(self, slug: str) -> Optional[Type[WorkflowStep]]:
+        """Get step class by its slug.
+
+        Args:
+            slug: The step slug to look up
+
+        Returns:
+            WorkflowStep subclass if found, None otherwise
+        """
+        step_name = self._slug_to_name.get(slug)
+        if step_name:
+            return self.get_step_by_name(step_name)
+        return None
+
+    def get_step_metadata_by_slug(self, slug: str) -> Optional[StepMetadata]:
+        """Get metadata for a registered step by its slug.
+
+        Args:
+            slug: The step slug to look up
+
+        Returns:
+            StepMetadata if found, None otherwise
+        """
+        step_name = self._slug_to_name.get(slug)
+        if step_name:
+            return self.get_step_metadata(step_name)
+        return None
+
     def list_all_steps(self) -> List[str]:
         """List all registered step names.
 
@@ -114,12 +161,13 @@ class StepRegistry:
         """List all steps with their full metadata.
 
         Returns:
-            List of dicts with step name, dependencies, outputs, is_critical
+            List of dicts with slug, name, dependencies, outputs, is_critical, description
         """
         result = []
         for step_name, metadata in self._steps.items():
             result.append(
                 {
+                    "slug": metadata.slug,
                     "name": step_name,
                     "dependencies": list(metadata.dependencies),
                     "outputs": list(metadata.outputs),
@@ -298,6 +346,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 0. SetupStep: no dependencies, no outputs (prerequisite step, critical)
     registry.register(
         SetupStep,
+        slug="git-setup",
         dependencies=[],
         outputs=[],
         description="Set up git environment for workflow execution",
@@ -306,6 +355,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 1. FetchIssueStep: no dependencies, produces issue artifact
     registry.register(
         FetchIssueStep,
+        slug="fetch-issue",
         dependencies=[],
         outputs=["issue"],
         description="Fetch issue from Supabase database",
@@ -314,6 +364,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 1b. FetchPatchStep: no dependencies, produces patch artifact (for patch workflow)
     registry.register(
         FetchPatchStep,
+        slug="fetch-patch",
         dependencies=[],
         outputs=["patch"],
         description="Fetch pending patch from Supabase database",
@@ -322,6 +373,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 2. ClassifyStep: requires issue, produces classification
     registry.register(
         ClassifyStep,
+        slug="classify",
         dependencies=["issue"],
         outputs=["classification"],
         description="Classify issue type and complexity",
@@ -330,6 +382,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 3. BuildPlanStep: requires issue and classification, produces plan
     registry.register(
         BuildPlanStep,
+        slug="plan",
         dependencies=["issue", "classification"],
         outputs=["plan"],
         description="Build implementation plan for the issue",
@@ -338,6 +391,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 4. ImplementStep: requires plan, produces implementation
     registry.register(
         ImplementStep,
+        slug="implement",
         dependencies=["plan"],
         outputs=["implementation"],
         description="Execute the implementation plan",
@@ -346,6 +400,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 5. GenerateReviewStep: requires plan, produces review
     registry.register(
         GenerateReviewStep,
+        slug="code-review",
         dependencies=["plan"],
         outputs=["review"],
         description="Generate code review for implementation",
@@ -354,6 +409,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 7. AddressReviewStep: requires review, produces review_addressed
     registry.register(
         AddressReviewStep,
+        slug="review-fix",
         dependencies=["review"],
         outputs=["review_addressed"],
         description="Address review issues and suggestions",
@@ -362,6 +418,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 8. CodeQualityStep: requires implementation, produces quality_check
     registry.register(
         CodeQualityStep,
+        slug="code-quality",
         dependencies=["implementation"],
         outputs=["quality_check"],
         description="Run code quality checks (linting, type checking)",
@@ -370,6 +427,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 9. ValidateAcceptanceStep: requires plan, produces acceptance
     registry.register(
         ValidateAcceptanceStep,
+        slug="acceptance",
         dependencies=["plan"],
         outputs=["acceptance"],
         description="Validate implementation against acceptance criteria",
@@ -378,6 +436,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 10. PreparePullRequestStep: requires acceptance, produces pr_metadata
     registry.register(
         PreparePullRequestStep,
+        slug="compose-request",
         dependencies=["acceptance"],
         outputs=["pr_metadata"],
         description="Prepare pull request metadata and commits",
@@ -386,6 +445,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 11. CreateGitHubPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
         CreateGitHubPullRequestStep,
+        slug="gh-pull-request",
         dependencies=["pr_metadata"],
         outputs=["pull_request"],
         description="Create GitHub pull request via gh CLI",
@@ -394,6 +454,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 12. CreateGitLabPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
         CreateGitLabPullRequestStep,
+        slug="glab-pull-request",
         dependencies=["pr_metadata"],
         outputs=["pull_request"],
         description="Create GitLab merge request via glab CLI",
@@ -402,6 +463,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 13. BuildPatchPlanStep: requires patch issue, produces plan
     registry.register(
         BuildPatchPlanStep,
+        slug="patch-plan",
         dependencies=["patch"],
         outputs=["plan"],
         is_critical=True,
@@ -411,6 +473,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # 14. UpdatePRCommitsStep: detects PR via CLI, pushes commits
     registry.register(
         UpdatePRCommitsStep,
+        slug="compose-commits",
         dependencies=[],
         outputs=[],
         is_critical=False,

@@ -353,6 +353,65 @@ class TestRegistryValidation:
         assert any("Circular dependency" in issue for issue in issues)
 
 
+class TestSlugFunctionality:
+    """Tests for slug-based step lookup functionality."""
+
+    def test_slug_uniqueness_validation(self):
+        """Test registering duplicate slug raises ValueError."""
+        registry = StepRegistry()
+        registry.register(MockStep, slug="mock-slug")
+
+        with pytest.raises(ValueError, match="Slug 'mock-slug' is already registered"):
+            registry.register(AnotherMockStep, slug="mock-slug")
+
+    def test_get_step_by_slug(self):
+        """Test get_step_by_slug returns correct step class."""
+        registry = StepRegistry()
+        registry.register(MockStep, slug="mock-slug")
+        registry.register(AnotherMockStep, slug="another-slug")
+
+        step_class = registry.get_step_by_slug("mock-slug")
+        assert step_class == MockStep
+
+        another_class = registry.get_step_by_slug("another-slug")
+        assert another_class == AnotherMockStep
+
+    def test_get_step_by_slug_not_found(self):
+        """Test get_step_by_slug returns None for unknown slug."""
+        registry = StepRegistry()
+        registry.register(MockStep, slug="mock-slug")
+
+        step_class = registry.get_step_by_slug("unknown-slug")
+        assert step_class is None
+
+    def test_get_step_metadata_by_slug(self):
+        """Test get_step_metadata_by_slug returns correct metadata."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            slug="mock-slug",
+            dependencies=["issue"],
+            outputs=["classification"],
+            description="Test step",
+        )
+
+        metadata = registry.get_step_metadata_by_slug("mock-slug")
+        assert metadata is not None
+        assert metadata.step_class == MockStep
+        assert metadata.slug == "mock-slug"
+        assert metadata.dependencies == ["issue"]
+        assert metadata.outputs == ["classification"]
+        assert metadata.description == "Test step"
+
+    def test_get_step_metadata_by_slug_not_found(self):
+        """Test get_step_metadata_by_slug returns None for unknown slug."""
+        registry = StepRegistry()
+        registry.register(MockStep, slug="mock-slug")
+
+        metadata = registry.get_step_metadata_by_slug("unknown-slug")
+        assert metadata is None
+
+
 class TestGlobalRegistry:
     """Tests for global registry functions."""
 
@@ -381,6 +440,29 @@ class TestGlobalRegistry:
         assert any("Classifying" in s for s in steps)
         assert any("Building" in s for s in steps)
         assert any("Implementing" in s for s in steps)
+
+    def test_default_steps_all_have_unique_slugs(self):
+        """Test that all default steps have unique slugs and can be resolved."""
+        registry = get_step_registry()
+        step_details = registry.list_step_details()
+
+        # Collect all slugs
+        slugs = [step["slug"] for step in step_details]
+
+        # Check that all steps have slugs
+        assert all(slug for slug in slugs), "All default steps should have slugs"
+
+        # Check that all slugs are unique
+        assert len(slugs) == len(set(slugs)), "All default step slugs should be unique"
+
+        # Verify each slug can resolve back to a step
+        for slug in slugs:
+            step_class = registry.get_step_by_slug(slug)
+            assert step_class is not None, f"Slug '{slug}' should resolve to a step class"
+
+            metadata = registry.get_step_metadata_by_slug(slug)
+            assert metadata is not None, f"Slug '{slug}' should resolve to metadata"
+            assert metadata.slug == slug, f"Metadata slug should match lookup slug"
 
     def test_reset_step_registry(self):
         """Test reset_step_registry clears the registry."""
