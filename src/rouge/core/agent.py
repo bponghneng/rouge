@@ -45,7 +45,7 @@ def execute_template(
         require_json: If True (default), validates output as JSON and emits
             error comments for non-JSON output. If False, skips JSON validation
             and allows plain text output (used by FindPlanFileStep and
-            GenerateReviewStep).
+            CodeReviewStep).
 
     Returns:
         Claude-specific prompt response
@@ -121,7 +121,7 @@ def execute_template(
                 status, msg = emit_comment_from_payload(payload)
                 logger.debug(msg) if status == "success" else logger.error(msg)
         else:
-            # Skip JSON validation for plain text output (FindPlanFileStep, GenerateReviewStep)
+            # Skip JSON validation for plain text output (FindPlanFileStep, CodeReviewStep)
             payload = CommentPayload(
                 issue_id=request.issue_id,
                 text=f"Template {request.slash_command} completed",
