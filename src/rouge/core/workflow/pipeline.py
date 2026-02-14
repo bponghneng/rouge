@@ -198,8 +198,8 @@ def get_default_pipeline() -> List[WorkflowStep]:
 
     The pipeline conditionally includes a PR/MR creation step based on the
     DEV_SEC_OPS_PLATFORM environment variable:
-    - "github": includes CreateGitHubPullRequestStep
-    - "gitlab": includes CreateGitLabPullRequestStep
+    - "github": includes GhPullRequestStep
+    - "gitlab": includes GlabPullRequestStep
     - unset or other value: no PR/MR step included
 
     Returns:
@@ -211,14 +211,14 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.create_github_pull_request_step import (
-        CreateGitHubPullRequestStep,
-    )
-    from rouge.core.workflow.steps.create_gitlab_pull_request_step import (
-        CreateGitLabPullRequestStep,
-    )
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+    from rouge.core.workflow.steps.gh_pull_request_step import (
+        GhPullRequestStep,
+    )
     from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.glab_pull_request_step import (
+        GlabPullRequestStep,
+    )
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.plan_step import PlanStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
@@ -239,9 +239,9 @@ def get_default_pipeline() -> List[WorkflowStep]:
     # Conditionally add PR/MR creation step based on platform
     platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
     if platform == "github":
-        steps.append(CreateGitHubPullRequestStep())
+        steps.append(GhPullRequestStep())
     elif platform == "gitlab":
-        steps.append(CreateGitLabPullRequestStep())
+        steps.append(GlabPullRequestStep())
 
     return steps
 

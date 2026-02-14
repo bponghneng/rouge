@@ -334,15 +334,15 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.create_github_pull_request_step import (
-        CreateGitHubPullRequestStep,
-    )
-    from rouge.core.workflow.steps.create_gitlab_pull_request_step import (
-        CreateGitLabPullRequestStep,
-    )
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
+    from rouge.core.workflow.steps.gh_pull_request_step import (
+        GhPullRequestStep,
+    )
     from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.glab_pull_request_step import (
+        GlabPullRequestStep,
+    )
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.plan_step import PlanStep
@@ -447,18 +447,18 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Prepare pull request metadata and commits",
     )
 
-    # 11. CreateGitHubPullRequestStep: requires pr_metadata, produces pull_request
+    # 11. GhPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
-        CreateGitHubPullRequestStep,
+        GhPullRequestStep,
         slug="gh-pull-request",
         dependencies=["pr_metadata"],
         outputs=["pull_request"],
         description="Create GitHub pull request via gh CLI",
     )
 
-    # 12. CreateGitLabPullRequestStep: requires pr_metadata, produces pull_request
+    # 12. GlabPullRequestStep: requires pr_metadata, produces pull_request
     registry.register(
-        CreateGitLabPullRequestStep,
+        GlabPullRequestStep,
         slug="glab-pull-request",
         dependencies=["pr_metadata"],
         outputs=["pull_request"],
