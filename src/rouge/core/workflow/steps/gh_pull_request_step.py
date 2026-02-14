@@ -26,7 +26,7 @@ def _extract_existing_pr_url(stderr_text: str) -> str | None:
     return match.group(0).rstrip(").,")
 
 
-class CreateGitHubPullRequestStep(WorkflowStep):
+class GhPullRequestStep(WorkflowStep):
     """Create GitHub pull request via gh CLI."""
 
     @property
