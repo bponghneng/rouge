@@ -505,7 +505,7 @@ class TestGlobalRegistry:
         """Test resolving full dependency chain for late step.
 
         ImplementStep depends on "plan", which can be produced by either
-        BuildPlanStep (main) or BuildPatchPlanStep (patch). The resolver
+        PlanStep (main) or BuildPatchPlanStep (patch). The resolver
         picks one valid chain.
         """
         registry = get_step_registry()
@@ -579,7 +579,7 @@ class TestGlobalRegistry:
         issues = registry.validate_registry()
 
         # Should have no issues -- all artifact dependencies are now resolvable.
-        # Both 'plan' producers (BuildPlanStep and BuildPatchPlanStep) and
+        # Both 'plan' producers (PlanStep and BuildPatchPlanStep) and
         # 'patch' producer (FetchPatchStep) are registered.
         assert issues == [], f"Registry validation issues: {issues}"
 
@@ -588,7 +588,7 @@ class TestGlobalRegistry:
 
         After decoupling, BuildPatchPlanStep only depends on the patch artifact
         produced by FetchPatchStep. It no longer depends on FetchIssueStep or
-        BuildPlanStep from a parent workflow.
+        PlanStep from a parent workflow.
         """
         registry = get_step_registry()
 
@@ -607,10 +607,10 @@ class TestGlobalRegistry:
         assert any(
             "Fetching pending patch" in dep for dep in deps
         ), "Should depend on FetchPatchStep"
-        # Should NOT depend on FetchIssueStep or BuildPlanStep (decoupled)
+        # Should NOT depend on FetchIssueStep or PlanStep (decoupled)
         assert not any(
             "Fetching issue" in dep for dep in deps
         ), "Should not depend on FetchIssueStep"
         assert not any(
             "Building implementation plan" in dep for dep in deps
-        ), "Should not depend on BuildPlanStep"
+        ), "Should not depend on PlanStep"

@@ -328,18 +328,19 @@ def _register_default_steps(registry: StepRegistry) -> None:
         registry: The registry to populate
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+    from rouge.core.workflow.steps.acceptance import AcceptanceStep
     from rouge.core.workflow.steps.classify import ClassifyStep
+    from rouge.core.workflow.steps.code_review import CodeReviewStep
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
     from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
     from rouge.core.workflow.steps.implement import ImplementStep
     from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-    from rouge.core.workflow.steps.plan import BuildPlanStep
+    from rouge.core.workflow.steps.plan import PlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.review_fix import ReviewFixStep
     from rouge.core.workflow.steps.setup import SetupStep
     from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 
@@ -379,9 +380,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Classify issue type and complexity",
     )
 
-    # 3. BuildPlanStep: requires issue and classification, produces plan
+    # 3. PlanStep: requires issue and classification, produces plan
     registry.register(
-        BuildPlanStep,
+        PlanStep,
         slug="plan",
         dependencies=["issue", "classification"],
         outputs=["plan"],
@@ -397,18 +398,18 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Execute the implementation plan",
     )
 
-    # 5. GenerateReviewStep: requires plan, produces review
+    # 5. CodeReviewStep: requires plan, produces review
     registry.register(
-        GenerateReviewStep,
+        CodeReviewStep,
         slug="code-review",
         dependencies=["plan"],
         outputs=["review"],
         description="Generate code review for implementation",
     )
 
-    # 7. AddressReviewStep: requires review, produces review_addressed
+    # 7. ReviewFixStep: requires review, produces review_addressed
     registry.register(
-        AddressReviewStep,
+        ReviewFixStep,
         slug="review-fix",
         dependencies=["review"],
         outputs=["review_addressed"],
@@ -424,9 +425,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Run code quality checks (linting, type checking)",
     )
 
-    # 9. ValidateAcceptanceStep: requires plan, produces acceptance
+    # 9. AcceptanceStep: requires plan, produces acceptance
     registry.register(
-        ValidateAcceptanceStep,
+        AcceptanceStep,
         slug="acceptance",
         dependencies=["plan"],
         outputs=["acceptance"],

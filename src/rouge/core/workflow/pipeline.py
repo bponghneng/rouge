@@ -206,28 +206,29 @@ def get_default_pipeline() -> List[WorkflowStep]:
         List of WorkflowStep instances in execution order
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+    from rouge.core.workflow.steps.acceptance import AcceptanceStep
     from rouge.core.workflow.steps.classify import ClassifyStep
+    from rouge.core.workflow.steps.code_review import CodeReviewStep
     from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
     from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
     from rouge.core.workflow.steps.fetch import FetchIssueStep
     from rouge.core.workflow.steps.implement import ImplementStep
-    from rouge.core.workflow.steps.plan import BuildPlanStep
+    from rouge.core.workflow.steps.plan import PlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.review_fix import ReviewFixStep
     from rouge.core.workflow.steps.setup import SetupStep
 
     steps: List[WorkflowStep] = [
         SetupStep(),
         FetchIssueStep(),
         ClassifyStep(),
-        BuildPlanStep(),
+        PlanStep(),
         ImplementStep(plan_step_name="Building implementation plan"),
-        GenerateReviewStep(),
-        AddressReviewStep(),
+        CodeReviewStep(),
+        ReviewFixStep(),
         CodeQualityStep(),
-        ValidateAcceptanceStep(),
+        AcceptanceStep(),
         PreparePullRequestStep(),
     ]
 
@@ -246,26 +247,27 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
 
     The codereview workflow runs an automated review loop on commits.
     Note: This workflow can run with or without an issue_id. When issue_id
-    is provided, GenerateReviewStep and AddressReviewStep will emit progress
+    is provided, CodeReviewStep and ReviewFixStep will emit progress
     comments via emit_comment_from_payload. When issue_id is None, these
     steps will skip comment emission but still execute review generation and
     addressing logic.
 
     Pipeline sequence:
-    1. GenerateReviewStep  - Generate review of the current changes
-    2. AddressReviewStep   - Address any review feedback
-    3. CodeQualityStep     - Run code quality checks
+    1. CodeReviewStep  - Generate review of the current changes
+    2. ReviewFixStep   - Address any review feedback
+    3. CodeQualityStep - Run code quality checks
 
     Returns:
         List of WorkflowStep instances in execution order
     """
     # Import here to avoid circular imports
+    from rouge.core.workflow.steps.code_review import CodeReviewStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.review_fix import ReviewFixStep
 
     return [
-        GenerateReviewStep(),
-        AddressReviewStep(),
+        CodeReviewStep(),
+        ReviewFixStep(),
         CodeQualityStep(),
     ]
 
@@ -304,10 +306,10 @@ def get_patch_pipeline() -> List[WorkflowStep]:
        writes a standard PlanArtifact (no parent issue or plan is referenced)
     3. ImplementStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
-    4. GenerateReviewStep - Generate review of the implementation
-    5. AddressReviewStep - Address any review feedback
+    4. CodeReviewStep - Generate review of the implementation
+    5. ReviewFixStep - Address any review feedback
     6. CodeQualityStep - Run code quality checks
-    7. ValidateAcceptanceStep - Validate patch meets acceptance criteria
+    7. AcceptanceStep - Validate patch meets acceptance criteria
     8. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
@@ -315,22 +317,23 @@ def get_patch_pipeline() -> List[WorkflowStep]:
         List of WorkflowStep instances in execution order for patch processing
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+    from rouge.core.workflow.steps.acceptance import AcceptanceStep
+    from rouge.core.workflow.steps.code_review import CodeReviewStep
     from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
     from rouge.core.workflow.steps.implement import ImplementStep
     from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
     from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+    from rouge.core.workflow.steps.review_fix import ReviewFixStep
     from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
         BuildPatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
-        GenerateReviewStep(),
-        AddressReviewStep(),
+        CodeReviewStep(),
+        ReviewFixStep(),
         CodeQualityStep(),
-        ValidateAcceptanceStep(),
+        AcceptanceStep(),
         UpdatePRCommitsStep(),
     ]
 
