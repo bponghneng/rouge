@@ -20,8 +20,8 @@ from rouge.core.workflow.steps import (
     PlanStep,
     ReviewFixStep,
 )
-from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
-from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
+from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.types import StepResult
@@ -343,7 +343,7 @@ class TestGetDefaultPipeline:
         pipeline = get_default_pipeline()
 
         assert len(pipeline) == 11
-        assert isinstance(pipeline[-1], CreateGitHubPullRequestStep)
+        assert isinstance(pipeline[-1], GhPullRequestStep)
         assert not pipeline[-1].is_critical  # PR creation is best effort
 
     def test_pipeline_structure_gitlab(self, monkeypatch):
@@ -351,7 +351,7 @@ class TestGetDefaultPipeline:
         pipeline = get_default_pipeline()
 
         assert len(pipeline) == 11
-        assert isinstance(pipeline[-1], CreateGitLabPullRequestStep)
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
         assert not pipeline[-1].is_critical
 
 
@@ -398,7 +398,7 @@ class TestGetPatchPipeline:
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_patch_pipeline()
 
-        pr_step_types = (CreateGitHubPullRequestStep, CreateGitLabPullRequestStep)
+        pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
         for step in pipeline:
             assert not isinstance(
                 step, pr_step_types
