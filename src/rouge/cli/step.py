@@ -24,6 +24,7 @@ def list_steps() -> None:
 
     typer.echo("Registered workflow steps:\n")
     for step in steps:
+        slug = step["slug"]
         name = step["name"]
         deps = step["dependencies"]
         outputs = step["outputs"]
@@ -33,7 +34,7 @@ def list_steps() -> None:
         # Format criticality indicator
         crit_indicator = "[critical]" if is_critical else "[best-effort]"
 
-        typer.echo(f"  {name} {crit_indicator}")
+        typer.echo(f"  {slug} - {name} {crit_indicator}")
         if description:
             typer.echo(f"    Description: {description}")
         if deps:
@@ -45,7 +46,7 @@ def list_steps() -> None:
 
 @app.command("run")
 def run_step(
-    step_name: str = typer.Argument(..., help="Name of the step to run"),
+    step_slug: str = typer.Argument(..., help="Slug of the step to run"),
     issue_id: int = typer.Option(..., "--issue-id", "-i", help="Issue ID to process"),
     adw_id: Optional[str] = typer.Option(
         None,
@@ -65,22 +66,28 @@ def run_step(
     This command runs a single step independently by loading any required
     dependencies from previously stored artifacts in the workflow directory.
 
-    For steps with no dependencies (e.g., 'Fetching issue from Supabase'),
+    For steps with no dependencies (e.g., 'fetch-issue'),
     the --adw-id is optional and will be auto-generated if not provided.
 
     Example:
-        rouge step run "Fetching issue from Supabase" --issue-id 123
-        rouge step run "Classifying issue" --issue-id 123 --adw-id abc12345
-        rouge step run "Applying patch" --issue-id 123 --workflow-type patch
+        rouge step run fetch-issue --issue-id 123
+        rouge step run classify --issue-id 123 --adw-id abc12345
+        rouge step run patch-plan --issue-id 123 --workflow-type patch
     """
     # Query the step registry to check dependencies
     registry = get_step_registry()
-    step_metadata = registry.get_step_metadata(step_name)
+    step_metadata = registry.get_step_metadata_by_slug(step_slug)
 
     if step_metadata is None:
-        typer.echo(f"Error: Step '{step_name}' not found in registry", err=True)
+        typer.echo(
+            f"Error: Step slug '{step_slug}' not found. "
+            "Run 'rouge step list' to see available slugs.",
+            err=True,
+        )
         raise typer.Exit(1)
 
+    # Get the step name for use with WorkflowRunner
+    step_name = step_metadata.step_class().name
     has_dependencies = len(step_metadata.dependencies) > 0
 
     # Validate adw_id based on dependencies
@@ -88,7 +95,7 @@ def run_step(
         if has_dependencies:
             deps_list = ", ".join(step_metadata.dependencies)
             typer.echo(
-                f"Error: Step '{step_name}' requires dependencies: {deps_list}. "
+                f"Error: Step slug '{step_slug}' requires dependencies: {deps_list}. "
                 "Please provide --adw-id.",
                 err=True,
             )
@@ -96,7 +103,7 @@ def run_step(
         # Auto-generate workflow ID for dependency-free steps
         adw_id = make_adw_id()
 
-    typer.echo(f"Running step '{step_name}' for issue {issue_id} (workflow: {adw_id})")
+    typer.echo(f"Running step '{step_slug}' for issue {issue_id} (workflow: {adw_id})")
 
     try:
         pipeline = get_pipeline_for_type(workflow_type)
@@ -110,11 +117,11 @@ def run_step(
             step_name, issue_id, adw_id, has_dependencies=has_dependencies
         )
         if success:
-            typer.echo(f"Step '{step_name}' completed successfully")
+            typer.echo(f"Step '{step_slug}' completed successfully")
             typer.echo(f"Workflow ID: {adw_id}")
             return
         else:
-            typer.echo(f"Step '{step_name}' failed", err=True)
+            typer.echo(f"Step '{step_slug}' failed", err=True)
             raise typer.Exit(1)
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
@@ -123,7 +130,7 @@ def run_step(
 
 @app.command("deps")
 def show_dependencies(
-    step_name: str = typer.Argument(..., help="Name of the step to show dependencies for"),
+    step_slug: str = typer.Argument(..., help="Slug of the step to show dependencies for"),
 ) -> None:
     """Show the dependency chain for a step.
 
@@ -131,17 +138,29 @@ def show_dependencies(
     in the order they should run.
 
     Example:
-        rouge step deps "Implementing solution"
+        rouge step deps implement
     """
     registry = get_step_registry()
+    step_metadata = registry.get_step_metadata_by_slug(step_slug)
+
+    if step_metadata is None:
+        typer.echo(
+            f"Error: Step slug '{step_slug}' not found. "
+            "Run 'rouge step list' to see available slugs.",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Get the step name for dependency resolution
+    step_name = step_metadata.step_class().name
 
     try:
         deps = registry.resolve_dependencies(step_name)
         if not deps:
-            typer.echo(f"Step '{step_name}' has no dependencies")
+            typer.echo(f"Step '{step_slug}' has no dependencies")
             return
 
-        typer.echo(f"Dependency chain for '{step_name}':\n")
+        typer.echo(f"Dependency chain for '{step_slug}':\n")
         for i, dep in enumerate(deps, 1):
             typer.echo(f"  {i}. {dep}")
     except ValueError as e:
