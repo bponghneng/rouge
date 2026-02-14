@@ -95,7 +95,7 @@ class BuildPatchPlanStep(WorkflowStep):
         )
 
         if not response.success:
-            return StepResult.fail(response.output)
+            return StepResult.fail(response.output or "Agent failure: no output")
 
         # Parse and validate JSON output
         parse_result = parse_and_validate_json(
