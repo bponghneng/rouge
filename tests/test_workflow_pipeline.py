@@ -20,8 +20,8 @@ from rouge.core.workflow.steps import (
     PlanStep,
     ReviewFixStep,
 )
-from rouge.core.workflow.steps.create_github_pr_step import CreateGitHubPullRequestStep
-from rouge.core.workflow.steps.create_gitlab_pr_step import CreateGitLabPullRequestStep
+from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
+from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.types import StepResult
