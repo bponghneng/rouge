@@ -13,7 +13,7 @@ import pytest
 from rouge.core.workflow.pipeline import get_code_review_pipeline
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.quality import CodeQualityStep
-from rouge.core.workflow.steps.review import AddressReviewStep, GenerateReviewStep
+from rouge.core.workflow.steps.review import CodeReviewStep, ReviewFixStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_registry import (
     get_pipeline_for_type,
@@ -76,12 +76,12 @@ class TestCodeReviewPipeline:
         assert len(pipeline) == 3
 
     def test_pipeline_step_order(self):
-        """Steps should be: GenerateReviewStep, AddressReviewStep, CodeQualityStep."""
+        """Steps should be: CodeReviewStep, ReviewFixStep, CodeQualityStep."""
         pipeline = get_code_review_pipeline()
 
         expected_types = [
-            GenerateReviewStep,
-            AddressReviewStep,
+            CodeReviewStep,
+            ReviewFixStep,
             CodeQualityStep,
         ]
 
@@ -116,22 +116,22 @@ class TestCodeReviewPipeline:
     def test_pipeline_does_not_include_issue_dependent_steps(self):
         """Codereview pipeline should not contain steps that require an issue."""
         from rouge.core.workflow.steps import (
-            BuildPlanStep,
+            PlanStep,
             ClassifyStep,
             FetchIssueStep,
             ImplementStep,
             PreparePullRequestStep,
             SetupStep,
-            ValidateAcceptanceStep,
+            AcceptanceStep,
         )
 
         issue_dependent_types = (
             SetupStep,
             FetchIssueStep,
             ClassifyStep,
-            BuildPlanStep,
+            PlanStep,
             ImplementStep,
-            ValidateAcceptanceStep,
+            AcceptanceStep,
             PreparePullRequestStep,
         )
 

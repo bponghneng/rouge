@@ -8,22 +8,18 @@ Main components:
 - pipeline: WorkflowRunner orchestrator and step pipeline
 - step_base: Abstract WorkflowStep base class and WorkflowContext
 - steps/: Individual step implementations (fetch, classify, plan, etc.)
-- classify: Issue classification
-- plan: Plan building
-- implement: Implementation execution with JSON parsing
-- review: CodeRabbit review generation and notification
 - status: Issue status updates
 - shared: Common constants and helper functions
 - types: Unified result types for consistent error handling
 - workflow_io: Shared I/O utilities for steps
 - workflow_registry: Workflow type registry for pipeline routing
+
+Note: Business logic has been moved from top-level modules (classify, plan, implement,
+review, acceptance, address_review) into their respective step classes in steps/.
 """
 
-# Import and re-export public API for backward compatibility
-from rouge.core.workflow.classify import classify_issue
-from rouge.core.workflow.implement import implement_plan
+# Import and re-export public API
 from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
-from rouge.core.workflow.plan import build_plan
 from rouge.core.workflow.runner import execute_workflow
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -47,9 +43,6 @@ __all__ = [
     "get_default_pipeline",
     # Individual workflow functions
     "update_status",
-    "classify_issue",
-    "build_plan",
-    "implement_plan",
     # Unified types
     "StepResult",
     "ClassifyData",

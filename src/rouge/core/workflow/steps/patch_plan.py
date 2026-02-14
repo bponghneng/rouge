@@ -7,14 +7,37 @@ artifacts (original issue or original plan).
 
 import logging
 
-from rouge.core.models import CommentPayload
+from rouge.core.agent import execute_template
+from rouge.core.agents.claude import ClaudeAgentTemplateRequest
+from rouge.core.json_parser import parse_and_validate_json
+from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import PlanArtifact
-from rouge.core.workflow.plan import build_plan
+from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import StepResult
+from rouge.core.workflow.types import PlanData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
+
+# Required fields for plan output JSON
+# Plan output must have type, output, plan (inline content), summary
+PLAN_REQUIRED_FIELDS = {
+    "type": str,
+    "output": str,
+    "plan": str,
+    "summary": str,
+}
+
+PLAN_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "type": { "type": "string", "minLength": 1 },
+    "output": { "type": "string", "const": "plan" },
+    "plan": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 }
+  },
+  "required": ["type", "output", "plan", "summary"]
+}"""
 
 
 class BuildPatchPlanStep(WorkflowStep):
@@ -36,6 +59,61 @@ class BuildPatchPlanStep(WorkflowStep):
         """Patch planning is critical - workflow cannot proceed without it."""
         return True
 
+    def _build_plan(
+        self,
+        issue: Issue,
+        command: PlanSlashCommand,
+        adw_id: str,
+    ) -> StepResult[PlanData]:
+        """Build implementation plan for the issue using the specified command.
+
+        Args:
+            issue: The Rouge issue to plan for
+            command: The planning command to use (e.g., /adw-feature-plan)
+            adw_id: Workflow ID for tracking
+
+        Returns:
+            StepResult with PlanData containing output and optional session_id
+        """
+        request = ClaudeAgentTemplateRequest(
+            agent_name=AGENT_PLANNER,
+            slash_command=command,
+            args=[issue.description],
+            adw_id=adw_id,
+            issue_id=issue.id,
+            model="sonnet",
+            json_schema=PLAN_JSON_SCHEMA,
+        )
+        logger.debug(
+            "build_plan request: %s",
+            request.model_dump_json(indent=2, by_alias=True),
+        )
+        response = execute_template(request)
+        logger.debug(
+            "build_plan response: %s",
+            response.model_dump_json(indent=2, by_alias=True),
+        )
+
+        if not response.success:
+            return StepResult.fail(response.output)
+
+        # Parse and validate JSON output
+        parse_result = parse_and_validate_json(
+            response.output, PLAN_REQUIRED_FIELDS, step_name="build_plan"
+        )
+        if not parse_result.success:
+            return StepResult.fail(parse_result.error or "JSON parsing failed")
+
+        parsed_data = parse_result.data or {}
+        return StepResult.ok(
+            PlanData(
+                plan=parsed_data.get("plan", ""),
+                summary=parsed_data.get("summary", ""),
+                session_id=response.session_id,
+            ),
+            parsed_data=parsed_data,
+        )
+
     def run(self, context: WorkflowContext) -> StepResult:
         """Build standalone plan for patch issue and store in context.
 
@@ -55,7 +133,7 @@ class BuildPatchPlanStep(WorkflowStep):
             return StepResult.fail("Cannot build patch plan: patch issue not available")
 
         # Build standalone plan from patch issue description
-        plan_response = build_plan(issue, "/adw-patch-plan", context.adw_id)
+        plan_response = self._build_plan(issue, "/adw-patch-plan", context.adw_id)
 
         if not plan_response.success:
             logger.error("Error building patch plan: %s", plan_response.error)

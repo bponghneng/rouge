@@ -8,17 +8,17 @@ from rouge.core.workflow.pipeline import (
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps import (
-    AddressReviewStep,
-    BuildPlanStep,
+    AcceptanceStep,
     ClassifyStep,
     CodeQualityStep,
+    CodeReviewStep,
     FetchIssueStep,
     FetchPatchStep,
-    GenerateReviewStep,
     ImplementStep,
+    PlanStep,
     PreparePullRequestStep,
+    ReviewFixStep,
     SetupStep,
-    ValidateAcceptanceStep,
 )
 from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
 from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
@@ -314,12 +314,12 @@ class TestGetDefaultPipeline:
             SetupStep,
             FetchIssueStep,
             ClassifyStep,
-            BuildPlanStep,
+            PlanStep,
             ImplementStep,
-            GenerateReviewStep,
-            AddressReviewStep,
+            CodeReviewStep,
+            ReviewFixStep,
             CodeQualityStep,
-            ValidateAcceptanceStep,
+            AcceptanceStep,
             PreparePullRequestStep,
         ]
 
@@ -368,10 +368,10 @@ class TestGetPatchPipeline:
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
-            GenerateReviewStep,
-            AddressReviewStep,
+            CodeReviewStep,
+            ReviewFixStep,
             CodeQualityStep,
-            ValidateAcceptanceStep,
+            AcceptanceStep,
             UpdatePRCommitsStep,
         ]
 
@@ -421,10 +421,10 @@ class TestGetPatchPipeline:
             FetchPatchStep,
             BuildPatchPlanStep,
             ImplementStep,
-            GenerateReviewStep,
-            AddressReviewStep,
+            CodeReviewStep,
+            ReviewFixStep,
             CodeQualityStep,
-            ValidateAcceptanceStep,
+            AcceptanceStep,
             UpdatePRCommitsStep,
         ]
 

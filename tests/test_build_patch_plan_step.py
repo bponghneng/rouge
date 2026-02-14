@@ -43,7 +43,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
     """Tests verifying BuildPatchPlanStep works without parent artifacts."""
 
     @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.patch_plan.build_plan")
+    @patch.object(BuildPatchPlanStep, "_build_plan")
     def test_uses_context_issue_directly(
         self,
         mock_build,
@@ -64,7 +64,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         result = step.run(mock_context)
 
         assert result.success is True
-        # Verify build_plan was called with the issue from context
+        # Verify _build_plan was called with the issue from context
         mock_build.assert_called_once_with(
             patch_issue,
             "/adw-patch-plan",
@@ -84,7 +84,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         assert "patch issue not available" in result.error
 
     @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.patch_plan.build_plan")
+    @patch.object(BuildPatchPlanStep, "_build_plan")
     def test_saves_plan_artifact_not_patch_plan_artifact(
         self,
         mock_build,
@@ -112,7 +112,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         assert saved_artifact.plan_data == plan_data
 
     @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.patch_plan.build_plan")
+    @patch.object(BuildPatchPlanStep, "_build_plan")
     def test_no_parent_artifact_loading(
         self,
         mock_build,

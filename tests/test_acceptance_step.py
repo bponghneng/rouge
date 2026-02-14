@@ -1,4 +1,4 @@
-"""Tests for ValidateAcceptanceStep workflow step."""
+"""Tests for AcceptanceStep workflow step."""
 
 from unittest.mock import Mock
 
@@ -8,7 +8,7 @@ from rouge.core.workflow.artifacts import (
     PlanArtifact,
 )
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.acceptance import ValidateAcceptanceStep
+from rouge.core.workflow.steps.acceptance import AcceptanceStep
 from rouge.core.workflow.types import (
     PlanData,
 )
@@ -38,7 +38,7 @@ def sample_plan_data():
 
 
 class TestLoadPlanText:
-    """Tests for ValidateAcceptanceStep._load_plan_text method."""
+    """Tests for AcceptanceStep._load_plan_text method."""
 
     def test_uses_plan_when_available(self, mock_context, sample_plan_data):
         """Test that plan is used when available in context."""
@@ -49,7 +49,7 @@ class TestLoadPlanText:
 
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
-        step = ValidateAcceptanceStep()
+        step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
 
         assert result == sample_plan_data.plan
@@ -63,7 +63,7 @@ class TestLoadPlanText:
 
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
-        step = ValidateAcceptanceStep()
+        step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
 
         assert result is None
@@ -85,7 +85,7 @@ class TestLoadPlanText:
 
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
-        step = ValidateAcceptanceStep()
+        step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
 
         assert result == sample_plan_data.plan
@@ -106,22 +106,22 @@ class TestLoadPlanText:
 
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
-        step = ValidateAcceptanceStep()
+        step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
 
         assert result == patch_plan_data.plan
         assert "Patch Plan" in result
 
 
-class TestValidateAcceptanceStepProperties:
-    """Tests for ValidateAcceptanceStep properties."""
+class TestAcceptanceStepProperties:
+    """Tests for AcceptanceStep properties."""
 
     def test_step_name(self):
-        """Test that ValidateAcceptanceStep has correct name."""
-        step = ValidateAcceptanceStep()
+        """Test that AcceptanceStep has correct name."""
+        step = AcceptanceStep()
         assert step.name == "Validating plan acceptance"
 
     def test_step_is_not_critical(self):
-        """Test that ValidateAcceptanceStep is not critical."""
-        step = ValidateAcceptanceStep()
+        """Test that AcceptanceStep is not critical."""
+        step = AcceptanceStep()
         assert step.is_critical is False
