@@ -232,7 +232,3 @@ class CodeReviewStep(WorkflowStep):
                 logger.error(msg)
 
         return StepResult.ok(None)
-
-
-# Backwards compatibility alias
-GenerateReviewStep = CodeReviewStep
