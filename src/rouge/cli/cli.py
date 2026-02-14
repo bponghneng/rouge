@@ -4,6 +4,7 @@ import logging
 import os
 import subprocess
 import sys
+from enum import Enum
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,14 @@ else:
         init_db_env(dotenv_path=parent_env_file_path)
     else:
         init_db_env()
+
+
+class IssueType(str, Enum):
+    """Issue types supported by Rouge."""
+
+    MAIN = "main"
+    PATCH = "patch"
+
 
 app = typer.Typer(
     invoke_without_command=True,
@@ -226,8 +235,8 @@ def new(
         help="Path to file containing issue description",
         show_default=True,
     ),
-    issue_type: str = typer.Option(
-        "main",
+    issue_type: IssueType = typer.Option(
+        IssueType.MAIN,
         "--type",
         help="Issue type: 'main' for primary issues, 'patch' for patch issues",
         show_default=True,
@@ -247,21 +256,12 @@ def new(
         rouge new --spec-file feature-spec.txt --title "New feature"
         rouge new --spec-file patch-spec.txt --title "Bug fix" --type patch
     """
-    # Validate issue_type
-    valid_types = {"main", "patch"}
-    if issue_type not in valid_types:
-        typer.echo(
-            f"Error: Invalid --type '{issue_type}'. Must be one of: {', '.join(valid_types)}",
-            err=True,
-        )
-        raise typer.Exit(1)
-
     validate_new_args(description, spec_file, title)
     issue_title, issue_description = prepare_issue(description, spec_file, title)
 
     try:
         issue = create_issue(
-            description=issue_description, title=issue_title, issue_type=issue_type
+            description=issue_description, title=issue_title, issue_type=issue_type.value
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
