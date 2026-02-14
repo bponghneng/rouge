@@ -38,7 +38,7 @@ def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
         logger.error(msg)
 
 
-class CreateGitLabPullRequestStep(WorkflowStep):
+class GlabPullRequestStep(WorkflowStep):
     """Create GitLab merge request via glab CLI."""
 
     @property
