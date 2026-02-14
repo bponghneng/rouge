@@ -105,6 +105,9 @@ def test_classify_issue_success(mock_execute, sample_issue):
     assert result.data.command == "/adw-feature-plan"
     assert result.data.classification == {"type": "feature", "level": "simple"}
     assert result.error is None
+    request = mock_execute.call_args[0][0]
+    assert request.json_schema is not None
+    assert '"const": "classify"' in request.json_schema
 
 
 @patch("rouge.core.workflow.classify.execute_template")
@@ -180,6 +183,9 @@ def test_build_plan_success(mock_execute, sample_issue):
     assert result.data.plan == "# Feature Plan\n..."
     assert result.data.summary == "Plan created successfully"
     assert result.metadata.get("parsed_data", {}).get("summary") == "Plan created successfully"
+    request = mock_execute.call_args[0][0]
+    assert request.json_schema is not None
+    assert '"const": "plan"' in request.json_schema
 
 
 @patch("rouge.core.workflow.implement.execute_template")
@@ -200,6 +206,9 @@ def test_implement_plan_success(mock_execute):
     assert result.success
     assert result.data.output == implement_json
     assert result.metadata.get("parsed_data", {}).get("status") == "completed"
+    request = mock_execute.call_args[0][0]
+    assert request.json_schema is not None
+    assert '"implement-plan"' in request.json_schema
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
@@ -427,8 +436,59 @@ def test_address_review_issues_success(mock_request_class, mock_emit_comment, mo
 
     assert result.success
     mock_execute.assert_called_once_with(mock_request, require_json=True)
+    assert mock_request_class.call_args.kwargs["json_schema"] is not None
+    assert '"const": "implement-review"' in mock_request_class.call_args.kwargs["json_schema"]
     # emit_comment_from_payload is called twice: once for progress, once for result
     assert mock_emit_comment.call_count == 2
+
+
+@patch("rouge.core.workflow.acceptance.execute_template")
+@patch("rouge.core.workflow.acceptance.ClaudeAgentTemplateRequest")
+def test_notify_plan_acceptance_passes_json_schema(mock_request_class, mock_execute):
+    """Test acceptance step passes strict JSON schema to Claude template request."""
+    from rouge.core.workflow.acceptance import notify_plan_acceptance
+
+    mock_request = Mock()
+    mock_request.model_dump_json.return_value = "{}"
+    mock_request_class.return_value = mock_request
+    mock_response = Mock()
+    mock_response.success = True
+    mock_response.output = (
+        '{"output":"acceptance","notes":[],"plan_title":"Plan","requirements":[],'
+        '"status":"pass","summary":"ok","unmet_blocking_requirements":[]}'
+    )
+    mock_execute.return_value = mock_response
+
+    result = notify_plan_acceptance("## Plan", 1, "adw123")
+
+    assert result.success is True
+    assert mock_request_class.call_args.kwargs["json_schema"] is not None
+    assert '"enum": ["pass", "fail", "partial"]' in mock_request_class.call_args.kwargs[
+        "json_schema"
+    ]
+
+
+@patch("rouge.core.workflow.steps.quality.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.quality.execute_template")
+def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
+    """Test code quality step passes strict JSON schema to Claude template request."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.quality import CodeQualityStep
+
+    mock_emit.return_value = ("success", "ok")
+    mock_response = Mock()
+    mock_response.success = True
+    mock_response.output = '{"issues":[],"output":"code-quality","tools":[]}'
+    mock_execute.return_value = mock_response
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    step = CodeQualityStep()
+    result = step.run(context)
+
+    assert result.success is True
+    request = mock_execute.call_args[0][0]
+    assert request.json_schema is not None
+    assert '"const": "code-quality"' in request.json_schema
 
 
 def test_address_review_issues_empty_review_text():
@@ -1289,6 +1349,9 @@ def test_prepare_pr_step_emits_raw_llm_response(mock_update_status, mock_execute
     result = step.run(context)
 
     assert result.success is True
+    request = mock_execute.call_args[0][0]
+    assert request.json_schema is not None
+    assert '"pull-request"' in request.json_schema
 
     # Verify emit_comment_from_payload was called with raw LLM response
     # It should be called at least twice - once for raw response, once for "PR prepared"

@@ -168,3 +168,47 @@ def test_claude_agent_execute_prompt_error_handling(
     response = agent.execute_prompt(request)
     assert response.success is False
     assert response.error_detail is not None
+
+
+@patch(_WORKING_DIR_PATCH)
+@patch("rouge.core.agents.claude.claude.check_claude_installed")
+@patch("subprocess.run")
+def test_claude_agent_execute_prompt_passes_json_schema(
+    mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path
+) -> None:
+    """Test ClaudeAgent passes --json-schema when provider option is set."""
+    mock_wd.return_value = str(tmp_path)
+    mock_check.return_value = None
+
+    result_envelope = {
+        "type": "result",
+        "subtype": "success",
+        "is_error": False,
+        "session_id": "session123",
+        "duration_ms": 1234,
+        "structured_output": {"status": "ok"},
+    }
+
+    mock_run.return_value = Mock(
+        stdout=json.dumps(result_envelope),
+        stderr="",
+        returncode=0,
+    )
+
+    schema = '{"type":"object","properties":{"status":{"type":"string"}},"required":["status"]}'
+    agent = ClaudeAgent()
+    request = AgentExecuteRequest(
+        prompt="/adw-classify test",
+        issue_id=1,
+        adw_id="test123",
+        agent_name="classifier",
+        provider_options={"json_schema": schema},
+    )
+
+    response = agent.execute_prompt(request)
+    assert response.success is True
+
+    cmd = mock_run.call_args[0][0]
+    assert "--json-schema" in cmd
+    schema_index = cmd.index("--json-schema") + 1
+    assert cmd[schema_index] == schema

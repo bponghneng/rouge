@@ -16,6 +16,28 @@ ADDRESS_REVIEW_REQUIRED_FIELDS = {
     "summary": str,
 }
 
+ADDRESS_REVIEW_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "required": ["file", "lines", "type", "status", "notes"],
+        "properties": {
+          "file": { "type": "string" },
+          "lines": { "type": "string" },
+          "type": { "type": "string" },
+          "status": { "type": "string", "enum": ["fixed", "skipped", "needs-followup"] },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "output": { "type": "string", "const": "implement-review" },
+    "summary": { "type": "string" }
+  },
+  "required": ["issues", "output", "summary"]
+}"""
+
 
 def address_review_issues(
     issue_id: int | None,
@@ -51,6 +73,7 @@ def address_review_issues(
             adw_id=adw_id,
             issue_id=issue_id,
             model="sonnet",
+            json_schema=ADDRESS_REVIEW_JSON_SCHEMA,
         )
 
         logger.debug(

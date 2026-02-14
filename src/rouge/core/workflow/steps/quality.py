@@ -20,6 +20,25 @@ CODE_QUALITY_REQUIRED_FIELDS = {
     "tools": list,
 }
 
+CODE_QUALITY_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "issues": {
+      "type": "array",
+      "items": {
+        "required": ["file", "issue"],
+        "properties": {
+          "file": { "type": "string" },
+          "issue": { "type": "string" }
+        }
+      }
+    },
+    "output": { "type": "string", "const": "code-quality" },
+    "tools": { "type": "array", "items": { "type": "string" } }
+  },
+  "required": ["issues", "output", "tools"]
+}"""
+
 
 class CodeQualityStep(WorkflowStep):
     """Run code quality checks via /adw-code-quality slash command."""
@@ -50,6 +69,7 @@ class CodeQualityStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.issue_id,
                 model="sonnet",
+                json_schema=CODE_QUALITY_JSON_SCHEMA,
             )
 
             logger.debug(

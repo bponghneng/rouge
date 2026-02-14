@@ -258,6 +258,8 @@ class TestComposeCommits:
         call_args = mock_exec.call_args
         request = call_args[0][0]
         assert request.slash_command == "/adw-compose-commits"
+        assert mock_request.call_args.kwargs["json_schema"] is not None
+        assert '"const": "compose-commits"' in mock_request.call_args.kwargs["json_schema"]
         assert result.success is True
 
     @patch(

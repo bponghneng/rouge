@@ -19,6 +19,17 @@ PLAN_REQUIRED_FIELDS = {
     "summary": str,
 }
 
+PLAN_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "type": { "type": "string", "minLength": 1 },
+    "output": { "type": "string", "const": "plan" },
+    "plan": { "type": "string", "minLength": 1 },
+    "summary": { "type": "string", "minLength": 1 }
+  },
+  "required": ["type", "output", "plan", "summary"]
+}"""
+
 
 def build_plan(
     issue: Issue,
@@ -42,6 +53,7 @@ def build_plan(
         adw_id=adw_id,
         issue_id=issue.id,
         model="sonnet",
+        json_schema=PLAN_JSON_SCHEMA,
     )
     logger.debug(
         "build_plan request: %s",

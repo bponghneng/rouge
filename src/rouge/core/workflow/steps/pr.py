@@ -23,6 +23,27 @@ PR_REQUIRED_FIELDS = {
     "commits": list,
 }
 
+PULL_REQUEST_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "output": { "type": "string", "enum": ["pull-request"] },
+    "title": { "type": "string" },
+    "summary": { "type": "string" },
+    "commits": {
+      "type": "array",
+      "items": {
+        "required": ["message", "sha"],
+        "properties": {
+          "message": { "type": "string" },
+          "sha": { "type": "string" },
+          "files": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  },
+  "required": ["output", "title", "summary", "commits"]
+}"""
+
 
 class PreparePullRequestStep(WorkflowStep):
     """Prepare pull request via /adw-pull-request slash command."""
@@ -53,6 +74,7 @@ class PreparePullRequestStep(WorkflowStep):
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
+                json_schema=PULL_REQUEST_JSON_SCHEMA,
             )
 
             logger.debug(
