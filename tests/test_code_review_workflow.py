@@ -12,7 +12,7 @@ import pytest
 
 from rouge.core.workflow.pipeline import get_code_review_pipeline
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps.quality_step import CodeQualityStep
+from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 from rouge.core.workflow.steps.code_review_step import CodeReviewStep
 from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 from rouge.core.workflow.types import StepResult
