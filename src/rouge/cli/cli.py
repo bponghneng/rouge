@@ -226,6 +226,12 @@ def new(
         help="Path to file containing issue description",
         show_default=True,
     ),
+    issue_type: str = typer.Option(
+        "main",
+        "--type",
+        help="Issue type: 'main' for primary issues, 'patch' for patch issues",
+        show_default=True,
+    ),
 ) -> None:
     """Create a new issue.
 
@@ -233,17 +239,30 @@ def new(
     - Description only: `rouge new "Fix the login bug"` (auto-generates title)
     - Description + title: `rouge new "Fix the login bug" --title "Login fix"`
     - Spec file + title: `rouge new --spec-file spec.txt --title "Feature X"`
+    - With type: `rouge new --spec-file patch.txt --title "Patch fix" --type patch`
 
     Examples:
         rouge new "Fix authentication bug in login flow"
         rouge new "Implement dark mode" --title "Dark mode feature"
         rouge new --spec-file feature-spec.txt --title "New feature"
+        rouge new --spec-file patch-spec.txt --title "Bug fix" --type patch
     """
+    # Validate issue_type
+    valid_types = {"main", "patch"}
+    if issue_type not in valid_types:
+        typer.echo(
+            f"Error: Invalid --type '{issue_type}'. Must be one of: {', '.join(valid_types)}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     validate_new_args(description, spec_file, title)
     issue_title, issue_description = prepare_issue(description, spec_file, title)
 
     try:
-        issue = create_issue(description=issue_description, title=issue_title)
+        issue = create_issue(
+            description=issue_description, title=issue_title, issue_type=issue_type
+        )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
     except ValueError as e:
