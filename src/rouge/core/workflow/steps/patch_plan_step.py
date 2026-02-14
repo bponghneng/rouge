@@ -40,7 +40,7 @@ PLAN_JSON_SCHEMA = """{
 }"""
 
 
-class BuildPatchPlanStep(WorkflowStep):
+class PatchPlanStep(WorkflowStep):
     """Standalone plan building step for patch issues.
 
     This step builds an implementation plan directly from the patch issue

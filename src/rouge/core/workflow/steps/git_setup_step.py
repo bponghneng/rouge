@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 GIT_TIMEOUT = 60
 
 
-class SetupStep(WorkflowStep):
+class GitSetupStep(WorkflowStep):
     """Set up git environment for workflow execution.
 
     This step prepares the repository by checking out the default branch,

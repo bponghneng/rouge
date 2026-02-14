@@ -1,4 +1,4 @@
-"""Tests for UpdatePRCommitsStep workflow step.
+"""Tests for ComposeCommitsStep workflow step.
 
 Tests focus on platform selection via DEV_SEC_OPS_PLATFORM and git CLI detection,
 verifying that the step works independently without loading parent artifacts.
@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_detects_github_pr_via_gh(self, mock_run, monkeypatch):
         """Test detection of GitHub PR using gh CLI."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
         gh_output = json.dumps({"url": "https://github.com/org/repo/pull/42"})
         mock_result = Mock()
         mock_result.returncode = 0
@@ -53,7 +53,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_detects_gitlab_mr_via_glab(self, mock_run, monkeypatch):
         """Test detection of GitLab MR using glab CLI."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
         glab_output = json.dumps({"web_url": "https://gitlab.com/org/repo/-/merge_requests/7"})
         mock_result = Mock()
         mock_result.returncode = 0
@@ -72,7 +72,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_returns_none_when_env_missing(self, mock_run, monkeypatch):
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is unset."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         platform, url = step._detect_pr_platform("/fake/repo")
@@ -84,7 +84,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_returns_none_when_env_invalid(self, mock_run, monkeypatch):
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is invalid."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
         platform, url = step._detect_pr_platform("/fake/repo")
@@ -96,7 +96,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_returns_none_when_cli_missing(self, mock_run, monkeypatch):
         """Test returns (None, None) when CLI is missing."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         mock_run.side_effect = FileNotFoundError
@@ -108,7 +108,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_returns_none_when_github_cli_fails(self, mock_run, monkeypatch):
         """Test returns (None, None) when the selected CLI command fails."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         fail_result = Mock()
         fail_result.returncode = 1
@@ -124,7 +124,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_handles_gh_timeout(self, mock_run, monkeypatch):
         """Test handles timeout from gh command gracefully."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         def raise_timeout(*_args, **_kwargs):
             raise subprocess.TimeoutExpired(cmd="gh", timeout=30)
@@ -139,7 +139,7 @@ class TestDetectPrPlatform:
     @patch("subprocess.run")
     def test_handles_invalid_json_from_gh(self, mock_run, monkeypatch):
         """Test handles invalid JSON output from gh gracefully."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         mock_result = Mock()
         mock_result.returncode = 0
@@ -154,16 +154,16 @@ class TestDetectPrPlatform:
 
 
 class TestRunWhenPlatformMissing:
-    """Tests for UpdatePRCommitsStep.run when platform cannot be detected."""
+    """Tests for ComposeCommitsStep.run when platform cannot be detected."""
 
     @patch(
-        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
-    @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
-    @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_fails_when_env_missing(
         self,
         _mock_get_repo_path,
@@ -175,7 +175,7 @@ class TestRunWhenPlatformMissing:
         mock_context,
     ):
         """Test step fails when DEV_SEC_OPS_PLATFORM is not set."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
 
@@ -194,17 +194,17 @@ class TestRunWhenPlatformMissing:
 
 
 class TestComposeCommits:
-    """Tests for compose-commits integration in UpdatePRCommitsStep.run."""
+    """Tests for compose-commits integration in ComposeCommitsStep.run."""
 
     @patch(
-        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
-    @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
-    @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
-    @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_called_before_push(
         self,
         _mock_get_repo_path,
@@ -217,7 +217,7 @@ class TestComposeCommits:
         mock_context,
     ):
         """Test that execute_template is called with /adw-compose-commits before push."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
@@ -263,13 +263,13 @@ class TestComposeCommits:
         assert result.success is True
 
     @patch(
-        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
-    @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
-    @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_failure_stops_push(
         self,
         _mock_get_repo_path,
@@ -281,7 +281,7 @@ class TestComposeCommits:
         mock_context,
     ):
         """Test that a failed compose-commits prevents git push."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
@@ -298,14 +298,14 @@ class TestComposeCommits:
         mock_subprocess.assert_not_called()
 
     @patch(
-        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
-    @patch("rouge.core.workflow.steps.update_pr_commits.parse_and_validate_json")
-    @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
-    @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_invalid_json_stops_push(
         self,
         _mock_get_repo_path,
@@ -318,7 +318,7 @@ class TestComposeCommits:
         mock_context,
     ):
         """Test that invalid JSON from compose-commits prevents git push."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
@@ -337,13 +337,13 @@ class TestComposeCommits:
         mock_subprocess.assert_not_called()
 
     @patch(
-        "rouge.core.workflow.steps.update_pr_commits.emit_comment_from_payload",
+        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
-    @patch("rouge.core.workflow.steps.update_pr_commits.execute_template")
-    @patch("rouge.core.workflow.steps.update_pr_commits.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.update_pr_commits.get_repo_path", return_value="/repo")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_exception_stops_push(
         self,
         _mock_get_repo_path,
@@ -355,7 +355,7 @@ class TestComposeCommits:
         mock_context,
     ):
         """Test that an exception from execute_template prevents git push."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
@@ -372,14 +372,14 @@ class TestComposeCommits:
 
 
 class TestUpdatePRCommitsStepProperties:
-    """Tests for UpdatePRCommitsStep properties."""
+    """Tests for ComposeCommitsStep properties."""
 
     def test_step_name(self):
         """Test step has correct name."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
         assert step.name == "Updating pull request with patch commits"
 
     def test_step_is_not_critical(self):
         """Test step is not critical."""
-        step = UpdatePRCommitsStep()
+        step = ComposeCommitsStep()
         assert step.is_critical is False

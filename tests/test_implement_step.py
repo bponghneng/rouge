@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.implement import ImplementStep
+from rouge.core.workflow.steps.implement_step import ImplementStep
 from rouge.core.workflow.types import (
     ImplementData,
     PlanData,
@@ -48,7 +48,7 @@ def sample_implement_data():
 class TestImplementStepRun:
     """Tests for ImplementStep.run method."""
 
-    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_success_with_plan(
         self,
@@ -94,7 +94,7 @@ class TestImplementStepRun:
         assert result.success is False
         assert "no plan available" in result.error
 
-    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_fails_when__implement_plan_fails(
         self,
@@ -120,7 +120,7 @@ class TestImplementStepRun:
         assert "Implementation failed" in result.error
         _mock_emit.assert_not_called()
 
-    @patch("rouge.core.workflow.steps.implement.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_saves_artifact(
         self,
@@ -203,7 +203,7 @@ class TestImplementStepRerunBehavior:
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
-            with patch("rouge.core.workflow.steps.implement.emit_comment_from_payload") as mock_e:
+            with patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload") as mock_e:
                 mock_impl.return_value = StepResult.ok(sample_implement_data)
                 mock_e.return_value = ("success", "ok")
 

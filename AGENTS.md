@@ -112,6 +112,20 @@ resolving a workflow type to its pipeline.
 - `httpx` - Async HTTP client for API communication
 - `python-dotenv` - Environment variable loading from .env files
 
+## Workflow Steps Naming Convention
+
+All workflow step files follow a consistent `_step` suffix pattern:
+
+- **File naming**: Step class files use snake_case with a `_step` suffix
+- **Class-to-file mapping**: Class name converted to snake_case with `_step` appended
+  - Example: `GitSetupStep` → `git_setup_step.py`
+  - Example: `FetchIssueStep` → `fetch_issue_step.py`
+  - Example: `ClassifyIssueStep` → `classify_issue_step.py`
+
+**Exception**: `review.py` exists as a backwards-compatibility shim and does not follow this pattern.
+
+This convention makes it easy to locate step implementations by class name and maintains consistency across the codebase.
+
 ## Testing Strategy
 
 Tests are located in `tests/` and use pytest with async support.

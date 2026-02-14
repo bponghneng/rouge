@@ -328,25 +328,25 @@ def _register_default_steps(registry: StepRegistry) -> None:
         registry: The registry to populate
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import AcceptanceStep
-    from rouge.core.workflow.steps.classify import ClassifyStep
-    from rouge.core.workflow.steps.code_review import CodeReviewStep
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
-    from rouge.core.workflow.steps.fetch import FetchIssueStep
-    from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
-    from rouge.core.workflow.steps.implement import ImplementStep
-    from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-    from rouge.core.workflow.steps.plan import PlanStep
-    from rouge.core.workflow.steps.pr import PreparePullRequestStep
-    from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review_fix import ReviewFixStep
-    from rouge.core.workflow.steps.setup import SetupStep
-    from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
+    from rouge.core.workflow.steps.classify_step import ClassifyStep
+    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.steps.create_github_pr_step import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pr_step import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
+    from rouge.core.workflow.steps.fetch_step import FetchIssueStep
+    from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+    from rouge.core.workflow.steps.plan_step import PlanStep
+    from rouge.core.workflow.steps.quality_step import CodeQualityStep
+    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
-    # 0. SetupStep: no dependencies, no outputs (prerequisite step, critical)
+    # 0. GitSetupStep: no dependencies, no outputs (prerequisite step, critical)
     registry.register(
-        SetupStep,
+        GitSetupStep,
         slug="git-setup",
         dependencies=[],
         outputs=[],
@@ -434,9 +434,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Validate implementation against acceptance criteria",
     )
 
-    # 10. PreparePullRequestStep: requires acceptance, produces pr_metadata
+    # 10. ComposeRequestStep: requires acceptance, produces pr_metadata
     registry.register(
-        PreparePullRequestStep,
+        ComposeRequestStep,
         slug="compose-request",
         dependencies=["acceptance"],
         outputs=["pr_metadata"],
@@ -461,9 +461,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. BuildPatchPlanStep: requires patch issue, produces plan
+    # 13. PatchPlanStep: requires patch issue, produces plan
     registry.register(
-        BuildPatchPlanStep,
+        PatchPlanStep,
         slug="patch-plan",
         dependencies=["patch"],
         outputs=["plan"],
@@ -471,9 +471,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Build standalone implementation plan for patch issue",
     )
 
-    # 14. UpdatePRCommitsStep: detects PR via CLI, pushes commits
+    # 14. ComposeCommitsStep: detects PR via CLI, pushes commits
     registry.register(
-        UpdatePRCommitsStep,
+        ComposeCommitsStep,
         slug="compose-commits",
         dependencies=[],
         outputs=[],

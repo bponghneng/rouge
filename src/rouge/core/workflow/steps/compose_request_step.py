@@ -45,8 +45,8 @@ PULL_REQUEST_JSON_SCHEMA = """{
 }"""
 
 
-class PreparePullRequestStep(WorkflowStep):
-    """Prepare pull request via /adw-pull-request slash command."""
+class ComposeRequestStep(WorkflowStep):
+    """Compose pull request via /adw-pull-request slash command."""
 
     @property
     def name(self) -> str:
