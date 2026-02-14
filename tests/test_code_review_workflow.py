@@ -12,9 +12,9 @@ import pytest
 
 from rouge.core.workflow.pipeline import get_code_review_pipeline
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps.quality import CodeQualityStep
-from rouge.core.workflow.steps.code_review import CodeReviewStep
-from rouge.core.workflow.steps.review_fix import ReviewFixStep
+from rouge.core.workflow.steps.quality_step import CodeQualityStep
+from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_registry import (
     get_pipeline_for_type,
@@ -121,19 +121,19 @@ class TestCodeReviewPipeline:
             ClassifyStep,
             FetchIssueStep,
             ImplementStep,
-            PreparePullRequestStep,
-            SetupStep,
+            ComposeRequestStep,
+            GitSetupStep,
             AcceptanceStep,
         )
 
         issue_dependent_types = (
-            SetupStep,
+            GitSetupStep,
             FetchIssueStep,
             ClassifyStep,
             PlanStep,
             ImplementStep,
             AcceptanceStep,
-            PreparePullRequestStep,
+            ComposeRequestStep,
         )
 
         pipeline = get_code_review_pipeline()

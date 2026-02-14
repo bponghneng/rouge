@@ -111,11 +111,11 @@ def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) ->
         logger.error(msg)
 
 
-class UpdatePRCommitsStep(WorkflowStep):
-    """Push new commits to an existing pull request or merge request.
+class ComposeCommitsStep(WorkflowStep):
+    """Compose commits and push to an existing pull request or merge request.
 
-    This step is used in patch workflows to add new commits to an existing
-    PR/MR. It does not create new PRs/MRs.
+    This step is used in patch workflows to compose and add new commits to an
+    existing PR/MR. It does not create new PRs/MRs.
 
     Platform detection is driven by ``DEV_SEC_OPS_PLATFORM`` and uses the
     corresponding git CLI tool (``gh`` for GitHub, ``glab`` for GitLab).

@@ -8,7 +8,7 @@ from rouge.core.workflow.artifacts import (
     PlanArtifact,
 )
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.acceptance import AcceptanceStep
+from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
 from rouge.core.workflow.types import (
     PlanData,
 )

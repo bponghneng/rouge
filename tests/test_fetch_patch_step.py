@@ -7,7 +7,7 @@ import pytest
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import PatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
+from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
 
 
 @pytest.fixture
@@ -48,9 +48,9 @@ def sample_main_issue():
     )
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.update_status")
-@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+@patch("rouge.core.workflow.steps.fetch_patch_step.update_status")
+@patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
 def test_fetch_patch_step_success(
     mock_fetch_issue,
     mock_emit,
@@ -85,8 +85,8 @@ def test_fetch_patch_step_success(
     assert payload.text == "Workflow started. Patch fetched and validated."
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+@patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
 def test_fetch_patch_step_no_pending_patch(
     mock_fetch_issue,
     mock_emit,
@@ -103,8 +103,8 @@ def test_fetch_patch_step_no_pending_patch(
     assert "not a patch issue" in result.error
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+@patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
 def test_fetch_patch_step_issue_not_found(
     mock_fetch_issue,
     mock_emit,
@@ -120,9 +120,9 @@ def test_fetch_patch_step_issue_not_found(
     assert "Issue not found" in result.error
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.update_status")
-@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+@patch("rouge.core.workflow.steps.fetch_patch_step.update_status")
+@patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
 def test_fetch_patch_step_without_artifact_store(
     mock_fetch_issue,
     mock_emit,
@@ -155,8 +155,8 @@ def test_fetch_patch_step_name():
     assert step.name == "Fetching pending patch"
 
 
-@patch("rouge.core.workflow.steps.fetch_patch.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.fetch_patch.fetch_issue")
+@patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
 def test_fetch_patch_step_unexpected_error(
     mock_fetch_issue,
     mock_emit_comment_from_payload,

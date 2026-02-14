@@ -505,7 +505,7 @@ class TestGlobalRegistry:
         """Test resolving full dependency chain for late step.
 
         ImplementStep depends on "plan", which can be produced by either
-        PlanStep (main) or BuildPatchPlanStep (patch). The resolver
+        PlanStep (main) or PatchPlanStep (patch). The resolver
         picks one valid chain.
         """
         registry = get_step_registry()
@@ -525,10 +525,10 @@ class TestGlobalRegistry:
         assert len(deps) >= 2
         assert any("Building" in dep for dep in deps), "Should depend on a plan building step"
 
-    def test_build_patch_plan_step_registration(self):
-        """Test BuildPatchPlanStep is registered with correct metadata.
+    def test_patch_plan_step_registration(self):
+        """Test PatchPlanStep is registered with correct metadata.
 
-        After decoupling, BuildPatchPlanStep only depends on the patch artifact
+        After decoupling, PatchPlanStep only depends on the patch artifact
         and produces a regular plan artifact (not a separate patch_plan).
         """
         registry = get_step_registry()
@@ -540,7 +540,7 @@ class TestGlobalRegistry:
                 patch_plan_step_name = name
                 break
 
-        assert patch_plan_step_name is not None, "BuildPatchPlanStep should be registered"
+        assert patch_plan_step_name is not None, "PatchPlanStep should be registered"
 
         metadata = registry.get_step_metadata(patch_plan_step_name)
         assert metadata is not None
@@ -549,9 +549,9 @@ class TestGlobalRegistry:
         assert metadata.is_critical is True
 
     def test_update_pr_commits_step_registration(self):
-        """Test UpdatePRCommitsStep is registered with correct metadata.
+        """Test ComposeCommitsStep is registered with correct metadata.
 
-        After decoupling, UpdatePRCommitsStep detects PRs via gh/glab CLI
+        After decoupling, ComposeCommitsStep detects PRs via gh/glab CLI
         rather than loading parent PullRequestArtifact, so it has no artifact
         dependencies.
         """
@@ -564,7 +564,7 @@ class TestGlobalRegistry:
                 update_pr_commits_step_name = name
                 break
 
-        assert update_pr_commits_step_name is not None, "UpdatePRCommitsStep should be registered"
+        assert update_pr_commits_step_name is not None, "ComposeCommitsStep should be registered"
 
         metadata = registry.get_step_metadata(update_pr_commits_step_name)
         assert metadata is not None
@@ -584,9 +584,9 @@ class TestGlobalRegistry:
         assert issues == [], f"Registry validation issues: {issues}"
 
     def test_patch_plan_dependency_resolution(self):
-        """Test dependency resolution for BuildPatchPlanStep.
+        """Test dependency resolution for PatchPlanStep.
 
-        After decoupling, BuildPatchPlanStep only depends on the patch artifact
+        After decoupling, PatchPlanStep only depends on the patch artifact
         produced by FetchPatchStep. It no longer depends on FetchIssueStep or
         PlanStep from a parent workflow.
         """

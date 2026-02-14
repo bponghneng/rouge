@@ -12,18 +12,18 @@ from rouge.core.workflow.steps import (
     ClassifyStep,
     CodeQualityStep,
     CodeReviewStep,
+    ComposeRequestStep,
     FetchIssueStep,
     FetchPatchStep,
+    GitSetupStep,
     ImplementStep,
     PlanStep,
-    PreparePullRequestStep,
     ReviewFixStep,
-    SetupStep,
 )
-from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
-from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
-from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+from rouge.core.workflow.steps.create_github_pr_step import CreateGitHubPullRequestStep
+from rouge.core.workflow.steps.create_gitlab_pr_step import CreateGitLabPullRequestStep
+from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.types import StepResult
 
 _WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
@@ -311,7 +311,7 @@ class TestGetDefaultPipeline:
 
         # Verify order and types
         expected_types = [
-            SetupStep,
+            GitSetupStep,
             FetchIssueStep,
             ClassifyStep,
             PlanStep,
@@ -320,7 +320,7 @@ class TestGetDefaultPipeline:
             ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
-            PreparePullRequestStep,
+            ComposeRequestStep,
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
@@ -366,13 +366,13 @@ class TestGetPatchPipeline:
         # Verify order and types
         expected_types = [
             FetchPatchStep,
-            BuildPatchPlanStep,
+            PatchPlanStep,
             ImplementStep,
             CodeReviewStep,
             ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
-            UpdatePRCommitsStep,
+            ComposeCommitsStep,
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
@@ -409,7 +409,7 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        assert isinstance(pipeline[-1], UpdatePRCommitsStep)
+        assert isinstance(pipeline[-1], ComposeCommitsStep)
         assert not pipeline[-1].is_critical  # Should be best effort
 
     def test_patch_pipeline_step_order(self, monkeypatch):
@@ -419,13 +419,13 @@ class TestGetPatchPipeline:
 
         expected_types = [
             FetchPatchStep,
-            BuildPatchPlanStep,
+            PatchPlanStep,
             ImplementStep,
             CodeReviewStep,
             ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
-            UpdatePRCommitsStep,
+            ComposeCommitsStep,
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):

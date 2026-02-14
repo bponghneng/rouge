@@ -1,6 +1,6 @@
-"""Tests for BuildPatchPlanStep workflow step.
+"""Tests for PatchPlanStep workflow step.
 
-Tests verify that BuildPatchPlanStep works independently from parent
+Tests verify that PatchPlanStep works independently from parent
 workflow artifacts, using only context.issue (set by FetchPatchStep).
 """
 
@@ -10,7 +10,7 @@ import pytest
 
 from rouge.core.models import Issue
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
+from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.types import PlanData, StepResult
 
 
@@ -40,10 +40,10 @@ def patch_issue():
 
 
 class TestBuildPatchPlanStepWithoutParentArtifacts:
-    """Tests verifying BuildPatchPlanStep works without parent artifacts."""
+    """Tests verifying PatchPlanStep works without parent artifacts."""
 
-    @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch.object(BuildPatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
+    @patch.object(PatchPlanStep, "_build_plan")
     def test_uses_context_issue_directly(
         self,
         mock_build,
@@ -51,7 +51,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         mock_context,
         patch_issue,
     ):
-        """Test that BuildPatchPlanStep uses context.issue directly, not parent artifacts."""
+        """Test that PatchPlanStep uses context.issue directly, not parent artifacts."""
         mock_context.issue = patch_issue
         plan_data = PlanData(
             plan="## Patch Plan\nFix typo",
@@ -60,7 +60,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         mock_build.return_value = StepResult.ok(plan_data, metadata={"session_id": "sess-1"})
         mock_emit.return_value = ("success", "ok")
 
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         result = step.run(mock_context)
 
         assert result.success is True
@@ -77,14 +77,14 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         """Test that step fails when context.issue is None (no parent dependency)."""
         mock_context.issue = None
 
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         result = step.run(mock_context)
 
         assert result.success is False
         assert "patch issue not available" in result.error
 
-    @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch.object(BuildPatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
+    @patch.object(PatchPlanStep, "_build_plan")
     def test_saves_plan_artifact_not_patch_plan_artifact(
         self,
         mock_build,
@@ -101,7 +101,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         mock_build.return_value = StepResult.ok(plan_data)
         mock_emit.return_value = ("success", "ok")
 
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         result = step.run(mock_context)
 
         assert result.success is True
@@ -111,8 +111,8 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         assert saved_artifact.artifact_type == "plan"
         assert saved_artifact.plan_data == plan_data
 
-    @patch("rouge.core.workflow.steps.patch_plan.emit_comment_from_payload")
-    @patch.object(BuildPatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
+    @patch.object(PatchPlanStep, "_build_plan")
     def test_no_parent_artifact_loading(
         self,
         mock_build,
@@ -130,7 +130,7 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
         mock_build.return_value = StepResult.ok(plan_data)
         mock_emit.return_value = ("success", "ok")
 
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         result = step.run(mock_context)
 
         assert result.success is True
@@ -142,14 +142,14 @@ class TestBuildPatchPlanStepWithoutParentArtifacts:
 
 
 class TestBuildPatchPlanStepProperties:
-    """Tests for BuildPatchPlanStep properties."""
+    """Tests for PatchPlanStep properties."""
 
     def test_step_name(self):
         """Test step has correct name."""
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         assert step.name == "Building patch plan"
 
     def test_step_is_critical(self):
         """Test step is critical."""
-        step = BuildPatchPlanStep()
+        step = PatchPlanStep()
         assert step.is_critical is True

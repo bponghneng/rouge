@@ -206,21 +206,21 @@ def get_default_pipeline() -> List[WorkflowStep]:
         List of WorkflowStep instances in execution order
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import AcceptanceStep
-    from rouge.core.workflow.steps.classify import ClassifyStep
-    from rouge.core.workflow.steps.code_review import CodeReviewStep
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
-    from rouge.core.workflow.steps.fetch import FetchIssueStep
-    from rouge.core.workflow.steps.implement import ImplementStep
-    from rouge.core.workflow.steps.plan import PlanStep
-    from rouge.core.workflow.steps.pr import PreparePullRequestStep
-    from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review_fix import ReviewFixStep
-    from rouge.core.workflow.steps.setup import SetupStep
+    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
+    from rouge.core.workflow.steps.classify_step import ClassifyStep
+    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.steps.create_github_pr_step import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pr_step import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.fetch_step import FetchIssueStep
+    from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.plan_step import PlanStep
+    from rouge.core.workflow.steps.quality_step import CodeQualityStep
+    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
-        SetupStep(),
+        GitSetupStep(),
         FetchIssueStep(),
         ClassifyStep(),
         PlanStep(),
@@ -229,7 +229,7 @@ def get_default_pipeline() -> List[WorkflowStep]:
         ReviewFixStep(),
         CodeQualityStep(),
         AcceptanceStep(),
-        PreparePullRequestStep(),
+        ComposeRequestStep(),
     ]
 
     # Conditionally add PR/MR creation step based on platform
@@ -261,9 +261,9 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
         List of WorkflowStep instances in execution order
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.code_review import CodeReviewStep
-    from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review_fix import ReviewFixStep
+    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.quality_step import CodeQualityStep
+    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     return [
         CodeReviewStep(),
@@ -317,24 +317,24 @@ def get_patch_pipeline() -> List[WorkflowStep]:
         List of WorkflowStep instances in execution order for patch processing
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance import AcceptanceStep
-    from rouge.core.workflow.steps.code_review import CodeReviewStep
-    from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
-    from rouge.core.workflow.steps.implement import ImplementStep
-    from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
-    from rouge.core.workflow.steps.quality import CodeQualityStep
-    from rouge.core.workflow.steps.review_fix import ReviewFixStep
-    from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep
+    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
+    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+    from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
+    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+    from rouge.core.workflow.steps.quality_step import CodeQualityStep
+    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
-        BuildPatchPlanStep(),
+        PatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
         CodeReviewStep(),
         ReviewFixStep(),
         CodeQualityStep(),
         AcceptanceStep(),
-        UpdatePRCommitsStep(),
+        ComposeCommitsStep(),
     ]
 
     return steps
