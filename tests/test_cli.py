@@ -86,6 +86,7 @@ def test_new_command_description_only(mock_create_issue):
     mock_create_issue.assert_called_once_with(
         description="Fix the login bug",
         title="Fix the login bug",
+        issue_type="main",
     )
 
 
@@ -103,6 +104,7 @@ def test_new_command_description_with_explicit_title(mock_create_issue):
     mock_create_issue.assert_called_once_with(
         description="Fix the login bug in the auth module",
         title="Login fix",
+        issue_type="main",
     )
 
 
@@ -121,6 +123,7 @@ def test_new_command_spec_file_with_title(mock_create_issue, tmp_path):
     mock_create_issue.assert_called_once_with(
         description="Detailed spec content from file",
         title="Feature X",
+        issue_type="main",
     )
 
 
@@ -231,6 +234,7 @@ def test_new_command_long_description_auto_title(mock_create_issue):
     mock_create_issue.assert_called_once_with(
         description=long_desc,
         title="One two three four five six seven eight nine ten...",
+        issue_type="main",
     )
 
 
@@ -256,6 +260,7 @@ def test_new_command_short_title_flag(mock_create_issue):
     mock_create_issue.assert_called_once_with(
         description="Some description",
         title="Short Title",
+        issue_type="main",
     )
 
 
@@ -274,6 +279,7 @@ def test_new_command_short_spec_file_flag(mock_create_issue, tmp_path):
     mock_create_issue.assert_called_once_with(
         description="File content from short flag",
         title="Title from Short Flags",
+        issue_type="main",
     )
 
 
