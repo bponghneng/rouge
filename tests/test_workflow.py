@@ -667,6 +667,49 @@ def test_create_pr_step_empty_title(mock_emit):
 @patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_already_exists_is_success(
+    mock_subprocess, mock_emit, mock_get_repo_path, mock_which
+):
+    """Test PR creation is idempotent when gh reports existing PR."""
+    from rouge.core.workflow.step_base import WorkflowContext
+    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+
+    mock_which.return_value = "/usr/bin/gh"
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    mock_push_result = Mock(returncode=0, stdout="", stderr="")
+    mock_pr_result = Mock(
+        returncode=1,
+        stderr=(
+            'a pull request for branch "adw-64c59625" into branch "main" already exists:\n'
+            "https://github.com/owner/repo/pull/123\n"
+        ),
+    )
+    mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context.data["pr_details"] = {
+        "title": "feat: add new feature",
+        "summary": "This PR adds a new feature.",
+        "commits": [],
+    }
+
+    step = CreateGitHubPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    mock_emit.assert_called_once()
+    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
+    assert mock_emit.call_args[0][0].raw["url"] == "https://github.com/owner/repo/pull/123"
+    assert mock_emit.call_args[0][0].raw["existing"] is True
+
+
+@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):

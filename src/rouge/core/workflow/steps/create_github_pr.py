@@ -2,6 +2,7 @@
 
 import logging
 import os
+import re
 import shutil
 import subprocess
 
@@ -13,6 +14,16 @@ from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
+
+
+def _extract_existing_pr_url(stderr_text: str) -> str | None:
+    """Extract PR URL from gh stderr when PR already exists."""
+    if "already exists" not in stderr_text.lower():
+        return None
+    match = re.search(r"https://github\.com/\S+/pull/\d+", stderr_text)
+    if not match:
+        return None
+    return match.group(0).rstrip(").,")
 
 
 class CreateGitHubPullRequestStep(WorkflowStep):
@@ -179,6 +190,39 @@ class CreateGitHubPullRequestStep(WorkflowStep):
             )
 
             if result.returncode != 0:
+                existing_pr_url = _extract_existing_pr_url(result.stderr)
+                if existing_pr_url:
+                    logger.info("Pull request already exists: %s", existing_pr_url)
+
+                    if context.artifacts_enabled and context.artifact_store is not None:
+                        artifact = PullRequestArtifact(
+                            workflow_id=context.adw_id,
+                            url=existing_pr_url,
+                            platform="github",
+                        )
+                        context.artifact_store.write_artifact(artifact)
+                        logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
+
+                    payload = CommentPayload(
+                        issue_id=context.require_issue_id,
+                        adw_id=context.adw_id,
+                        text=f"Pull request already exists: {existing_pr_url}",
+                        raw={
+                            "commits": commits,
+                            "output": "pull-request-created",
+                            "url": existing_pr_url,
+                            "existing": True,
+                        },
+                        source="system",
+                        kind="workflow",
+                    )
+                    status, msg = emit_comment_from_payload(payload)
+                    if status == "success":
+                        logger.debug(msg)
+                    else:
+                        logger.error(msg)
+                    return StepResult.ok(None)
+
                 error_msg = f"gh pr create failed (exit code {result.returncode}): {result.stderr}"
                 logger.warning(
                     "gh pr create failed (exit code %d): %s",
