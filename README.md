@@ -184,6 +184,7 @@ Artifact-focused commands:
 - `rouge artifact path <workflow-id>` - Show the artifact directory path.
 
 **Examples**:
+
 ```bash
 # List all steps with their slugs
 uv run rouge step list
