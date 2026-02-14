@@ -330,16 +330,20 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.acceptance import AcceptanceStep
     from rouge.core.workflow.steps.classify import ClassifyStep
+    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.code_review import CodeReviewStep
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
-    from rouge.core.workflow.steps.fetch import FetchIssueStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import (
+        CreateGitHubPullRequestStep,
+    )
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import (
+        CreateGitLabPullRequestStep,
+    )
+    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.fetch_patch import FetchPatchStep
     from rouge.core.workflow.steps.implement import ImplementStep
     from rouge.core.workflow.steps.patch_plan import BuildPatchPlanStep
     from rouge.core.workflow.steps.plan import PlanStep
     from rouge.core.workflow.steps.pr import PreparePullRequestStep
-    from rouge.core.workflow.steps.quality import CodeQualityStep
     from rouge.core.workflow.steps.review_fix import ReviewFixStep
     from rouge.core.workflow.steps.setup import SetupStep
     from rouge.core.workflow.steps.update_pr_commits import UpdatePRCommitsStep

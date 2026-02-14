@@ -244,12 +244,12 @@ def test_is_clean_review_both_markers_missing():
 # To test acceptance logic, test AcceptanceStep directly instead.
 
 
-@patch("rouge.core.workflow.steps.quality.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.quality.execute_template")
+@patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.code_quality_step.execute_template")
 def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
     """Test code quality step passes strict JSON schema to Claude template request."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.quality import CodeQualityStep
+    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
     mock_emit.return_value = ("success", "ok")
     mock_response = Mock()
@@ -276,15 +276,15 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
 # === CreatePullRequestStep Tests ===
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_which):
     """Test successful PR creation with git push before gh pr create."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
@@ -341,11 +341,11 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
 def test_create_pr_step_missing_github_pat(mock_emit):
     """Test PR creation skipped when GITHUB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -365,11 +365,11 @@ def test_create_pr_step_missing_github_pat(mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
 def test_create_pr_step_missing_pr_details(mock_emit):
     """Test PR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -385,12 +385,12 @@ def test_create_pr_step_missing_pr_details(mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit):
     """Test PR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -410,17 +410,17 @@ def test_create_pr_step_empty_title(mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_already_exists_is_success(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation is idempotent when gh reports existing PR."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     mock_which.return_value = "/usr/bin/gh"
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -453,17 +453,17 @@ def test_create_pr_step_already_exists_is_success(
     assert mock_emit.call_args[0][0].raw["existing"] is True
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation handles gh command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
@@ -500,17 +500,17 @@ def test_create_pr_step_gh_command_failure(
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, mock_which):
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
@@ -546,13 +546,13 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     """Test PR creation handles gh CLI not found via proactive detection."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to return None (gh not found)
     mock_which.return_value = None
@@ -578,17 +578,17 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     assert "gh CLI not found" in mock_emit.call_args[0][0].raw["reason"]
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation continues even when git push fails."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
@@ -627,10 +627,10 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
-@patch("rouge.core.workflow.steps.create_github_pr.shutil.which")
-@patch("rouge.core.workflow.steps.create_github_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_github_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_github_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_github_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
@@ -639,7 +639,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
@@ -678,7 +678,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
 def test_create_pr_step_is_not_critical():
     """Test CreateGitHubPullRequestStep is not critical."""
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     step = CreateGitHubPullRequestStep()
     assert step.is_critical is False
@@ -686,7 +686,7 @@ def test_create_pr_step_is_not_critical():
 
 def test_create_pr_step_name():
     """Test CreateGitHubPullRequestStep has correct name."""
-    from rouge.core.workflow.steps.create_github_pr import CreateGitHubPullRequestStep
+    from rouge.core.workflow.steps.create_github_pull_request_step import CreateGitHubPullRequestStep
 
     step = CreateGitHubPullRequestStep()
     assert step.name == "Creating GitHub pull request"
@@ -695,14 +695,14 @@ def test_create_pr_step_name():
 # === CreateGitLabPullRequestStep Tests ===
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
     """Test successful MR creation with git push before glab mr create."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     # Mock get_repo_path to return a specific path
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -756,12 +756,12 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
 def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
     """Test MR creation skipped when GITLAB_PAT is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -784,12 +784,12 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     """Test MR creation skipped when pr_details is missing."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -806,13 +806,13 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     """Test MR creation skipped when title is empty."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -833,17 +833,17 @@ def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_command_failure(
     mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
 ):
     """Test MR creation handles glab command failure."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -878,17 +878,17 @@ def test_create_gitlab_mr_step_glab_command_failure(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, mock_get_repo_path):
     """Test MR creation handles timeout on glab mr create."""
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -922,17 +922,17 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.logger")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_not_found(
     mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
 ):
     """Test MR creation handles glab CLI not found."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -963,16 +963,16 @@ def test_create_gitlab_mr_step_glab_not_found(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_failure_continues_to_mr(
     mock_subprocess, mock_emit, mock_get_repo_path
 ):
     """Test MR creation continues even when git push fails."""
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -1008,9 +1008,9 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
-@patch("rouge.core.workflow.steps.create_gitlab_pr.get_repo_path")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.create_gitlab_pr.subprocess.run")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.get_repo_path")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.create_gitlab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
     mock_subprocess, mock_emit, mock_get_repo_path
@@ -1019,7 +1019,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
     import subprocess
 
     from rouge.core.workflow.step_base import WorkflowContext
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -1055,7 +1055,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
 
 def test_create_gitlab_mr_step_is_not_critical():
     """Test CreateGitLabPullRequestStep is not critical."""
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     step = CreateGitLabPullRequestStep()
     assert step.is_critical is False
@@ -1063,7 +1063,7 @@ def test_create_gitlab_mr_step_is_not_critical():
 
 def test_create_gitlab_mr_step_name():
     """Test CreateGitLabPullRequestStep has correct name."""
-    from rouge.core.workflow.steps.create_gitlab_pr import CreateGitLabPullRequestStep
+    from rouge.core.workflow.steps.create_gitlab_pull_request_step import CreateGitLabPullRequestStep
 
     step = CreateGitLabPullRequestStep()
     assert step.name == "Creating GitLab merge request"
