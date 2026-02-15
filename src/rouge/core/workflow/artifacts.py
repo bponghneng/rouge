@@ -185,7 +185,7 @@ class GhPullRequestArtifact(Artifact):
 
     artifact_type: Literal["gh-pull-request"] = "gh-pull-request"
     url: str
-    platform: Literal["github", "gitlab"]
+    platform: Literal["github"] = "github"
 
 
 class FetchPatchArtifact(Artifact):
@@ -233,7 +233,7 @@ class GlabPullRequestArtifact(Artifact):
 
     artifact_type: Literal["glab-pull-request"] = "glab-pull-request"
     url: str
-    platform: Literal["github", "gitlab"]
+    platform: Literal["gitlab"] = "gitlab"
 
 
 # Mapping from artifact type to model class
