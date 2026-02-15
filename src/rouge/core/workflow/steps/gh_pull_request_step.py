@@ -268,12 +268,7 @@ class GhPullRequestStep(WorkflowStep):
                 logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
 
                 status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                if status == "success":
-                    logger.debug(msg)
-                elif status == "skipped":
-                    logger.debug(msg)
-                else:
-                    logger.error(msg)
+                log_artifact_comment_status(status, msg)
 
             # Emit progress comment with PR details
             comment_data = {
