@@ -6,7 +6,7 @@ from typer.testing import CliRunner
 
 from rouge.cli.cli import app
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import ArtifactStore, IssueArtifact
+from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
 
 runner = CliRunner()
 
@@ -23,10 +23,10 @@ class TestArtifactTypesCommand:
         assert "Available artifact types" in result.output
 
         # Check for expected types
-        assert "issue" in result.output
-        assert "classification" in result.output
+        assert "fetch-issue" in result.output
+        assert "classify" in result.output
         assert "plan" in result.output
-        assert "implementation" in result.output
+        assert "implement" in result.output
 
     def test_artifact_types_shows_count(self):
         """Test artifact types command shows total count."""
@@ -51,11 +51,11 @@ class TestArtifactListCommand:
             # Create some test artifacts
             store = ArtifactStore("adw-test-list", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Test issue")
-            store.write_artifact(IssueArtifact(workflow_id="adw-test-list", issue=issue))
+            store.write_artifact(FetchIssueArtifact(workflow_id="adw-test-list", issue=issue))
 
             result = runner.invoke(app, ["artifact", "list", "adw-test-list"])
             assert result.exit_code == 0
-            assert "issue" in result.output
+            assert "fetch-issue" in result.output
             assert "Total:" in result.output
 
 
@@ -75,7 +75,7 @@ class TestArtifactShowCommand:
             # Create workflow directory but no artifact
             (tmp_path / ".rouge" / "workflows" / "adw-show-test").mkdir(parents=True, exist_ok=True)
 
-            result = runner.invoke(app, ["artifact", "show", "adw-show-test", "issue"])
+            result = runner.invoke(app, ["artifact", "show", "adw-show-test", "fetch-issue"])
             assert result.exit_code == 1
             assert "not found" in result.output
 
@@ -85,9 +85,9 @@ class TestArtifactShowCommand:
             # Create test artifact
             store = ArtifactStore("adw-show-content", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=42, description="Test issue for display")
-            store.write_artifact(IssueArtifact(workflow_id="adw-show-content", issue=issue))
+            store.write_artifact(FetchIssueArtifact(workflow_id="adw-show-content", issue=issue))
 
-            result = runner.invoke(app, ["artifact", "show", "adw-show-content", "issue"])
+            result = runner.invoke(app, ["artifact", "show", "adw-show-content", "fetch-issue"])
             assert result.exit_code == 0
             assert "42" in result.output  # Issue ID
             assert "Test issue for display" in result.output
@@ -98,9 +98,9 @@ class TestArtifactShowCommand:
             # Create test artifact
             store = ArtifactStore("adw-show-raw", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Raw test")
-            store.write_artifact(IssueArtifact(workflow_id="adw-show-raw", issue=issue))
+            store.write_artifact(FetchIssueArtifact(workflow_id="adw-show-raw", issue=issue))
 
-            result = runner.invoke(app, ["artifact", "show", "adw-show-raw", "issue", "--raw"])
+            result = runner.invoke(app, ["artifact", "show", "adw-show-raw", "fetch-issue", "--raw"])
             assert result.exit_code == 0
             # Raw output should not have headers
             assert "Artifact:" not in result.output
@@ -124,7 +124,7 @@ class TestArtifactDeleteCommand:
                 parents=True, exist_ok=True
             )
 
-            result = runner.invoke(app, ["artifact", "delete", "adw-delete-test", "issue"])
+            result = runner.invoke(app, ["artifact", "delete", "adw-delete-test", "fetch-issue"])
             assert result.exit_code == 1
             assert "not found" in result.output
 
@@ -134,18 +134,18 @@ class TestArtifactDeleteCommand:
             # Create test artifact
             store = ArtifactStore("adw-delete-force", base_path=tmp_path / ".rouge" / "workflows")
             issue = Issue(id=1, description="Delete test")
-            store.write_artifact(IssueArtifact(workflow_id="adw-delete-force", issue=issue))
+            store.write_artifact(FetchIssueArtifact(workflow_id="adw-delete-force", issue=issue))
 
-            assert store.artifact_exists("issue")
+            assert store.artifact_exists("fetch-issue")
 
             result = runner.invoke(
-                app, ["artifact", "delete", "adw-delete-force", "issue", "--force"]
+                app, ["artifact", "delete", "adw-delete-force", "fetch-issue", "--force"]
             )
             assert result.exit_code == 0
             assert "Deleted" in result.output
 
             # Verify artifact is gone
-            assert not store.artifact_exists("issue")
+            assert not store.artifact_exists("fetch-issue")
 
 
 class TestArtifactPathCommand:

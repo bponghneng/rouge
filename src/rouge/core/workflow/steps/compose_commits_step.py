@@ -13,6 +13,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -278,6 +279,21 @@ class ComposeCommitsStep(WorkflowStep):
                 return StepResult.fail(error_msg)
 
             logger.info("Commits composed successfully")
+
+            # Save artifact if artifact store is available
+            if (
+                context.artifacts_enabled
+                and context.artifact_store is not None
+                and parse_result.data is not None
+            ):
+                artifact = ComposeCommitsArtifact(
+                    workflow_id=context.adw_id,
+                    summary=parse_result.data.get("summary", ""),
+                    commits=parse_result.data.get("commits", []),
+                )
+                context.artifact_store.write_artifact(artifact)
+                logger.debug("Saved compose_commits artifact for workflow %s", context.adw_id)
+
             _emit_and_log(
                 context.require_issue_id,
                 context.adw_id,

@@ -5,7 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import PatchArtifact
+from rouge.core.workflow.artifacts import FetchPatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
 
@@ -74,9 +74,9 @@ def test_fetch_patch_step_success(
     # Verify patch artifact was saved
     assert mock_context.artifact_store.write_artifact.call_count == 1
 
-    # Check the call was PatchArtifact with the patch issue
+    # Check the call was FetchPatchArtifact with the patch issue
     artifact_call = mock_context.artifact_store.write_artifact.call_args_list[0][0][0]
-    assert isinstance(artifact_call, PatchArtifact)
+    assert isinstance(artifact_call, FetchPatchArtifact)
     assert artifact_call.patch == sample_patch_issue
 
     # Verify progress comment was emitted with correct text

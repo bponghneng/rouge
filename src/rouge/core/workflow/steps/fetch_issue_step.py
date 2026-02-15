@@ -5,7 +5,7 @@ import logging
 from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import IssueArtifact
+from rouge.core.workflow.artifacts import FetchIssueArtifact
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -43,7 +43,7 @@ class FetchIssueStep(WorkflowStep):
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = IssueArtifact(
+                artifact = FetchIssueArtifact(
                     workflow_id=context.adw_id,
                     issue=issue,
                 )

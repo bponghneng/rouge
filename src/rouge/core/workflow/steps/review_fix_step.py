@@ -7,7 +7,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import ReviewAddressedArtifact, ReviewArtifact
+from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -192,8 +192,8 @@ class ReviewFixStep(WorkflowStep):
         # Try to load review_data from artifact if not in context
         review_data = context.load_artifact_if_missing(
             "review_data",
-            "review",
-            ReviewArtifact,
+            "code-review",
+            CodeReviewArtifact,
             lambda a: a.review_data,
         )
 
@@ -217,7 +217,7 @@ class ReviewFixStep(WorkflowStep):
             logger.error("Failed to address review issues: %s", review_issues_result.error)
             # Save artifact even on failure
             if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = ReviewAddressedArtifact(
+                artifact = ReviewFixArtifact(
                     workflow_id=context.adw_id,
                     success=False,
                     message=review_issues_result.error,
@@ -229,7 +229,7 @@ class ReviewFixStep(WorkflowStep):
 
         # Save artifact if artifact store is available
         if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ReviewAddressedArtifact(
+            artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=True,
                 message="Review issues addressed, re-running review",

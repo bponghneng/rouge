@@ -149,7 +149,7 @@ class TestImplementStepRun:
 
         # Check the artifact type
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
-        assert saved_artifact.artifact_type == "implementation"
+        assert saved_artifact.artifact_type == "implement"
         assert saved_artifact.implement_data == sample_implement_data
 
 

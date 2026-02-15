@@ -348,84 +348,84 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.plan_step import PlanStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
-    # 0. GitSetupStep: no dependencies, no outputs (prerequisite step, critical)
+    # 0. GitSetupStep: no dependencies, produces git-setup artifact
     registry.register(
         GitSetupStep,
         slug="git-setup",
         dependencies=[],
-        outputs=[],
+        outputs=["git-setup"],
         description="Set up git environment for workflow execution",
     )
 
-    # 1. FetchIssueStep: no dependencies, produces issue artifact
+    # 1. FetchIssueStep: no dependencies, produces fetch-issue artifact
     registry.register(
         FetchIssueStep,
         slug="fetch-issue",
         dependencies=[],
-        outputs=["issue"],
+        outputs=["fetch-issue"],
         description="Fetch issue from Supabase database",
     )
 
-    # 1b. FetchPatchStep: no dependencies, produces patch artifact (for patch workflow)
+    # 1b. FetchPatchStep: no dependencies, produces fetch-patch artifact (for patch workflow)
     registry.register(
         FetchPatchStep,
         slug="fetch-patch",
         dependencies=[],
-        outputs=["patch"],
+        outputs=["fetch-patch"],
         description="Fetch pending patch from Supabase database",
     )
 
-    # 2. ClassifyStep: requires issue, produces classification
+    # 2. ClassifyStep: requires fetch-issue, produces classify artifact
     registry.register(
         ClassifyStep,
         slug="classify",
-        dependencies=["issue"],
-        outputs=["classification"],
+        dependencies=["fetch-issue"],
+        outputs=["classify"],
         description="Classify issue type and complexity",
     )
 
-    # 3. PlanStep: requires issue and classification, produces plan
+    # 3. PlanStep: requires fetch-issue and classify, produces plan
     registry.register(
         PlanStep,
         slug="plan",
-        dependencies=["issue", "classification"],
+        dependencies=["fetch-issue", "classify"],
         outputs=["plan"],
         description="Build implementation plan for the issue",
     )
 
-    # 4. ImplementStep: requires plan, produces implementation
+    # 4. ImplementStep: requires plan, produces implement artifact
     registry.register(
         ImplementStep,
         slug="implement",
         dependencies=["plan"],
-        outputs=["implementation"],
+        outputs=["implement"],
         description="Execute the implementation plan",
     )
 
-    # 5. CodeReviewStep: requires plan, produces review
+    # 5. CodeReviewStep: requires plan, produces code-review artifact
     registry.register(
         CodeReviewStep,
         slug="code-review",
         dependencies=["plan"],
-        outputs=["review"],
+        outputs=["code-review"],
         description="Generate code review for implementation",
     )
 
-    # 7. ReviewFixStep: requires review, produces review_addressed
+    # 7. ReviewFixStep: requires code-review, produces review-fix artifact
     registry.register(
         ReviewFixStep,
         slug="review-fix",
-        dependencies=["review"],
-        outputs=["review_addressed"],
+        dependencies=["code-review"],
+        outputs=["review-fix"],
         description="Address review issues and suggestions",
     )
 
-    # 8. CodeQualityStep: requires implementation, produces quality_check
+    # 8. CodeQualityStep: requires implement, produces code-quality artifact
     registry.register(
         CodeQualityStep,
         slug="code-quality",
-        dependencies=["implementation"],
-        outputs=["quality_check"],
+        dependencies=["implement"],
+        outputs=["code-quality"],
         description="Run code quality checks (linting, type checking)",
     )
 
@@ -438,49 +438,49 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Validate implementation against acceptance criteria",
     )
 
-    # 10. ComposeRequestStep: requires acceptance, produces pr_metadata
+    # 10. ComposeRequestStep: requires acceptance, produces compose-request artifact
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
         dependencies=["acceptance"],
-        outputs=["pr_metadata"],
+        outputs=["compose-request"],
         description="Prepare pull request metadata and commits",
     )
 
-    # 11. GhPullRequestStep: requires pr_metadata, produces pull_request
+    # 11. GhPullRequestStep: requires compose-request, produces gh-pull-request artifact
     registry.register(
         GhPullRequestStep,
         slug="gh-pull-request",
-        dependencies=["pr_metadata"],
-        outputs=["pull_request"],
+        dependencies=["compose-request"],
+        outputs=["gh-pull-request"],
         description="Create GitHub pull request via gh CLI",
     )
 
-    # 12. GlabPullRequestStep: requires pr_metadata, produces pull_request
+    # 12. GlabPullRequestStep: requires compose-request, produces glab-pull-request artifact
     registry.register(
         GlabPullRequestStep,
         slug="glab-pull-request",
-        dependencies=["pr_metadata"],
-        outputs=["pull_request"],
+        dependencies=["compose-request"],
+        outputs=["glab-pull-request"],
         description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. PatchPlanStep: requires patch issue, produces plan
+    # 13. PatchPlanStep: requires fetch-patch, produces plan
     registry.register(
         PatchPlanStep,
         slug="patch-plan",
-        dependencies=["patch"],
+        dependencies=["fetch-patch"],
         outputs=["plan"],
         is_critical=True,
         description="Build standalone implementation plan for patch issue",
     )
 
-    # 14. ComposeCommitsStep: detects PR via CLI, pushes commits
+    # 14. ComposeCommitsStep: detects PR via CLI, pushes commits, produces compose-commits artifact
     registry.register(
         ComposeCommitsStep,
         slug="compose-commits",
         dependencies=[],
-        outputs=[],
+        outputs=["compose-commits"],
         is_critical=False,
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
     )

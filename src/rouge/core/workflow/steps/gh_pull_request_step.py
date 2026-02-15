@@ -8,7 +8,7 @@ import subprocess
 
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import PRMetadataArtifact, PullRequestArtifact
+from rouge.core.workflow.artifacts import ComposeRequestArtifact, GhPullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -50,8 +50,8 @@ class GhPullRequestStep(WorkflowStep):
         # Try to load pr_details from artifact if not in context
         pr_details = context.load_artifact_if_missing(
             "pr_details",
-            "pr_metadata",
-            PRMetadataArtifact,
+            "compose-request",
+            ComposeRequestArtifact,
             lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
         )
 
@@ -195,7 +195,7 @@ class GhPullRequestStep(WorkflowStep):
                     logger.info("Pull request already exists: %s", existing_pr_url)
 
                     if context.artifacts_enabled and context.artifact_store is not None:
-                        artifact = PullRequestArtifact(
+                        artifact = GhPullRequestArtifact(
                             workflow_id=context.adw_id,
                             url=existing_pr_url,
                             platform="github",
@@ -250,7 +250,7 @@ class GhPullRequestStep(WorkflowStep):
 
             # Save artifact if artifact store is available
             if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = PullRequestArtifact(
+                artifact = GhPullRequestArtifact(
                     workflow_id=context.adw_id,
                     url=pr_url,
                     platform="github",
