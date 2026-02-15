@@ -1003,84 +1003,84 @@ def test_update_issue_clear_title(mock_get_client):
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_invalid_worker_id(mock_get_client):
+def test_update_issue_invalid_worker_id(_mock_get_client):
     """Test validation error for invalid worker ID."""
     with pytest.raises(ValueError, match="Invalid worker ID 'invalid-worker'"):
         update_issue(1, assigned_to="invalid-worker")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_invalid_type(mock_get_client):
+def test_update_issue_invalid_type(_mock_get_client):
     """Test validation error for invalid issue type."""
     with pytest.raises(ValueError, match="Invalid issue_type 'invalid'"):
         update_issue(1, issue_type="invalid")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_empty_title(mock_get_client):
+def test_update_issue_empty_title(_mock_get_client):
     """Test validation error for empty title."""
     with pytest.raises(ValueError, match="Title cannot be empty/whitespace"):
         update_issue(1, title="")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_whitespace_only_title(mock_get_client):
+def test_update_issue_whitespace_only_title(_mock_get_client):
     """Test validation error for whitespace-only title."""
     with pytest.raises(ValueError, match="Title cannot be empty/whitespace"):
         update_issue(1, title="   ")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_empty_description(mock_get_client):
+def test_update_issue_empty_description(_mock_get_client):
     """Test validation error for empty description."""
     with pytest.raises(ValueError, match="Description cannot be empty"):
         update_issue(1, description="")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_whitespace_only_description(mock_get_client):
+def test_update_issue_whitespace_only_description(_mock_get_client):
     """Test validation error for whitespace-only description."""
     with pytest.raises(ValueError, match="Description cannot be empty"):
         update_issue(1, description="   ")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_description_too_short(mock_get_client):
+def test_update_issue_description_too_short(_mock_get_client):
     """Test validation error for description that is too short."""
     with pytest.raises(ValueError, match="Description must be at least 10 characters"):
         update_issue(1, description="Short")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_empty_worker_id(mock_get_client):
+def test_update_issue_empty_worker_id(_mock_get_client):
     """Test validation error for empty worker ID string."""
     with pytest.raises(ValueError, match="Worker ID cannot be empty"):
         update_issue(1, assigned_to="")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_whitespace_only_worker_id(mock_get_client):
+def test_update_issue_whitespace_only_worker_id(_mock_get_client):
     """Test validation error for whitespace-only worker ID."""
     with pytest.raises(ValueError, match="Worker ID cannot be empty"):
         update_issue(1, assigned_to="   ")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_worker_id_type_error(mock_get_client):
+def test_update_issue_worker_id_type_error(_mock_get_client):
     """Test type error for non-string worker ID."""
     with pytest.raises(TypeError, match="Worker ID must be a string"):
         update_issue(1, assigned_to=123)
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_no_fields_provided(mock_get_client):
+def test_update_issue_no_fields_provided(_mock_get_client):
     """Test validation error when no fields are provided for update."""
     with pytest.raises(ValueError, match="No fields provided for update"):
         update_issue(1)
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_all_fields_unset(mock_get_client):
+def test_update_issue_all_fields_unset(_mock_get_client):
     """Test validation error when all fields are explicitly UNSET."""
     with pytest.raises(ValueError, match="No fields provided for update"):
         update_issue(1, assigned_to=UNSET, issue_type=UNSET, title=UNSET, description=UNSET)
@@ -1381,7 +1381,7 @@ def test_update_issue_status_and_branch(mock_get_client):
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_invalid_status(mock_get_client):
+def test_update_issue_invalid_status(_mock_get_client):
     """Test validation error for invalid status."""
     with pytest.raises(ValueError, match="Invalid status 'invalid'"):
         update_issue(1, status="invalid")
@@ -1429,14 +1429,14 @@ def test_update_issue_all_valid_statuses(mock_get_client):
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_empty_branch(mock_get_client):
+def test_update_issue_empty_branch(_mock_get_client):
     """Test validation error for empty branch."""
     with pytest.raises(ValueError, match="Branch cannot be empty"):
         update_issue(1, branch="")
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_whitespace_only_branch(mock_get_client):
+def test_update_issue_whitespace_only_branch(_mock_get_client):
     """Test validation error for whitespace-only branch."""
     with pytest.raises(ValueError, match="Branch cannot be empty"):
         update_issue(1, branch="   ")
