@@ -73,7 +73,7 @@ class ReviewPlanStep(WorkflowStep):
         # Validate issue description is present
         desc = (issue.description or "").strip()
         if not desc:
-            raise ValueError("Issue description is required for review plan generation")
+            return StepResult.fail("Issue description is required for review plan generation")
 
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
