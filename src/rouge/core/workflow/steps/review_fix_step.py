@@ -245,12 +245,7 @@ class ReviewFixStep(WorkflowStep):
             logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            if status == "success":
-                logger.debug(msg)
-            elif status == "skipped":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
+            log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:
