@@ -72,7 +72,12 @@ class FetchIssueArtifact(Artifact):
     """
 
     artifact_type: Literal["fetch-issue"] = "fetch-issue"
-    issue: Issue
+    issue: Issue = Field(
+        description=(
+            "The Issue model fetched from the database containing "
+            "workflow metadata, status, and assignment information"
+        )
+    )
 
 
 class ClassifyArtifact(Artifact):
@@ -83,7 +88,12 @@ class ClassifyArtifact(Artifact):
     """
 
     artifact_type: Literal["classify"] = "classify"
-    classify_data: ClassifyData
+    classify_data: ClassifyData = Field(
+        description=(
+            "Classification results including the slash command to execute "
+            "and normalized classification metadata with type and level"
+        )
+    )
 
 
 class PlanArtifact(Artifact):
@@ -94,7 +104,12 @@ class PlanArtifact(Artifact):
     """
 
     artifact_type: Literal["plan"] = "plan"
-    plan_data: PlanData
+    plan_data: PlanData = Field(
+        description=(
+            "Plan building results containing the parsed plan markdown, "
+            "summary, and optional session ID for continuation"
+        )
+    )
 
 
 class ImplementArtifact(Artifact):
@@ -105,7 +120,12 @@ class ImplementArtifact(Artifact):
     """
 
     artifact_type: Literal["implement"] = "implement"
-    implement_data: ImplementData
+    implement_data: ImplementData = Field(
+        description=(
+            "Implementation output data containing the execution results "
+            "and optional session ID for continuation"
+        )
+    )
 
 
 class CodeReviewArtifact(Artifact):
@@ -128,8 +148,10 @@ class ReviewFixArtifact(Artifact):
     """
 
     artifact_type: Literal["review-fix"] = "review-fix"
-    success: bool
-    message: Optional[str] = None
+    success: bool = Field(description="Whether all review issues were successfully addressed")
+    message: Optional[str] = Field(
+        default=None, description="Optional details about the resolution process"
+    )
 
 
 class CodeQualityArtifact(Artifact):
@@ -142,9 +164,13 @@ class CodeQualityArtifact(Artifact):
     """
 
     artifact_type: Literal["code-quality"] = "code-quality"
-    output: str
-    tools: List[str]
-    parsed_data: Optional[Dict[str, Any]] = None
+    output: str = Field(description="Raw output text from code quality tools", min_length=1)
+    tools: List[str] = Field(
+        description="List of quality tool names that were executed", min_length=1
+    )
+    parsed_data: Optional[Dict[str, Any]] = Field(
+        default=None, description="Structured JSON data parsed from tool output"
+    )
 
 
 class AcceptanceArtifact(Artifact):
@@ -156,8 +182,8 @@ class AcceptanceArtifact(Artifact):
     """
 
     artifact_type: Literal["acceptance"] = "acceptance"
-    success: bool
-    message: Optional[str] = None
+    success: bool = Field(description="Whether the implementation satisfies acceptance criteria")
+    message: Optional[str] = Field(default=None, description="Optional validation result details")
 
 
 class ComposeRequestArtifact(Artifact):
@@ -184,7 +210,7 @@ class GhPullRequestArtifact(Artifact):
     """
 
     artifact_type: Literal["gh-pull-request"] = "gh-pull-request"
-    url: str
+    url: str = Field(description="The URL of the created GitHub pull request", min_length=1)
     platform: Literal["github"] = "github"
 
 
@@ -196,7 +222,12 @@ class FetchPatchArtifact(Artifact):
     """
 
     artifact_type: Literal["fetch-patch"] = "fetch-patch"
-    patch: Issue
+    patch: Issue = Field(
+        description=(
+            "The Issue model fetched from the database with type='patch', "
+            "containing patch-specific workflow metadata and configuration"
+        )
+    )
 
 
 class GitSetupArtifact(Artifact):
@@ -207,7 +238,10 @@ class GitSetupArtifact(Artifact):
     """
 
     artifact_type: Literal["git-setup"] = "git-setup"
-    branch: str
+    branch: str = Field(
+        description=("The name of the git branch created or checked out for the workflow"),
+        min_length=1,
+    )
 
 
 class ComposeCommitsArtifact(Artifact):
@@ -232,7 +266,7 @@ class GlabPullRequestArtifact(Artifact):
     """
 
     artifact_type: Literal["glab-pull-request"] = "glab-pull-request"
-    url: str
+    url: str = Field(description="The URL of the created GitLab merge request", min_length=1)
     platform: Literal["gitlab"] = "gitlab"
 
 

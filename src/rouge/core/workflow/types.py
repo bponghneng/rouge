@@ -181,4 +181,7 @@ class ReviewData(BaseModel):
         review_text: The generated review content
     """
 
-    review_text: str
+    review_text: str = Field(
+        description="The generated review content analyzing code changes and providing feedback",
+        min_length=1,
+    )
