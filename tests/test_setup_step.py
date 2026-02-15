@@ -35,7 +35,7 @@ def test_setup_step_is_critical():
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, context):
@@ -105,7 +105,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
 @patch.dict(
     "os.environ", {"DEFAULT_GIT_BRANCH": "develop", "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"}
 )
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_custom_default_branch(
@@ -135,7 +135,7 @@ def test_setup_step_custom_default_branch(
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/develop"]
 
 
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_default_branch_fallback(
@@ -191,7 +191,7 @@ def test_setup_step_destructive_ops_explicitly_disabled(context, monkeypatch):
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "True"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_destructive_ops_case_insensitive(
@@ -215,7 +215,7 @@ def test_setup_step_destructive_ops_case_insensitive(
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "TRUE"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_destructive_ops_uppercase(
@@ -481,7 +481,7 @@ def test_setup_step_unexpected_error(mock_subprocess, mock_get_repo_path, contex
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch):
@@ -518,7 +518,7 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _moc
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_subprocess_options(
@@ -550,7 +550,7 @@ def test_setup_step_subprocess_options(
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue_branch")
+@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
 @patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
 def test_setup_step_returns_step_result_ok(

@@ -5,7 +5,7 @@ Database configuration and client initialization.
 import logging
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 from dotenv import find_dotenv, load_dotenv
@@ -16,6 +16,17 @@ from rouge.core.models import VALID_WORKER_IDS, Comment, Issue
 from rouge.core.utils import make_adw_id
 
 logger = logging.getLogger(__name__)
+
+
+# Sentinel object for distinguishing unset parameters from None
+class _Unset:
+    """Sentinel value to distinguish unset parameters from None."""
+
+    def __repr__(self) -> str:
+        return "UNSET"
+
+
+UNSET = _Unset()
 
 
 def init_db_env(dotenv_path: Optional[Path] = None) -> None:
@@ -335,88 +346,6 @@ def create_issue(
         raise ValueError(f"Failed to create issue: {e}") from e
 
 
-def update_issue_status(issue_id: int, status: str) -> Issue:
-    """Update issue status.
-
-    Args:
-        issue_id: Issue ID to update
-        status: New status (pending, started, completed)
-
-    Returns:
-        Updated Issue object
-
-    Raises:
-        ValueError: If status is invalid or update fails
-    """
-    valid_statuses = {"pending", "started", "completed", "failed"}
-    if status not in valid_statuses:
-        raise ValueError(f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}")
-
-    try:
-        client = get_client()
-
-        # Verify issue exists first
-        issue_check = client.table("issues").select("id").eq("id", issue_id).execute()
-        if not issue_check.data:
-            raise ValueError(f"Issue with id {issue_id} not found")
-
-        response = client.table("issues").update({"status": status}).eq("id", issue_id).execute()
-        if not response.data:
-            raise ValueError(f"Update failed: issue {issue_id} not returned")
-
-        row = response.data[0]
-        if not isinstance(row, dict):
-            raise ValueError(f"Invalid response data type for issue {issue_id}")
-
-        return Issue.from_supabase(row)
-
-    except APIError as e:
-        logger.exception("Database error updating status for issue %s", issue_id)
-        raise ValueError(f"Failed to update issue {issue_id} status: {e}") from e
-
-
-def update_issue_description(issue_id: int, description: str) -> Issue:
-    """Update issue description.
-
-    Args:
-        issue_id: Issue ID to update
-        description: New description
-
-    Raises:
-        ValueError: If description is empty or update fails
-
-    Returns:
-        Updated Issue object
-    """
-    if not description or not description.strip():
-        raise ValueError("Description cannot be empty")
-
-    if len(description.strip()) < 10:
-        raise ValueError("Description must be at least 10 characters")
-
-    if len(description) > 10000:
-        raise ValueError("Description cannot exceed 10000 characters")
-
-    try:
-        client = get_client()
-        response = (
-            client.table("issues").update({"description": description}).eq("id", issue_id).execute()
-        )
-
-        if not response.data:
-            raise ValueError(f"Issue with id {issue_id} not found")
-
-        response_data = response.data[0]
-        if not isinstance(response_data, dict):
-            raise ValueError(f"Expected dict from database, got {type(response_data)}")
-
-        return Issue.from_supabase(response_data)
-
-    except APIError as e:
-        logger.exception("Database error updating description for issue %s", issue_id)
-        raise ValueError(f"Failed to update issue {issue_id} description: {e}") from e
-
-
 def delete_issue(issue_id: int) -> bool:
     """Delete an issue.
 
@@ -442,81 +371,96 @@ def delete_issue(issue_id: int) -> bool:
         raise ValueError(f"Failed to delete issue {issue_id}: {e}") from e
 
 
-def update_issue_assignment(issue_id: int, assigned_to: Optional[str]) -> Issue:
-    """Update issue worker assignment.
+def update_issue(
+    issue_id: int,
+    *,
+    assigned_to: Optional[str] | _Unset = UNSET,
+    issue_type: str | _Unset = UNSET,
+    title: Optional[str] | _Unset = UNSET,
+    description: str | _Unset = UNSET,
+    status: str | _Unset = UNSET,
+    branch: str | _Unset = UNSET,
+) -> Issue:
+    """Update multiple fields on an issue in a single operation.
 
     Args:
         issue_id: Issue ID to update
-        assigned_to: Worker ID string or None to unassign
+        assigned_to: Worker ID string or None to unassign, or UNSET to skip
+        issue_type: Issue type ('main' or 'patch'), or UNSET to skip
+        title: Issue title or None to clear, or UNSET to skip
+        description: Issue description, or UNSET to skip
+        status: Issue status ('pending', 'started', 'completed', 'failed'), or UNSET to skip
+        branch: Branch name, or UNSET to skip
 
     Returns:
         Updated Issue object
 
     Raises:
-        ValueError: If inputs invalid or update fails
+        ValueError: If validation fails, no fields provided, or update fails
+        TypeError: If assigned_to is not a string when provided (and not None)
     """
-    if assigned_to is not None and not isinstance(assigned_to, str):
-        raise TypeError("Worker ID must be a string")
+    updates: dict[str, Any] = {}
 
-    if assigned_to is not None:
-        assigned_to = assigned_to.strip()
+    # Validate and add assigned_to to updates
+    if not isinstance(assigned_to, _Unset):
+        if assigned_to is not None:
+            if not isinstance(assigned_to, str):
+                raise TypeError("Worker ID must be a string")
+            assigned_to = assigned_to.strip()
+            if not assigned_to:
+                raise ValueError("Worker ID cannot be empty")
+            if assigned_to not in VALID_WORKER_IDS:
+                valid_workers_str = ", ".join(sorted(VALID_WORKER_IDS))
+                raise ValueError(
+                    f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}"
+                )
+        updates["assigned_to"] = assigned_to
 
-    if assigned_to is not None and not assigned_to:
-        raise ValueError("Worker ID cannot be empty")
-
-    # Validate worker ID if provided
-    if assigned_to is not None and assigned_to not in VALID_WORKER_IDS:
-        valid_workers_str = ", ".join(sorted(VALID_WORKER_IDS))
-        raise ValueError(f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}")
-
-    try:
-        client = get_client()
-
-        # Validate issue exists and status
-        try:
-            issue = fetch_issue(issue_id)
-        except ValueError as e:
-            raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
-
-        if issue.status != "pending":
+    # Validate and add issue_type to updates
+    if not isinstance(issue_type, _Unset):
+        valid_types = {"main", "patch"}
+        if issue_type not in valid_types:
             raise ValueError(
-                f"Only pending issues can be assigned; issue {issue_id} has status '{issue.status}'"
+                f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
             )
+        updates["type"] = issue_type
 
-        response = (
-            client.table("issues").update({"assigned_to": assigned_to}).eq("id", issue_id).execute()
-        )
-        if not response.data:
-            raise ValueError(f"Update failed: issue {issue_id} not returned")
+    # Validate and add title to updates
+    if not isinstance(title, _Unset):
+        if title is not None:
+            title = title.strip()
+            if not title:
+                raise ValueError("Title cannot be empty/whitespace if provided")
+        updates["title"] = title
 
-        row = response.data[0]
-        if not isinstance(row, dict):
-            raise ValueError(f"Invalid response data type for issue {issue_id}")
+    # Validate and add description to updates
+    if not isinstance(description, _Unset):
+        if not description or not description.strip():
+            raise ValueError("Description cannot be empty")
+        description = description.strip()
+        if len(description) < 10:
+            raise ValueError("Description must be at least 10 characters")
+        updates["description"] = description
 
-        return Issue.from_supabase(row)
+    # Validate and add status to updates
+    if not isinstance(status, _Unset):
+        valid_statuses = {"pending", "started", "completed", "failed"}
+        if status not in valid_statuses:
+            raise ValueError(
+                f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
+            )
+        updates["status"] = status
 
-    except APIError as e:
-        logger.exception("Database error assigning issue %s", issue_id)
-        raise ValueError(f"Failed to assign issue {issue_id}: {e}") from e
+    # Validate and add branch to updates
+    if not isinstance(branch, _Unset):
+        if not branch or not branch.strip():
+            raise ValueError("Branch cannot be empty")
+        branch = branch.strip()
+        updates["branch"] = branch
 
-
-def update_issue_branch(issue_id: int, branch: str) -> Issue:
-    """Update issue branch name.
-
-    Args:
-        issue_id: Issue ID to update
-        branch: Branch name to set
-
-    Returns:
-        Updated Issue object
-
-    Raises:
-        ValueError: If branch is empty or update fails
-    """
-    if not branch or not branch.strip():
-        raise ValueError("Branch cannot be empty")
-
-    branch = branch.strip()
+    # Ensure at least one field is being updated
+    if not updates:
+        raise ValueError("No fields provided for update")
 
     try:
         client = get_client()
@@ -526,7 +470,7 @@ def update_issue_branch(issue_id: int, branch: str) -> Issue:
         if not issue_check.data:
             raise ValueError(f"Issue with id {issue_id} not found")
 
-        response = client.table("issues").update({"branch": branch}).eq("id", issue_id).execute()
+        response = client.table("issues").update(updates).eq("id", issue_id).execute()
         if not response.data:
             raise ValueError(f"Update failed: issue {issue_id} not returned")
 
@@ -537,5 +481,5 @@ def update_issue_branch(issue_id: int, branch: str) -> Issue:
         return Issue.from_supabase(row)
 
     except APIError as e:
-        logger.exception("Database error updating branch for issue %s", issue_id)
-        raise ValueError(f"Failed to update issue {issue_id} branch: {e}") from e
+        logger.exception("Database error updating issue %s", issue_id)
+        raise ValueError(f"Failed to update issue {issue_id}: {e}") from e
