@@ -105,7 +105,8 @@ class TestEmitArtifactComment:
             assert "artifact" in call_args.raw
             assert call_args.raw["artifact"]["workflow_id"] == "adw-classify-test"
 
-    def test_emit_artifact_comment_with_none_issue_id(self):
+    @patch("rouge.core.notifications.comments.create_comment")
+    def test_emit_artifact_comment_with_none_issue_id(self, mock_create_comment):
         """Test emit_artifact_comment with issue_id=None (verify skipped status)."""
         # Create a test artifact
         implement_data = ImplementData(output="Implementation complete")
@@ -120,6 +121,9 @@ class TestEmitArtifactComment:
         assert status == "skipped"
         assert "No issue_id" in message
         assert "logged to console" in message
+
+        # Verify no database call was made
+        mock_create_comment.assert_not_called()
 
     @patch("rouge.core.notifications.comments.create_comment")
     def test_emit_artifact_comment_raw_field_contains_full_artifact(self, mock_create_comment):
@@ -365,7 +369,8 @@ class TestEmitCommentFromPayload:
         assert "Comment inserted" in message
         assert "ID=10" in message
 
-    def test_emit_comment_from_payload_with_none_issue_id(self):
+    @patch("rouge.core.notifications.comments.create_comment")
+    def test_emit_comment_from_payload_with_none_issue_id(self, mock_create_comment):
         """Test emit_comment_from_payload skips when issue_id is None."""
         from rouge.core.models import CommentPayload
 
@@ -379,6 +384,7 @@ class TestEmitCommentFromPayload:
 
         status, message = emit_comment_from_payload(payload)
 
+        mock_create_comment.assert_not_called()
         assert status == "skipped"
         assert "No issue_id" in message
 
