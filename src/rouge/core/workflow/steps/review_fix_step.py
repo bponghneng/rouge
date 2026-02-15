@@ -173,16 +173,23 @@ class ReviewFixStep(WorkflowStep):
         pipeline to rerun from the review-generation step so the fixes
         can be re-evaluated.
 
+        Tracks rerun count to enforce max iterations (default 5). If max
+        iterations reached, returns success to allow workflow to continue
+        (best-effort semantics).
+
         Args:
             context: Workflow context with review_data
 
         Returns:
             StepResult with success status and optional error message.
-            When issues are addressed, ``rerun_from`` is set to the
-            CodeReviewStep name so the pipeline re-reviews.
+            When issues are addressed and budget remains, ``rerun_from`` is
+            set to the CodeReviewStep name so the pipeline re-reviews.
         """
         # Import here to avoid circular dependency
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
+
+        # Default max iterations for review/fix cycle
+        MAX_REVIEW_ITERATIONS = 5
 
         # Short-circuit: nothing to do when the review is clean
         if context.data.get("review_is_clean", False):
@@ -225,14 +232,76 @@ class ReviewFixStep(WorkflowStep):
                 context.artifact_store.write_artifact(artifact)
             return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
-        logger.info("Review issues addressed successfully, requesting re-review")
+        logger.info("Review issues addressed successfully")
+
+        # Track rerun count to enforce max iterations
+        rerun_count = context.data.get("review_fix_rerun_count", 0)
+        rerun_count += 1
+        context.data["review_fix_rerun_count"] = rerun_count
+
+        logger.debug("Review/fix iteration count: %s/%s", rerun_count, MAX_REVIEW_ITERATIONS)
+
+        # Check if we've reached max iterations
+        if rerun_count >= MAX_REVIEW_ITERATIONS:
+            logger.warning(
+                "Max review/fix iterations (%s) reached, continuing workflow",
+                MAX_REVIEW_ITERATIONS,
+            )
+
+            # Save artifact with iteration limit message
+            if context.artifacts_enabled and context.artifact_store is not None:
+                artifact = ReviewFixArtifact(
+                    workflow_id=context.adw_id,
+                    success=True,
+                    message=(
+                        f"Review issues addressed, max iterations "
+                        f"({MAX_REVIEW_ITERATIONS}) reached"
+                    ),
+                )
+                context.artifact_store.write_artifact(artifact)
+
+            # Insert progress comment - best-effort, non-blocking
+            if context.issue_id is not None:
+                payload = CommentPayload(
+                    issue_id=context.issue_id,
+                    adw_id=context.adw_id,
+                    text=(
+                        f"Review issues addressed. Max iterations "
+                        f"({MAX_REVIEW_ITERATIONS}) reached, continuing workflow."
+                    ),
+                    raw={
+                        "text": (
+                            f"Review issues addressed. Max iterations "
+                            f"({MAX_REVIEW_ITERATIONS}) reached."
+                        ),
+                        "rerun_count": rerun_count,
+                    },
+                    source="system",
+                    kind="workflow",
+                )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                elif status == "skipped":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
+
+            # Return success without rerun_from to continue workflow
+            return StepResult.ok(None)
+
+        # Budget remains, request re-review
+        logger.info("Requesting re-review (iteration %s/%s)", rerun_count, MAX_REVIEW_ITERATIONS)
 
         # Save artifact if artifact store is available
         if context.artifacts_enabled and context.artifact_store is not None:
             artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=True,
-                message="Review issues addressed, re-running review",
+                message=(
+                    f"Review issues addressed, re-running review "
+                    f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})"
+                ),
             )
             context.artifact_store.write_artifact(artifact)
             logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
@@ -242,8 +311,15 @@ class ReviewFixStep(WorkflowStep):
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
-                text="Review issues addressed, re-running review.",
-                raw={"text": "Review issues addressed, re-running review."},
+                text=(
+                    f"Review issues addressed, re-running review "
+                    f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})."
+                ),
+                raw={
+                    "text": "Review issues addressed, re-running review.",
+                    "rerun_count": rerun_count,
+                    "max_iterations": MAX_REVIEW_ITERATIONS,
+                },
                 source="system",
                 kind="workflow",
             )
