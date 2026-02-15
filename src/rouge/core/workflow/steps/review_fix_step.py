@@ -182,7 +182,7 @@ class ReviewFixStep(WorkflowStep):
             CodeReviewStep name so the pipeline re-reviews.
         """
         # Import here to avoid circular dependency
-        from rouge.core.workflow.steps.code_review import CODE_REVIEW_STEP_NAME
+        from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
         # Short-circuit: nothing to do when the review is clean
         if context.data.get("review_is_clean", False):
