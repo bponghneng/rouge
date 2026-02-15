@@ -136,7 +136,11 @@ class CodeReviewArtifact(Artifact):
     """
 
     artifact_type: Literal["code-review"] = "code-review"
-    review_data: ReviewData
+    review_data: ReviewData = Field(
+        ...,
+        description="Structured code review payload",
+        examples=[{"review_text": "Code review feedback"}],
+    )
 
 
 class ReviewFixArtifact(Artifact):
@@ -198,7 +202,9 @@ class ComposeRequestArtifact(Artifact):
     artifact_type: Literal["compose-request"] = "compose-request"
     title: str = Field(description="The pull request title", min_length=1)
     summary: str = Field(description="The pull request body/summary text", min_length=1)
-    commits: List[Dict[str, Any]] = Field(default_factory=list)
+    commits: List[Dict[str, Any]] = Field(
+        default_factory=list, description="List of commit metadata objects related to the artifact"
+    )
 
 
 class GhPullRequestArtifact(Artifact):
