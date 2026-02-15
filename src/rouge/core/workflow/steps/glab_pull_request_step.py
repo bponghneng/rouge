@@ -5,7 +5,7 @@ import os
 import subprocess
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.notifications.comments import emit_artifact_comment, emit_comment_from_payload
 from rouge.core.workflow.artifacts import ComposeRequestArtifact, GlabPullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -197,6 +197,14 @@ class GlabPullRequestStep(WorkflowStep):
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
+
+                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                if status == "success":
+                    logger.debug(msg)
+                elif status == "skipped":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
 
             # Emit progress comment with MR details
             comment_data = {

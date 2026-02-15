@@ -19,9 +19,13 @@ Example:
 """
 
 import logging
+from typing import TYPE_CHECKING, Optional
 
 from rouge.core.database import create_comment
 from rouge.core.models import Comment, CommentPayload
+
+if TYPE_CHECKING:
+    from rouge.core.workflow.artifacts import Artifact
 
 logger = logging.getLogger(__name__)
 
@@ -67,3 +71,52 @@ def emit_comment_from_payload(payload: CommentPayload) -> tuple[str, str]:
         )
     except Exception as exc:  # pragma: no cover - logging path only
         return ("error", f"Failed to insert comment on issue {comment.issue_id}: {exc}")
+
+
+def emit_artifact_comment(
+    issue_id: Optional[int], adw_id: str, artifact: "Artifact"
+) -> tuple[str, str]:
+    """Create and insert a comment for an artifact save event.
+
+    Best-effort helper that creates a comment when an artifact is saved during
+    workflow execution. The comment includes the full artifact JSON in the raw
+    field for detailed tracking and debugging.
+
+    Args:
+        issue_id: Optional Rouge issue ID. If None, the comment will be logged
+            to console instead of persisted to the database.
+        adw_id: Agent Development Workflow identifier for tracking.
+        artifact: The Artifact instance that was saved.
+
+    Returns:
+        A tuple of (status, message) where status is "success", "skipped", or "error"
+        and message contains details about the operation result.
+
+    Example:
+        from rouge.core.notifications.comments import emit_artifact_comment
+        from rouge.core.workflow.artifacts import PlanArtifact, PlanData
+
+        artifact = PlanArtifact(
+            workflow_id="adw-123",
+            plan_data=PlanData(plan="...", summary="Created plan")
+        )
+        status, msg = emit_artifact_comment(issue_id=1, adw_id="adw-123", artifact=artifact)
+        logger.debug(msg) if status == "success" else logger.error(msg)
+
+    Note:
+        This function never raises exceptions. Error handling is delegated to
+        emit_comment_from_payload, ensuring workflow execution continues even
+        if comment insertion fails.
+    """
+    payload = CommentPayload(
+        issue_id=issue_id,
+        adw_id=adw_id,
+        text=f"Artifact saved: {artifact.artifact_type}",
+        source="artifact",
+        kind=artifact.artifact_type,
+        raw={
+            "artifact_type": artifact.artifact_type,
+            "artifact": artifact.model_dump(mode="json"),
+        },
+    )
+    return emit_comment_from_payload(payload)

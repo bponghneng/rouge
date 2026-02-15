@@ -4,7 +4,7 @@ import logging
 
 from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.notifications.comments import emit_artifact_comment, emit_comment_from_payload
 from rouge.core.workflow.artifacts import FetchPatchArtifact
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -66,6 +66,14 @@ class FetchPatchStep(WorkflowStep):
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved patch artifact for workflow %s", context.adw_id)
+
+                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                if status == "success":
+                    logger.debug(msg)
+                elif status == "skipped":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
 
             # Update status to "started" - best-effort, non-blocking
             update_status(issue_id, "started")
