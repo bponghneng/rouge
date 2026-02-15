@@ -78,7 +78,9 @@ class TestCodeReviewPipeline:
         """The codereview pipeline should contain exactly 6 steps."""
         pipeline = get_code_review_pipeline()
 
-        assert len(pipeline) == 6
+        assert (
+            len(pipeline) == 6
+        ), f"expected 6 steps in code review pipeline but got {len(pipeline)}"
 
     def test_pipeline_step_order(self) -> None:
         """Steps should be: FetchIssueStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
@@ -174,7 +176,9 @@ class TestGetPipelineForTypeCodeReview:
         pipeline = get_pipeline_for_type("codereview")
 
         assert isinstance(pipeline, list)
-        assert len(pipeline) == 6
+        assert (
+            len(pipeline) == 6
+        ), f"expected codereview pipeline to have 6 steps, got {len(pipeline)}"
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
     def test_pipeline_matches_direct_call(self) -> None:
@@ -215,9 +219,7 @@ class TestCodeReviewRerunBehavior:
         # Set review data in context (not clean, has issues)
         from rouge.core.workflow.artifacts import ReviewData
 
-        context.data["review_data"] = ReviewData(
-            review_text="Some review feedback with issues"
-        )
+        context.data["review_data"] = ReviewData(review_text="Some review feedback with issues")
         context.data["review_is_clean"] = False
 
         # Mock the address review issues method to succeed
@@ -230,8 +232,10 @@ class TestCodeReviewRerunBehavior:
             result = review_fix_step.run(context)
 
         # Should succeed and request rerun from CodeReviewStep
-        assert result.success is True
-        assert result.rerun_from == CODE_REVIEW_STEP_NAME
+        assert result.success is True, "expected ReviewFixStep to succeed"
+        assert (
+            result.rerun_from == CODE_REVIEW_STEP_NAME
+        ), f"expected rerun_from to equal {CODE_REVIEW_STEP_NAME}"
 
     def test_review_fix_step_does_not_rerun_when_clean(self) -> None:
         """ReviewFixStep should not request rerun when review is clean."""
@@ -250,8 +254,8 @@ class TestCodeReviewRerunBehavior:
         result = review_fix_step.run(context)
 
         # Should succeed without requesting rerun
-        assert result.success is True
-        assert result.rerun_from is None
+        assert result.success is True, "expected ReviewFixStep to succeed when review is clean"
+        assert result.rerun_from is None, "expected no rerun when review is clean"
 
     def test_review_fix_step_does_not_rerun_after_max_iterations(self) -> None:
         """ReviewFixStep should not request rerun after reaching max iterations."""
@@ -266,9 +270,7 @@ class TestCodeReviewRerunBehavior:
         )
 
         # Set review data and iteration count at max
-        context.data["review_data"] = ReviewData(
-            review_text="Some review feedback"
-        )
+        context.data["review_data"] = ReviewData(review_text="Some review feedback")
         context.data["review_is_clean"] = False
         context.data["review_fix_rerun_count"] = 4  # Will be incremented to 5 (max)
 
@@ -282,8 +284,8 @@ class TestCodeReviewRerunBehavior:
             result = review_fix_step.run(context)
 
         # Should succeed but NOT request rerun (max iterations reached)
-        assert result.success is True
-        assert result.rerun_from is None
+        assert result.success is True, "expected ReviewFixStep to succeed"
+        assert result.rerun_from is None, "expected no rerun after max iterations"
 
     def test_workflow_runner_rewinds_on_rerun_from(self, tmp_path: pathlib.Path) -> None:
         """WorkflowRunner should rewind to the specified step when rerun_from is set."""
@@ -336,7 +338,15 @@ class TestCodeReviewRerunBehavior:
         # 2. Review runs twice (initial + rerun)
         # 3. Fix runs twice (first time requests rerun, second time succeeds)
         # 4. Quality runs once (after second fix)
-        assert mock_fetch.run.call_count == 1
-        assert mock_review.run.call_count == 2
-        assert mock_fix.run.call_count == 2
-        assert mock_quality.run.call_count == 1
+        assert (
+            mock_fetch.run.call_count == 1
+        ), f"expected Fetch to run once, got {mock_fetch.run.call_count}"
+        assert (
+            mock_review.run.call_count == 2
+        ), f"expected Review to run twice (initial + rerun), got {mock_review.run.call_count}"
+        assert (
+            mock_fix.run.call_count == 2
+        ), f"expected Fix to run twice (request rerun + succeed), got {mock_fix.run.call_count}"
+        assert (
+            mock_quality.run.call_count == 1
+        ), f"expected Quality to run once, got {mock_quality.run.call_count}"
