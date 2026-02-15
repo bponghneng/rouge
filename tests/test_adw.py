@@ -87,9 +87,14 @@ def test_execute_adw_workflow_code_review_routes_to_loop(monkeypatch):
         config={"base_commit": "abc123"},
     )
 
-    assert success is True
-    assert workflow_id == "cr-route-001"
-    assert calls["args"] == ("cr-route-001", {"base_commit": "abc123"})
+    assert success is True, "expected success to be True for code review workflow"
+    assert (
+        workflow_id == "cr-route-001"
+    ), f"unexpected workflow_id: expected 'cr-route-001', got '{workflow_id}'"
+    assert calls["args"] == (
+        "cr-route-001",
+        {"base_commit": "abc123"},
+    ), f"unexpected call arguments: {calls['args']}"
 
 
 def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
