@@ -216,9 +216,9 @@ class TestCodeReviewRerunBehavior:
         from rouge.core.workflow.artifacts import ReviewData
 
         context.data["review_data"] = ReviewData(
-            review_text="Some review feedback with issues",
-            is_clean=False,
+            review_text="Some review feedback with issues"
         )
+        context.data["review_is_clean"] = False
 
         # Mock the address review issues method to succeed
         review_fix_step = ReviewFixStep()
@@ -267,9 +267,9 @@ class TestCodeReviewRerunBehavior:
 
         # Set review data and iteration count at max
         context.data["review_data"] = ReviewData(
-            review_text="Some review feedback",
-            is_clean=False,
+            review_text="Some review feedback"
         )
+        context.data["review_is_clean"] = False
         context.data["review_fix_rerun_count"] = 4  # Will be incremented to 5 (max)
 
         # Mock the address review issues method to succeed
