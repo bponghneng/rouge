@@ -19,21 +19,21 @@ def sample_issue():
     return Issue(id=1, description="Fix login bug", status="pending")
 
 
-@patch("rouge.core.workflow.status.update_issue_status")
-def test_update_status_success(mock_update_issue_status):
+@patch("rouge.core.workflow.status.update_issue")
+def test_update_status_success(mock_update_issue):
     """Test successful status update."""
     mock_issue = Mock()
     mock_issue.id = 1
-    mock_update_issue_status.return_value = mock_issue
+    mock_update_issue.return_value = mock_issue
 
     update_status(1, "started")
-    mock_update_issue_status.assert_called_once_with(1, "started")
+    mock_update_issue.assert_called_once_with(1, status="started")
 
 
-@patch("rouge.core.workflow.status.update_issue_status")
-def test_update_status_failure(mock_update_issue_status):
+@patch("rouge.core.workflow.status.update_issue")
+def test_update_status_failure(mock_update_issue):
     """Test status update handles errors gracefully."""
-    mock_update_issue_status.side_effect = APIError({"message": "Database error"})
+    mock_update_issue.side_effect = ValueError("Database error")
 
     # Should not raise - best-effort
     update_status(1, "started")

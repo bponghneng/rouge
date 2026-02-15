@@ -4,6 +4,7 @@ import logging
 from typing import Optional, Tuple
 
 from rouge.core.database import get_client as _get_client
+from rouge.core.database import update_issue as _update_issue
 
 
 def get_client():
@@ -94,9 +95,7 @@ def update_issue_status(
         return
 
     try:
-        client = get_client()
-
-        client.table("issues").update({"status": status}).eq("id", issue_id).execute()
+        _update_issue(issue_id, status=status)
 
         if logger:
             logger.debug("Updated issue %s status to %s", issue_id, status)

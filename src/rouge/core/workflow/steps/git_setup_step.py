@@ -16,7 +16,7 @@ import logging
 import os
 import subprocess
 
-from rouge.core.database import update_issue_branch
+from rouge.core.database import update_issue
 from rouge.core.workflow.artifacts import GitSetupArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -155,7 +155,7 @@ class GitSetupStep(WorkflowStep):
             logger.debug("Created and checked out branch %s", branch_name)
 
             # Step 4: Persist branch name to database
-            update_issue_branch(context.require_issue_id, branch_name)
+            update_issue(context.require_issue_id, branch=branch_name)
             logger.debug(
                 "Persisted branch name %s for issue %s", branch_name, context.require_issue_id
             )

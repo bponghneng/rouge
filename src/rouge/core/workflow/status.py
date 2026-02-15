@@ -4,7 +4,7 @@ import logging
 
 from postgrest.exceptions import APIError
 
-from rouge.core.database import update_issue_status
+from rouge.core.database import update_issue
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ def update_status(issue_id: int, status: str) -> None:
         status: The new status value ("pending", "started", or "completed")
     """
     try:
-        update_issue_status(issue_id, status)
+        update_issue(issue_id, status=status)
         logger.debug("Issue %s status updated to '%s'", issue_id, status)
-    except APIError:
+    except (APIError, ValueError):
         logger.exception("Failed to update issue %s status to %s", issue_id, status)

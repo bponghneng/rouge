@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.database import (
+    UNSET,
     SupabaseConfig,
     create_comment,
     create_issue,
@@ -13,10 +14,7 @@ from rouge.core.database import (
     fetch_comments,
     fetch_issue,
     get_client,
-    update_issue_assignment,
-    update_issue_branch,
-    update_issue_description,
-    update_issue_status,
+    update_issue,
 )
 from rouge.core.models import Comment
 
@@ -292,170 +290,6 @@ def test_fetch_comments_success(mock_get_client):
     assert comments[1].comment == "Comment 2"
 
 
-@patch("rouge.core.database.get_client")
-def test_update_issue_status_success(mock_get_client):
-    """Test successful status update."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = [{"id": 1}]
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    # Mock for the update
-    mock_update = Mock()
-    mock_eq_update = Mock()
-    mock_execute_update = Mock()
-    mock_execute_update.data = [{"id": 1, "description": "Test issue", "status": "started"}]
-    mock_eq_update.execute.return_value = mock_execute_update
-    mock_update.eq.return_value = mock_eq_update
-
-    # Set up table to return select on first call, update on second call
-    mock_table.select.return_value = mock_select_check
-    mock_table.update.return_value = mock_update
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_status(1, "started")
-    assert issue.id == 1
-    assert issue.status == "started"
-    mock_table.update.assert_called_once_with({"status": "started"})
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_status_to_completed(mock_get_client):
-    """Test updating status to completed."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = [{"id": 1}]
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    # Mock for the update
-    mock_update = Mock()
-    mock_eq_update = Mock()
-    mock_execute_update = Mock()
-    mock_execute_update.data = [{"id": 1, "description": "Test issue", "status": "completed"}]
-    mock_eq_update.execute.return_value = mock_execute_update
-    mock_update.eq.return_value = mock_eq_update
-
-    # Set up table to return select on first call, update on second call
-    mock_table.select.return_value = mock_select_check
-    mock_table.update.return_value = mock_update
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_status(1, "completed")
-    assert issue.status == "completed"
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_status_invalid_status(mock_get_client):
-    """Test updating with invalid status fails."""
-    with pytest.raises(ValueError, match="Invalid status"):
-        update_issue_status(1, "invalid_status")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_status_not_found(mock_get_client):
-    """Test updating non-existent issue."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check (returns empty list)
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = []
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    mock_table.select.return_value = mock_select_check
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    with pytest.raises(ValueError, match="not found"):
-        update_issue_status(999, "started")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_success(mock_get_client):
-    """Test successful description update."""
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = [{"id": 1, "description": "Updated description", "status": "pending"}]
-    mock_eq.execute.return_value = mock_execute
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_description(1, "Updated description")
-    assert issue.id == 1
-    assert issue.description == "Updated description"
-    mock_table.update.assert_called_once_with({"description": "Updated description"})
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_empty(mock_get_client):
-    """Test updating with empty description fails."""
-    with pytest.raises(ValueError, match="cannot be empty"):
-        update_issue_description(1, "")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_whitespace_only(mock_get_client):
-    """Test updating with whitespace-only description fails."""
-    with pytest.raises(ValueError, match="cannot be empty"):
-        update_issue_description(1, "   ")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_too_short(mock_get_client):
-    """Test updating with too short description fails."""
-    with pytest.raises(ValueError, match="at least 10 characters"):
-        update_issue_description(1, "Short")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_too_long(mock_get_client):
-    """Test updating with too long description fails."""
-    long_description = "x" * 10001
-    with pytest.raises(ValueError, match="cannot exceed 10000 characters"):
-        update_issue_description(1, long_description)
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_description_not_found(mock_get_client):
-    """Test updating description of non-existent issue."""
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = None
-    mock_eq.execute.return_value = mock_execute
-    mock_get_client.return_value = mock_client
-
-    with pytest.raises(ValueError, match="not found"):
-        update_issue_description(999, "Valid description text here")
 
 
 @patch("rouge.core.database.get_client")
@@ -529,180 +363,6 @@ def test_delete_issue_with_comments(mock_get_client):
     # The cascade to comments is handled by the database, not in application code
 
 
-@patch("rouge.core.database.fetch_issue")
-@patch("rouge.core.database.get_client")
-def test_update_issue_assignment_success(mock_get_client, mock_fetch_issue):
-    """Test successful worker assignment."""
-    # Mock fetch_issue to return a pending issue
-    mock_issue = Mock()
-    mock_issue.status = "pending"
-    mock_fetch_issue.return_value = mock_issue
-
-    # Mock the database client
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = [
-        {
-            "id": 1,
-            "description": "Test issue",
-            "status": "pending",
-            "assigned_to": "tydirium-1",
-        }
-    ]
-    mock_eq.execute.return_value = mock_execute
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_assignment(1, "tydirium-1")
-    assert issue.id == 1
-    assert issue.assigned_to == "tydirium-1"
-    mock_table.update.assert_called_once_with({"assigned_to": "tydirium-1"})
-
-
-@patch("rouge.core.database.fetch_issue")
-@patch("rouge.core.database.get_client")
-def test_update_issue_assignment_to_none(mock_get_client, mock_fetch_issue):
-    """Test unassigning a worker (setting to None)."""
-    # Mock fetch_issue to return a pending issue
-    mock_issue = Mock()
-    mock_issue.status = "pending"
-    mock_fetch_issue.return_value = mock_issue
-
-    # Mock the database client
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_execute.data = [
-        {
-            "id": 1,
-            "description": "Test issue",
-            "status": "pending",
-            "assigned_to": None,
-        }
-    ]
-    mock_eq.execute.return_value = mock_execute
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_assignment(1, None)
-    assert issue.id == 1
-    assert issue.assigned_to is None
-    mock_table.update.assert_called_once_with({"assigned_to": None})
-
-
-@patch("rouge.core.database.get_client")
-@patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_rejects_started_issue(mock_fetch_issue, mock_get_client):
-    """Test that assignment is rejected for started issues."""
-    # Mock fetch_issue to return a started issue
-    mock_issue = Mock()
-    mock_issue.status = "started"
-    mock_fetch_issue.return_value = mock_issue
-
-    with pytest.raises(
-        ValueError, match="Only pending issues can be assigned; issue 1 has status 'started'"
-    ):
-        update_issue_assignment(1, "tydirium-1")
-
-
-@patch("rouge.core.database.get_client")
-@patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_rejects_completed_issue(mock_fetch_issue, mock_get_client):
-    """Test that assignment is rejected for completed issues."""
-    # Mock fetch_issue to return a completed issue
-    mock_issue = Mock()
-    mock_issue.status = "completed"
-    mock_fetch_issue.return_value = mock_issue
-
-    with pytest.raises(
-        ValueError, match="Only pending issues can be assigned; issue 1 has status 'completed'"
-    ):
-        update_issue_assignment(1, "alleycat-1")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_assignment_rejects_invalid_worker(mock_get_client):
-    """Test that assignment is rejected for invalid worker IDs."""
-    with pytest.raises(ValueError, match="Invalid worker ID"):
-        update_issue_assignment(1, "invalid-worker")
-
-
-@patch("rouge.core.database.get_client")
-@patch("rouge.core.database.fetch_issue")
-def test_update_issue_assignment_nonexistent_issue(mock_fetch_issue, mock_get_client):
-    """Test assignment fails for non-existent issue."""
-    mock_fetch_issue.side_effect = ValueError("Issue not found")
-
-    with pytest.raises(ValueError, match="Failed to fetch issue"):
-        update_issue_assignment(999, "tydirium-1")
-
-
-@patch("rouge.core.database.fetch_issue")
-@patch("rouge.core.database.get_client")
-def test_update_issue_assignment_new_workers(mock_get_client, mock_fetch_issue):
-    """Test assignment to new expanded worker pool IDs."""
-    # Mock fetch_issue to return a pending issue
-    mock_issue = Mock()
-    mock_issue.status = "pending"
-    mock_fetch_issue.return_value = mock_issue
-
-    # Mock the database client
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_update = Mock()
-    mock_eq = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.update.return_value = mock_update
-    mock_update.eq.return_value = mock_eq
-    mock_get_client.return_value = mock_client
-
-    # Test all new worker IDs
-    new_worker_ids = [
-        "alleycat-2",
-        "alleycat-3",
-        "local-1",
-        "local-2",
-        "local-3",
-        "tydirium-2",
-        "tydirium-3",
-    ]
-
-    for worker_id in new_worker_ids:
-        mock_execute.data = [
-            {
-                "id": 1,
-                "description": "Test issue",
-                "status": "pending",
-                "assigned_to": worker_id,
-            }
-        ]
-        mock_eq.execute.return_value = mock_execute
-
-        issue = update_issue_assignment(1, worker_id)
-        assert issue.assigned_to == worker_id
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_assignment_rejects_invalid_new_worker(mock_get_client):
-    """Test that assignment is rejected for invalid worker IDs not in expanded pool."""
-    invalid_workers = ["alleycat-4", "local-4", "tydirium-4", "unknown-1"]
-
-    for worker_id in invalid_workers:
-        with pytest.raises(ValueError, match="Invalid worker ID"):
-            update_issue_assignment(1, worker_id)
 
 
 # ============================================================================
@@ -911,9 +571,16 @@ def test_create_issue_invalid_type(_mock_get_client):
 # ============================================================================
 
 
+
+
+# ============================================================================
+# update_issue tests
+# ============================================================================
+
+
 @patch("rouge.core.database.get_client")
-def test_update_issue_branch_success(mock_get_client):
-    """Test successful branch update."""
+def test_update_issue_single_field_assigned_to(mock_get_client):
+    """Test updating only assigned_to field."""
     mock_client = Mock()
     mock_table = Mock()
 
@@ -934,7 +601,8 @@ def test_update_issue_branch_success(mock_get_client):
             "id": 1,
             "description": "Test issue",
             "status": "pending",
-            "branch": "feature/my-branch",
+            "type": "main",
+            "assigned_to": "tydirium-1",
         }
     ]
     mock_eq_update.execute.return_value = mock_execute_update
@@ -945,10 +613,833 @@ def test_update_issue_branch_success(mock_get_client):
     mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
-    issue = update_issue_branch(1, "feature/my-branch")
+    issue = update_issue(1, assigned_to="tydirium-1")
     assert issue.id == 1
-    assert issue.branch == "feature/my-branch"
-    mock_table.update.assert_called_once_with({"branch": "feature/my-branch"})
+    assert issue.assigned_to == "tydirium-1"
+    mock_table.update.assert_called_once_with({"assigned_to": "tydirium-1"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_issue_type(mock_get_client):
+    """Test updating only issue_type field."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "type": "patch",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, issue_type="patch")
+    assert issue.id == 1
+    assert issue.type == "patch"
+    mock_table.update.assert_called_once_with({"type": "patch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_title(mock_get_client):
+    """Test updating only title field."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "title": "Updated Title",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, title="Updated Title")
+    assert issue.id == 1
+    assert issue.title == "Updated Title"
+    mock_table.update.assert_called_once_with({"title": "Updated Title"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_description(mock_get_client):
+    """Test updating only description field."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Updated description text",
+            "status": "pending",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, description="Updated description text")
+    assert issue.id == 1
+    assert issue.description == "Updated description text"
+    mock_table.update.assert_called_once_with({"description": "Updated description text"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_multi_field_assigned_to_and_type(mock_get_client):
+    """Test updating assigned_to and issue_type together."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "type": "patch",
+            "assigned_to": "alleycat-1",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, assigned_to="alleycat-1", issue_type="patch")
+    assert issue.id == 1
+    assert issue.assigned_to == "alleycat-1"
+    assert issue.type == "patch"
+    mock_table.update.assert_called_once_with({"assigned_to": "alleycat-1", "type": "patch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_multi_field_title_and_description(mock_get_client):
+    """Test updating title and description together."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "New description here",
+            "status": "pending",
+            "title": "New Title",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, title="New Title", description="New description here")
+    assert issue.id == 1
+    assert issue.title == "New Title"
+    assert issue.description == "New description here"
+    mock_table.update.assert_called_once_with({"title": "New Title", "description": "New description here"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_all_fields(mock_get_client):
+    """Test updating all fields together."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "All fields updated",
+            "status": "pending",
+            "type": "patch",
+            "assigned_to": "executor-1",
+            "title": "Complete Update",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(
+        1,
+        assigned_to="executor-1",
+        issue_type="patch",
+        title="Complete Update",
+        description="All fields updated",
+    )
+    assert issue.id == 1
+    assert issue.assigned_to == "executor-1"
+    assert issue.type == "patch"
+    assert issue.title == "Complete Update"
+    assert issue.description == "All fields updated"
+    mock_table.update.assert_called_once_with(
+        {
+            "assigned_to": "executor-1",
+            "type": "patch",
+            "title": "Complete Update",
+            "description": "All fields updated",
+        }
+    )
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_partial_with_unset(mock_get_client):
+    """Test partial update with UNSET - omitted fields remain unchanged."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Unchanged description",
+            "status": "pending",
+            "type": "patch",
+            "title": "Unchanged title",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    # Only update issue_type, leave others as UNSET (default)
+    issue = update_issue(1, issue_type="patch")
+    assert issue.id == 1
+    assert issue.type == "patch"
+    # Only type should be in the update dict
+    mock_table.update.assert_called_once_with({"type": "patch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_clear_assigned_to(mock_get_client):
+    """Test clearing assigned_to by setting to None."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "assigned_to": None,
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, assigned_to=None)
+    assert issue.id == 1
+    assert issue.assigned_to is None
+    mock_table.update.assert_called_once_with({"assigned_to": None})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_clear_title(mock_get_client):
+    """Test clearing title by setting to None."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "title": None,
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, title=None)
+    assert issue.id == 1
+    assert issue.title is None
+    mock_table.update.assert_called_once_with({"title": None})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_invalid_worker_id(mock_get_client):
+    """Test validation error for invalid worker ID."""
+    with pytest.raises(ValueError, match="Invalid worker ID 'invalid-worker'"):
+        update_issue(1, assigned_to="invalid-worker")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_invalid_type(mock_get_client):
+    """Test validation error for invalid issue type."""
+    with pytest.raises(ValueError, match="Invalid issue_type 'invalid'"):
+        update_issue(1, issue_type="invalid")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_empty_title(mock_get_client):
+    """Test validation error for empty title."""
+    with pytest.raises(ValueError, match="Title cannot be empty/whitespace"):
+        update_issue(1, title="")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_whitespace_only_title(mock_get_client):
+    """Test validation error for whitespace-only title."""
+    with pytest.raises(ValueError, match="Title cannot be empty/whitespace"):
+        update_issue(1, title="   ")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_empty_description(mock_get_client):
+    """Test validation error for empty description."""
+    with pytest.raises(ValueError, match="Description cannot be empty"):
+        update_issue(1, description="")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_whitespace_only_description(mock_get_client):
+    """Test validation error for whitespace-only description."""
+    with pytest.raises(ValueError, match="Description cannot be empty"):
+        update_issue(1, description="   ")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_description_too_short(mock_get_client):
+    """Test validation error for description that is too short."""
+    with pytest.raises(ValueError, match="Description must be at least 10 characters"):
+        update_issue(1, description="Short")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_empty_worker_id(mock_get_client):
+    """Test validation error for empty worker ID string."""
+    with pytest.raises(ValueError, match="Worker ID cannot be empty"):
+        update_issue(1, assigned_to="")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_whitespace_only_worker_id(mock_get_client):
+    """Test validation error for whitespace-only worker ID."""
+    with pytest.raises(ValueError, match="Worker ID cannot be empty"):
+        update_issue(1, assigned_to="   ")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_worker_id_type_error(mock_get_client):
+    """Test type error for non-string worker ID."""
+    with pytest.raises(TypeError, match="Worker ID must be a string"):
+        update_issue(1, assigned_to=123)
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_no_fields_provided(mock_get_client):
+    """Test validation error when no fields are provided for update."""
+    with pytest.raises(ValueError, match="No fields provided for update"):
+        update_issue(1)
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_all_fields_unset(mock_get_client):
+    """Test validation error when all fields are explicitly UNSET."""
+    with pytest.raises(ValueError, match="No fields provided for update"):
+        update_issue(1, assigned_to=UNSET, issue_type=UNSET, title=UNSET, description=UNSET)
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_not_found(mock_get_client):
+    """Test error when updating non-existent issue."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check (returns empty list)
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = []
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    mock_table.select.return_value = mock_select_check
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="Issue with id 999 not found"):
+        update_issue(999, title="New Title")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_trims_whitespace(mock_get_client):
+    """Test that string fields are trimmed of whitespace."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Trimmed description",
+            "status": "pending",
+            "title": "Trimmed title",
+            "assigned_to": "tydirium-1",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(
+        1,
+        assigned_to="  tydirium-1  ",
+        title="  Trimmed title  ",
+        description="  Trimmed description  ",
+    )
+    assert issue.title == "Trimmed title"
+    assert issue.description == "Trimmed description"
+    assert issue.assigned_to == "tydirium-1"
+    # Verify trimmed values were passed to database
+    mock_table.update.assert_called_once_with(
+        {
+            "assigned_to": "tydirium-1",
+            "title": "Trimmed title",
+            "description": "Trimmed description",
+        }
+    )
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_valid_worker_ids(mock_get_client):
+    """Test updating with all valid worker IDs."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    valid_workers = [
+        "alleycat-1",
+        "alleycat-2",
+        "alleycat-3",
+        "executor-1",
+        "executor-2",
+        "executor-3",
+        "local-1",
+        "local-2",
+        "local-3",
+        "tydirium-1",
+        "tydirium-2",
+        "tydirium-3",
+        "xwing-1",
+        "xwing-2",
+        "xwing-3",
+    ]
+
+    for worker_id in valid_workers:
+        mock_execute_update.data = [
+            {
+                "id": 1,
+                "description": "Test issue",
+                "status": "pending",
+                "assigned_to": worker_id,
+            }
+        ]
+        mock_eq_update.execute.return_value = mock_execute_update
+
+        issue = update_issue(1, assigned_to=worker_id)
+        assert issue.assigned_to == worker_id
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_both_types(mock_get_client):
+    """Test updating with both valid issue types (main and patch)."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    for issue_type in ["main", "patch"]:
+        mock_execute_update.data = [
+            {
+                "id": 1,
+                "description": "Test issue",
+                "status": "pending",
+                "type": issue_type,
+            }
+        ]
+        mock_eq_update.execute.return_value = mock_execute_update
+
+        issue = update_issue(1, issue_type=issue_type)
+        assert issue.type == issue_type
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_status(mock_get_client):
+    """Test updating only status field."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "completed",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, status="completed")
+    assert issue.id == 1
+    assert issue.status == "completed"
+    mock_table.update.assert_called_once_with({"status": "completed"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_branch(mock_get_client):
+    """Test updating only branch field."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "started",
+            "branch": "adw-12345678",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, branch="adw-12345678")
+    assert issue.id == 1
+    assert issue.branch == "adw-12345678"
+    mock_table.update.assert_called_once_with({"branch": "adw-12345678"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_status_and_branch(mock_get_client):
+    """Test updating status and branch together."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "started",
+            "branch": "feature/new-branch",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, status="started", branch="feature/new-branch")
+    assert issue.id == 1
+    assert issue.status == "started"
+    assert issue.branch == "feature/new-branch"
+    mock_table.update.assert_called_once_with({"status": "started", "branch": "feature/new-branch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_invalid_status(mock_get_client):
+    """Test validation error for invalid status."""
+    with pytest.raises(ValueError, match="Invalid status 'invalid'"):
+        update_issue(1, status="invalid")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_all_valid_statuses(mock_get_client):
+    """Test updating with all valid statuses."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    valid_statuses = ["pending", "started", "completed", "failed"]
+
+    for status in valid_statuses:
+        mock_execute_update.data = [
+            {
+                "id": 1,
+                "description": "Test issue",
+                "status": status,
+            }
+        ]
+        mock_eq_update.execute.return_value = mock_execute_update
+
+        issue = update_issue(1, status=status)
+        assert issue.status == status
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_empty_branch(mock_get_client):
+    """Test validation error for empty branch."""
+    with pytest.raises(ValueError, match="Branch cannot be empty"):
+        update_issue(1, branch="")
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_whitespace_only_branch(mock_get_client):
+    """Test validation error for whitespace-only branch."""
+    with pytest.raises(ValueError, match="Branch cannot be empty"):
+        update_issue(1, branch="   ")
 
 
 @patch("rouge.core.database.get_client")
@@ -973,84 +1464,8 @@ def test_update_issue_branch_trims_whitespace(mock_get_client):
         {
             "id": 1,
             "description": "Test issue",
-            "status": "pending",
-            "branch": "feature/trimmed",
-        }
-    ]
-    mock_eq_update.execute.return_value = mock_execute_update
-    mock_update.eq.return_value = mock_eq_update
-
-    mock_table.select.return_value = mock_select_check
-    mock_table.update.return_value = mock_update
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue_branch(1, "  feature/trimmed  ")
-    assert issue.branch == "feature/trimmed"
-    mock_table.update.assert_called_once_with({"branch": "feature/trimmed"})
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_branch_empty_fails(mock_get_client):
-    """Test updating with empty branch fails."""
-    with pytest.raises(ValueError, match="Branch cannot be empty"):
-        update_issue_branch(1, "")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_branch_whitespace_only_fails(mock_get_client):
-    """Test updating with whitespace-only branch fails."""
-    with pytest.raises(ValueError, match="Branch cannot be empty"):
-        update_issue_branch(1, "   ")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_branch_not_found(mock_get_client):
-    """Test updating branch of non-existent issue."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check (returns empty list)
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = []
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    mock_table.select.return_value = mock_select_check
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    with pytest.raises(ValueError, match="not found"):
-        update_issue_branch(999, "feature/branch")
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_branch_with_adw_prefix(mock_get_client):
-    """Test updating branch with adw_id prefix naming convention."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = [{"id": 42}]
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    # Mock for the update
-    mock_update = Mock()
-    mock_eq_update = Mock()
-    mock_execute_update = Mock()
-    mock_execute_update.data = [
-        {
-            "id": 42,
-            "description": "Test issue",
             "status": "started",
-            "branch": "adw/abc12345-feature-work",
-            "adw_id": "abc12345",
+            "branch": "trimmed-branch",
         }
     ]
     mock_eq_update.execute.return_value = mock_execute_update
@@ -1061,8 +1476,7 @@ def test_update_issue_branch_with_adw_prefix(mock_get_client):
     mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
-    issue = update_issue_branch(42, "adw/abc12345-feature-work")
-    assert issue.id == 42
-    assert issue.branch == "adw/abc12345-feature-work"
-    assert issue.adw_id == "abc12345"
-    mock_table.update.assert_called_once_with({"branch": "adw/abc12345-feature-work"})
+    issue = update_issue(1, branch="  trimmed-branch  ")
+    assert issue.branch == "trimmed-branch"
+    # Verify trimmed value was passed to database
+    mock_table.update.assert_called_once_with({"branch": "trimmed-branch"})

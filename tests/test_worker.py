@@ -240,30 +240,17 @@ class TestUpdateIssueStatus:
 
     def test_update_issue_status_success(self, mock_env):
         """Test successfully updating issue status."""
-        mock_client = Mock()
-        mock_table = Mock()
-        mock_update = Mock()
-        mock_eq = Mock()
+        mock_issue = Mock()
+        mock_issue.id = 123
+        mock_issue.status = "completed"
 
-        mock_client.table.return_value = mock_table
-        mock_table.update.return_value = mock_update
-        mock_update.eq.return_value = mock_eq
-        mock_eq.execute.return_value = Mock()
-
-        with patch("rouge.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database._update_issue", return_value=mock_issue) as mock_update:
             database.update_issue_status(123, "completed")
-
-            mock_client.table.assert_called_once_with("issues")
-            mock_table.update.assert_called_once_with({"status": "completed"})
-            mock_update.eq.assert_called_once_with("id", 123)
-            mock_eq.execute.assert_called_once()
+            mock_update.assert_called_once_with(123, status="completed")
 
     def test_update_issue_status_database_error(self, mock_env):
         """Test handling database errors during status update."""
-        mock_client = Mock()
-        mock_client.table.side_effect = Exception("Database error")
-
-        with patch("rouge.worker.database.get_client", return_value=mock_client):
+        with patch("rouge.worker.database._update_issue", side_effect=Exception("Database error")):
             # Should not raise exception
             database.update_issue_status(123, "completed")
 
