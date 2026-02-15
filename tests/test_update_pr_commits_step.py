@@ -222,8 +222,8 @@ class TestComposeCommits:
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         monkeypatch.setenv("GITHUB_PAT", "fake-token")
 
-        mock_response = Mock(success=True, output='{"output": "commits-composed"}')
-        mock_parse_response = Mock(success=True, data={"output": "commits-composed"}, error=None)
+        mock_response = Mock(success=True, output='{"output": "compose-commits", "summary": "Test commits", "commits": []}')
+        mock_parse_response = Mock(success=True, data={"output": "compose-commits", "summary": "Test commits", "commits": []}, error=None)
 
         # Mock ClaudeAgentTemplateRequest to bypass Pydantic slash_command validation
         mock_request_instance = Mock(
