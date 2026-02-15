@@ -70,7 +70,7 @@ def test_execute_adw_workflow_patch_type(monkeypatch):
     assert calls["pipeline"] == "patch-pipeline"
 
 
-def test_execute_adw_workflow_codereview_type(monkeypatch):
+def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
     """Codereview workflow should use codereview pipeline via workflow registry."""
     calls = {}
     registry_calls = {}
