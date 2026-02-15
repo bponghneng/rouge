@@ -23,6 +23,7 @@ SlashCommand = Literal[
     "/adw-implement-review",
     "/adw-patch-plan",
     "/adw-pull-request",
+    "/adw-review-plan",
 ]
 
 
