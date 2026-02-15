@@ -6,6 +6,7 @@ codereview-specific registration, pipeline composition, and integration
 between the registry and the loop.
 """
 
+import pathlib
 from typing import Generator
 
 import pytest
@@ -39,20 +40,20 @@ def _reset_registry() -> Generator[None, None, None]:
 class TestCodeReviewRegistration:
     """Verify the codereview workflow is registered in the global registry."""
 
-    def test_codereview_is_registered(self):
+    def test_codereview_is_registered(self) -> None:
         """The default registry should contain a 'codereview' workflow type."""
         registry = get_workflow_registry()
 
         assert registry.is_registered("codereview")
 
-    def test_codereview_in_list_types(self):
+    def test_codereview_in_list_types(self) -> None:
         """'codereview' should appear in the registry's list of available types."""
         registry = get_workflow_registry()
         types = registry.list_types()
 
         assert "codereview" in types
 
-    def test_registry_pipeline_returns_workflow_steps(self):
+    def test_registry_pipeline_returns_workflow_steps(self) -> None:
         """get_pipeline via the registry should return a list of WorkflowStep instances."""
         registry = get_workflow_registry()
         pipeline = registry.get_pipeline("codereview")
@@ -70,13 +71,13 @@ class TestCodeReviewRegistration:
 class TestCodeReviewPipeline:
     """Verify the codereview pipeline contains the correct steps in order."""
 
-    def test_pipeline_contains_three_steps(self):
+    def test_pipeline_contains_three_steps(self) -> None:
         """The codereview pipeline should contain exactly 3 steps."""
         pipeline = get_code_review_pipeline()
 
         assert len(pipeline) == 3
 
-    def test_pipeline_step_order(self):
+    def test_pipeline_step_order(self) -> None:
         """Steps should be: CodeReviewStep, ReviewFixStep, CodeQualityStep."""
         pipeline = get_code_review_pipeline()
 
@@ -91,7 +92,7 @@ class TestCodeReviewPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-    def test_pipeline_step_names(self):
+    def test_pipeline_step_names(self) -> None:
         """Each step should expose the expected human-readable name."""
         pipeline = get_code_review_pipeline()
 
@@ -101,7 +102,7 @@ class TestCodeReviewPipeline:
         assert isinstance(pipeline[2].name, str)
         assert len(pipeline[2].name) > 0
 
-    def test_all_steps_are_best_effort(self):
+    def test_all_steps_are_best_effort(self) -> None:
         """All steps in the codereview pipeline should be non-critical (best-effort).
 
         The review pipeline is used in a loop where individual step failures
@@ -114,16 +115,16 @@ class TestCodeReviewPipeline:
                 not step.is_critical
             ), f"Step '{step.name}' should be best-effort (is_critical=False)"
 
-    def test_pipeline_does_not_include_issue_dependent_steps(self):
+    def test_pipeline_does_not_include_issue_dependent_steps(self) -> None:
         """Codereview pipeline should not contain steps that require an issue."""
         from rouge.core.workflow.steps import (
-            PlanStep,
-            ClassifyStep,
-            FetchIssueStep,
-            ImplementStep,
-            ComposeRequestStep,
-            GitSetupStep,
             AcceptanceStep,
+            ClassifyStep,
+            ComposeRequestStep,
+            FetchIssueStep,
+            GitSetupStep,
+            ImplementStep,
+            PlanStep,
         )
 
         issue_dependent_types = (
@@ -152,7 +153,7 @@ class TestCodeReviewPipeline:
 class TestGetPipelineForTypeCodeReview:
     """Verify get_pipeline_for_type resolves 'codereview' correctly."""
 
-    def test_returns_codereview_pipeline(self):
+    def test_returns_codereview_pipeline(self) -> None:
         """get_pipeline_for_type('codereview') should resolve via registry."""
         pipeline = get_pipeline_for_type("codereview")
 
@@ -160,7 +161,7 @@ class TestGetPipelineForTypeCodeReview:
         assert len(pipeline) == 3
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_pipeline_matches_direct_call(self):
+    def test_pipeline_matches_direct_call(self) -> None:
         """Pipeline from get_pipeline_for_type should match get_code_review_pipeline."""
         from_helper = get_pipeline_for_type("codereview")
         from_direct = get_code_review_pipeline()
@@ -229,7 +230,7 @@ class _CleanOnIterationStep(WorkflowStep):
         return StepResult.ok(data=None)
 
 
-def _patch_loop_deps(monkeypatch, tmp_path, pipeline):
+def _patch_loop_deps(monkeypatch, tmp_path: pathlib.Path, pipeline) -> None:
     """Patch get_pipeline_for_type and ArtifactStore for loop tests."""
     monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", lambda t: pipeline)
     monkeypatch.setattr(
@@ -245,7 +246,9 @@ class TestCodeReviewLoopBehaviour:
     the generic loop tests in test_adw.py.
     """
 
-    def test_loop_exits_on_clean_review_first_iteration(self, monkeypatch, tmp_path):
+    def test_loop_exits_on_clean_review_first_iteration(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
         """Loop should succeed immediately when review is clean on first pass."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -259,7 +262,7 @@ class TestCodeReviewLoopBehaviour:
         assert wid == "cr-clean-001"
         assert clean_step.call_count == 1
 
-    def test_loop_exits_after_max_iterations(self, monkeypatch, tmp_path):
+    def test_loop_exits_after_max_iterations(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         """Loop should fail when max iterations exhausted without clean review."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -278,7 +281,7 @@ class TestCodeReviewLoopBehaviour:
         for step in pipeline:
             assert step.call_count == 2
 
-    def test_critical_step_failure_aborts_loop(self, monkeypatch, tmp_path):
+    def test_critical_step_failure_aborts_loop(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         """A critical step failure should abort the loop immediately."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -297,7 +300,9 @@ class TestCodeReviewLoopBehaviour:
         assert address.call_count == 0
         assert quality.call_count == 0
 
-    def test_config_base_commit_passed_through_to_context(self, monkeypatch, tmp_path):
+    def test_config_base_commit_passed_through_to_context(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
         """The base_commit config value should be available in context.data."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -325,7 +330,7 @@ class TestCodeReviewLoopBehaviour:
         assert success is True
         assert captured["base_commit"] == "abc123deadbeef"
 
-    def test_config_none_does_not_seed_context(self, monkeypatch, tmp_path):
+    def test_config_none_does_not_seed_context(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         """When config is None, context.data should not contain base_commit."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -352,7 +357,9 @@ class TestCodeReviewLoopBehaviour:
         assert success is True
         assert captured["has_base_commit"] is False
 
-    def test_best_effort_step_failure_does_not_abort(self, monkeypatch, tmp_path):
+    def test_best_effort_step_failure_does_not_abort(
+        self, monkeypatch, tmp_path: pathlib.Path
+    ) -> None:
         """A non-critical step failure should not abort the loop."""
         from rouge.adw.adw import execute_code_review_loop
 
@@ -368,7 +375,7 @@ class TestCodeReviewLoopBehaviour:
         # The failing step was called but loop still succeeded
         assert failing_quality.call_count == 1
 
-    def test_context_issue_id_is_none(self, monkeypatch, tmp_path):
+    def test_context_issue_id_is_none(self, monkeypatch, tmp_path: pathlib.Path) -> None:
         """Codereview loop should create a context with issue_id=None."""
         from rouge.adw.adw import execute_code_review_loop
 
