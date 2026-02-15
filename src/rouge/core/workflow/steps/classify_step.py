@@ -7,7 +7,11 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
-from rouge.core.notifications.comments import emit_artifact_comment, emit_comment_from_payload
+from rouge.core.notifications.comments import (
+    emit_artifact_comment,
+    emit_comment_from_payload,
+    log_artifact_comment_status,
+)
 from rouge.core.workflow.artifacts import ClassifyArtifact, FetchIssueArtifact
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -161,12 +165,7 @@ class ClassifyStep(WorkflowStep):
             logger.debug("Saved classification artifact for workflow %s", context.adw_id)
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            if status == "success":
-                logger.debug(msg)
-            elif status == "skipped":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
+            log_artifact_comment_status(status, msg)
 
         issue_command = result.data.command
         classification_data = result.data.classification
