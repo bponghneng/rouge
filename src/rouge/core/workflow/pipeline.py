@@ -249,17 +249,17 @@ def get_default_pipeline() -> List[WorkflowStep]:
 def get_code_review_pipeline() -> List[WorkflowStep]:
     """Create the codereview workflow pipeline.
 
-    The codereview workflow runs an automated review loop on commits.
-    Note: This workflow can run with or without an issue_id. When issue_id
-    is provided, CodeReviewStep and ReviewFixStep will emit progress
-    comments via emit_comment_from_payload. When issue_id is None, these
-    steps will skip comment emission but still execute review generation and
-    addressing logic.
+    The codereview workflow runs an automated review loop on repository changes
+    based on an existing issue. This is now an issue-based workflow that requires
+    an issue_id to be provided.
 
     Pipeline sequence:
-    1. CodeReviewStep  - Generate review of the current changes
-    2. ReviewFixStep   - Address any review feedback
-    3. CodeQualityStep - Run code quality checks
+    1. FetchIssueStep    - Fetch the issue from the database
+    2. ReviewPlanStep    - Generate a review plan from the issue
+    3. CodeReviewStep    - Generate review of the current changes
+    4. ReviewFixStep     - Address any review feedback
+    5. CodeQualityStep   - Run code quality checks
+    6. ComposeCommitsStep - Compose conventional commits from the changes
 
     Returns:
         List of WorkflowStep instances in execution order
@@ -267,12 +267,18 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
+    from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
     return [
+        FetchIssueStep(),
+        ReviewPlanStep(),
         CodeReviewStep(),
         ReviewFixStep(),
         CodeQualityStep(),
+        ComposeCommitsStep(),
     ]
 
 
