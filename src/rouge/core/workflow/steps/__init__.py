@@ -15,6 +15,7 @@ from rouge.core.workflow.steps.git_setup_step import GitSetupStep
 from rouge.core.workflow.steps.implement_step import ImplementStep
 from rouge.core.workflow.steps.plan_step import PlanStep
 from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
+from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
 __all__ = [
     "FetchIssueStep",
@@ -24,6 +25,7 @@ __all__ = [
     "ImplementStep",
     "CodeReviewStep",
     "ReviewFixStep",
+    "ReviewPlanStep",
     "CodeQualityStep",
     "AcceptanceStep",
     "ComposeRequestStep",

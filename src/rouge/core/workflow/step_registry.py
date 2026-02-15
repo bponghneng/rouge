@@ -347,6 +347,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.plan_step import PlanStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
+    from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
     # 0. GitSetupStep: no dependencies, produces git-setup artifact
     registry.register(
@@ -391,6 +392,16 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["fetch-issue", "classify"],
         outputs=["plan"],
         description="Build implementation plan for the issue",
+    )
+
+    # 3b. ReviewPlanStep: requires fetch-issue, produces plan (alternative to classify+plan)
+    registry.register(
+        ReviewPlanStep,
+        slug="review-plan",
+        dependencies=["fetch-issue"],
+        outputs=["plan"],
+        is_critical=True,
+        description="Review and regenerate plan based on feedback",
     )
 
     # 4. ImplementStep: requires plan, produces implement artifact
