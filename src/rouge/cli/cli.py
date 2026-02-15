@@ -639,7 +639,7 @@ def codereview(
         "--working-dir",
         help="Absolute directory to switch into before launching the workflow.",
     ),
-):
+) -> None:
     """Run a code review workflow against a base commit.
 
     Resolves the provided git reference to a SHA, then executes the
@@ -654,13 +654,23 @@ def codereview(
     sha = resolve_to_sha(base_commit)
     typer.echo(f"Resolved base commit: {sha}")
 
-    success, _workflow_id = execute_adw_workflow(
-        adw_id=adw_id,
-        workflow_type="codereview",
-        config={"base_commit": sha},
-    )
+    try:
+        success, _workflow_id = execute_adw_workflow(
+            adw_id=adw_id,
+            workflow_type="codereview",
+            config={"base_commit": sha},
+        )
 
-    if not success:
+        if not success:
+            raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
 
