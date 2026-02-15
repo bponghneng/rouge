@@ -141,7 +141,7 @@ class WorkflowContext:
 
         # Try to load from artifact
         try:
-            artifact = self.artifact_store.read_artifact("issue", artifact_class)
+            artifact = self.artifact_store.read_artifact("fetch-issue", artifact_class)
             issue = extract_fn(artifact)
             self.issue = issue
             logger.debug("Loaded issue from artifact")

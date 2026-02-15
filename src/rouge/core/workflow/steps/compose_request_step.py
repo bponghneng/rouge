@@ -7,7 +7,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import PRMetadataArtifact
+from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -200,7 +200,7 @@ class ComposeRequestStep(WorkflowStep):
 
         # Save artifact if artifact store is available
         if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = PRMetadataArtifact(
+            artifact = ComposeRequestArtifact(
                 workflow_id=context.adw_id,
                 title=pr_details["title"],
                 summary=pr_details["summary"],

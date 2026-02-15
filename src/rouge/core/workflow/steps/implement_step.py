@@ -8,7 +8,7 @@ from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
-    ImplementationArtifact,
+    ImplementArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
@@ -155,7 +155,7 @@ class ImplementStep(WorkflowStep):
 
         # Save artifact if artifact store is available
         if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ImplementationArtifact(
+            artifact = ImplementArtifact(
                 workflow_id=context.adw_id,
                 implement_data=implement_response.data,
             )

@@ -33,17 +33,20 @@ T = TypeVar("T", bound="Artifact")
 
 # Valid artifact type names
 ArtifactType = Literal[
-    "issue",
-    "classification",
+    "fetch-issue",
+    "classify",
     "plan",
-    "implementation",
-    "review",
-    "review_addressed",
-    "quality_check",
+    "implement",
+    "code-review",
+    "review-fix",
+    "code-quality",
     "acceptance",
-    "pr_metadata",
-    "pull_request",
-    "patch",
+    "compose-request",
+    "gh-pull-request",
+    "fetch-patch",
+    "git-setup",
+    "compose-commits",
+    "glab-pull-request",
 ]
 
 
@@ -61,25 +64,25 @@ class Artifact(BaseModel):
     created_at: datetime = Field(default_factory=_utc_now)
 
 
-class IssueArtifact(Artifact):
+class FetchIssueArtifact(Artifact):
     """Artifact containing the fetched Issue data.
 
     Attributes:
         issue: The Issue model from the database
     """
 
-    artifact_type: Literal["issue"] = "issue"
+    artifact_type: Literal["fetch-issue"] = "fetch-issue"
     issue: Issue
 
 
-class ClassificationArtifact(Artifact):
+class ClassifyArtifact(Artifact):
     """Artifact containing issue classification results.
 
     Attributes:
         classify_data: The classification result data
     """
 
-    artifact_type: Literal["classification"] = "classification"
+    artifact_type: Literal["classify"] = "classify"
     classify_data: ClassifyData
 
 
@@ -94,29 +97,29 @@ class PlanArtifact(Artifact):
     plan_data: PlanData
 
 
-class ImplementationArtifact(Artifact):
+class ImplementArtifact(Artifact):
     """Artifact containing implementation results.
 
     Attributes:
         implement_data: The implementation output data
     """
 
-    artifact_type: Literal["implementation"] = "implementation"
+    artifact_type: Literal["implement"] = "implement"
     implement_data: ImplementData
 
 
-class ReviewArtifact(Artifact):
+class CodeReviewArtifact(Artifact):
     """Artifact containing code review results.
 
     Attributes:
         review_data: The review content
     """
 
-    artifact_type: Literal["review"] = "review"
+    artifact_type: Literal["code-review"] = "code-review"
     review_data: ReviewData
 
 
-class ReviewAddressedArtifact(Artifact):
+class ReviewFixArtifact(Artifact):
     """Artifact indicating review issues have been addressed.
 
     Attributes:
@@ -124,12 +127,12 @@ class ReviewAddressedArtifact(Artifact):
         message: Optional message about the resolution
     """
 
-    artifact_type: Literal["review_addressed"] = "review_addressed"
+    artifact_type: Literal["review-fix"] = "review-fix"
     success: bool
     message: Optional[str] = None
 
 
-class QualityCheckArtifact(Artifact):
+class CodeQualityArtifact(Artifact):
     """Artifact containing code quality check results.
 
     Attributes:
@@ -138,7 +141,7 @@ class QualityCheckArtifact(Artifact):
         parsed_data: Optional parsed JSON data from the check
     """
 
-    artifact_type: Literal["quality_check"] = "quality_check"
+    artifact_type: Literal["code-quality"] = "code-quality"
     output: str
     tools: List[str]
     parsed_data: Optional[Dict[str, Any]] = None
@@ -157,7 +160,7 @@ class AcceptanceArtifact(Artifact):
     message: Optional[str] = None
 
 
-class PRMetadataArtifact(Artifact):
+class ComposeRequestArtifact(Artifact):
     """Artifact containing prepared pull request metadata.
 
     Attributes:
@@ -166,49 +169,89 @@ class PRMetadataArtifact(Artifact):
         commits: List of commit information
     """
 
-    artifact_type: Literal["pr_metadata"] = "pr_metadata"
+    artifact_type: Literal["compose-request"] = "compose-request"
     title: str
     summary: str
     commits: List[Dict[str, Any]] = Field(default_factory=list)
 
 
-class PullRequestArtifact(Artifact):
-    """Artifact containing the created pull request details.
+class GhPullRequestArtifact(Artifact):
+    """Artifact containing the created GitHub pull request details.
 
     Attributes:
         url: The URL of the created pull request
-        platform: The platform where the PR was created (github/gitlab)
+        platform: The platform where the PR was created (github)
     """
 
-    artifact_type: Literal["pull_request"] = "pull_request"
+    artifact_type: Literal["gh-pull-request"] = "gh-pull-request"
     url: str
     platform: Literal["github", "gitlab"]
 
 
-class PatchArtifact(Artifact):
+class FetchPatchArtifact(Artifact):
     """Artifact containing the fetched Patch issue data.
 
     Attributes:
         patch: The Issue model from the database (with type='patch')
     """
 
-    artifact_type: Literal["patch"] = "patch"
+    artifact_type: Literal["fetch-patch"] = "fetch-patch"
     patch: Issue
+
+
+class GitSetupArtifact(Artifact):
+    """Artifact containing git setup results.
+
+    Attributes:
+        branch: The name of the branch created or checked out
+    """
+
+    artifact_type: Literal["git-setup"] = "git-setup"
+    branch: str
+
+
+class ComposeCommitsArtifact(Artifact):
+    """Artifact containing composed commit metadata.
+
+    Attributes:
+        summary: A summary of the commits being composed
+        commits: List of commit information dictionaries
+    """
+
+    artifact_type: Literal["compose-commits"] = "compose-commits"
+    summary: str
+    commits: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class GlabPullRequestArtifact(Artifact):
+    """Artifact containing the created GitLab pull request (merge request) details.
+
+    Attributes:
+        url: The URL of the created merge request
+        platform: The platform where the MR was created (gitlab)
+    """
+
+    artifact_type: Literal["glab-pull-request"] = "glab-pull-request"
+    url: str
+    platform: Literal["github", "gitlab"]
 
 
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
-    "issue": IssueArtifact,
-    "classification": ClassificationArtifact,
+    "fetch-issue": FetchIssueArtifact,
+    "classify": ClassifyArtifact,
     "plan": PlanArtifact,
-    "implementation": ImplementationArtifact,
-    "review": ReviewArtifact,
-    "review_addressed": ReviewAddressedArtifact,
-    "quality_check": QualityCheckArtifact,
+    "implement": ImplementArtifact,
+    "code-review": CodeReviewArtifact,
+    "review-fix": ReviewFixArtifact,
+    "code-quality": CodeQualityArtifact,
     "acceptance": AcceptanceArtifact,
-    "pr_metadata": PRMetadataArtifact,
-    "pull_request": PullRequestArtifact,
-    "patch": PatchArtifact,
+    "compose-request": ComposeRequestArtifact,
+    "gh-pull-request": GhPullRequestArtifact,
+    "fetch-patch": FetchPatchArtifact,
+    "git-setup": GitSetupArtifact,
+    "compose-commits": ComposeCommitsArtifact,
+    "glab-pull-request": GlabPullRequestArtifact,
 }
 
 

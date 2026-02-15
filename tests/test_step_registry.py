@@ -477,7 +477,7 @@ class TestGlobalRegistry:
         """Test default steps have correct dependencies configured."""
         registry = get_step_registry()
 
-        # ClassifyStep should depend on issue
+        # ClassifyStep should depend on fetch-issue
         classify_meta = None
         for name in registry.list_all_steps():
             if "Classifying" in name:
@@ -485,13 +485,13 @@ class TestGlobalRegistry:
                 break
 
         assert classify_meta is not None
-        assert "issue" in classify_meta.dependencies
+        assert "fetch-issue" in classify_meta.dependencies
 
     def test_default_step_outputs(self):
         """Test default steps have correct outputs configured."""
         registry = get_step_registry()
 
-        # FetchIssueStep should output issue
+        # FetchIssueStep should output fetch-issue
         fetch_meta = None
         for name in registry.list_all_steps():
             if "Fetching" in name:
@@ -499,7 +499,7 @@ class TestGlobalRegistry:
                 break
 
         assert fetch_meta is not None
-        assert "issue" in fetch_meta.outputs
+        assert "fetch-issue" in fetch_meta.outputs
 
     def test_dependency_chain_resolution(self):
         """Test resolving full dependency chain for late step.
@@ -544,7 +544,7 @@ class TestGlobalRegistry:
 
         metadata = registry.get_step_metadata(patch_plan_step_name)
         assert metadata is not None
-        assert metadata.dependencies == ["patch"]
+        assert metadata.dependencies == ["fetch-patch"]
         assert metadata.outputs == ["plan"]
         assert metadata.is_critical is True
 
@@ -569,7 +569,7 @@ class TestGlobalRegistry:
         metadata = registry.get_step_metadata(update_pr_commits_step_name)
         assert metadata is not None
         assert metadata.dependencies == []
-        assert metadata.outputs == []
+        assert metadata.outputs == ["compose-commits"]
         assert metadata.is_critical is False
 
     def test_validate_registry_passes(self):

@@ -7,7 +7,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import QualityCheckArtifact
+from rouge.core.workflow.artifacts import CodeQualityArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -102,7 +102,7 @@ class CodeQualityStep(WorkflowStep):
                 and context.artifact_store is not None
                 and parse_result.data is not None
             ):
-                artifact = QualityCheckArtifact(
+                artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
                     output=parse_result.data.get("output", ""),
                     tools=parse_result.data.get("tools", []),

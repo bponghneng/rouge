@@ -8,8 +8,8 @@ from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import (
-    ClassificationArtifact,
-    IssueArtifact,
+    ClassifyArtifact,
+    FetchIssueArtifact,
     PlanArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLANNER
@@ -111,7 +111,7 @@ class PlanStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         # Try to load issue from artifact if not in context
-        issue = context.load_issue_artifact_if_missing(IssueArtifact, lambda a: a.issue)
+        issue = context.load_issue_artifact_if_missing(FetchIssueArtifact, lambda a: a.issue)
 
         if issue is None:
             logger.error("Cannot build plan: issue not fetched")
@@ -120,8 +120,8 @@ class PlanStep(WorkflowStep):
         # Try to load classification from artifact if not in context
         classify_data: ClassifyData | None = context.load_artifact_if_missing(
             "classify_data",
-            "classification",
-            ClassificationArtifact,
+            "classify",
+            ClassifyArtifact,
             lambda a: a.classify_data,
         )
 

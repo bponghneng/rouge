@@ -8,7 +8,7 @@ from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import ClassificationArtifact, IssueArtifact
+from rouge.core.workflow.artifacts import ClassifyArtifact, FetchIssueArtifact
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
@@ -132,7 +132,7 @@ class ClassifyStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         # Try to load issue from artifact if not in context
-        issue = context.load_issue_artifact_if_missing(IssueArtifact, lambda a: a.issue)
+        issue = context.load_issue_artifact_if_missing(FetchIssueArtifact, lambda a: a.issue)
 
         if issue is None:
             logger.error("Cannot classify: issue not fetched")
@@ -153,7 +153,7 @@ class ClassifyStep(WorkflowStep):
 
         # Save artifact if artifact store is available
         if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ClassificationArtifact(
+            artifact = ClassifyArtifact(
                 workflow_id=context.adw_id,
                 classify_data=result.data,
             )
