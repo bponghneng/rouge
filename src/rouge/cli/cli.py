@@ -627,38 +627,27 @@ def resolve_to_sha(ref: str) -> str:
 
 @app.command()
 def codereview(
-    base_commit: str = typer.Option(
-        ...,
-        "--base-commit",
-        help="Git reference (branch, tag, or SHA) to compare against",
-        show_default=False,
-    ),
+    issue_id: int = typer.Argument(..., help="The issue ID to process"),
     adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
-    working_dir: Optional[Path] = typer.Option(
-        None,
-        "--working-dir",
-        help="Absolute directory to switch into before launching the workflow.",
-    ),
 ):
-    """Run a code review workflow against a base commit.
+    """Execute the code review workflow for an issue.
 
-    Resolves the provided git reference to a SHA, then executes the
-    codereview workflow pipeline.
+    The base commit is derived from the issue description by the workflow.
+
+    Args:
+        issue_id: The issue ID to process
+        adw_id: Optional workflow ID for tracking (auto-generated if not provided)
 
     Example:
-        rouge codereview --base-commit main
-        rouge codereview --base-commit abc1234
+        rouge codereview 123
+        rouge codereview 123 --adw-id abc12345
     """
-    adw_id = _prepare_workflow(working_dir, adw_id)
+    # Generate ADW ID if not provided
+    if not adw_id:
+        adw_id = make_adw_id()
 
-    sha = resolve_to_sha(base_commit)
-    typer.echo(f"Resolved base commit: {sha}")
-
-    success, _workflow_id = execute_adw_workflow(
-        adw_id=adw_id,
-        workflow_type="codereview",
-        config={"base_commit": sha},
-    )
+    # Execute workflow
+    success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
 
     if not success:
         raise typer.Exit(1)
