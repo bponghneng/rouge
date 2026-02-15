@@ -70,26 +70,32 @@ def test_execute_adw_workflow_patch_type(monkeypatch):
     assert calls["pipeline"] == "patch-pipeline"
 
 
-def test_execute_adw_workflow_code_review_routes_to_loop(monkeypatch):
-    """workflow_type='codereview' should delegate to execute_code_review_loop."""
+def test_execute_adw_workflow_codereview_type(monkeypatch):
+    """Codereview workflow should use codereview pipeline via workflow registry."""
     calls = {}
+    registry_calls = {}
 
-    def fake_loop(workflow_id, config=None):
-        calls["args"] = (workflow_id, config)
-        return True, workflow_id
+    def fake_get_pipeline(wf_type):
+        registry_calls["workflow_type"] = wf_type
+        return "codereview-pipeline"
 
-    monkeypatch.setattr("rouge.adw.adw.execute_code_review_loop", fake_loop)
+    def fake_execute(issue_id, adw_id, *, pipeline=None):
+        calls["args"] = (issue_id, adw_id)
+        calls["pipeline"] = pipeline
+        return True
+
+    monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute)
+    monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", fake_get_pipeline)
 
     success, workflow_id = execute_adw_workflow(
-        issue_id=None,
-        adw_id="cr-route-001",
-        workflow_type="codereview",
-        config={"base_commit": "abc123"},
+        123, adw_id="codereview-workflow-id", workflow_type="codereview"
     )
 
     assert success is True
-    assert workflow_id == "cr-route-001"
-    assert calls["args"] == ("cr-route-001", {"base_commit": "abc123"})
+    assert workflow_id == "codereview-workflow-id"
+    assert registry_calls["workflow_type"] == "codereview"
+    assert calls["args"] == (123, "codereview-workflow-id")
+    assert calls["pipeline"] == "codereview-pipeline"
 
 
 def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):

@@ -1,20 +1,23 @@
-"""Tests for the codereview workflow: registry, pipeline, and loop behaviour.
+"""Tests for the codereview workflow: registry, pipeline composition, and rerun behavior.
 
-Complements tests in test_adw.py (loop orchestration) and
+Complements tests in test_adw.py (workflow runner mechanics) and
 test_workflow_registry.py (generic registry mechanics) by focusing on
-codereview-specific registration, pipeline composition, and integration
-between the registry and the loop.
+codereview-specific registration, pipeline composition, and rerun_from behavior.
 """
 
 from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from rouge.core.workflow.pipeline import get_code_review_pipeline
+from rouge.core.workflow.pipeline import WorkflowRunner, get_code_review_pipeline
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
 from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
+from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_registry import (
     get_pipeline_for_type,
@@ -70,20 +73,23 @@ class TestCodeReviewRegistration:
 class TestCodeReviewPipeline:
     """Verify the codereview pipeline contains the correct steps in order."""
 
-    def test_pipeline_contains_three_steps(self):
-        """The codereview pipeline should contain exactly 3 steps."""
+    def test_pipeline_contains_six_steps(self):
+        """The codereview pipeline should contain exactly 6 steps."""
         pipeline = get_code_review_pipeline()
 
-        assert len(pipeline) == 3
+        assert len(pipeline) == 6
 
     def test_pipeline_step_order(self):
-        """Steps should be: CodeReviewStep, ReviewFixStep, CodeQualityStep."""
+        """Steps should be: FetchIssueStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
         pipeline = get_code_review_pipeline()
 
         expected_types = [
+            FetchIssueStep,
+            ReviewPlanStep,
             CodeReviewStep,
             ReviewFixStep,
             CodeQualityStep,
+            ComposeCommitsStep,
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
@@ -95,40 +101,50 @@ class TestCodeReviewPipeline:
         """Each step should expose the expected human-readable name."""
         pipeline = get_code_review_pipeline()
 
-        assert pipeline[0].name == "Generating CodeRabbit review"
-        assert pipeline[1].name == "Addressing review issues"
-        # CodeQualityStep name - just verify it has one
-        assert isinstance(pipeline[2].name, str)
-        assert len(pipeline[2].name) > 0
+        # Verify each step has a non-empty name
+        for i, step in enumerate(pipeline):
+            assert isinstance(step.name, str), f"Step {i} name should be a string"
+            assert len(step.name) > 0, f"Step {i} name should not be empty"
 
-    def test_all_steps_are_best_effort(self):
-        """All steps in the codereview pipeline should be non-critical (best-effort).
+    def test_critical_vs_best_effort_steps(self):
+        """Verify which steps are critical vs best-effort in the pipeline.
 
-        The review pipeline is used in a loop where individual step failures
-        are tolerated; only the loop orchestrator decides whether to abort.
+        FetchIssueStep and ReviewPlanStep are critical (must succeed).
+        Review/fix/quality/commits steps are best-effort (can fail gracefully).
         """
         pipeline = get_code_review_pipeline()
 
-        for step in pipeline:
+        # First two steps are critical
+        assert pipeline[0].is_critical, "FetchIssueStep should be critical"
+        assert pipeline[1].is_critical, "ReviewPlanStep should be critical"
+
+        # Remaining steps are best-effort
+        for step in pipeline[2:]:
             assert (
                 not step.is_critical
             ), f"Step '{step.name}' should be best-effort (is_critical=False)"
 
-    def test_pipeline_does_not_include_issue_dependent_steps(self):
-        """Codereview pipeline should not contain steps that require an issue."""
+    def test_pipeline_includes_fetch_issue_step(self):
+        """Codereview pipeline should include FetchIssueStep as it is now issue-based."""
+        pipeline = get_code_review_pipeline()
+
+        assert isinstance(
+            pipeline[0], FetchIssueStep
+        ), "Codereview pipeline should start with FetchIssueStep"
+
+    def test_pipeline_does_not_include_implementation_steps(self):
+        """Codereview pipeline should not contain planning or implementation steps."""
         from rouge.core.workflow.steps import (
             PlanStep,
             ClassifyStep,
-            FetchIssueStep,
             ImplementStep,
             ComposeRequestStep,
             GitSetupStep,
             AcceptanceStep,
         )
 
-        issue_dependent_types = (
+        excluded_types = (
             GitSetupStep,
-            FetchIssueStep,
             ClassifyStep,
             PlanStep,
             ImplementStep,
@@ -140,7 +156,7 @@ class TestCodeReviewPipeline:
 
         for step in pipeline:
             assert not isinstance(
-                step, issue_dependent_types
+                step, excluded_types
             ), f"Codereview pipeline should not contain {type(step).__name__}"
 
 
@@ -157,7 +173,7 @@ class TestGetPipelineForTypeCodeReview:
         pipeline = get_pipeline_for_type("codereview")
 
         assert isinstance(pipeline, list)
-        assert len(pipeline) == 3
+        assert len(pipeline) == 6
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
     def test_pipeline_matches_direct_call(self):
@@ -171,223 +187,155 @@ class TestGetPipelineForTypeCodeReview:
 
 
 # ---------------------------------------------------------------------------
-# Loop behaviour tests (complementary to test_adw.py)
+# Rerun behavior tests
 # ---------------------------------------------------------------------------
 
 
-class _FakeArtifactStore:
-    """Minimal fake ArtifactStore for loop tests."""
+class TestCodeReviewRerunBehavior:
+    """Test the rerun_from mechanism in the codereview pipeline.
 
-    def __init__(self, workflow_id: str, base_path):
-        self._workflow_id = workflow_id
-        self.workflow_dir = base_path / workflow_id
-
-    @property
-    def workflow_id(self) -> str:
-        return self._workflow_id
-
-
-class _FakeStep(WorkflowStep):
-    """Configurable fake step for loop tests."""
-
-    def __init__(self, name: str, *, critical: bool = True, succeed: bool = True):
-        self._name = name
-        self._critical = critical
-        self._succeed = succeed
-        self.call_count = 0
-
-    @property
-    def name(self) -> str:
-        return self._name
-
-    @property
-    def is_critical(self) -> bool:
-        return self._critical
-
-    def run(self, context: WorkflowContext) -> StepResult:
-        self.call_count += 1
-        if self._succeed:
-            return StepResult.ok(data=None)
-        return StepResult.fail(error=f"{self._name} failed")
-
-
-class _CleanOnIterationStep(WorkflowStep):
-    """Step that sets review_is_clean after a specific number of calls."""
-
-    def __init__(self, clean_on: int = 1):
-        self._clean_on = clean_on
-        self.call_count = 0
-
-    @property
-    def name(self) -> str:
-        return "review-check"
-
-    def run(self, context: WorkflowContext) -> StepResult:
-        self.call_count += 1
-        if self.call_count >= self._clean_on:
-            context.data["review_is_clean"] = True
-        return StepResult.ok(data=None)
-
-
-def _patch_loop_deps(monkeypatch, tmp_path, pipeline):
-    """Patch get_pipeline_for_type and ArtifactStore for loop tests."""
-    monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", lambda t: pipeline)
-    monkeypatch.setattr(
-        "rouge.adw.adw.ArtifactStore",
-        lambda wid: _FakeArtifactStore(wid, tmp_path),
-    )
-
-
-class TestCodeReviewLoopBehaviour:
-    """Loop behaviour tests complementary to test_adw.py.
-
-    These tests focus on codereview-specific scenarios not covered by
-    the generic loop tests in test_adw.py.
+    These tests verify that ReviewFixStep can request a rerun from CodeReviewStep,
+    and that the WorkflowRunner correctly rewinds to that step.
     """
 
-    def test_loop_exits_on_clean_review_first_iteration(self, monkeypatch, tmp_path):
-        """Loop should succeed immediately when review is clean on first pass."""
-        from rouge.adw.adw import execute_code_review_loop
+    def test_review_fix_step_returns_rerun_from_code_review(self):
+        """ReviewFixStep should return rerun_from set to CodeReviewStep name when issues are addressed."""
+        from rouge.core.workflow.artifacts import CodeReviewArtifact
+        from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
-        clean_step = _CleanOnIterationStep(clean_on=1)
-        pipeline = [_FakeStep("generate"), clean_step, _FakeStep("quality")]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
+        # Create a mock context with review data
+        mock_artifact_store = MagicMock()
+        context = WorkflowContext(
+            issue_id=123,
+            adw_id="test-adw-001",
+            artifact_store=mock_artifact_store,
+        )
 
-        success, wid = execute_code_review_loop(workflow_id="cr-clean-001")
+        # Set review data in context (not clean, has issues)
+        from rouge.core.workflow.artifacts import ReviewData
 
-        assert success is True
-        assert wid == "cr-clean-001"
-        assert clean_step.call_count == 1
+        context.data["review_data"] = ReviewData(
+            review_text="Some review feedback with issues",
+            is_clean=False,
+        )
 
-    def test_loop_exits_after_max_iterations(self, monkeypatch, tmp_path):
-        """Loop should fail when max iterations exhausted without clean review."""
-        from rouge.adw.adw import execute_code_review_loop
+        # Mock the address review issues method to succeed
+        review_fix_step = ReviewFixStep()
+        with patch.object(
+            review_fix_step,
+            "_address_review_issues",
+            return_value=StepResult.ok(None, parsed_data={"issues": [], "summary": "Fixed"}),
+        ):
+            result = review_fix_step.run(context)
 
-        pipeline = [
-            _FakeStep("generate"),
-            _FakeStep("address"),
-            _FakeStep("quality"),
+        # Should succeed and request rerun from CodeReviewStep
+        assert result.success is True
+        assert result.rerun_from == CODE_REVIEW_STEP_NAME
+
+    def test_review_fix_step_does_not_rerun_when_clean(self):
+        """ReviewFixStep should not request rerun when review is clean."""
+        # Create a mock context with clean review
+        mock_artifact_store = MagicMock()
+        context = WorkflowContext(
+            issue_id=123,
+            adw_id="test-adw-002",
+            artifact_store=mock_artifact_store,
+        )
+
+        # Set review_is_clean flag
+        context.data["review_is_clean"] = True
+
+        review_fix_step = ReviewFixStep()
+        result = review_fix_step.run(context)
+
+        # Should succeed without requesting rerun
+        assert result.success is True
+        assert result.rerun_from is None
+
+    def test_review_fix_step_does_not_rerun_after_max_iterations(self):
+        """ReviewFixStep should not request rerun after reaching max iterations."""
+        from rouge.core.workflow.artifacts import ReviewData
+
+        # Create a mock context with review data
+        mock_artifact_store = MagicMock()
+        context = WorkflowContext(
+            issue_id=123,
+            adw_id="test-adw-003",
+            artifact_store=mock_artifact_store,
+        )
+
+        # Set review data and iteration count at max
+        context.data["review_data"] = ReviewData(
+            review_text="Some review feedback",
+            is_clean=False,
+        )
+        context.data["review_fix_rerun_count"] = 4  # Will be incremented to 5 (max)
+
+        # Mock the address review issues method to succeed
+        review_fix_step = ReviewFixStep()
+        with patch.object(
+            review_fix_step,
+            "_address_review_issues",
+            return_value=StepResult.ok(None, parsed_data={"issues": [], "summary": "Fixed"}),
+        ):
+            result = review_fix_step.run(context)
+
+        # Should succeed but NOT request rerun (max iterations reached)
+        assert result.success is True
+        assert result.rerun_from is None
+
+    def test_workflow_runner_rewinds_on_rerun_from(self, tmp_path):
+        """WorkflowRunner should rewind to the specified step when rerun_from is set."""
+        from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
+
+        # Create mock steps
+        mock_fetch = MagicMock(spec=WorkflowStep)
+        mock_fetch.name = "Fetch issue"
+        mock_fetch.is_critical = False
+        mock_fetch.run.return_value = StepResult.ok(None)
+
+        mock_review = MagicMock(spec=WorkflowStep)
+        mock_review.name = CODE_REVIEW_STEP_NAME
+        mock_review.is_critical = False
+        mock_review.run.return_value = StepResult.ok(None)
+
+        mock_fix = MagicMock(spec=WorkflowStep)
+        mock_fix.name = "Addressing review issues"
+        mock_fix.is_critical = False
+
+        # First call: request rerun
+        # Second call: don't request rerun (to prevent infinite loop)
+        mock_fix.run.side_effect = [
+            StepResult.ok(None, rerun_from=CODE_REVIEW_STEP_NAME),
+            StepResult.ok(None),
         ]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
 
-        success, wid = execute_code_review_loop(workflow_id="cr-exhaust-001", max_iterations=2)
+        mock_quality = MagicMock(spec=WorkflowStep)
+        mock_quality.name = "Code quality"
+        mock_quality.is_critical = False
+        mock_quality.run.return_value = StepResult.ok(None)
 
-        assert success is False
-        assert wid == "cr-exhaust-001"
-        # Each step should have been called max_iterations times
-        for step in pipeline:
-            assert step.call_count == 2
+        # Create runner with mock steps
+        pipeline = [mock_fetch, mock_review, mock_fix, mock_quality]
+        runner = WorkflowRunner(pipeline)
 
-    def test_critical_step_failure_aborts_loop(self, monkeypatch, tmp_path):
-        """A critical step failure should abort the loop immediately."""
-        from rouge.adw.adw import execute_code_review_loop
+        # Mock ArtifactStore to avoid filesystem operations
+        with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_artifact_store_class:
+            mock_store = MagicMock()
+            mock_store.workflow_dir = tmp_path / "test-workflow"
+            mock_artifact_store_class.return_value = mock_store
 
-        failing = _FakeStep("generate", critical=True, succeed=False)
-        address = _FakeStep("address")
-        quality = _FakeStep("quality")
-        pipeline = [failing, address, quality]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
+            success = runner.run(issue_id=123, adw_id="test-rerun-001")
 
-        success, wid = execute_code_review_loop(workflow_id="cr-abort-001")
-
-        assert success is False
-        assert wid == "cr-abort-001"
-        assert failing.call_count == 1
-        # Steps after the critical failure should not have been reached
-        assert address.call_count == 0
-        assert quality.call_count == 0
-
-    def test_config_base_commit_passed_through_to_context(self, monkeypatch, tmp_path):
-        """The base_commit config value should be available in context.data."""
-        from rouge.adw.adw import execute_code_review_loop
-
-        captured = {}
-
-        class _CaptureConfigStep(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "capture"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                captured["base_commit"] = context.data.get("base_commit")
-                captured["all_data"] = dict(context.data)
-                context.data["review_is_clean"] = True
-                return StepResult.ok(data=None)
-
-        pipeline = [_CaptureConfigStep()]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
-
-        success, wid = execute_code_review_loop(
-            workflow_id="cr-config-001",
-            config={"base_commit": "abc123deadbeef"},
-        )
-
+        # Should complete successfully
         assert success is True
-        assert captured["base_commit"] == "abc123deadbeef"
 
-    def test_config_none_does_not_seed_context(self, monkeypatch, tmp_path):
-        """When config is None, context.data should not contain base_commit."""
-        from rouge.adw.adw import execute_code_review_loop
-
-        captured = {}
-
-        class _CaptureStep(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "capture"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                captured["has_base_commit"] = "base_commit" in context.data
-                context.data["review_is_clean"] = True
-                return StepResult.ok(data=None)
-
-        pipeline = [_CaptureStep()]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
-
-        success, _ = execute_code_review_loop(
-            workflow_id="cr-noconfig-001",
-            config=None,
-        )
-
-        assert success is True
-        assert captured["has_base_commit"] is False
-
-    def test_best_effort_step_failure_does_not_abort(self, monkeypatch, tmp_path):
-        """A non-critical step failure should not abort the loop."""
-        from rouge.adw.adw import execute_code_review_loop
-
-        failing_quality = _FakeStep("quality", critical=False, succeed=False)
-        clean_step = _CleanOnIterationStep(clean_on=1)
-        pipeline = [_FakeStep("generate"), clean_step, failing_quality]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
-
-        success, wid = execute_code_review_loop(workflow_id="cr-besteffort-001")
-
-        assert success is True
-        assert wid == "cr-besteffort-001"
-        # The failing step was called but loop still succeeded
-        assert failing_quality.call_count == 1
-
-    def test_context_issue_id_is_none(self, monkeypatch, tmp_path):
-        """Codereview loop should create a context with issue_id=None."""
-        from rouge.adw.adw import execute_code_review_loop
-
-        captured = {}
-
-        class _CaptureIssueStep(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "check-issue"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                captured["issue_id"] = context.issue_id
-                context.data["review_is_clean"] = True
-                return StepResult.ok(data=None)
-
-        pipeline = [_CaptureIssueStep()]
-        _patch_loop_deps(monkeypatch, tmp_path, pipeline)
-
-        success, _ = execute_code_review_loop(workflow_id="cr-noissue-001")
-
-        assert success is True
-        assert captured["issue_id"] is None
+        # Verify execution order:
+        # 1. Fetch runs once
+        # 2. Review runs twice (initial + rerun)
+        # 3. Fix runs twice (first time requests rerun, second time succeeds)
+        # 4. Quality runs once (after second fix)
+        assert mock_fetch.run.call_count == 1
+        assert mock_review.run.call_count == 2
+        assert mock_fix.run.call_count == 2
+        assert mock_quality.run.call_count == 1

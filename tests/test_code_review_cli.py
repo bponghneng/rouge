@@ -74,72 +74,64 @@ class TestCodeReviewCommand:
     """Tests for the 'rouge codereview' CLI command."""
 
     @patch("rouge.cli.cli.execute_adw_workflow")
-    @patch("rouge.cli.cli.resolve_to_sha")
-    def test_successful_execution(self, mock_resolve, mock_execute):
+    def test_successful_execution(self, mock_execute):
         """Successful codereview invocation should exit 0 and call execute_adw_workflow."""
-        mock_resolve.return_value = "deadbeef1234"
         mock_execute.return_value = (True, "cr-workflow-001")
 
-        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "123"])
 
         assert result.exit_code == 0
-        assert "deadbeef1234" in result.output
-        mock_resolve.assert_called_once_with("main")
         mock_execute.assert_called_once_with(
-            adw_id=ANY,
+            123,
+            ANY,
             workflow_type="codereview",
-            config={"base_commit": "deadbeef1234"},
         )
 
     @patch("rouge.cli.cli.execute_adw_workflow")
-    @patch("rouge.cli.cli.resolve_to_sha")
-    def test_workflow_failure_exits_nonzero(self, mock_resolve, mock_execute):
+    def test_workflow_failure_exits_nonzero(self, mock_execute):
         """When execute_adw_workflow returns success=False, the CLI should exit 1."""
-        mock_resolve.return_value = "deadbeef1234"
         mock_execute.return_value = (False, "cr-workflow-002")
 
-        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "456"])
 
         assert result.exit_code == 1
 
-    @patch("rouge.cli.cli.resolve_to_sha")
-    def test_invalid_git_reference_error(self, mock_resolve):
-        """When resolve_to_sha raises typer.Exit, the CLI should propagate the error."""
-        mock_resolve.side_effect = typer.Exit(1)
+    @patch("rouge.cli.cli.execute_adw_workflow")
+    def test_invalid_issue_id_error(self, mock_execute):
+        """When execute_adw_workflow raises an exception, the CLI should exit 1."""
+        mock_execute.side_effect = ValueError("Invalid issue ID")
 
-        result = runner.invoke(app, ["codereview", "--base-commit", "bad-ref"])
+        result = runner.invoke(app, ["codereview", "999"])
 
         assert result.exit_code == 1
 
-    def test_base_commit_is_required(self):
-        """The --base-commit option is required; omitting it should exit non-zero."""
+    def test_issue_id_is_required(self):
+        """The issue_id argument is required; omitting it should exit non-zero."""
         result = runner.invoke(app, ["codereview"])
 
         assert result.exit_code != 0
-        # Typer should show a missing option error
-        assert "base-commit" in result.output.lower() or "missing" in result.output.lower()
+        # Typer should show a missing argument error
+        assert "missing" in result.output.lower() or "required" in result.output.lower()
 
     @patch("rouge.cli.cli.execute_adw_workflow")
-    @patch("rouge.cli.cli.resolve_to_sha")
-    def test_unexpected_exception_exits_nonzero(self, mock_resolve, mock_execute):
+    def test_unexpected_exception_exits_nonzero(self, mock_execute):
         """An unexpected exception during workflow execution should exit 1."""
-        mock_resolve.return_value = "abc123"
         mock_execute.side_effect = RuntimeError("unexpected failure")
 
-        result = runner.invoke(app, ["codereview", "--base-commit", "main"])
+        result = runner.invoke(app, ["codereview", "789"])
 
         assert result.exit_code == 1
 
     @patch("rouge.cli.cli.execute_adw_workflow")
-    @patch("rouge.cli.cli.resolve_to_sha")
-    def test_base_commit_sha_passed_through(self, mock_resolve, mock_execute):
-        """The resolved SHA (not the original ref) should be passed as base_commit."""
-        mock_resolve.return_value = "full-sha-from-rev-parse"
+    def test_issue_id_passed_through(self, mock_execute):
+        """The issue_id argument should be passed to execute_adw_workflow."""
         mock_execute.return_value = (True, "cr-003")
 
-        result = runner.invoke(app, ["codereview", "--base-commit", "v1.0.0"])
+        result = runner.invoke(app, ["codereview", "555"])
 
         assert result.exit_code == 0
-        mock_resolve.assert_called_once_with("v1.0.0")
-        call_kwargs = mock_execute.call_args
-        assert call_kwargs[1]["config"]["base_commit"] == "full-sha-from-rev-parse"
+        # Verify issue_id is passed as first positional argument
+        call_args = mock_execute.call_args
+        assert call_args[0][0] == 555
+        # Verify workflow_type is passed as keyword argument
+        assert call_args[1]["workflow_type"] == "codereview"
