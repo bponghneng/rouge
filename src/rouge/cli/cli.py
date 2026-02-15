@@ -347,6 +347,12 @@ def truncate_string(s: Optional[str], max_length: int) -> str:
     if s is None:
         return "(none)"
 
+    # Handle edge cases for max_length
+    if max_length <= 0:
+        return ""
+    if 1 <= max_length <= 3:
+        return "..."[:max_length]
+
     if len(s) <= max_length:
         return s
 
@@ -439,7 +445,7 @@ def update(
 
     Examples:
         rouge update 123 --title "New Title"
-        rouge update 123 --assigned-to worker1 --type main
+        rouge update 123 --assigned-to tydirium-1 --type main
         rouge update 123 --description "Updated description"
         rouge update 123 --title "Title" --description "Description"
     """
@@ -495,9 +501,7 @@ def delete(
     try:
         # Prompt for confirmation unless --force is used
         if not force:
-            confirmation = typer.prompt(f"Delete issue {issue_id}? [y/N]")
-            if confirmation.lower() not in ["y", "yes"]:
-                typer.echo("Deletion cancelled.")
+            if not typer.confirm(f"Delete issue {issue_id}?"):
                 raise typer.Exit(0)
 
         # Delete the issue
