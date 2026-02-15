@@ -153,31 +153,27 @@ class CodeReviewStep(WorkflowStep):
         """Generate review and store result in context.
 
         Args:
-            context: Workflow context with optional plan artifact
+            context: Workflow context with plan artifact
 
         Returns:
             StepResult with success status and optional error message
         """
-        # For issue-based workflows, we expect plan data for context
-        # For standalone codereview workflows (issue_id=None), plan is not required
-        if context.issue_id is not None:
-            plan_data = context.load_artifact_if_missing(
-                "plan_data",
-                "plan",
-                PlanArtifact,
-                lambda a: a.plan_data,
-            )
+        # Load plan data from PlanArtifact (codereview now always has an issue)
+        plan_data = context.load_artifact_if_missing(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: a.plan_data,
+        )
 
-            if plan_data is None:
-                logger.warning("No plan data available for issue-based workflow")
-                return StepResult.fail("No plan data available for issue-based workflow")
-        else:
-            # Standalone codereview workflow - no plan needed
-            logger.debug("Codereview workflow without issue - proceeding without plan data")
+        if plan_data is None:
+            logger.warning("No plan data available")
+            return StepResult.fail("No plan data available")
 
         repo_path = get_repo_path()
 
-        base_commit = context.data.get("base_commit")
+        # Read base_commit from plan_data.plan field (plan contains the base commit string)
+        base_commit = plan_data.plan if plan_data.plan else None
 
         review_result = self._generate_review(
             repo_path, context.issue_id, context.adw_id, base_commit=base_commit
