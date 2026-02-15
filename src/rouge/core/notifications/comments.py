@@ -30,6 +30,22 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def log_artifact_comment_status(status: str, message: str) -> None:
+    """Log the result of an artifact comment operation.
+
+    Helper that logs artifact comment operation results at the appropriate level:
+    debug for successful or skipped operations, error for failures.
+
+    Args:
+        status: Operation status ("success", "skipped", or "error").
+        message: Detailed message about the operation result.
+    """
+    if status in ("success", "skipped"):
+        logger.debug(message)
+    else:
+        logger.error(message)
+
+
 def emit_comment_from_payload(payload: CommentPayload) -> tuple[str, str]:
     """Create and insert a comment from a CommentPayload.
 
