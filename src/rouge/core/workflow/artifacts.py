@@ -196,8 +196,8 @@ class ComposeRequestArtifact(Artifact):
     """
 
     artifact_type: Literal["compose-request"] = "compose-request"
-    title: str
-    summary: str
+    title: str = Field(description="The pull request title", min_length=1)
+    summary: str = Field(description="The pull request body/summary text", min_length=1)
     commits: List[Dict[str, Any]] = Field(default_factory=list)
 
 
