@@ -1,5 +1,6 @@
 """Rouge CLI - Workflow management CLI."""
 
+import json
 import logging
 import os
 import subprocess
@@ -14,7 +15,14 @@ from rouge import __version__
 from rouge.adw.adw import execute_adw_workflow
 from rouge.cli.artifact import app as artifact_app
 from rouge.cli.step import app as step_app
-from rouge.core.database import create_issue, init_db_env
+from rouge.core.database import (
+    create_issue,
+    delete_issue,
+    fetch_all_issues,
+    fetch_issue,
+    init_db_env,
+    update_issue,
+)
 from rouge.core.utils import make_adw_id
 from rouge.core.workflow.shared import get_repo_path
 
@@ -42,6 +50,13 @@ class IssueType(str, Enum):
 
     MAIN = "main"
     PATCH = "patch"
+
+
+class OutputFormat(str, Enum):
+    """Output formats for list command."""
+
+    TABLE = "table"
+    JSON = "json"
 
 
 app = typer.Typer(
@@ -264,6 +279,232 @@ def new(
             description=issue_description, title=issue_title, issue_type=issue_type.value
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def read(
+    issue_id: int = typer.Argument(..., help="The issue ID to read"),
+) -> None:
+    """Read and display an issue.
+
+    Fetches the issue from the database and displays it in a human-readable format.
+
+    Args:
+        issue_id: The ID of the issue to read
+
+    Example:
+        rouge read 123
+    """
+    try:
+        issue = fetch_issue(issue_id)
+
+        # Format the output for human readability
+        typer.echo(f"Issue #{issue.id}")
+        typer.echo(f"Title: {issue.title or '(none)'}")
+        typer.echo(f"Type: {issue.type}")
+        typer.echo(f"Status: {issue.status}")
+        typer.echo(f"Assigned to: {issue.assigned_to or '(none)'}")
+        if issue.branch:
+            typer.echo(f"Branch: {issue.branch}")
+        if issue.adw_id:
+            typer.echo(f"ADW ID: {issue.adw_id}")
+        typer.echo("Description:")
+        typer.echo(issue.description)
+        if issue.created_at:
+            typer.echo(f"Created: {issue.created_at}")
+        if issue.updated_at:
+            typer.echo(f"Updated: {issue.updated_at}")
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+def truncate_string(s: Optional[str], max_length: int) -> str:
+    """Truncate a string to max_length characters with ellipsis.
+
+    Args:
+        s: The string to truncate (or None)
+        max_length: Maximum length including ellipsis
+
+    Returns:
+        Truncated string with "..." if needed, or "(none)" if None
+    """
+    if s is None:
+        return "(none)"
+
+    if len(s) <= max_length:
+        return s
+
+    # Reserve 3 characters for "..."
+    return s[: max_length - 3] + "..."
+
+
+@app.command("list")
+def list_issues(
+    format: OutputFormat = typer.Option(
+        OutputFormat.TABLE,
+        "--format",
+        "-f",
+        help="Output format: 'table' for human-readable, 'json' for scripting",
+        show_default=True,
+    ),
+) -> None:
+    """List all issues.
+
+    Fetches all issues from the database and displays them in the specified format.
+    Issues are ordered by creation date (newest first).
+
+    Formats:
+        - table: Human-readable table with columns: ID, Title, Type, Status, Assigned To
+        - json: Machine-readable JSON array of issue objects
+
+    Examples:
+        rouge list
+        rouge list --format table
+        rouge list --format json
+    """
+    try:
+        issues = fetch_all_issues()
+
+        if format == OutputFormat.JSON:
+            # JSON format: output array of issue objects
+            issues_data = [issue.model_dump(mode="json") for issue in issues]
+            typer.echo(json.dumps(issues_data, indent=2, default=str))
+        else:
+            # Table format: human-readable output
+            if not issues:
+                typer.echo("No issues found.")
+                return
+
+            # Print header
+            typer.echo(f"{'ID':<8} {'Title':<42} {'Type':<8} {'Status':<12} {'Assigned To':<15}")
+            typer.echo("-" * 87)
+
+            # Print each issue
+            for issue in issues:
+                truncated_title = truncate_string(issue.title, 40)
+                assigned_to = issue.assigned_to or "(none)"
+
+                # Format the row with proper spacing
+                row = (
+                    f"{issue.id:<8} {truncated_title:<42} "
+                    f"{issue.type:<8} {issue.status:<12} {assigned_to:<15}"
+                )
+                typer.echo(row)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def update(
+    issue_id: int = typer.Argument(..., help="The issue ID to update"),
+    assigned_to: Optional[str] = typer.Option(None, "--assigned-to", help="Worker ID to assign"),
+    issue_type: Optional[str] = typer.Option(None, "--type", help="Issue type: 'main' or 'patch'"),
+    title: Optional[str] = typer.Option(None, "--title", help="Issue title"),
+    description: Optional[str] = typer.Option(None, "--description", help="Issue description"),
+) -> None:
+    """Update an existing issue.
+
+    Updates one or more fields on an issue. Only provided options will be updated.
+    At least one field must be specified for update.
+
+    Args:
+        issue_id: The ID of the issue to update
+        assigned_to: Worker ID to assign the issue to
+        issue_type: Issue type ('main' or 'patch')
+        title: New title for the issue
+        description: New description for the issue
+
+    Examples:
+        rouge update 123 --title "New Title"
+        rouge update 123 --assigned-to worker1 --type main
+        rouge update 123 --description "Updated description"
+        rouge update 123 --title "Title" --description "Description"
+    """
+    try:
+        # Build kwargs dict with only non-None values
+        kwargs = {}
+        if assigned_to is not None:
+            kwargs["assigned_to"] = assigned_to
+        if issue_type is not None:
+            kwargs["issue_type"] = issue_type
+        if title is not None:
+            kwargs["title"] = title
+        if description is not None:
+            kwargs["description"] = description
+
+        # Call update_issue with the constructed kwargs
+        issue = update_issue(issue_id, **kwargs)
+
+        # Output issue ID on success (for scripting compatibility)
+        typer.echo(f"{issue.id}")
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except TypeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+def delete(
+    issue_id: int = typer.Argument(..., help="The issue ID to delete"),
+    force: bool = typer.Option(False, "--force", help="Skip confirmation prompt"),
+) -> None:
+    """Delete an issue.
+
+    Deletes an issue from the database. Requires confirmation by default to prevent
+    accidental data loss. Use --force to skip the confirmation prompt.
+
+    Args:
+        issue_id: The ID of the issue to delete
+        force: If True, skip confirmation prompt
+
+    Examples:
+        rouge delete 123
+        rouge delete 123 --force
+    """
+    try:
+        # Prompt for confirmation unless --force is used
+        if not force:
+            confirmation = typer.prompt(f"Delete issue {issue_id}? [y/N]")
+            if confirmation.lower() not in ["y", "yes"]:
+                typer.echo("Deletion cancelled.")
+                raise typer.Exit(0)
+
+        # Delete the issue
+        delete_issue(issue_id)
+
+        # Output success message
+        typer.echo(f"Issue {issue_id} deleted successfully.")
 
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
