@@ -5,6 +5,7 @@ test_workflow_registry.py (generic registry mechanics) by focusing on
 codereview-specific registration, pipeline composition, and rerun_from behavior.
 """
 
+import pathlib
 from typing import Generator
 from unittest.mock import MagicMock, patch
 
@@ -42,20 +43,20 @@ def _reset_registry() -> Generator[None, None, None]:
 class TestCodeReviewRegistration:
     """Verify the codereview workflow is registered in the global registry."""
 
-    def test_codereview_is_registered(self):
+    def test_codereview_is_registered(self) -> None:
         """The default registry should contain a 'codereview' workflow type."""
         registry = get_workflow_registry()
 
         assert registry.is_registered("codereview")
 
-    def test_codereview_in_list_types(self):
+    def test_codereview_in_list_types(self) -> None:
         """'codereview' should appear in the registry's list of available types."""
         registry = get_workflow_registry()
         types = registry.list_types()
 
         assert "codereview" in types
 
-    def test_registry_pipeline_returns_workflow_steps(self):
+    def test_registry_pipeline_returns_workflow_steps(self) -> None:
         """get_pipeline via the registry should return a list of WorkflowStep instances."""
         registry = get_workflow_registry()
         pipeline = registry.get_pipeline("codereview")
@@ -73,13 +74,13 @@ class TestCodeReviewRegistration:
 class TestCodeReviewPipeline:
     """Verify the codereview pipeline contains the correct steps in order."""
 
-    def test_pipeline_contains_six_steps(self):
+    def test_pipeline_contains_six_steps(self) -> None:
         """The codereview pipeline should contain exactly 6 steps."""
         pipeline = get_code_review_pipeline()
 
         assert len(pipeline) == 6
 
-    def test_pipeline_step_order(self):
+    def test_pipeline_step_order(self) -> None:
         """Steps should be: FetchIssueStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
         pipeline = get_code_review_pipeline()
 
@@ -97,7 +98,7 @@ class TestCodeReviewPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-    def test_pipeline_step_names(self):
+    def test_pipeline_step_names(self) -> None:
         """Each step should expose the expected human-readable name."""
         pipeline = get_code_review_pipeline()
 
@@ -106,7 +107,7 @@ class TestCodeReviewPipeline:
             assert isinstance(step.name, str), f"Step {i} name should be a string"
             assert len(step.name) > 0, f"Step {i} name should not be empty"
 
-    def test_critical_vs_best_effort_steps(self):
+    def test_critical_vs_best_effort_steps(self) -> None:
         """Verify which steps are critical vs best-effort in the pipeline.
 
         FetchIssueStep and ReviewPlanStep are critical (must succeed).
@@ -124,7 +125,7 @@ class TestCodeReviewPipeline:
                 not step.is_critical
             ), f"Step '{step.name}' should be best-effort (is_critical=False)"
 
-    def test_pipeline_includes_fetch_issue_step(self):
+    def test_pipeline_includes_fetch_issue_step(self) -> None:
         """Codereview pipeline should include FetchIssueStep as it is now issue-based."""
         pipeline = get_code_review_pipeline()
 
@@ -132,7 +133,7 @@ class TestCodeReviewPipeline:
             pipeline[0], FetchIssueStep
         ), "Codereview pipeline should start with FetchIssueStep"
 
-    def test_pipeline_does_not_include_implementation_steps(self):
+    def test_pipeline_does_not_include_implementation_steps(self) -> None:
         """Codereview pipeline should not contain planning or implementation steps."""
         from rouge.core.workflow.steps import (
             PlanStep,
@@ -168,7 +169,7 @@ class TestCodeReviewPipeline:
 class TestGetPipelineForTypeCodeReview:
     """Verify get_pipeline_for_type resolves 'codereview' correctly."""
 
-    def test_returns_codereview_pipeline(self):
+    def test_returns_codereview_pipeline(self) -> None:
         """get_pipeline_for_type('codereview') should resolve via registry."""
         pipeline = get_pipeline_for_type("codereview")
 
@@ -176,7 +177,7 @@ class TestGetPipelineForTypeCodeReview:
         assert len(pipeline) == 6
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_pipeline_matches_direct_call(self):
+    def test_pipeline_matches_direct_call(self) -> None:
         """Pipeline from get_pipeline_for_type should match get_code_review_pipeline."""
         from_helper = get_pipeline_for_type("codereview")
         from_direct = get_code_review_pipeline()
@@ -198,7 +199,7 @@ class TestCodeReviewRerunBehavior:
     and that the WorkflowRunner correctly rewinds to that step.
     """
 
-    def test_review_fix_step_returns_rerun_from_code_review(self):
+    def test_review_fix_step_returns_rerun_from_code_review(self) -> None:
         """ReviewFixStep should return rerun_from set to CodeReviewStep name when issues are addressed."""
         from rouge.core.workflow.artifacts import CodeReviewArtifact
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
@@ -232,7 +233,7 @@ class TestCodeReviewRerunBehavior:
         assert result.success is True
         assert result.rerun_from == CODE_REVIEW_STEP_NAME
 
-    def test_review_fix_step_does_not_rerun_when_clean(self):
+    def test_review_fix_step_does_not_rerun_when_clean(self) -> None:
         """ReviewFixStep should not request rerun when review is clean."""
         # Create a mock context with clean review
         mock_artifact_store = MagicMock()
@@ -252,7 +253,7 @@ class TestCodeReviewRerunBehavior:
         assert result.success is True
         assert result.rerun_from is None
 
-    def test_review_fix_step_does_not_rerun_after_max_iterations(self):
+    def test_review_fix_step_does_not_rerun_after_max_iterations(self) -> None:
         """ReviewFixStep should not request rerun after reaching max iterations."""
         from rouge.core.workflow.artifacts import ReviewData
 
@@ -284,7 +285,7 @@ class TestCodeReviewRerunBehavior:
         assert result.success is True
         assert result.rerun_from is None
 
-    def test_workflow_runner_rewinds_on_rerun_from(self, tmp_path):
+    def test_workflow_runner_rewinds_on_rerun_from(self, tmp_path: pathlib.Path) -> None:
         """WorkflowRunner should rewind to the specified step when rerun_from is set."""
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
