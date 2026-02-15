@@ -7,7 +7,11 @@ import shutil
 import subprocess
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import emit_artifact_comment, emit_comment_from_payload
+from rouge.core.notifications.comments import (
+    emit_artifact_comment,
+    emit_comment_from_payload,
+    log_artifact_comment_status,
+)
 from rouge.core.workflow.artifacts import ComposeRequestArtifact, GhPullRequestArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -206,12 +210,7 @@ class GhPullRequestStep(WorkflowStep):
                         status, msg = emit_artifact_comment(
                             context.issue_id, context.adw_id, artifact
                         )
-                        if status == "success":
-                            logger.debug(msg)
-                        elif status == "skipped":
-                            logger.debug(msg)
-                        else:
-                            logger.error(msg)
+                        log_artifact_comment_status(status, msg)
 
                     payload = CommentPayload(
                         issue_id=context.require_issue_id,

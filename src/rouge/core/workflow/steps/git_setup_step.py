@@ -17,7 +17,7 @@ import os
 import subprocess
 
 from rouge.core.database import update_issue
-from rouge.core.notifications.comments import emit_artifact_comment
+from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
 from rouge.core.workflow.artifacts import GitSetupArtifact
 from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -171,12 +171,7 @@ class GitSetupStep(WorkflowStep):
                 logger.debug("Saved git_setup artifact for workflow %s", context.adw_id)
 
                 status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                if status == "success":
-                    logger.debug(msg)
-                elif status == "skipped":
-                    logger.debug(msg)
-                else:
-                    logger.error(msg)
+                log_artifact_comment_status(status, msg)
 
             logger.info("Git environment setup complete: branch=%s", branch_name)
             return StepResult.ok(None)
