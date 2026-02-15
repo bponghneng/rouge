@@ -91,11 +91,11 @@ def test_execute_adw_workflow_codereview_type(monkeypatch):
         123, adw_id="codereview-workflow-id", workflow_type="codereview"
     )
 
-    assert success is True
-    assert workflow_id == "codereview-workflow-id"
-    assert registry_calls["workflow_type"] == "codereview"
-    assert calls["args"] == (123, "codereview-workflow-id")
-    assert calls["pipeline"] == "codereview-pipeline"
+    assert success is True, "expected success to be True"
+    assert workflow_id == "codereview-workflow-id", "unexpected workflow_id"
+    assert registry_calls["workflow_type"] == "codereview", "registry workflow_type mismatch"
+    assert calls["args"] == (123, "codereview-workflow-id"), "pipeline call args mismatch"
+    assert calls["pipeline"] == "codereview-pipeline", "pipeline name mismatch"
 
 
 def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
