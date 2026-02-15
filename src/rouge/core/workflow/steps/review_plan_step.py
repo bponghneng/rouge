@@ -78,7 +78,7 @@ class ReviewPlanStep(WorkflowStep):
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
             slash_command="/adw-review-plan",
-            args=[issue.description],
+            args=[desc],
             adw_id=adw_id,
             issue_id=issue.id,
             model="sonnet",
@@ -163,11 +163,7 @@ class ReviewPlanStep(WorkflowStep):
         context.data["base_commit"] = derive_response.data.plan
 
         # Save artifact if artifact store is available
-        if (
-            context.artifacts_enabled
-            and context.artifact_store is not None
-            and derive_response.data is not None
-        ):
+        if context.artifacts_enabled and context.artifact_store is not None:
             artifact = PlanArtifact(
                 workflow_id=context.adw_id,
                 plan_data=derive_response.data,
