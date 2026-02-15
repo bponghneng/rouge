@@ -253,8 +253,16 @@ class ComposeCommitsArtifact(Artifact):
     """
 
     artifact_type: Literal["compose-commits"] = "compose-commits"
-    summary: str
-    commits: List[Dict[str, Any]] = Field(default_factory=list)
+    summary: str = Field(
+        description="A summary of the commits being composed",
+        min_length=1,
+        examples=["Add user authentication", "Fix validation bug"],
+    )
+    commits: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of commit information dictionaries with metadata",
+        examples=[[{"message": "feat: add login", "sha": "abc123"}]],
+    )
 
 
 class GlabPullRequestArtifact(Artifact):
