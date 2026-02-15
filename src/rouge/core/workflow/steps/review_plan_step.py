@@ -70,6 +70,11 @@ class ReviewPlanStep(WorkflowStep):
             StepResult with PlanData containing base_commit as plan field
             and rationale as summary field
         """
+        # Validate issue description is present
+        desc = (issue.description or "").strip()
+        if not desc:
+            raise ValueError("Issue description is required for review plan generation")
+
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
             slash_command="/adw-review-plan",
@@ -106,7 +111,10 @@ class ReviewPlanStep(WorkflowStep):
             return StepResult.fail("Invalid output field in review plan response")
 
         # Extract base_commit and summary
-        base_commit = parsed_data.get("base_commit", "")
+        # Validate base_commit is present and non-empty
+        if "base_commit" not in parsed_data or not parsed_data["base_commit"].strip():
+            return StepResult.fail("base_commit is required in review plan response")
+        base_commit = parsed_data["base_commit"].strip()
         summary = parsed_data.get("summary", "")
 
         # Store base_commit as the plan field and summary as rationale

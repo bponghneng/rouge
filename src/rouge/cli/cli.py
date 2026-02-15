@@ -629,7 +629,7 @@ def resolve_to_sha(ref: str) -> str:
 def codereview(
     issue_id: int = typer.Argument(..., help="The issue ID to process"),
     adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
-):
+) -> None:
     """Execute the code review workflow for an issue.
 
     The base commit is derived from the issue description by the workflow.
@@ -642,14 +642,24 @@ def codereview(
         rouge codereview 123
         rouge codereview 123 --adw-id abc12345
     """
-    # Generate ADW ID if not provided
-    if not adw_id:
-        adw_id = make_adw_id()
+    try:
+        # Generate ADW ID if not provided
+        if not adw_id:
+            adw_id = make_adw_id()
 
-    # Execute workflow
-    success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
+        # Execute workflow
+        success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
 
-    if not success:
+        if not success:
+            raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
 
