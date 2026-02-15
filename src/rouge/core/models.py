@@ -171,7 +171,7 @@ class Comment(BaseModel):
 
 
 # Source types for comment payloads
-CommentSource = Literal["system", "agent"]
+CommentSource = Literal["system", "agent", "artifact"]
 
 
 class CommentPayload(BaseModel):
