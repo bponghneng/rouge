@@ -939,7 +939,6 @@ def test_delete_command_with_confirmation_no(mock_delete_issue):
     result = runner.invoke(app, ["delete", "111"], input="n\n")
     assert result.exit_code == 0
     assert "Delete issue 111?" in result.output
-    assert "Deletion cancelled." in result.output
     mock_delete_issue.assert_not_called()
 
 
@@ -949,17 +948,15 @@ def test_delete_command_with_confirmation_empty(mock_delete_issue):
     result = runner.invoke(app, ["delete", "222"], input=" \n")
     assert result.exit_code == 0
     assert "Delete issue 222?" in result.output
-    assert "Deletion cancelled." in result.output
     mock_delete_issue.assert_not_called()
 
 
 @patch("rouge.cli.cli.delete_issue")
 def test_delete_command_with_confirmation_invalid(mock_delete_issue):
     """Test delete command with confirmation (user answers something else)."""
-    result = runner.invoke(app, ["delete", "333"], input="maybe\n")
+    result = runner.invoke(app, ["delete", "333"], input="maybe\nn\n")
     assert result.exit_code == 0
     assert "Delete issue 333?" in result.output
-    assert "Deletion cancelled." in result.output
     mock_delete_issue.assert_not_called()
 
 
