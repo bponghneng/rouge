@@ -1,7 +1,7 @@
 """Tests for CodeReviewStep workflow step."""
 
 import subprocess
-from unittest.mock import Mock, patch
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
@@ -193,20 +193,124 @@ class TestCodeReviewStepRun:
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
-    def test_run_standalone_workflow_without_issue_id(
+    def test_run_uses_base_commit_for_codereview_workflow(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ):
+        """Test codereview workflow passes base_commit from context to CodeRabbit."""
+        mock_context.data = {
+            "plan_data": sample_plan_data,
+            "workflow_type": "codereview",
+            "base_commit": "abc1234",
+        }
+
+        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+            return mock_context.data.get(context_key)
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock__generate_review.assert_called_once_with(
+            ANY,
+            mock_context.issue_id,
+            mock_context.adw_id,
+            base_commit="abc1234",
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_falls_back_to_plan_data_for_codereview_workflow(
         self,
         mock__generate_review,
         mock_emit_comment,
         mock_context,
         sample_review_data,
     ):
+        """Test codereview workflow falls back to plan_data.plan when base_commit is missing."""
+        plan_data = PlanData(plan="def5678", summary="Derived base commit", session_id="session-123")
+        mock_context.data = {
+            "plan_data": plan_data,
+            "workflow_type": "codereview",
+        }
+
+        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+            return mock_context.data.get(context_key)
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock__generate_review.assert_called_once_with(
+            ANY,
+            mock_context.issue_id,
+            mock_context.adw_id,
+            base_commit="def5678",
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_does_not_use_plan_as_base_commit_for_non_codereview_workflow(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ):
+        """Test patch/main workflows never use plan markdown as CodeRabbit base_commit."""
+        mock_context.data = {
+            "plan_data": sample_plan_data,
+            "workflow_type": "patch",
+        }
+
+        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+            return mock_context.data.get(context_key)
+
+        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock__generate_review.assert_called_once_with(
+            ANY,
+            mock_context.issue_id,
+            mock_context.adw_id,
+            base_commit=None,
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_standalone_workflow_without_issue_id(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ):
         """Test that standalone codereview workflow works without issue_id."""
         # Standalone workflow: no issue_id
         mock_context.issue_id = None
-        mock_context.data = {}
+        mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            return None
+        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+            return mock_context.data.get(context_key)
 
         mock_context.load_artifact_if_missing = load_artifact_if_missing
 
