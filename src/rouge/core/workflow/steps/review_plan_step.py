@@ -159,7 +159,8 @@ class ReviewPlanStep(WorkflowStep):
         # Store plan data in context (plan field contains base_commit)
         context.data["plan_data"] = derive_response.data
 
-        # Also store base_commit directly in context for convenience
+        # Also store codereview metadata directly in context for downstream steps.
+        context.data["workflow_type"] = "codereview"
         context.data["base_commit"] = derive_response.data.plan
 
         # Save artifact if artifact store is available

@@ -172,8 +172,13 @@ class CodeReviewStep(WorkflowStep):
 
         repo_path = get_repo_path()
 
-        # Read base_commit from plan_data.plan field (plan contains the base commit string)
-        base_commit = plan_data.plan if plan_data.plan else None
+        # Only codereview workflows should pass a base commit to CodeRabbit.
+        # Main/patch workflows use plan_data.plan for markdown content, not a git SHA.
+        base_commit = None
+        if context.data.get("workflow_type") == "codereview":
+            base_commit = context.data.get("base_commit")
+            if not base_commit and plan_data.plan:
+                base_commit = plan_data.plan
 
         review_result = self._generate_review(
             repo_path, context.issue_id, context.adw_id, base_commit=base_commit
