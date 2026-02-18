@@ -118,6 +118,7 @@ def validate_new_args(
     description: Optional[str],
     spec_file: Optional[Path],
     title: Optional[str],
+    branch: Optional[str] = None,
 ) -> None:
     """Validate arguments for the new command.
 
@@ -128,10 +129,19 @@ def validate_new_args(
         description: The issue description text (or None)
         spec_file: Path to file containing issue description (or None)
         title: Explicit title for the issue (or None)
+        branch: Pre-set branch name for the issue (or None)
 
     Raises:
         typer.Exit: If validation fails
     """
+    # Validation: branch cannot be whitespace only
+    if branch is not None and branch.strip() == "":
+        typer.echo(
+            "Error: Branch name cannot be whitespace only",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     # Validation: description and spec-file are mutually exclusive
     if description and spec_file:
         typer.echo(
@@ -257,7 +267,7 @@ def new(
         show_default=True,
     ),
     branch: Optional[str] = typer.Option(
-        None, "--branch", "-b", help="Pre-set branch name for the issue."
+        None, "--branch", "-b", help="Pre-set branch name for the issue.", show_default=True
     ),
 ) -> None:
     """Create a new issue.
@@ -274,15 +284,17 @@ def new(
         rouge new --spec-file feature-spec.txt --title "New feature"
         rouge new --spec-file patch-spec.txt --title "Bug fix" --type patch
     """
-    validate_new_args(description, spec_file, title)
+    validate_new_args(description, spec_file, title, branch)
     issue_title, issue_description = prepare_issue(description, spec_file, title)
+
+    normalized_branch = branch.strip() if branch is not None else None
 
     try:
         issue = create_issue(
             description=issue_description,
             title=issue_title,
             issue_type=issue_type.value,
-            branch=branch,
+            branch=normalized_branch,
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 

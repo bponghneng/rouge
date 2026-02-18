@@ -332,6 +332,9 @@ def create_issue(
         if title:
             data["title"] = title
         if branch is not None:
+            branch = branch.strip()
+            if not branch:
+                raise ValueError("Branch cannot be empty")
             data["branch"] = branch
 
         response = client.table("issues").insert(data).execute()

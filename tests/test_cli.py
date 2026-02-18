@@ -289,6 +289,40 @@ def test_new_command_short_spec_file_flag(mock_create_issue, tmp_path):
     )
 
 
+@patch("rouge.cli.cli.create_issue")
+def test_new_command_branch_long_flag(mock_create_issue):
+    """Test new command with --branch long flag."""
+    mock_issue = Issue(id=321, description="Some description", status="pending")
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["new", "Some description", "--branch", "feature/new-flag"])
+    assert result.exit_code == 0
+    assert "321" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Some description",
+        title="Some description",
+        issue_type="main",
+        branch="feature/new-flag",
+    )
+
+
+@patch("rouge.cli.cli.create_issue")
+def test_new_command_branch_short_flag(mock_create_issue):
+    """Test new command with -b short flag for branch."""
+    mock_issue = Issue(id=321, description="Some description", status="pending")
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["new", "Some description", "-b", "feature/short-flag"])
+    assert result.exit_code == 0
+    assert "321" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Some description",
+        title="Some description",
+        issue_type="main",
+        branch="feature/short-flag",
+    )
+
+
 # Tests for run command
 
 
