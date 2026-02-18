@@ -256,6 +256,9 @@ def new(
         help="Issue type: 'main' for primary issues, 'patch' for patch issues",
         show_default=True,
     ),
+    branch: Optional[str] = typer.Option(
+        None, "--branch", "-b", help="Pre-set branch name for the issue."
+    ),
 ) -> None:
     """Create a new issue.
 
@@ -276,7 +279,10 @@ def new(
 
     try:
         issue = create_issue(
-            description=issue_description, title=issue_title, issue_type=issue_type.value
+            description=issue_description,
+            title=issue_title,
+            issue_type=issue_type.value,
+            branch=branch,
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
