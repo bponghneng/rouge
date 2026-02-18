@@ -350,11 +350,11 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
     from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
-    # 0. GitBranchStep: no dependencies, produces git-branch artifact
+    # 0. GitBranchStep: requires fetch-issue, produces git-branch artifact
     registry.register(
         GitBranchStep,
         slug="git-branch",
-        dependencies=[],
+        dependencies=["fetch-issue"],
         outputs=["git-branch"],
         description="Set up git environment for workflow execution",
     )
