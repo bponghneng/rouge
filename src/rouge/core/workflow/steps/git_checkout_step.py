@@ -90,7 +90,7 @@ class GitCheckoutStep(WorkflowStep):
 
             # Step 2: Pull with rebase to bring branch up to date
             pull_result = subprocess.run(
-                ["git", "pull", "--rebase"],
+                ["git", "pull", "--rebase", "origin", branch],
                 capture_output=True,
                 text=True,
                 timeout=GIT_TIMEOUT,
