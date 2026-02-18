@@ -11,9 +11,9 @@ from rouge.core.database import (
     create_issue,
     delete_issue,
     fetch_all_issues,
-    fetch_comments,
     fetch_issue,
     get_client,
+    list_comments,
     update_issue,
 )
 from rouge.core.models import Comment
@@ -264,31 +264,166 @@ def test_create_comment_with_adw_id(mock_get_client):
 
 
 @patch("rouge.core.database.get_client")
-def test_fetch_comments_success(mock_get_client):
-    """Test fetching comments for an issue."""
+def test_list_comments_default(mock_get_client):
+    """Test list_comments with default parameters (no filters)."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_execute.data = [
+        {"id": 1, "issue_id": 1, "comment": "Comment 1"},
+        {"id": 2, "issue_id": 2, "comment": "Comment 2"},
+    ]
+    mock_offset.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comments = list_comments()
+    assert len(comments) == 2
+    assert comments[0].comment == "Comment 1"
+    assert comments[1].comment == "Comment 2"
+    # No eq() calls for filters
+    mock_select.eq.assert_not_called()
+    mock_select.order.assert_called_once_with("created_at", desc=True)
+    mock_order.limit.assert_called_once_with(10)
+    mock_limit.offset.assert_called_once_with(0)
+
+
+@patch("rouge.core.database.get_client")
+def test_list_comments_with_issue_id(mock_get_client):
+    """Test list_comments filtered by issue_id."""
     mock_client = Mock()
     mock_table = Mock()
     mock_select = Mock()
     mock_eq = Mock()
     mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
     mock_execute = Mock()
 
     mock_client.table.return_value = mock_table
     mock_table.select.return_value = mock_select
     mock_select.eq.return_value = mock_eq
     mock_eq.order.return_value = mock_order
-    mock_execute.data = [
-        {"id": 1, "issue_id": 1, "comment": "Comment 1"},
-        {"id": 2, "issue_id": 1, "comment": "Comment 2"},
-    ]
-    mock_order.execute.return_value = mock_execute
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_execute.data = [{"id": 1, "issue_id": 5, "comment": "Issue 5 comment"}]
+    mock_offset.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    comments = fetch_comments(1)
-    assert len(comments) == 2
-    assert comments[0].comment == "Comment 1"
-    assert comments[1].comment == "Comment 2"
+    comments = list_comments(issue_id=5)
+    assert len(comments) == 1
+    mock_select.eq.assert_called_once_with("issue_id", 5)
 
+
+@patch("rouge.core.database.get_client")
+def test_list_comments_with_source(mock_get_client):
+    """Test list_comments filtered by source."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_eq.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_execute.data = [{"id": 1, "issue_id": 1, "comment": "Agent comment", "source": "agent"}]
+    mock_offset.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comments = list_comments(source="agent")
+    assert len(comments) == 1
+    mock_select.eq.assert_called_once_with("source", "agent")
+
+
+@patch("rouge.core.database.get_client")
+def test_list_comments_with_type(mock_get_client):
+    """Test list_comments filtered by comment_type."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_eq.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_execute.data = [{"id": 1, "issue_id": 1, "comment": "Plan comment", "type": "plan"}]
+    mock_offset.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comments = list_comments(comment_type="plan")
+    assert len(comments) == 1
+    mock_select.eq.assert_called_once_with("type", "plan")
+
+
+@patch("rouge.core.database.get_client")
+def test_list_comments_empty(mock_get_client):
+    """Test list_comments returns empty list when no results."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_execute.data = []
+    mock_offset.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comments = list_comments()
+    assert comments == []
+
+
+@patch("rouge.core.database.get_client")
+def test_list_comments_api_error(mock_get_client):
+    """Test list_comments raises ValueError on APIError."""
+    from postgrest.exceptions import APIError
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_order = Mock()
+    mock_limit = Mock()
+    mock_offset = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.order.return_value = mock_order
+    mock_order.limit.return_value = mock_limit
+    mock_limit.offset.return_value = mock_offset
+    mock_offset.execute.side_effect = APIError({"message": "DB error", "code": "500"})
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="Failed to list comments"):
+        list_comments()
 
 
 
