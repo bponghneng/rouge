@@ -215,7 +215,7 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
-    from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
     from rouge.core.workflow.steps.glab_pull_request_step import (
         GlabPullRequestStep,
     )
@@ -224,8 +224,8 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
-        GitSetupStep(),
         FetchIssueStep(),
+        GitBranchStep(),
         ClassifyStep(),
         PlanStep(),
         ImplementStep(plan_step_name="Building implementation plan"),
@@ -332,12 +332,14 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
+    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
+        GitCheckoutStep(),
         PatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
         CodeReviewStep(),
