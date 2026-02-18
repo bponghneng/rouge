@@ -339,7 +339,8 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
-    from rouge.core.workflow.steps.git_setup_step import GitSetupStep
+    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
+    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
     from rouge.core.workflow.steps.glab_pull_request_step import (
         GlabPullRequestStep,
     )
@@ -349,13 +350,22 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
     from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
-    # 0. GitSetupStep: no dependencies, produces git-setup artifact
+    # 0. GitBranchStep: no dependencies, produces git-branch artifact
     registry.register(
-        GitSetupStep,
-        slug="git-setup",
+        GitBranchStep,
+        slug="git-branch",
         dependencies=[],
-        outputs=["git-setup"],
+        outputs=["git-branch"],
         description="Set up git environment for workflow execution",
+    )
+
+    # 0b. GitCheckoutStep: requires fetch-patch (branch from patch issue), produces git-checkout
+    registry.register(
+        GitCheckoutStep,
+        slug="git-checkout",
+        dependencies=["fetch-patch"],
+        outputs=["git-checkout"],
+        description="Check out existing git branch and pull latest changes",
     )
 
     # 1. FetchIssueStep: no dependencies, produces fetch-issue artifact

@@ -44,7 +44,8 @@ ArtifactType = Literal[
     "compose-request",
     "gh-pull-request",
     "fetch-patch",
-    "git-setup",
+    "git-branch",
+    "git-checkout",
     "compose-commits",
     "glab-pull-request",
 ]
@@ -236,16 +237,30 @@ class FetchPatchArtifact(Artifact):
     )
 
 
-class GitSetupArtifact(Artifact):
-    """Artifact containing git setup results.
+class GitBranchArtifact(Artifact):
+    """Artifact containing git branch setup results.
 
     Attributes:
         branch: The name of the branch created or checked out
     """
 
-    artifact_type: Literal["git-setup"] = "git-setup"
+    artifact_type: Literal["git-branch"] = "git-branch"
     branch: str = Field(
         description=("The name of the git branch created or checked out for the workflow"),
+        min_length=1,
+    )
+
+
+class GitCheckoutArtifact(Artifact):
+    """Artifact containing git checkout results.
+
+    Attributes:
+        branch: The name of the branch that was checked out
+    """
+
+    artifact_type: Literal["git-checkout"] = "git-checkout"
+    branch: str = Field(
+        description=("The name of the git branch that was checked out for the workflow"),
         min_length=1,
     )
 
@@ -297,7 +312,8 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "compose-request": ComposeRequestArtifact,
     "gh-pull-request": GhPullRequestArtifact,
     "fetch-patch": FetchPatchArtifact,
-    "git-setup": GitSetupArtifact,
+    "git-branch": GitBranchArtifact,
+    "git-checkout": GitCheckoutArtifact,
     "compose-commits": ComposeCommitsArtifact,
     "glab-pull-request": GlabPullRequestArtifact,
 }
