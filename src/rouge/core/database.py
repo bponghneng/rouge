@@ -28,6 +28,8 @@ class _Unset:
 
 UNSET = _Unset()
 
+MAX_LIMIT = 100
+
 
 def init_db_env(dotenv_path: Optional[Path] = None) -> None:
     """Initialize database environment variables.
@@ -252,6 +254,18 @@ def list_comments(
     Raises:
         ValueError: If fetch fails
     """
+    if limit < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
+    if limit > MAX_LIMIT:
+        limit = MAX_LIMIT
+    if offset < 0:
+        raise ValueError(f"offset must be >= 0, got {offset}")
+    if issue_id is not None and issue_id <= 0:
+        raise ValueError(f"issue_id must be > 0, got {issue_id}")
+    if source is not None:
+        source = source.strip() or None
+    if comment_type is not None:
+        comment_type = comment_type.strip() or None
     try:
         client = get_client()
         query = client.table("comments").select("*")

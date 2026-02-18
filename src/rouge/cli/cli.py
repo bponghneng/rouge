@@ -666,11 +666,19 @@ def codereview(
 
 @app.command("comments")
 def comments_command(
-    issue_id: Optional[int] = typer.Option(None, "--issue-id", help="Filter by issue ID"),
-    source: Optional[str] = typer.Option(None, "--source", help="Filter by source"),
-    comment_type: Optional[str] = typer.Option(None, "--type", help="Filter by comment type"),
-    limit: int = typer.Option(10, "--limit", help="Maximum number of comments to return"),
-    offset: int = typer.Option(0, "--offset", help="Number of comments to skip"),
+    issue_id: Optional[int] = typer.Option(
+        None, "--issue-id", help="Filter by issue ID", show_default=True
+    ),
+    source: Optional[str] = typer.Option(
+        None, "--source", help="Filter by source", show_default=True
+    ),
+    comment_type: Optional[str] = typer.Option(
+        None, "--type", help="Filter by comment type", show_default=True
+    ),
+    limit: int = typer.Option(
+        10, "--limit", help="Maximum number of comments to return", show_default=True
+    ),
+    offset: int = typer.Option(0, "--offset", help="Number of comments to skip", show_default=True),
 ) -> None:
     """List comments with optional filters and pagination.
 
