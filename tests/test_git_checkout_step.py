@@ -18,13 +18,13 @@ def _make_issue(branch: str | None = "feature-branch") -> Issue:
 
 
 @pytest.fixture
-def issue():
+def issue() -> Issue:
     """Return a sample issue with a branch set."""
     return _make_issue(branch="feature-branch")
 
 
 @pytest.fixture
-def context(issue):
+def context(issue: Issue) -> WorkflowContext:
     """Create a sample workflow context with issue for testing."""
     return WorkflowContext(issue_id=1, adw_id="test123", issue=issue)
 
@@ -84,7 +84,7 @@ def test_checkout_step_fails_when_branch_is_empty_string():
 @patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status")
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_success(mock_subprocess, mock_get_repo_path, mock_log_status, mock_emit_comment, context):
+def test_checkout_step_success(mock_subprocess, mock_get_repo_path, _mock_log_status, mock_emit_comment, context):
     """Happy path: both git commands succeed and GitCheckoutArtifact is written."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
