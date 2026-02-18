@@ -21,6 +21,7 @@ from rouge.core.database import (
     fetch_all_issues,
     fetch_issue,
     init_db_env,
+    list_comments,
     update_issue,
 )
 from rouge.core.utils import make_adw_id
@@ -652,6 +653,68 @@ def codereview(
 
         if not success:
             raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
+@app.command("comments")
+def comments_command(
+    issue_id: Optional[int] = typer.Option(None, "--issue-id", help="Filter by issue ID"),
+    source: Optional[str] = typer.Option(None, "--source", help="Filter by source"),
+    comment_type: Optional[str] = typer.Option(None, "--type", help="Filter by comment type"),
+    limit: int = typer.Option(10, "--limit", help="Maximum number of comments to return"),
+    offset: int = typer.Option(0, "--offset", help="Number of comments to skip"),
+) -> None:
+    """List comments with optional filters and pagination.
+
+    Fetches comments from the database ordered by creation date (newest first).
+
+    Examples:
+        rouge comments
+        rouge comments --issue-id 5
+        rouge comments --source agent --type plan --limit 5 --offset 10
+    """
+    if limit < 1:
+        typer.echo("Error: --limit must be at least 1", err=True)
+        raise typer.Exit(1)
+    if offset < 0:
+        typer.echo("Error: --offset must be at least 0", err=True)
+        raise typer.Exit(1)
+
+    try:
+        comments = list_comments(
+            issue_id=issue_id,
+            source=source,
+            comment_type=comment_type,
+            limit=limit,
+            offset=offset,
+        )
+
+        if not comments:
+            typer.echo("No comments found.")
+            return
+
+        typer.echo(
+            f"{'ID':<8} {'Issue':<8} {'Source':<12} {'Type':<12} {'Comment':<40} {'Created':<20}"
+        )
+        typer.echo("-" * 102)
+
+        for comment in comments:
+            truncated = truncate_string(comment.comment, 38)
+            created = str(comment.created_at)[:19] if comment.created_at else "(none)"
+            row = (
+                f"{comment.id or '(none)'!s:<8} {comment.issue_id!s:<8} "
+                f"{comment.source or '(none)':<12} {comment.type or '(none)':<12} "
+                f"{truncated:<40} {created:<20}"
+            )
+            typer.echo(row)
 
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)

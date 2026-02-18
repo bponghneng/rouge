@@ -1045,3 +1045,125 @@ def test_delete_command_unexpected_error(mock_delete_issue):
     assert result.exit_code == 1
     assert "Unexpected error: Unexpected failure" in result.output
     mock_delete_issue.assert_called_once_with(123)
+
+
+# Tests for comments command
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_default(mock_list_comments):
+    """Test comments command with default parameters."""
+    from rouge.core.models import Comment
+
+    mock_list_comments.return_value = [
+        Comment(id=1, issue_id=1, comment="Test comment", source="agent", type="plan"),
+    ]
+
+    result = runner.invoke(app, ["comments"])
+    assert result.exit_code == 0
+    assert "Test comment" in result.output
+    mock_list_comments.assert_called_once_with(
+        issue_id=None, source=None, comment_type=None, limit=10, offset=0
+    )
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_with_issue_id(mock_list_comments):
+    """Test comments command with --issue-id filter."""
+    from rouge.core.models import Comment
+
+    mock_list_comments.return_value = [
+        Comment(id=1, issue_id=5, comment="Issue 5 comment", source="agent", type="plan"),
+    ]
+
+    result = runner.invoke(app, ["comments", "--issue-id", "5"])
+    assert result.exit_code == 0
+    mock_list_comments.assert_called_once_with(
+        issue_id=5, source=None, comment_type=None, limit=10, offset=0
+    )
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_with_source(mock_list_comments):
+    """Test comments command with --source filter."""
+    from rouge.core.models import Comment
+
+    mock_list_comments.return_value = [
+        Comment(id=1, issue_id=1, comment="Agent comment", source="agent", type="plan"),
+    ]
+
+    result = runner.invoke(app, ["comments", "--source", "agent"])
+    assert result.exit_code == 0
+    mock_list_comments.assert_called_once_with(
+        issue_id=None, source="agent", comment_type=None, limit=10, offset=0
+    )
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_with_type(mock_list_comments):
+    """Test comments command with --type filter."""
+    from rouge.core.models import Comment
+
+    mock_list_comments.return_value = [
+        Comment(id=1, issue_id=1, comment="Plan comment", source="agent", type="plan"),
+    ]
+
+    result = runner.invoke(app, ["comments", "--type", "plan"])
+    assert result.exit_code == 0
+    mock_list_comments.assert_called_once_with(
+        issue_id=None, source=None, comment_type="plan", limit=10, offset=0
+    )
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_with_limit_offset(mock_list_comments):
+    """Test comments command with --limit and --offset."""
+    from rouge.core.models import Comment
+
+    mock_list_comments.return_value = [
+        Comment(id=1, issue_id=1, comment="Paginated comment", source="agent", type="plan"),
+    ]
+
+    result = runner.invoke(app, ["comments", "--limit", "5", "--offset", "10"])
+    assert result.exit_code == 0
+    mock_list_comments.assert_called_once_with(
+        issue_id=None, source=None, comment_type=None, limit=5, offset=10
+    )
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_invalid_limit(mock_list_comments):
+    """Test comments command with --limit 0 (invalid) exits with code 1."""
+    result = runner.invoke(app, ["comments", "--limit", "0"])
+    assert result.exit_code == 1
+    assert "--limit must be at least 1" in result.output
+    mock_list_comments.assert_not_called()
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_invalid_offset(mock_list_comments):
+    """Test comments command with --offset -1 (invalid) exits with code 1."""
+    result = runner.invoke(app, ["comments", "--offset", "-1"])
+    assert result.exit_code == 1
+    assert "--offset must be at least 0" in result.output
+    mock_list_comments.assert_not_called()
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_empty(mock_list_comments):
+    """Test comments command prints 'No comments found.' when no results."""
+    mock_list_comments.return_value = []
+
+    result = runner.invoke(app, ["comments"])
+    assert result.exit_code == 0
+    assert "No comments found." in result.output
+
+
+@patch("rouge.cli.cli.list_comments")
+def test_comments_db_error(mock_list_comments):
+    """Test comments command handles ValueError from database layer."""
+    mock_list_comments.side_effect = ValueError("Database connection failed")
+
+    result = runner.invoke(app, ["comments"])
+    assert result.exit_code == 1
+    assert "Error: Database connection failed" in result.output

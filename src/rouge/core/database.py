@@ -229,27 +229,39 @@ def create_comment(comment: Comment) -> Comment:
         raise ValueError(f"Failed to create comment: {e}") from e
 
 
-def fetch_comments(issue_id: int) -> list[Comment]:
-    """Fetch comments for an issue ordered by creation date.
+def list_comments(
+    *,
+    issue_id: Optional[int] = None,
+    source: Optional[str] = None,
+    comment_type: Optional[str] = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> list[Comment]:
+    """List comments with optional filters.
 
     Args:
-        issue_id: ID of the issue to fetch comments for
+        issue_id: Optional issue ID to filter by
+        source: Optional source to filter by
+        comment_type: Optional comment type to filter by
+        limit: Maximum number of comments to return (default 10)
+        offset: Number of comments to skip (default 0)
 
     Returns:
-        List of Comment objects
+        List of Comment objects ordered by creation date (newest first)
 
     Raises:
         ValueError: If fetch fails
     """
     try:
         client = get_client()
-        response = (
-            client.table("comments")
-            .select("*")
-            .eq("issue_id", issue_id)
-            .order("created_at")
-            .execute()
-        )
+        query = client.table("comments").select("*")
+        if issue_id is not None:
+            query = query.eq("issue_id", issue_id)
+        if source is not None:
+            query = query.eq("source", source)
+        if comment_type is not None:
+            query = query.eq("type", comment_type)
+        response = query.order("created_at", desc=True).limit(limit).offset(offset).execute()
 
         if not response.data:
             return []
@@ -266,8 +278,8 @@ def fetch_comments(issue_id: int) -> list[Comment]:
         return comments
 
     except APIError as e:
-        logger.exception("Database error fetching comments for issue %s", issue_id)
-        raise ValueError(f"Failed to fetch comments for issue {issue_id}: {e}") from e
+        logger.exception("Database error listing comments")
+        raise ValueError(f"Failed to list comments: {e}") from e
 
 
 # ============================================================================
