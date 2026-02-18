@@ -80,9 +80,11 @@ def test_checkout_step_fails_when_branch_is_empty_string():
 # === Happy Path ===
 
 
+@patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment")
+@patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status")
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_success(mock_subprocess, mock_get_repo_path, context):
+def test_checkout_step_success(mock_subprocess, mock_get_repo_path, mock_log_status, mock_emit_comment, context):
     """Happy path: both git commands succeed and GitCheckoutArtifact is written."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -97,6 +99,7 @@ def test_checkout_step_success(mock_subprocess, mock_get_repo_path, context):
     mock_pull.stderr = ""
 
     mock_subprocess.side_effect = [mock_checkout, mock_pull]
+    mock_emit_comment.return_value = ("ok", "comment posted")
 
     # Provide an artifact store so the artifact write path is exercised
     mock_store = Mock(spec=ArtifactStore)
@@ -119,7 +122,7 @@ def test_checkout_step_success(mock_subprocess, mock_get_repo_path, context):
 
     # Verify git pull --rebase call
     pull_call = mock_subprocess.call_args_list[1]
-    assert pull_call[0][0] == ["git", "pull", "--rebase"]
+    assert pull_call[0][0] == ["git", "pull", "--rebase", "origin", "feature-branch"]
     assert pull_call[1]["cwd"] == "/path/to/repo"
     assert pull_call[1]["timeout"] == GIT_TIMEOUT
 
