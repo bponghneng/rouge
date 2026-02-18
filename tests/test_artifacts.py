@@ -180,7 +180,8 @@ class TestArtifactModels:
             "compose-request",
             "gh-pull-request",
             "fetch-patch",
-            "git-setup",
+            "git-branch",
+            "git-checkout",
             "compose-commits",
             "glab-pull-request",
         }

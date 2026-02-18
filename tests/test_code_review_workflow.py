@@ -142,12 +142,12 @@ class TestCodeReviewPipeline:
             ClassifyStep,
             ImplementStep,
             ComposeRequestStep,
-            GitSetupStep,
+            GitBranchStep,
             AcceptanceStep,
         )
 
         excluded_types = (
-            GitSetupStep,
+            GitBranchStep,
             ClassifyStep,
             PlanStep,
             ImplementStep,

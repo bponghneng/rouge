@@ -17,7 +17,7 @@ from rouge.core.workflow.artifacts import (
     FetchIssueArtifact,
     FetchPatchArtifact,
     GhPullRequestArtifact,
-    GitSetupArtifact,
+    GitBranchArtifact,
     GlabPullRequestArtifact,
     ImplementArtifact,
     PlanArtifact,
@@ -240,8 +240,8 @@ class TestEmitArtifactComment:
                 "fetch-patch",
             ),
             (
-                GitSetupArtifact(workflow_id="adw-type-test", branch="feature-branch"),
-                "git-setup",
+                GitBranchArtifact(workflow_id="adw-type-test", branch="feature-branch"),
+                "git-branch",
             ),
             (
                 ComposeCommitsArtifact(
@@ -322,7 +322,7 @@ class TestEmitArtifactComment:
         """Test that artifact metadata like created_at is preserved in raw field."""
         # Create artifact with specific created_at time
 
-        artifact = GitSetupArtifact(workflow_id="adw-meta-test", branch="main")
+        artifact = GitBranchArtifact(workflow_id="adw-meta-test", branch="main")
 
         mock_create_comment.return_value = Comment(
             id=1, issue_id=1, comment="test", adw_id="adw-meta-test"
