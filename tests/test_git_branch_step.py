@@ -1,12 +1,13 @@
-"""Tests for GitSetupStep git environment setup."""
+"""Tests for GitBranchStep git environment setup."""
 
 import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
 
+from rouge.core.models import Issue
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.git_setup_step import GIT_TIMEOUT, GitSetupStep
+from rouge.core.workflow.steps.git_branch_step import GIT_TIMEOUT, GitBranchStep
 from rouge.core.workflow.types import StepResult
 
 
@@ -19,15 +20,15 @@ def context():
 # === Basic Step Properties Tests ===
 
 
-def test_setup_step_name():
-    """Test SetupStep has correct name."""
-    step = GitSetupStep()
+def test_branch_step_name():
+    """Test GitBranchStep has correct name."""
+    step = GitBranchStep()
     assert step.name == "Setting up git environment"
 
 
-def test_setup_step_is_critical():
-    """Test SetupStep is marked as critical."""
-    step = GitSetupStep()
+def test_branch_step_is_critical():
+    """Test GitBranchStep is marked as critical."""
+    step = GitBranchStep()
     assert step.is_critical is True
 
 
@@ -35,10 +36,10 @@ def test_setup_step_is_critical():
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, context):
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, context):
     """Test successful git setup with all commands succeeding."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -70,7 +71,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
         mock_create_branch_result,
     ]
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is True
@@ -95,7 +96,7 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
     assert reset_call[1]["cwd"] == "/path/to/repo"
     assert reset_call[1]["timeout"] == GIT_TIMEOUT
 
-    # Verify git checkout -b was called fourth
+    # Verify git checkout -b was called fourth (fallback branch name)
     branch_call = mock_subprocess.call_args_list[3]
     assert branch_call[0][0] == ["git", "checkout", "-b", "adw-test123"]
     assert branch_call[1]["cwd"] == "/path/to/repo"
@@ -105,10 +106,10 @@ def test_setup_step_success(mock_subprocess, mock_get_repo_path, _mock_update_br
 @patch.dict(
     "os.environ", {"DEFAULT_GIT_BRANCH": "develop", "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"}
 )
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_custom_default_branch(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_custom_default_branch(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup uses custom DEFAULT_GIT_BRANCH from environment."""
@@ -121,7 +122,7 @@ def test_setup_step_custom_default_branch(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is True
@@ -135,10 +136,10 @@ def test_setup_step_custom_default_branch(
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/develop"]
 
 
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_default_branch_fallback(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_default_branch_fallback(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context, monkeypatch
 ):
     """Test setup defaults to 'main' when DEFAULT_GIT_BRANCH is not set."""
@@ -153,7 +154,7 @@ def test_setup_step_default_branch_fallback(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is True
@@ -169,10 +170,10 @@ def test_setup_step_default_branch_fallback(
 # === Safety Check Tests ===
 
 
-def test_setup_step_destructive_ops_not_allowed_by_default(context, monkeypatch):
+def test_branch_step_destructive_ops_not_allowed_by_default(context, monkeypatch):
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is not set."""
     monkeypatch.delenv("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", raising=False)
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -180,10 +181,10 @@ def test_setup_step_destructive_ops_not_allowed_by_default(context, monkeypatch)
     assert "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true" in result.error
 
 
-def test_setup_step_destructive_ops_explicitly_disabled(context, monkeypatch):
+def test_branch_step_destructive_ops_explicitly_disabled(context, monkeypatch):
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is explicitly set to false."""
     monkeypatch.setenv("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "false")
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -191,10 +192,10 @@ def test_setup_step_destructive_ops_explicitly_disabled(context, monkeypatch):
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "True"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_destructive_ops_case_insensitive(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_destructive_ops_case_insensitive(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup accepts 'True' (capital T) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
@@ -207,7 +208,7 @@ def test_setup_step_destructive_ops_case_insensitive(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is True
@@ -215,10 +216,10 @@ def test_setup_step_destructive_ops_case_insensitive(
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "TRUE"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_destructive_ops_uppercase(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_destructive_ops_uppercase(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test setup accepts 'TRUE' (all caps) for ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS."""
@@ -231,7 +232,7 @@ def test_setup_step_destructive_ops_uppercase(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is True
@@ -242,9 +243,9 @@ def test_setup_step_destructive_ops_uppercase(
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_checkout_failure(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_checkout_failure(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles git checkout failure."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -255,7 +256,7 @@ def test_setup_step_checkout_failure(mock_subprocess, mock_get_repo_path, contex
     mock_checkout_result.stderr = "error: pathspec 'main' did not match any file(s)"
     mock_subprocess.return_value = mock_checkout_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -266,9 +267,9 @@ def test_setup_step_checkout_failure(mock_subprocess, mock_get_repo_path, contex
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles git reset failure."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -290,7 +291,7 @@ def test_setup_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
 
     mock_subprocess.side_effect = [mock_checkout_result, mock_fetch_result, mock_reset_result]
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -301,9 +302,9 @@ def test_setup_step_reset_failure(mock_subprocess, mock_get_repo_path, context):
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_branch_creation_failure(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles git checkout -b failure."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -335,7 +336,7 @@ def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path,
         mock_branch_result,
     ]
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -349,9 +350,9 @@ def test_setup_step_branch_creation_failure(mock_subprocess, mock_get_repo_path,
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_checkout_timeout(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_checkout_timeout(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles timeout on git checkout."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -359,7 +360,7 @@ def test_setup_step_checkout_timeout(mock_subprocess, mock_get_repo_path, contex
         cmd=["git", "checkout", "main"], timeout=GIT_TIMEOUT
     )
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -368,9 +369,9 @@ def test_setup_step_checkout_timeout(mock_subprocess, mock_get_repo_path, contex
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_reset_timeout(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_reset_timeout(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles timeout on git reset."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -393,7 +394,7 @@ def test_setup_step_reset_timeout(mock_subprocess, mock_get_repo_path, context):
         ),
     ]
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -401,9 +402,9 @@ def test_setup_step_reset_timeout(mock_subprocess, mock_get_repo_path, context):
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles timeout on git checkout -b."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -432,7 +433,7 @@ def test_setup_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path,
         ),
     ]
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -443,15 +444,15 @@ def test_setup_step_branch_creation_timeout(mock_subprocess, mock_get_repo_path,
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_git_not_found(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_git_not_found(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles git command not found."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = FileNotFoundError("git not found")
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -460,15 +461,15 @@ def test_setup_step_git_not_found(mock_subprocess, mock_get_repo_path, context):
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_unexpected_error(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_unexpected_error(mock_subprocess, mock_get_repo_path, context):
     """Test setup handles unexpected exceptions."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = RuntimeError("Unexpected system error")
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert result.success is False
@@ -477,15 +478,75 @@ def test_setup_step_unexpected_error(mock_subprocess, mock_get_repo_path, contex
     assert "Unexpected system error" in result.error
 
 
-# === Branch Name Formatting Tests ===
+# === Branch Name Logic Tests ===
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch):
-    """Test that branch name is correctly formatted from adw_id."""
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_uses_issue_branch_when_set(
+    mock_subprocess, mock_get_repo_path, mock_update_issue
+):
+    """Test that branch name comes from context.issue.branch when set."""
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    mock_result = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = ""
+    mock_result.stderr = ""
+    mock_subprocess.return_value = mock_result
+
+    issue = Issue(id=1, title="Test issue", description="A test issue", branch="my-feature")
+    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue)
+
+    step = GitBranchStep()
+    result = step.run(ctx)
+
+    assert result.success is True
+
+    branch_call = mock_subprocess.call_args_list[3]
+    assert branch_call[0][0] == ["git", "checkout", "-b", "my-feature"]
+
+    mock_update_issue.assert_called_once_with(1, branch="my-feature")
+
+
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
+    mock_subprocess, mock_get_repo_path, mock_update_issue
+):
+    """Test that branch name falls back to adw-<id> when context.issue.branch is None."""
+    mock_get_repo_path.return_value = "/path/to/repo"
+
+    mock_result = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = ""
+    mock_result.stderr = ""
+    mock_subprocess.return_value = mock_result
+
+    issue = Issue(id=1, title="Test issue", description="A test issue", branch=None)
+    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue)
+
+    step = GitBranchStep()
+    result = step.run(ctx)
+
+    assert result.success is True
+
+    branch_call = mock_subprocess.call_args_list[3]
+    assert branch_call[0][0] == ["git", "checkout", "-b", "adw-xyz789"]
+
+    mock_update_issue.assert_called_once_with(1, branch="adw-xyz789")
+
+
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch):
+    """Test that branch name is correctly formatted from adw_id when no issue branch."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
     # Mock all git commands succeeding
@@ -495,7 +556,7 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _moc
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    # Test with various adw_id values
+    # Test with various adw_id values (no issue set, so falls back to adw-<id>)
     test_cases = [
         ("abc123", "adw-abc123"),
         ("workflow-456", "adw-workflow-456"),
@@ -506,7 +567,7 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _moc
         mock_subprocess.reset_mock()
         context = WorkflowContext(issue_id=1, adw_id=adw_id)
 
-        step = GitSetupStep()
+        step = GitBranchStep()
         result = step.run(context)
 
         assert result.success is True
@@ -518,10 +579,10 @@ def test_setup_step_branch_name_format(mock_subprocess, mock_get_repo_path, _moc
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_subprocess_options(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_subprocess_options(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test that subprocess.run is called with correct options."""
@@ -534,7 +595,7 @@ def test_setup_step_subprocess_options(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     step.run(context)
 
     # All calls should have these common options
@@ -550,10 +611,10 @@ def test_setup_step_subprocess_options(
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.update_issue")
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_returns_step_result_ok(
+@patch("rouge.core.workflow.steps.git_branch_step.update_issue")
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_returns_step_result_ok(
     mock_subprocess, mock_get_repo_path, _mock_update_branch, context
 ):
     """Test successful execution returns StepResult.ok()."""
@@ -565,19 +626,19 @@ def test_setup_step_returns_step_result_ok(
     mock_result.stderr = ""
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert isinstance(result, StepResult)
     assert result.success is True
-    assert result.data is None  # SetupStep returns None on success
+    assert result.data is None
     assert result.error is None
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_setup_step.get_repo_path")
-@patch("rouge.core.workflow.steps.git_setup_step.subprocess.run")
-def test_setup_step_returns_step_result_fail(mock_subprocess, mock_get_repo_path, context):
+@patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
+@patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
+def test_branch_step_returns_step_result_fail(mock_subprocess, mock_get_repo_path, context):
     """Test failed execution returns StepResult.fail()."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -587,7 +648,7 @@ def test_setup_step_returns_step_result_fail(mock_subprocess, mock_get_repo_path
     mock_result.stderr = "error message"
     mock_subprocess.return_value = mock_result
 
-    step = GitSetupStep()
+    step = GitBranchStep()
     result = step.run(context)
 
     assert isinstance(result, StepResult)

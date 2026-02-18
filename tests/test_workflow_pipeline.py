@@ -15,7 +15,8 @@ from rouge.core.workflow.steps import (
     ComposeRequestStep,
     FetchIssueStep,
     FetchPatchStep,
-    GitSetupStep,
+    GitBranchStep,
+    GitCheckoutStep,
     ImplementStep,
     PlanStep,
     ReviewFixStep,
@@ -311,8 +312,8 @@ class TestGetDefaultPipeline:
 
         # Verify order and types
         expected_types = [
-            GitSetupStep,
             FetchIssueStep,
+            GitBranchStep,
             ClassifyStep,
             PlanStep,
             ImplementStep,
@@ -360,12 +361,13 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        # Check step count (should be 8)
-        assert len(pipeline) == 8
+        # Check step count (should be 9)
+        assert len(pipeline) == 9
 
         # Verify order and types
         expected_types = [
             FetchPatchStep,
+            GitCheckoutStep,
             PatchPlanStep,
             ImplementStep,
             CodeReviewStep,
@@ -380,17 +382,18 @@ class TestGetPatchPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-        assert pipeline[2].plan_step_name == "Building patch plan"
+        assert pipeline[3].plan_step_name == "Building patch plan"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch
-        assert pipeline[1].is_critical  # Build patch plan
-        assert pipeline[2].is_critical  # Implement
-        assert not pipeline[3].is_critical  # Review (best effort)
-        assert not pipeline[4].is_critical  # Address review (best effort)
-        assert not pipeline[5].is_critical  # Code quality
-        assert not pipeline[6].is_critical  # Validate patch acceptance (best effort)
-        assert not pipeline[7].is_critical  # Update PR commits (best effort)
+        assert pipeline[1].is_critical  # Git checkout
+        assert pipeline[2].is_critical  # Build patch plan
+        assert pipeline[3].is_critical  # Implement
+        assert not pipeline[4].is_critical  # Review (best effort)
+        assert not pipeline[5].is_critical  # Address review (best effort)
+        assert not pipeline[6].is_critical  # Code quality
+        assert not pipeline[7].is_critical  # Validate patch acceptance (best effort)
+        assert not pipeline[8].is_critical  # Update PR commits (best effort)
 
     def test_patch_pipeline_excludes_create_pr_steps(self, monkeypatch):
         """Verify patch pipeline never includes PR creation steps."""
@@ -419,6 +422,7 @@ class TestGetPatchPipeline:
 
         expected_types = [
             FetchPatchStep,
+            GitCheckoutStep,
             PatchPlanStep,
             ImplementStep,
             CodeReviewStep,
