@@ -28,6 +28,8 @@ class StepMetadata:
         outputs: List of artifact types produced as output
         is_critical: Whether the step is critical (workflow aborts on failure)
         description: Optional description of what the step does
+        dependency_kinds: Mapping of artifact type to dependency kind
+            (optional, ordering-only). Required dependencies don't need entries.
     """
 
     step_class: Type[WorkflowStep]
@@ -36,6 +38,7 @@ class StepMetadata:
     outputs: List[ArtifactType] = field(default_factory=list)
     is_critical: bool = True
     description: Optional[str] = None
+    dependency_kinds: Dict[ArtifactType, str] = field(default_factory=dict)
 
 
 class StepRegistry:
@@ -58,6 +61,7 @@ class StepRegistry:
         is_critical: Optional[bool] = None,
         description: Optional[str] = None,
         slug: Optional[str] = None,
+        dependency_kinds: Optional[Dict[ArtifactType, str]] = None,
     ) -> None:
         """Register a workflow step with its metadata.
 
@@ -68,6 +72,8 @@ class StepRegistry:
             is_critical: Whether the step is critical (uses step's default if not specified)
             description: Optional description of what the step does
             slug: Optional unique slug identifier (kebab-case)
+            dependency_kinds: Mapping of artifact type to dependency kind
+                (optional, ordering-only). Required dependencies don't need entries.
 
         Raises:
             ValueError: If the slug is already registered to a different step
@@ -93,6 +99,7 @@ class StepRegistry:
             outputs=outputs or [],
             is_critical=is_critical if is_critical is not None else temp_instance.is_critical,
             description=description,
+            dependency_kinds=dependency_kinds or {},
         )
 
         self._steps[step_name] = metadata
@@ -448,6 +455,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["implement"],
         outputs=["code-quality"],
         description="Run code quality checks (linting, type checking)",
+        dependency_kinds={"implement": "ordering-only"},
     )
 
     # 9. AcceptanceStep: requires plan, produces acceptance
@@ -466,6 +474,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["acceptance"],
         outputs=["compose-request"],
         description="Prepare pull request metadata and commits",
+        dependency_kinds={"acceptance": "ordering-only"},
     )
 
     # 11. GhPullRequestStep: requires compose-request, produces gh-pull-request artifact
@@ -475,6 +484,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["compose-request"],
         outputs=["gh-pull-request"],
         description="Create GitHub pull request via gh CLI",
+        dependency_kinds={"compose-request": "optional"},
     )
 
     # 12. GlabPullRequestStep: requires compose-request, produces glab-pull-request artifact
@@ -484,6 +494,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["compose-request"],
         outputs=["glab-pull-request"],
         description="Create GitLab merge request via glab CLI",
+        dependency_kinds={"compose-request": "optional"},
     )
 
     # 13. PatchPlanStep: requires fetch-patch, produces plan
