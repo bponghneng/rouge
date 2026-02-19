@@ -412,6 +412,132 @@ class TestSlugFunctionality:
         assert metadata is None
 
 
+class TestDependencyKindsValidation:
+    """Tests for dependency_kinds validation in register()."""
+
+    def test_valid_dependency_kinds_optional(self):
+        """Test registering step with valid 'optional' dependency_kinds."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            dependencies=["issue"],
+            outputs=["classification"],
+            dependency_kinds={"issue": "optional"},
+        )
+
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.dependency_kinds == {"issue": "optional"}
+
+    def test_valid_dependency_kinds_ordering_only(self):
+        """Test registering step with valid 'ordering-only' dependency_kinds."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            dependencies=["issue", "plan"],
+            outputs=["classification"],
+            dependency_kinds={"plan": "ordering-only"},
+        )
+
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.dependency_kinds == {"plan": "ordering-only"}
+
+    def test_invalid_dependency_kinds_key_not_in_dependencies(self):
+        """Test that dependency_kinds key not in dependencies raises ValueError."""
+        registry = StepRegistry()
+
+        with pytest.raises(ValueError, match="dependency_kinds key 'nonexistent'"):
+            registry.register(
+                MockStep,
+                dependencies=["issue"],
+                outputs=["classification"],
+                dependency_kinds={"nonexistent": "optional"},
+            )
+
+    def test_invalid_dependency_kinds_value(self):
+        """Test that invalid dependency_kinds value raises ValueError."""
+        registry = StepRegistry()
+
+        with pytest.raises(ValueError, match="dependency_kinds value 'invalid'"):
+            registry.register(
+                MockStep,
+                dependencies=["issue"],
+                outputs=["classification"],
+                dependency_kinds={"issue": "invalid"},
+            )
+
+    def test_invalid_dependency_kinds_value_required(self):
+        """Test that 'required' in dependency_kinds value raises ValueError.
+
+        'required' is implicit when a dependency is not in dependency_kinds,
+        so it should not be explicitly specified.
+        """
+        registry = StepRegistry()
+
+        with pytest.raises(ValueError, match="dependency_kinds value 'required'"):
+            registry.register(
+                MockStep,
+                dependencies=["issue"],
+                outputs=["classification"],
+                dependency_kinds={"issue": "required"},
+            )
+
+    def test_multiple_invalid_keys(self):
+        """Test that first invalid dependency_kinds key is caught."""
+        registry = StepRegistry()
+
+        with pytest.raises(ValueError, match="dependency_kinds key"):
+            registry.register(
+                MockStep,
+                dependencies=["issue"],
+                outputs=["classification"],
+                dependency_kinds={"nonexistent1": "optional", "nonexistent2": "ordering-only"},
+            )
+
+    def test_empty_dependency_kinds_is_valid(self):
+        """Test that empty dependency_kinds dict is valid."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            dependencies=["issue"],
+            outputs=["classification"],
+            dependency_kinds={},
+        )
+
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.dependency_kinds == {}
+
+    def test_none_dependency_kinds_is_valid(self):
+        """Test that None dependency_kinds is valid."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            dependencies=["issue"],
+            outputs=["classification"],
+            dependency_kinds=None,
+        )
+
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.dependency_kinds == {}
+
+    def test_mixed_valid_dependency_kinds(self):
+        """Test registering step with multiple valid dependency_kinds."""
+        registry = StepRegistry()
+        registry.register(
+            MockStep,
+            dependencies=["issue", "plan", "code"],
+            outputs=["classification"],
+            dependency_kinds={"plan": "optional", "code": "ordering-only"},
+        )
+
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.dependency_kinds == {"plan": "optional", "code": "ordering-only"}
+
+
 class TestGlobalRegistry:
     """Tests for global registry functions."""
 
