@@ -74,9 +74,11 @@ Apply these principles when evaluating whether complex patterns, or advanced opt
 - `pytest-cov`: `uv run pytest --cov=rouge` - Run tests with coverage
 
 **Workflow Commands**:
-- `uv run rouge run <issue-id>` - Execute workflow synchronously
-- `uv run rouge create "description"` - Create a new issue
-- `uv run rouge create-from-file <file>` - Create issue from file
+- `uv run rouge workflow run <issue-id>` - Execute main workflow synchronously
+- `uv run rouge workflow patch <issue-id>` - Execute patch workflow
+- `uv run rouge workflow codereview <issue-id>` - Execute code review workflow
+- `uv run rouge issue create "description"` - Create a new issue
+- `uv run rouge issue create --spec-file <file> --title "Title"` - Create issue from file
 - `uv run rouge step list|run|deps|validate` - Inspect and run individual steps
 - `uv run rouge artifact list|show|delete|types|path` - Inspect and manage workflow artifacts
 

@@ -29,8 +29,11 @@ uv sync
 # Show CLI help
 uv run rouge --help
 
+# Create a new issue
+uv run rouge issue create "Fix authentication bug"
+
 # Execute a workflow from the CLI
-uv run rouge run 123
+uv run rouge workflow run 123
 
 # Run the headless ADW command
 uv run rouge-adw 123
@@ -42,6 +45,28 @@ uv run rouge-worker --worker-id alleycat-1
 > **Note:** The worker shells out to `uv run rouge-adw`. All runtime data is stored
 > under `<WORKING_DIR>/.rouge/`, where `WORKING_DIR` defaults to the current
 > directory and can be overridden via the `WORKING_DIR` environment variable.
+
+## Breaking Changes - Command Restructure
+
+**If you're upgrading from a previous version**, the CLI commands have been reorganized into logical groups. Update your scripts and workflows as follows:
+
+| Old Command | New Command | Notes |
+|-------------|-------------|-------|
+| `rouge new` | `rouge issue create` | Issue creation now under `issue` group |
+| `rouge run` | `rouge workflow run` | Workflow execution now under `workflow` group |
+| N/A | `rouge workflow patch` | New: Execute patch workflow |
+| N/A | `rouge workflow codereview` | New: Execute code review workflow |
+| `rouge step ...` | `rouge step ...` | No change - step commands unchanged |
+| `rouge artifact ...` | `rouge artifact ...` | No change - artifact commands unchanged |
+
+**Additional issue commands** available under `rouge issue`:
+- `rouge issue create` - Create new issues
+- `rouge issue read` - Read issue details
+- `rouge issue list` - List all issues
+- `rouge issue update` - Update issue fields
+- `rouge issue delete` - Delete issues
+
+Run `rouge --help` or `rouge <group> --help` for complete command documentation.
 
 ## Environment & Configuration
 
@@ -141,25 +166,29 @@ Optional flags:
 
 ## CLI Commands
 
-Workflows can be executed directly using:
-- `rouge run <issue-id>` - Execute workflow synchronously in foreground
-
 ### Creating Issues
 
-Use `rouge new` to create issues with multiple input patterns:
+Use `rouge issue create` to create issues with multiple input patterns:
 
 ```bash
 # Description only (title auto-generated from description)
-uv run rouge new "Fix the login button styling on mobile"
+uv run rouge issue create "Fix the login button styling on mobile"
 
 # Description with explicit title
-uv run rouge new "Fix the login button styling on mobile" --title "Mobile login button fix"
+uv run rouge issue create "Fix the login button styling on mobile" --title "Mobile login button fix"
 
 # From spec file with title
-uv run rouge new --spec-file spec.md --title "Implement feature X"
+uv run rouge issue create --spec-file spec.md --title "Implement feature X"
 ```
 
-For full options, run `uv run rouge new --help`.
+For full options, run `uv run rouge issue --help`.
+
+### Running Workflows
+
+Workflows can be executed directly using:
+- `rouge workflow run <issue-id>` - Execute workflow synchronously in foreground
+- `rouge workflow patch <issue-id>` - Execute patch workflow
+- `rouge workflow codereview <issue-id>` - Execute code review workflow
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 
@@ -200,7 +229,7 @@ uv run rouge step deps implement
 ```
 
 Single-step execution requires artifacts from a prior run (or manually created
-files in the workflow directory). Full workflow execution (`rouge run`,
+files in the workflow directory). Full workflow execution (`rouge workflow run`,
 `rouge-adw`, `rouge-worker`) always enables artifacts; use the step/artifact
 commands to inspect or modify artifacts after a run.
 
