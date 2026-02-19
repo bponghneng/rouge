@@ -1,12 +1,14 @@
 """Shared pytest fixtures for Rouge tests."""
 
+from pathlib import Path
+
 import pytest
 
 from rouge.core.workflow.artifacts import ArtifactStore
 
 
 @pytest.fixture
-def tmp_artifact_store(tmp_path) -> ArtifactStore:
+def tmp_artifact_store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary ArtifactStore for testing.
 
     This fixture provides a temporary artifact store that uses pytest's tmp_path

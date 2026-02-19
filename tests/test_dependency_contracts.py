@@ -10,6 +10,7 @@ These tests validate that step implementations match their registry declarations
 
 import logging
 from pathlib import Path
+from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -216,9 +217,9 @@ class TestOrderingOnlyDependencies:
 
         # Mock the artifact store's read_artifact to track calls
         original_read = base_context.artifact_store.read_artifact
-        read_calls = []
+        read_calls: list[str] = []
 
-        def tracking_read(artifact_type, model_class=None):
+        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
@@ -264,9 +265,9 @@ class TestOrderingOnlyDependencies:
 
         # Mock the artifact store's read_artifact to track calls
         original_read = base_context.artifact_store.read_artifact
-        read_calls = []
+        read_calls: list[str] = []
 
-        def tracking_read(artifact_type, model_class=None):
+        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
@@ -411,11 +412,20 @@ class TestDependencySemanticsIntegration:
         # Should succeed with artifact present
         assert result.success is True
 
+    @patch("rouge.core.database.get_client")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
     def test_optional_dependency_succeeds_with_artifact(
-        self, base_context: WorkflowContext, temp_store: ArtifactStore
+        self, mock_emit: Mock, mock_get_client: Mock, base_context: WorkflowContext, temp_store: ArtifactStore
     ) -> None:
         """Optional dependency succeeds when artifact is present."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+
+        # Mock emit to avoid database calls
+        mock_emit.return_value = ("success", "ok")
+
+        # Mock get_client to avoid database connections
+        mock_db_client = Mock()
+        mock_get_client.return_value = mock_db_client
 
         # Create optional compose-request artifact
         compose_artifact = ComposeRequestArtifact(

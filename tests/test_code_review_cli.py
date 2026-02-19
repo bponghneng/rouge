@@ -23,7 +23,7 @@ class TestResolveToSha:
 
     @patch("rouge.cli.workflow.get_repo_path")
     @patch("rouge.cli.workflow.subprocess.run")
-    def test_successful_resolution(self, mock_run, mock_get_repo_path):
+    def test_successful_resolution(self, mock_run: MagicMock, mock_get_repo_path: MagicMock) -> None:
         """resolve_to_sha should return the stripped stdout from git rev-parse."""
         mock_get_repo_path.return_value = "/mock/repo/path"
         mock_run.return_value = MagicMock(
@@ -43,7 +43,7 @@ class TestResolveToSha:
         )
 
     @patch("rouge.cli.workflow.subprocess.run")
-    def test_invalid_reference_raises_exit(self, mock_run):
+    def test_invalid_reference_raises_exit(self, mock_run: MagicMock) -> None:
         """resolve_to_sha should raise typer.Exit(1) for invalid git references."""
         mock_run.side_effect = subprocess.CalledProcessError(
             returncode=128,
@@ -56,7 +56,7 @@ class TestResolveToSha:
         assert exc_info.value.exit_code == 1
 
     @patch("rouge.cli.workflow.subprocess.run")
-    def test_git_not_found_raises_exit(self, mock_run):
+    def test_git_not_found_raises_exit(self, mock_run: MagicMock) -> None:
         """resolve_to_sha should raise typer.Exit(1) when git is not installed."""
         mock_run.side_effect = FileNotFoundError("git not found")
 
@@ -75,7 +75,7 @@ class TestCodeReviewCommand:
     """Tests for the 'rouge codereview' CLI command."""
 
     @patch("rouge.cli.workflow.execute_adw_workflow")
-    def test_successful_execution(self, mock_execute):
+    def test_successful_execution(self, mock_execute: MagicMock) -> None:
         """Successful codereview invocation should exit 0 and call execute_adw_workflow."""
         mock_execute.return_value = (True, "cr-workflow-001")
 
@@ -89,7 +89,7 @@ class TestCodeReviewCommand:
         )
 
     @patch("rouge.cli.workflow.execute_adw_workflow")
-    def test_workflow_failure_exits_nonzero(self, mock_execute):
+    def test_workflow_failure_exits_nonzero(self, mock_execute: MagicMock) -> None:
         """When execute_adw_workflow returns success=False, the CLI should exit 1."""
         mock_execute.return_value = (False, "cr-workflow-002")
 
@@ -98,7 +98,7 @@ class TestCodeReviewCommand:
         assert result.exit_code == 1
 
     @patch("rouge.cli.workflow.execute_adw_workflow")
-    def test_invalid_issue_id_error(self, mock_execute):
+    def test_invalid_issue_id_error(self, mock_execute: MagicMock) -> None:
         """When execute_adw_workflow raises an exception, the CLI should exit 1."""
         mock_execute.side_effect = ValueError("Invalid issue ID")
 
@@ -106,7 +106,7 @@ class TestCodeReviewCommand:
 
         assert result.exit_code == 1
 
-    def test_issue_id_is_required(self):
+    def test_issue_id_is_required(self) -> None:
         """The issue_id argument is required; omitting it should exit non-zero."""
         result = runner.invoke(app, ["workflow", "codereview"])
 
@@ -115,7 +115,7 @@ class TestCodeReviewCommand:
         assert "error" in result.output.lower() or "argument" in result.output.lower()
 
     @patch("rouge.cli.workflow.execute_adw_workflow")
-    def test_unexpected_exception_exits_nonzero(self, mock_execute):
+    def test_unexpected_exception_exits_nonzero(self, mock_execute: MagicMock) -> None:
         """An unexpected exception during workflow execution should exit 1."""
         mock_execute.side_effect = RuntimeError("unexpected failure")
 
@@ -124,7 +124,7 @@ class TestCodeReviewCommand:
         assert result.exit_code == 1
 
     @patch("rouge.cli.workflow.execute_adw_workflow")
-    def test_issue_id_passed_through(self, mock_execute):
+    def test_issue_id_passed_through(self, mock_execute: MagicMock) -> None:
         """The issue_id argument should be passed to execute_adw_workflow."""
         mock_execute.return_value = (True, "cr-003")
 
