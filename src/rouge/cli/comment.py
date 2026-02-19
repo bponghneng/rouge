@@ -7,6 +7,7 @@ from typing import Optional
 import typer
 
 from rouge.core.database import fetch_comment, list_comments
+from rouge.core.models import Comment
 
 app = typer.Typer(help="Comment management commands")
 
@@ -44,7 +45,30 @@ def truncate_string(s: Optional[str], max_length: int) -> str:
     return s[: max_length - 3] + "..."
 
 
-def render_comment_text(comment) -> str:
+def validate_string_option(value: Optional[str]) -> Optional[str]:
+    """Validate string options: trim whitespace and reject empty strings.
+
+    Args:
+        value: The string value to validate (or None)
+
+    Returns:
+        Trimmed string or None if input is None
+
+    Raises:
+        typer.BadParameter: If the string is empty or whitespace-only after trimming
+    """
+    if value is None:
+        return None
+
+    trimmed = value.strip()
+
+    if trimmed == "":
+        raise typer.BadParameter("Value cannot be empty or whitespace-only")
+
+    return trimmed
+
+
+def render_comment_text(comment: Comment) -> str:
     """Render a comment in human-readable text format.
 
     Handles special rendering for artifact types:
@@ -121,10 +145,18 @@ def list_command(
         None, "--issue-id", help="Filter by issue ID", show_default=True
     ),
     source: Optional[str] = typer.Option(
-        None, "--source", help="Filter by source", show_default=True
+        None,
+        "--source",
+        help="Filter by source",
+        show_default=True,
+        callback=validate_string_option,
     ),
     comment_type: Optional[str] = typer.Option(
-        None, "--type", help="Filter by comment type", show_default=True
+        None,
+        "--type",
+        help="Filter by comment type",
+        show_default=True,
+        callback=validate_string_option,
     ),
     limit: int = typer.Option(
         10, "--limit", help="Maximum number of comments to return", show_default=True
