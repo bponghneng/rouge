@@ -115,6 +115,11 @@ class ReviewPlanStep(WorkflowStep):
         if "base_commit" not in parsed_data or not parsed_data["base_commit"].strip():
             return StepResult.fail("base_commit is required in review plan response")
         base_commit = parsed_data["base_commit"].strip()
+        if base_commit.upper() == "INVALID":
+            return StepResult.fail(
+                "Unsupported review format. Use 'review from base commit <ref>' or "
+                "'review from <sha>'."
+            )
         summary = parsed_data.get("summary", "")
 
         # Store base_commit as the plan field and summary as rationale
