@@ -276,7 +276,7 @@ def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_branch_long_flag(mock_create_issue) -> None:
+def test_create_command_branch_long_flag(mock_create_issue):
     """Test create command with --branch long flag."""
     mock_issue = Issue(id=321, description="Some description", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -293,7 +293,7 @@ def test_create_command_branch_long_flag(mock_create_issue) -> None:
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_branch_short_flag(mock_create_issue) -> None:
+def test_create_command_branch_short_flag(mock_create_issue):
     """Test create command with -b short flag for branch."""
     mock_issue = Issue(id=321, description="Some description", status="pending")
     mock_create_issue.return_value = mock_issue
