@@ -48,7 +48,7 @@ app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
 
 
-def version_callback(value: bool):
+def version_callback(value: Optional[bool]):
     """Print version and exit."""
     if value:
         typer.echo(f"Rouge CLI version {__version__}")
