@@ -82,6 +82,14 @@ def validate_new_args(
         )
         raise typer.Exit(1)
 
+    # Validation: title cannot be whitespace only (when provided with spec_file)
+    if title is not None and spec_file and title.strip() == "":
+        typer.echo(
+            "Error: Title cannot be whitespace only",
+            err=True,
+        )
+        raise typer.Exit(1)
+
     # Validation: description and spec-file are mutually exclusive
     if description and spec_file:
         typer.echo(
@@ -172,7 +180,7 @@ def prepare_issue(
         issue_description = read_spec_file(spec_file)
         # title is guaranteed non-None here due to validation in validate_new_args
         assert title is not None
-        issue_title = title
+        issue_title = title.strip()
     else:
         # Use description argument
         issue_description = description.strip() if description else ""
@@ -182,7 +190,7 @@ def prepare_issue(
             raise typer.Exit(1)
 
         # Auto-generate title if not provided
-        issue_title = title if title else generate_title(issue_description)
+        issue_title = title.strip() if title else generate_title(issue_description)
 
     return (issue_title, issue_description)
 
@@ -384,10 +392,16 @@ def list_issues(
 @app.command()
 def update(
     issue_id: int = typer.Argument(..., help="The issue ID to update"),
-    assigned_to: Optional[str] = typer.Option(None, "--assigned-to", help="Worker ID to assign"),
-    issue_type: Optional[str] = typer.Option(None, "--type", help="Issue type: 'main' or 'patch'"),
-    title: Optional[str] = typer.Option(None, "--title", help="Issue title"),
-    description: Optional[str] = typer.Option(None, "--description", help="Issue description"),
+    assigned_to: Optional[str] = typer.Option(
+        None, "--assigned-to", help="Worker ID to assign", show_default=True
+    ),
+    issue_type: Optional[str] = typer.Option(
+        None, "--type", help="Issue type: 'main' or 'patch'", show_default=True
+    ),
+    title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
+    description: Optional[str] = typer.Option(
+        None, "--description", help="Issue description", show_default=True
+    ),
 ) -> None:
     """Update an existing issue.
 
@@ -441,7 +455,9 @@ def update(
 @app.command()
 def delete(
     issue_id: int = typer.Argument(..., help="The issue ID to delete"),
-    force: bool = typer.Option(False, "--force", help="Skip confirmation prompt"),
+    force: bool = typer.Option(
+        False, "--force", help="Skip confirmation prompt", show_default=True
+    ),
 ) -> None:
     """Delete an issue.
 
