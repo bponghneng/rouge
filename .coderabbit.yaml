@@ -19,8 +19,8 @@ early_access: false
 enable_free_tier: true
 
 reviews:
-  # Use assertive profile for comprehensive Python/Typer CLI feedback
-  profile: assertive
+  # Use chill profile as a lower-noise baseline; strictness is applied via targeted instructions
+  profile: chill
 
   # Standard PR workflow settings (adjust based on your GitHub workflow)
   request_changes_workflow: false
@@ -75,26 +75,23 @@ reviews:
         Output structured findings for AI agent implementation.
 
         CRITICAL - Fix immediately:
-        - Security vulnerabilities (SQL injection, hardcoded secrets, unsafe deserialization)
-        - Unhandled exceptions that could crash the CLI or worker daemon
-        - Race conditions in async code (worker polling, Supabase operations)
-        - Resource leaks (unclosed database connections, file handles)
-        - Authentication/authorization bypasses in Supabase client usage
+        - Detect security vulnerabilities (SQL injection, hardcoded secrets, unsafe deserialization).
+        - Ensure exceptions are handled so the CLI and worker daemon fail safely.
+        - Detect and fix race conditions in async code (worker polling, Supabase operations).
+        - Ensure resources are closed (database connections, file handles).
+        - Verify Supabase client usage enforces authentication and authorization correctly.
 
         HIGH - Should fix:
-        - Missing type hints on function signatures (parameters and return types)
-        - Bare except clauses (should catch specific exceptions)
-        - Missing null/None checks before accessing attributes
-        - Improper async/await usage (blocking calls in async functions)
-        - Typer command parameters without proper validation
-        - Missing error handling for Supabase API calls
+        - Require type hints on function signatures (parameters and return types).
+        - Catch specific exception types instead of using bare except clauses.
+        - Add null/None guards before attribute access where values may be optional.
+        - Use proper async/await patterns and keep blocking calls out of async functions.
+        - Validate Typer command parameters before execution.
+        - Handle Supabase API errors explicitly with actionable user-facing messages.
 
         MEDIUM - Recommend fixing:
-        - Missing docstrings on public functions/classes
-        - Complex functions that should be broken down (>50 lines)
-        - Duplicate code that could be refactored
-        - Inconsistent error messages or logging
-        - Missing user-friendly CLI help text
+        - Refactor overly complex functions into smaller units with clear responsibilities.
+        - Consolidate duplicated logic into reusable helpers.
 
         AI agent output format (for --prompt-only consumption):
         ```
@@ -114,35 +111,24 @@ reviews:
         Focus on issues AI can implement automatically:
 
         CRITICAL:
-        - Commands without proper error handling (should use typer.Exit or raise typer.Abort)
-        - Missing validation on user input parameters
-        - Unsafe file operations without permission checks
-        - Commands that could damage data without confirmation prompts
+        - Ensure commands handle errors using `typer.Exit` or `typer.Abort`.
+        - Validate all user input parameters before command execution.
+        - Require permission and path safety checks for file operations.
+        - Require confirmation prompts for data-destructive commands.
 
         HIGH:
-        - Missing help text on commands and options (use help= parameter)
-        - Commands without proper type annotations
-        - Inconsistent exit codes (use standard 0=success, 1=error)
-        - Missing progress indicators for long-running operations
-        - Options without clear default values or examples
+        - Require type annotations for command function signatures.
+        - Use consistent exit codes (0 for success, 1 for error).
+        - Define clear option defaults.
 
         MEDIUM:
-        - Inconsistent use of typer.echo vs print vs rich Console
-        - Missing --help examples in docstrings
-        - Options that should be prompted for if not provided
-        - Missing autocompletion support for enum/choice parameters
-        - Subcommands that don't follow consistent naming patterns
+        - Prompt for required values when options are omitted.
 
         Typer best practices to enforce:
-        - Use `typer.Option()` with help text, show_default=True for all options
-        - Use `typer.Argument()` for required positional args with metavar
         - Use `typer.confirm()` for destructive operations
-        - Use `typer.style()` or Rich for colored/formatted output
-        - Use `raise typer.Exit(code=1)` for error exits, not sys.exit()
+        - Use `raise typer.Exit(code=1)` for error exits
         - Group related commands using `typer.Typer()` instances
-        - Provide clear examples in command docstrings
         - Use callback functions for parameter validation
-        - Use enums for choice parameters with autocompletion
 
     - path: "src/rouge/adw/**/*.py"
       instructions: |
@@ -150,21 +136,20 @@ reviews:
         Agent Development Workflow patterns:
 
         CRITICAL:
-        - Agent execution failures without proper error reporting
-        - Workflow state inconsistencies (not persisted to Supabase)
-        - Missing rollback logic for failed workflow steps
-        - Agent credentials or secrets exposed in logs
+        - Ensure agent execution failures include clear error reporting and context.
+        - Persist workflow state changes to Supabase to keep state consistent.
+        - Implement rollback or compensating actions for failed workflow steps.
+        - Prevent credentials and secrets from being emitted in logs.
 
         HIGH:
-        - Missing validation of workflow configuration
-        - Improper agent state transitions
-        - Missing timeout handling for long-running agent tasks
-        - Workflow steps without idempotency guarantees
+        - Validate workflow configuration before execution.
+        - Enforce valid agent state transitions.
+        - Configure explicit timeouts for long-running agent tasks.
+        - Ensure workflow steps are idempotent.
 
         MEDIUM:
-        - Missing progress reporting for multi-step workflows
-        - Insufficient logging for debugging agent behavior
-        - Missing workflow cancellation support
+        - Add structured logs sufficient for debugging agent behavior.
+        - Support workflow cancellation with safe cleanup behavior.
 
         Patterns to enforce:
         - Each workflow step should be idempotent
@@ -178,21 +163,20 @@ reviews:
         Background processing patterns for rouge:
 
         CRITICAL:
-        - Infinite loops without proper sleep/backoff
-        - Missing graceful shutdown handling (SIGTERM, SIGINT)
-        - Database connection pool exhaustion
-        - Unhandled exceptions that crash the worker
+        - Ensure polling loops include sleep/backoff controls.
+        - Implement graceful shutdown handling for `SIGTERM` and `SIGINT`.
+        - Protect against database connection pool exhaustion.
+        - Catch and handle worker exceptions to prevent daemon crashes.
 
         HIGH:
-        - Missing health check endpoint or mechanism
-        - Improper async task management (memory leaks from uncompleted tasks)
-        - Missing retry logic with exponential backoff
-        - Polling intervals that are too aggressive
+        - Provide a health check mechanism for worker liveness/readiness.
+        - Manage async tasks to completion or cancellation to prevent leaks.
+        - Implement retries with exponential backoff.
+        - Configure polling intervals that balance responsiveness and load.
 
         MEDIUM:
-        - Missing metrics/monitoring for worker performance
-        - Insufficient logging for diagnosing issues
-        - Missing dead letter queue for failed tasks
+        - Provide structured logs for diagnosis and auditability.
+        - Route repeatedly failed tasks to a dead-letter handling path.
 
         Patterns to enforce:
         - Use asyncio.Event or similar for graceful shutdown
@@ -205,22 +189,20 @@ reviews:
         Shared modules for rouge automation:
 
         CRITICAL:
-        - Supabase client connections not properly managed (use context managers)
-        - Missing transaction handling for multi-step database operations
-        - Unvalidated user input passed to database queries
-        - Authentication tokens or secrets hardcoded or logged
+        - Manage Supabase client connections with context managers.
+        - Use transactions for multi-step database operations.
+        - Validate and sanitize user input before database queries.
+        - Keep authentication tokens and secrets out of source and logs.
 
         HIGH:
-        - Pydantic models missing field validators for critical fields
-        - Async database operations without proper error handling
-        - Missing retry logic for transient Supabase API errors
-        - Database schema changes without migration scripts
+        - Add Pydantic field validators for critical fields.
+        - Handle errors explicitly for async database operations.
+        - Implement retries for transient Supabase API errors.
+        - Include migration scripts for database schema changes.
 
         MEDIUM:
-        - Business logic mixed with database operations (violates separation)
-        - Missing logging for important operations
-        - Overly broad exception handling that masks issues
-        - Missing type hints on model fields or return values
+        - Add logging for important operations and state transitions.
+        - Use targeted exception handling that preserves root-cause visibility.
 
         Patterns to enforce:
         - Use Pydantic `Field()` with descriptions, examples, and validation
@@ -235,29 +217,26 @@ reviews:
         Rouge project testing patterns:
 
         CRITICAL:
-        - Tests that could affect production data (missing mocks)
-        - Tests with actual Supabase credentials instead of mocks
+        - Isolate tests from production systems by mocking external dependencies.
+        - Use mocked Supabase credentials and clients in tests.
 
         HIGH:
-        - Tests without assertions (test does nothing)
-        - Missing pytest.mark.asyncio on async test functions
-        - Tests that depend on execution order (not isolated)
-        - Missing mocks for external services (Supabase, GitHub API, AI agents)
-        - Flaky tests that fail intermittently
+        - Require explicit assertions in every test.
+        - Mark async tests with `pytest.mark.asyncio`.
+        - Keep tests isolated and order-independent.
+        - Mock external services (Supabase, GitHub API, AI agents).
+        - Stabilize flaky tests with deterministic setup and assertions.
 
         MEDIUM:
-        - Missing edge case tests (empty input, None, errors, boundary conditions)
-        - Duplicate test setup that should be fixtures
-        - Assertions without descriptive messages
-        - Missing parametrized tests for similar test cases
-        - Test names that don't clearly describe what they test
+        - Add edge-case tests (empty input, `None`, errors, boundary conditions).
+        - Move repeated setup into fixtures.
+        - Use parametrized tests for repeated scenarios.
 
         Patterns to enforce:
         - Use `@pytest.fixture` for reusable test setup (autouse sparingly)
         - Use `@pytest.mark.parametrize` for data-driven tests
         - Use `pytest.raises(ExceptionType)` for exception testing
         - Mock external dependencies with `unittest.mock` or `pytest-mock`
-        - Use descriptive test names: `test_<function>_<scenario>_<expected_result>`
         - Test both success and failure paths
         - Use `pytest-asyncio` for async code
         - Mock Supabase client completely in unit tests
@@ -272,14 +251,12 @@ reviews:
         
         HIGH:
         - Dependency version constraints too loose (security risk) or too tight (update pain)
-        - Missing or incorrect project metadata (name, version, description, authors)
+        - Ensure project metadata is complete and correct (name, version, description, authors)
         - Tool configurations that conflict (ruff vs black, mypy strictness)
-        - Missing development dependencies (pytest, ruff, mypy)
-        
+        - Ensure development dependencies are present (pytest, ruff, mypy)
+
         MEDIUM:
-        - Missing optional dependency groups [dev], [test], [docs]
-        - Entry points not properly configured for CLI commands
-        - Missing project URLs (homepage, repository, issues)
+        - Configure entry points correctly for CLI commands
         
         Patterns to enforce:
         - Use proper semantic versioning
@@ -290,21 +267,21 @@ reviews:
     - path: "migrations/**/*.py"
       instructions: |
         Database migration review (Yoyo migrations):
-        
+
         CRITICAL:
-        - Missing rollback steps for destructive operations
-        - SQL injection vulnerabilities in migration scripts
-        - Migrations that could cause data loss without backups
-        
+        - Require rollback steps for destructive operations.
+        - Detect SQL injection vulnerabilities in migration scripts.
+        - Protect data safety by planning backups before high-risk migrations.
+
         HIGH:
-        - Missing indexes on frequently queried columns
-        - Schema changes not backward compatible
-        - Migrations without proper error handling
-        - Missing migration dependencies (order issues)
-        
+        - Add indexes for frequently queried columns.
+        - Keep schema changes backward compatible for safe rollouts.
+        - Handle migration errors explicitly and fail with actionable diagnostics.
+        - Define migration dependencies to enforce correct execution order.
+
         MEDIUM:
-        - Missing comments explaining complex migrations
-        - Performance impact not considered for large tables
+        - Add comments explaining complex migration logic.
+        - Evaluate and document performance impact for large tables.
         
         Patterns to enforce:
         - Every step() should have corresponding rollback()
@@ -434,7 +411,7 @@ code_generation:
           - Example output
           
           Keep descriptions concise but complete.
-          Use proper type hints in signatures, not in docstrings.
+          Place type hints in function signatures and keep docstrings focused on behavior and usage.
 
   unit_tests:
     # AI agents can auto-generate these test patterns
@@ -457,12 +434,12 @@ code_generation:
           
           Coverage:
           - Test success path
-          - Test error handling (missing data, API failures, invalid input)
+          - Test error handling (empty data, API failures, invalid input)
           - Test edge cases (empty lists, None values, boundary conditions)
           - Test async code with pytest-asyncio
           
           Assertions:
-          - Use specific assertions (not just assert result)
+          - Use specific assertions on values and side effects
           - Add descriptive messages to assertions
           - Verify side effects (Supabase calls made, logs written)
           
