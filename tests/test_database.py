@@ -11,6 +11,7 @@ from rouge.core.database import (
     create_issue,
     delete_issue,
     fetch_all_issues,
+    fetch_comment,
     fetch_issue,
     get_client,
     list_comments,
@@ -168,6 +169,120 @@ def test_fetch_all_issues_success(mock_get_client):
     assert len(issues) == 2
     assert issues[0].id == 1
     assert issues[1].id == 2
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_comment_success(mock_get_client):
+    """Test successful comment fetch."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_execute.data = [
+        {
+            "id": 1,
+            "issue_id": 5,
+            "comment": "Test comment",
+            "raw": {"test": "data"},
+            "source": "agent",
+            "type": "plan",
+        }
+    ]
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    comment = fetch_comment(1)
+    assert comment.id == 1
+    assert comment.issue_id == 5
+    assert comment.comment == "Test comment"
+    assert comment.raw == {"test": "data"}
+    assert comment.source == "agent"
+    assert comment.type == "plan"
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_comment_not_found(mock_get_client):
+    """Test fetching non-existent comment."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_execute.data = []
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="Comment with id 999 not found"):
+        fetch_comment(999)
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_comment_empty_data(mock_get_client):
+    """Test fetching comment with None response data."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_execute.data = None
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="Comment with id 123 not found"):
+        fetch_comment(123)
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_comment_invalid_data_type(mock_get_client):
+    """Test fetching comment with invalid response data type."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_execute.data = ["not a dict"]
+    mock_eq.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(TypeError, match="Expected dict from database for comment 1"):
+        fetch_comment(1)
+
+
+@patch("rouge.core.database.get_client")
+def test_fetch_comment_api_error(mock_get_client):
+    """Test fetching comment raises ValueError on APIError."""
+    from postgrest.exceptions import APIError
+
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_select = Mock()
+    mock_eq = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.select.return_value = mock_select
+    mock_select.eq.return_value = mock_eq
+    mock_eq.execute.side_effect = APIError({"message": "DB error", "code": "500"})
+    mock_get_client.return_value = mock_client
+
+    with pytest.raises(ValueError, match="Failed to fetch comment 1"):
+        fetch_comment(1)
 
 
 @patch("rouge.core.database.get_client")
