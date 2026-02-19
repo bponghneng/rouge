@@ -199,6 +199,41 @@ def fetch_all_issues() -> list[Issue]:
 # ============================================================================
 
 
+def fetch_comment(comment_id: int) -> Comment:
+    """Fetch a comment by ID.
+
+    Args:
+        comment_id: ID of the comment to fetch
+
+    Returns:
+        Comment object
+
+    Raises:
+        ValueError: If comment is not found or fetch fails
+    """
+    try:
+        client = get_client()
+        response = client.table("comments").select("*").eq("id", comment_id).execute()
+
+        # Handle empty response (postgrest returns empty list if not found)
+        # response.data can be None or [] in some versions/cases
+        response_data = response.data[0] if response.data else None
+
+        if response_data is None:
+            raise ValueError(f"Comment with id {comment_id} not found")
+
+        if not isinstance(response_data, dict):
+            raise TypeError(
+                f"Expected dict from database for comment {comment_id}, got {type(response_data)}"
+            )
+
+        return Comment.from_supabase(response_data)
+
+    except APIError as e:
+        logger.exception("Database error fetching comment %s", comment_id)
+        raise ValueError(f"Failed to fetch comment {comment_id}: {e}") from e
+
+
 def create_comment(comment: Comment) -> Comment:
     """Create a new comment in the database.
 
