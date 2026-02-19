@@ -77,6 +77,8 @@ class StepRegistry:
 
         Raises:
             ValueError: If the slug is already registered to a different step
+            ValueError: If dependency_kinds contains keys not in dependencies list
+            ValueError: If dependency_kinds contains invalid values
         """
         # Create a temporary instance to get the step name and is_critical flag
         temp_instance = step_class()
@@ -92,14 +94,35 @@ class StepRegistry:
                     )
             self._slug_to_name[slug] = step_name
 
+        # Validate dependency_kinds if provided
+        deps_list = dependencies or []
+        dep_kinds = dependency_kinds or {}
+
+        # Validate all dependency_kinds keys exist in dependencies list
+        for artifact_type in dep_kinds.keys():
+            if artifact_type not in deps_list:
+                raise ValueError(
+                    f"Step '{step_name}': dependency_kinds key '{artifact_type}' "
+                    f"not found in dependencies list"
+                )
+
+        # Validate all dependency_kinds values are valid
+        valid_kinds = {"optional", "ordering-only"}
+        for artifact_type, kind in dep_kinds.items():
+            if kind not in valid_kinds:
+                raise ValueError(
+                    f"Step '{step_name}': dependency_kinds value '{kind}' for artifact "
+                    f"'{artifact_type}' must be one of {valid_kinds}"
+                )
+
         metadata = StepMetadata(
             step_class=step_class,
             slug=slug or "",
-            dependencies=dependencies or [],
+            dependencies=deps_list,
             outputs=outputs or [],
             is_critical=is_critical if is_critical is not None else temp_instance.is_critical,
             description=description,
-            dependency_kinds=dependency_kinds or {},
+            dependency_kinds=dep_kinds,
         )
 
         self._steps[step_name] = metadata
