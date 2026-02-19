@@ -211,6 +211,8 @@ def fetch_comment(comment_id: int) -> Comment:
     Raises:
         ValueError: If comment is not found or fetch fails
     """
+    if comment_id <= 0:
+        raise ValueError(f"comment_id must be > 0, got {comment_id}")
     try:
         client = get_client()
         response = client.table("comments").select("*").eq("id", comment_id).execute()
@@ -223,7 +225,7 @@ def fetch_comment(comment_id: int) -> Comment:
             raise ValueError(f"Comment with id {comment_id} not found")
 
         if not isinstance(response_data, dict):
-            raise TypeError(
+            raise ValueError(
                 f"Expected dict from database for comment {comment_id}, got {type(response_data)}"
             )
 
