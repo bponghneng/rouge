@@ -49,8 +49,10 @@ def resolve_to_sha(ref: str) -> str:
 @app.command()
 def run(
     issue_id: int,
-    adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
-):
+    adw_id: Optional[str] = typer.Option(
+        None, help="Workflow ID (auto-generated if not provided)", show_default=True
+    ),
+) -> None:
     """Execute the adw_plan_build workflow for an issue.
 
     Args:
@@ -61,22 +63,46 @@ def run(
         rouge workflow run 123
         rouge workflow run 123 --adw-id abc12345
     """
-    # Generate ADW ID if not provided
-    if not adw_id:
-        adw_id = make_adw_id()
+    try:
+        # Validate issue_id
+        if issue_id <= 0:
+            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
+            raise typer.Exit(1)
 
-    # Execute workflow
-    success, _workflow_id = execute_adw_workflow(issue_id, adw_id)
+        # Normalize and validate ADW ID if provided
+        if adw_id is not None:
+            adw_id = adw_id.strip()
+            if not adw_id:
+                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
+                raise typer.Exit(1)
 
-    if not success:
+        # Generate ADW ID if not provided
+        if not adw_id:
+            adw_id = make_adw_id()
+
+        # Execute workflow
+        success, _workflow_id = execute_adw_workflow(issue_id, adw_id)
+
+        if not success:
+            raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
 
 @app.command()
 def patch(
     issue_id: int,
-    adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
-):
+    adw_id: Optional[str] = typer.Option(
+        None, help="Workflow ID (auto-generated if not provided)", show_default=True
+    ),
+) -> None:
     """Execute the patch workflow for an issue.
 
     Args:
@@ -87,21 +113,45 @@ def patch(
         rouge workflow patch 123
         rouge workflow patch 123 --adw-id abc12345
     """
-    # Generate ADW ID if not provided
-    if not adw_id:
-        adw_id = make_adw_id()
+    try:
+        # Validate issue_id
+        if issue_id <= 0:
+            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
+            raise typer.Exit(1)
 
-    # Execute workflow
-    success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
+        # Normalize and validate ADW ID if provided
+        if adw_id is not None:
+            adw_id = adw_id.strip()
+            if not adw_id:
+                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
+                raise typer.Exit(1)
 
-    if not success:
+        # Generate ADW ID if not provided
+        if not adw_id:
+            adw_id = make_adw_id()
+
+        # Execute workflow
+        success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
+
+        if not success:
+            raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
 
 @app.command()
 def codereview(
     issue_id: int = typer.Argument(..., help="The issue ID to process"),
-    adw_id: Optional[str] = typer.Option(None, help="Workflow ID (auto-generated if not provided)"),
+    adw_id: Optional[str] = typer.Option(
+        None, help="Workflow ID (auto-generated if not provided)", show_default=True
+    ),
 ) -> None:
     """Execute the code review workflow for an issue.
 
@@ -116,6 +166,18 @@ def codereview(
         rouge workflow codereview 123 --adw-id abc12345
     """
     try:
+        # Validate issue_id
+        if issue_id <= 0:
+            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
+            raise typer.Exit(1)
+
+        # Normalize and validate ADW ID if provided
+        if adw_id is not None:
+            adw_id = adw_id.strip()
+            if not adw_id:
+                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
+                raise typer.Exit(1)
+
         # Generate ADW ID if not provided
         if not adw_id:
             adw_id = make_adw_id()
