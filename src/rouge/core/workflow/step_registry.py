@@ -191,7 +191,8 @@ class StepRegistry:
         """List all steps with their full metadata.
 
         Returns:
-            List of dicts with slug, name, dependencies, outputs, is_critical, description
+            List of dicts with slug, name, dependencies, outputs, is_critical,
+            description, dependency_kinds
         """
         result = []
         for step_name, metadata in self._steps.items():
@@ -203,6 +204,7 @@ class StepRegistry:
                     "outputs": list(metadata.outputs),
                     "is_critical": metadata.is_critical,
                     "description": metadata.description,
+                    "dependency_kinds": dict(metadata.dependency_kinds),
                 }
             )
         return result
@@ -471,13 +473,16 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Address review issues and suggestions",
     )
 
-    # 8. CodeQualityStep: requires implement, produces code-quality artifact
+    # 8. CodeQualityStep: requires implement (ordering-only), produces code-quality artifact
     registry.register(
         CodeQualityStep,
         slug="code-quality",
         dependencies=["implement"],
         outputs=["code-quality"],
-        description="Run code quality checks (linting, type checking)",
+        description=(
+            "Run code quality checks (linting, type checking). "
+            "Depends on implement for ordering only."
+        ),
         dependency_kinds={"implement": "ordering-only"},
     )
 
@@ -490,33 +495,40 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Validate implementation against acceptance criteria",
     )
 
-    # 10. ComposeRequestStep: requires acceptance, produces compose-request artifact
+    # 10. ComposeRequestStep: requires acceptance (ordering-only), produces compose-request artifact
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
         dependencies=["acceptance"],
         outputs=["compose-request"],
-        description="Prepare pull request metadata and commits",
+        description=(
+            "Prepare pull request metadata and commits. " "Depends on acceptance for ordering only."
+        ),
         dependency_kinds={"acceptance": "ordering-only"},
     )
 
-    # 11. GhPullRequestStep: requires compose-request, produces gh-pull-request artifact
+    # 11. GhPullRequestStep: requires compose-request (optional), produces gh-pull-request artifact
     registry.register(
         GhPullRequestStep,
         slug="gh-pull-request",
         dependencies=["compose-request"],
         outputs=["gh-pull-request"],
-        description="Create GitHub pull request via gh CLI",
+        description=(
+            "Create GitHub pull request via gh CLI. " "Optionally depends on compose-request."
+        ),
         dependency_kinds={"compose-request": "optional"},
     )
 
-    # 12. GlabPullRequestStep: requires compose-request, produces glab-pull-request artifact
+    # 12. GlabPullRequestStep: requires compose-request (optional),
+    # produces glab-pull-request artifact
     registry.register(
         GlabPullRequestStep,
         slug="glab-pull-request",
         dependencies=["compose-request"],
         outputs=["glab-pull-request"],
-        description="Create GitLab merge request via glab CLI",
+        description=(
+            "Create GitLab merge request via glab CLI. " "Optionally depends on compose-request."
+        ),
         dependency_kinds={"compose-request": "optional"},
     )
 
