@@ -4,57 +4,62 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rouge.core.workflow.artifacts import ArtifactStore
-from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.artifacts import ArtifactStore, PlanArtifact
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext
+from rouge.core.workflow.types import PlanData
 
 
 class TestWorkflowContextCreation:
     """Tests for WorkflowContext instantiation with optional issue_id."""
 
-    def test_context_with_issue_id_none_explicit(self):
+    def test_context_with_issue_id_none_explicit(self, tmp_path):
         """Test WorkflowContext creation with issue_id explicitly set to None."""
-        ctx = WorkflowContext(adw_id="adw-001", issue_id=None)
+        store = ArtifactStore(workflow_id="adw-001", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-001", issue_id=None, artifact_store=store)
 
         assert ctx.adw_id == "adw-001"
         assert ctx.issue_id is None
         assert ctx.issue is None
         assert ctx.data == {}
-        assert ctx.artifact_store is None
+        assert ctx.artifact_store is store
 
-    def test_context_with_issue_id_omitted(self):
+    def test_context_with_issue_id_omitted(self, tmp_path):
         """Test WorkflowContext creation with issue_id omitted (defaults to None)."""
-        ctx = WorkflowContext(adw_id="adw-002")
+        store = ArtifactStore(workflow_id="adw-002", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-002", artifact_store=store)
 
         assert ctx.adw_id == "adw-002"
         assert ctx.issue_id is None
         assert ctx.issue is None
         assert ctx.data == {}
-        assert ctx.artifact_store is None
 
-    def test_context_with_valid_issue_id(self):
+    def test_context_with_valid_issue_id(self, tmp_path):
         """Test WorkflowContext creation with a valid integer issue_id."""
-        ctx = WorkflowContext(adw_id="adw-003", issue_id=42)
+        store = ArtifactStore(workflow_id="adw-003", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-003", issue_id=42, artifact_store=store)
 
         assert ctx.adw_id == "adw-003"
         assert ctx.issue_id == 42
         assert ctx.issue is None
         assert ctx.data == {}
 
-    def test_context_backward_compat_keyword_args(self):
+    def test_context_backward_compat_keyword_args(self, tmp_path):
         """Test backward compatibility: existing callers using keyword args still work."""
-        ctx = WorkflowContext(issue_id=1, adw_id="adw123")
+        store = ArtifactStore(workflow_id="adw123", base_path=tmp_path)
+        ctx = WorkflowContext(issue_id=1, adw_id="adw123", artifact_store=store)
 
         assert ctx.adw_id == "adw123"
         assert ctx.issue_id == 1
 
-    def test_context_backward_compat_all_fields(self):
+    def test_context_backward_compat_all_fields(self, tmp_path):
         """Test backward compatibility with all fields specified via keywords."""
+        store = ArtifactStore(workflow_id="adw-full", base_path=tmp_path)
         ctx = WorkflowContext(
             adw_id="adw-full",
             issue_id=99,
             issue=None,
             data={"key": "value"},
-            artifact_store=None,
+            artifact_store=store,
         )
 
         assert ctx.adw_id == "adw-full"
@@ -65,67 +70,52 @@ class TestWorkflowContextCreation:
 class TestRequireIssueId:
     """Tests for WorkflowContext.require_issue_id property."""
 
-    def test_require_issue_id_returns_int_when_set(self):
+    def test_require_issue_id_returns_int_when_set(self, tmp_path):
         """Test require_issue_id returns the issue_id when it is set."""
-        ctx = WorkflowContext(adw_id="adw-req-1", issue_id=42)
+        store = ArtifactStore(workflow_id="adw-req-1", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-req-1", issue_id=42, artifact_store=store)
         assert ctx.require_issue_id == 42
 
-    def test_require_issue_id_raises_when_none(self):
+    def test_require_issue_id_raises_when_none(self, tmp_path):
         """Test require_issue_id raises RuntimeError when issue_id is None."""
-        ctx = WorkflowContext(adw_id="adw-req-2", issue_id=None)
+        store = ArtifactStore(workflow_id="adw-req-2", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-req-2", issue_id=None, artifact_store=store)
         with pytest.raises(RuntimeError, match="issue_id is required"):
             _ = ctx.require_issue_id
 
-    def test_require_issue_id_raises_when_omitted(self):
+    def test_require_issue_id_raises_when_omitted(self, tmp_path):
         """Test require_issue_id raises RuntimeError when issue_id is omitted."""
-        ctx = WorkflowContext(adw_id="adw-req-3")
+        store = ArtifactStore(workflow_id="adw-req-3", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-req-3", artifact_store=store)
         with pytest.raises(RuntimeError, match="issue_id is required"):
             _ = ctx.require_issue_id
 
 
 class TestWorkflowContextArtifacts:
-    """Tests for artifact store behavior when issue_id is None."""
+    """Tests for artifact store behavior."""
 
-    def test_artifacts_not_enabled_by_default(self):
-        """Test that artifacts_enabled is False when no store is set."""
-        ctx = WorkflowContext(adw_id="adw-art-1")
-
-        assert ctx.artifacts_enabled is False
-
-    def test_artifacts_enabled_with_store(self, tmp_path):
-        """Test that artifacts_enabled is True when a store is provided."""
+    def test_artifact_store_is_set(self, tmp_path):
+        """Test that artifact_store is accessible after construction."""
         store = ArtifactStore(workflow_id="adw-art-2", base_path=tmp_path)
         ctx = WorkflowContext(adw_id="adw-art-2", artifact_store=store)
 
-        assert ctx.artifacts_enabled is True
+        assert ctx.artifact_store is store
 
     def test_artifact_store_works_with_none_issue_id(self, tmp_path):
         """Test that artifact_store functions correctly when issue_id is None."""
         store = ArtifactStore(workflow_id="adw-art-3", base_path=tmp_path)
         ctx = WorkflowContext(adw_id="adw-art-3", issue_id=None, artifact_store=store)
 
-        assert ctx.artifacts_enabled is True
         assert ctx.issue_id is None
         assert ctx.artifact_store is not None
 
-    def test_load_artifact_if_missing_returns_none_without_store(self):
-        """Test load_artifact_if_missing returns None when no store is configured."""
-        ctx = WorkflowContext(adw_id="adw-no-store", issue_id=None)
-
-        result = ctx.load_artifact_if_missing(
-            context_key="test_key",
-            artifact_type="plan",
-            artifact_class=MagicMock,
-            extract_fn=lambda a: a,
-        )
-
-        assert result is None
-
-    def test_load_artifact_if_missing_returns_existing_data(self):
+    def test_load_artifact_if_missing_returns_existing_data(self, tmp_path):
         """Test load_artifact_if_missing returns existing data from context."""
+        store = ArtifactStore(workflow_id="adw-existing", base_path=tmp_path)
         ctx = WorkflowContext(
             adw_id="adw-existing",
             issue_id=None,
+            artifact_store=store,
             data={"test_key": "existing_value"},
         )
 
@@ -158,9 +148,6 @@ class TestWorkflowContextArtifacts:
 
     def test_load_artifact_if_missing_loads_real_artifact(self, tmp_path):
         """Test load_artifact_if_missing loads and extracts real artifact from store."""
-        from rouge.core.workflow.artifacts import PlanArtifact
-        from rouge.core.workflow.types import PlanData
-
         # Create artifact store and write a real plan artifact
         store = ArtifactStore(workflow_id="adw-real-plan", base_path=tmp_path)
         plan_data = PlanData(
@@ -193,9 +180,10 @@ class TestWorkflowContextArtifacts:
         assert result.summary == "Brief summary"
         assert ctx.data["plan_data"] == result
 
-    def test_load_issue_artifact_if_missing_returns_none_without_store(self):
-        """Test load_issue_artifact_if_missing returns None when no store and issue_id is None."""
-        ctx = WorkflowContext(adw_id="adw-no-issue", issue_id=None)
+    def test_load_issue_artifact_if_missing_returns_none_when_artifact_absent(self, tmp_path):
+        """Test load_issue_artifact_if_missing returns None when artifact file is missing."""
+        store = ArtifactStore(workflow_id="adw-no-issue", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-no-issue", issue_id=None, artifact_store=store)
 
         result = ctx.load_issue_artifact_if_missing(
             artifact_class=MagicMock,
@@ -203,3 +191,134 @@ class TestWorkflowContextArtifacts:
         )
 
         assert result is None
+
+
+class TestLoadRequiredArtifact:
+    """Tests for WorkflowContext.load_required_artifact."""
+
+    def test_raises_step_input_error_when_artifact_not_found(self, tmp_path):
+        """Test load_required_artifact raises StepInputError when artifact file is not found."""
+        store = ArtifactStore(workflow_id="adw-req-missing", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-req-missing", artifact_store=store)
+
+        with pytest.raises(StepInputError, match="Required artifact 'plan' not found"):
+            ctx.load_required_artifact(
+                context_key="plan_data",
+                artifact_type="plan",
+                artifact_class=PlanArtifact,
+                extract_fn=lambda a: a.plan_data,
+            )
+
+    def test_returns_extracted_value_when_artifact_exists(self, tmp_path):
+        """Test load_required_artifact returns the extracted value when artifact exists."""
+        store = ArtifactStore(workflow_id="adw-req-exists", base_path=tmp_path)
+
+        plan_data = PlanData(plan="Required plan content", summary="Required summary")
+        plan_artifact = PlanArtifact(workflow_id="adw-req-exists", plan_data=plan_data)
+        store.write_artifact(plan_artifact)
+
+        ctx = WorkflowContext(adw_id="adw-req-exists", artifact_store=store)
+
+        result = ctx.load_required_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        assert result is not None
+        assert result.plan == "Required plan content"
+        assert result.summary == "Required summary"
+        assert ctx.data["plan_data"] == result
+
+    def test_returns_cached_value_from_context_data(self, tmp_path):
+        """Test load_required_artifact returns existing value from context cache."""
+        store = ArtifactStore(workflow_id="adw-req-cached", base_path=tmp_path)
+        cached_value = PlanData(plan="Cached plan", summary="Cached summary")
+        ctx = WorkflowContext(
+            adw_id="adw-req-cached",
+            artifact_store=store,
+            data={"plan_data": cached_value},
+        )
+
+        result = ctx.load_required_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        assert result is cached_value
+
+
+class TestLoadOptionalArtifact:
+    """Tests for WorkflowContext.load_optional_artifact."""
+
+    def test_returns_none_when_artifact_not_found(self, tmp_path):
+        """Test load_optional_artifact returns None when artifact file is not found."""
+        store = ArtifactStore(workflow_id="adw-opt-missing", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-opt-missing", artifact_store=store)
+
+        result = ctx.load_optional_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        assert result is None
+
+    def test_does_not_raise_when_artifact_not_found(self, tmp_path):
+        """Test load_optional_artifact does not raise an exception on missing artifact."""
+        store = ArtifactStore(workflow_id="adw-opt-no-raise", base_path=tmp_path)
+        ctx = WorkflowContext(adw_id="adw-opt-no-raise", artifact_store=store)
+
+        # Should not raise StepInputError or FileNotFoundError
+        result = ctx.load_optional_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+        assert result is None
+
+    def test_returns_extracted_value_when_artifact_exists(self, tmp_path):
+        """Test load_optional_artifact returns the extracted value when artifact exists."""
+        store = ArtifactStore(workflow_id="adw-opt-exists", base_path=tmp_path)
+
+        plan_data = PlanData(plan="Optional plan content", summary="Optional summary")
+        plan_artifact = PlanArtifact(workflow_id="adw-opt-exists", plan_data=plan_data)
+        store.write_artifact(plan_artifact)
+
+        ctx = WorkflowContext(adw_id="adw-opt-exists", artifact_store=store)
+
+        result = ctx.load_optional_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        assert result is not None
+        assert result.plan == "Optional plan content"
+        assert result.summary == "Optional summary"
+        assert ctx.data["plan_data"] == result
+
+    def test_returns_cached_value_from_context_data(self, tmp_path):
+        """Test load_optional_artifact returns existing value from context cache."""
+        store = ArtifactStore(workflow_id="adw-opt-cached", base_path=tmp_path)
+        cached_value = PlanData(plan="Cached plan", summary="Cached summary")
+        ctx = WorkflowContext(
+            adw_id="adw-opt-cached",
+            artifact_store=store,
+            data={"plan_data": cached_value},
+        )
+
+        result = ctx.load_optional_artifact(
+            context_key="plan_data",
+            artifact_type="plan",
+            artifact_class=PlanArtifact,
+            extract_fn=lambda a: a.plan_data,
+        )
+
+        assert result is cached_value

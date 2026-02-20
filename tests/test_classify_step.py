@@ -18,7 +18,6 @@ def mock_context():
     context.require_issue_id = 10
     context.adw_id = "test-adw-classify"
     context.data = {}
-    context.artifacts_enabled = True
     context.artifact_store = Mock()
     return context
 
@@ -58,11 +57,13 @@ class TestClassifyStepRun:
         sample_classify_data,
     ):
         """Test successful classification emits artifact comment."""
-        # Setup: issue loaded, classification succeeds
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return sample_issue
+        # Setup: issue loaded via load_required_artifact, classification succeeds
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            if context_key == "issue":
+                return sample_issue
+            raise Exception(f"Required artifact '{_artifact_type}' not found")
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__classify_issue.return_value = StepResult.ok(sample_classify_data)
         mock_emit_artifact.return_value = ("success", "Artifact comment inserted ID=42")
@@ -104,10 +105,12 @@ class TestClassifyStepRun:
     ):
         """Test that step succeeds even if emit_artifact_comment returns error (non-blocking)."""
         # Setup: issue loaded, classification succeeds
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return sample_issue
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            if context_key == "issue":
+                return sample_issue
+            raise Exception(f"Required artifact '{_artifact_type}' not found")
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__classify_issue.return_value = StepResult.ok(sample_classify_data)
         # Mock artifact comment emission to fail (e.g., DB unavailable)
@@ -127,13 +130,15 @@ class TestClassifyStepRun:
         mock_emit_comment.assert_called_once()
 
     def test_run_fails_when_no_issue_available(self, mock_context):
-        """Test that run fails when no issue is available."""
+        """Test that run fails when no issue is available (load_required_artifact raises)."""
         mock_context.data = {}
 
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return None
+        from rouge.core.workflow.step_base import StepInputError
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
+
+        mock_context.load_required_artifact = load_required_artifact
 
         step = ClassifyStep()
         result = step.run(mock_context)
@@ -154,10 +159,12 @@ class TestClassifyStepRun:
     ):
         """Test that run fails when _classify_issue fails."""
 
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return sample_issue
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            if context_key == "issue":
+                return sample_issue
+            raise Exception(f"Required artifact '{_artifact_type}' not found")
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__classify_issue.return_value = StepResult.fail("Classification agent failed")
 
@@ -186,10 +193,12 @@ class TestClassifyStepRun:
     ):
         """Test that classification artifact is saved."""
 
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return sample_issue
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            if context_key == "issue":
+                return sample_issue
+            raise Exception(f"Required artifact '{_artifact_type}' not found")
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__classify_issue.return_value = StepResult.ok(sample_classify_data)
         mock_emit_artifact.return_value = ("success", "Artifact comment inserted")
@@ -209,7 +218,7 @@ class TestClassifyStepRun:
     @patch("rouge.core.workflow.steps.classify_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.classify_step.emit_artifact_comment")
     @patch.object(ClassifyStep, "_classify_issue")
-    def test_run_skips_artifact_comment_when_artifacts_disabled(
+    def test_run_always_emits_artifact_comment_when_store_available(
         self,
         mock__classify_issue,
         mock_emit_artifact,
@@ -218,16 +227,21 @@ class TestClassifyStepRun:
         sample_issue,
         sample_classify_data,
     ):
-        """Test that artifact comment is skipped when artifacts are disabled."""
-        # Disable artifacts
-        mock_context.artifacts_enabled = False
+        """Test that artifact comment is always emitted when classification succeeds.
 
-        def load_issue_artifact_if_missing(_artifact_class, _extract_fn):
-            return sample_issue
+        Previously there was a guard for artifacts_enabled. Now artifact_store is always
+        required, so the artifact comment is always emitted on success.
+        """
 
-        mock_context.load_issue_artifact_if_missing = load_issue_artifact_if_missing
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            if context_key == "issue":
+                return sample_issue
+            raise Exception(f"Required artifact '{_artifact_type}' not found")
+
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__classify_issue.return_value = StepResult.ok(sample_classify_data)
+        mock_emit_artifact.return_value = ("success", "Artifact comment inserted")
         mock_emit_comment.return_value = ("success", "Progress comment inserted")
 
         step = ClassifyStep()
@@ -235,10 +249,10 @@ class TestClassifyStepRun:
 
         assert result.success is True
 
-        # Verify artifact comment was NOT emitted (artifacts disabled)
-        mock_emit_artifact.assert_not_called()
+        # Verify artifact comment IS always emitted (no artifacts_enabled guard)
+        mock_emit_artifact.assert_called_once()
 
-        # Verify progress comment was still emitted
+        # Verify progress comment was also emitted
         mock_emit_comment.assert_called_once()
 
 

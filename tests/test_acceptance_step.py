@@ -22,7 +22,6 @@ def mock_context():
     context.require_issue_id = 10
     context.adw_id = "test-adw-acceptance"
     context.data = {}
-    context.artifacts_enabled = True
     context.artifact_store = Mock()
     return context
 
@@ -41,13 +40,13 @@ class TestLoadPlanText:
     """Tests for AcceptanceStep._load_plan_text method."""
 
     def test_uses_plan_when_available(self, mock_context, sample_plan_data):
-        """Test that plan is used when available in context."""
+        """Test that plan is used when available in context (cache hit)."""
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
             return mock_context.data.get(context_key)
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
@@ -55,13 +54,13 @@ class TestLoadPlanText:
         assert result == sample_plan_data.plan
 
     def test_returns_none_when_no_plan_available(self, mock_context):
-        """Test that None is returned when no plan is available."""
+        """Test that None is returned when no plan is available (load_required_artifact raises)."""
         mock_context.data = {}
 
-        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            return None
+        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            raise Exception("Required artifact 'plan' not found")
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
@@ -69,21 +68,21 @@ class TestLoadPlanText:
         assert result is None
 
     def test_loads_plan_from_artifact(self, mock_context, sample_plan_data):
-        """Test loading plan from artifact store."""
+        """Test loading plan from artifact store via load_required_artifact."""
         mock_context.data = {}
         plan_artifact = PlanArtifact(
             workflow_id="test-adw",
             plan_data=sample_plan_data,
         )
 
-        def load_artifact_if_missing(context_key, artifact_type, _artifact_class, extract_fn):
+        def load_required_artifact(context_key, artifact_type, _artifact_class, extract_fn):
             if artifact_type == "plan":
                 value = extract_fn(plan_artifact)
                 mock_context.data[context_key] = value
                 return value
-            return None
+            raise Exception(f"Required artifact '{artifact_type}' not found")
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         step = AcceptanceStep()
         result = step._load_plan_text(mock_context)
@@ -101,10 +100,10 @@ class TestLoadPlanText:
         )
         mock_context.data = {"plan_data": patch_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
             return mock_context.data.get(context_key)
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         step = AcceptanceStep()
         result = step._load_plan_text(mock_context)

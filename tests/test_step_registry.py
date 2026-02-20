@@ -740,3 +740,107 @@ class TestGlobalRegistry:
         assert not any(
             "Building implementation plan" in dep for dep in deps
         ), "Should not depend on PlanStep"
+
+
+class TestRegistryContractConstraints:
+    """Contract tests enforcing artifact dependency policy rules on the global registry."""
+
+    def setup_method(self):
+        """Reset global registry before each test."""
+        reset_step_registry()
+
+    def teardown_method(self):
+        """Reset global registry after each test."""
+        reset_step_registry()
+
+    def test_all_dependency_kinds_values_are_from_valid_set(self):
+        """All dependency_kinds values in registered steps must be 'optional' or 'ordering-only'.
+
+        'required' is the implicit default and must not appear as an explicit value.
+        """
+        valid_kinds = {"optional", "ordering-only"}
+        registry = get_step_registry()
+
+        for step_name in registry.list_all_steps():
+            metadata = registry.get_step_metadata(step_name)
+            assert metadata is not None
+            for artifact_type, kind in metadata.dependency_kinds.items():
+                assert kind in valid_kinds, (
+                    f"Step '{step_name}' has invalid dependency_kinds value '{kind}' "
+                    f"for artifact '{artifact_type}'. Valid values: {valid_kinds}"
+                )
+
+    def test_steps_with_no_dependency_kinds_entry_are_treated_as_required(self):
+        """Dependencies without a dependency_kinds entry default to 'required'.
+
+        The classify step depends on fetch-issue with no explicit dependency_kinds
+        entry, so fetch-issue is implicitly required.  The registry must not list
+        fetch-issue in dependency_kinds (which would override the default).
+        """
+        registry = get_step_registry()
+
+        classify_meta = None
+        for name in registry.list_all_steps():
+            if "Classifying" in name:
+                classify_meta = registry.get_step_metadata(name)
+                break
+
+        assert classify_meta is not None, "ClassifyStep must be registered"
+        assert "fetch-issue" in classify_meta.dependencies, (
+            "ClassifyStep must declare fetch-issue as a dependency"
+        )
+        # fetch-issue must NOT appear in dependency_kinds — absence means 'required'
+        assert "fetch-issue" not in classify_meta.dependency_kinds, (
+            "ClassifyStep's fetch-issue dependency should be implicitly required "
+            "(not listed in dependency_kinds)"
+        )
+
+    def test_adding_step_with_invalid_dependency_kinds_raises_value_error(self):
+        """Registering a step with an unknown dependency_kinds value must raise ValueError."""
+        registry = get_step_registry()
+
+        with pytest.raises(ValueError, match="dependency_kinds value 'unknown-kind'"):
+            registry.register(
+                MockStep,
+                dependencies=["fetch-issue"],
+                outputs=["test-output"],
+                dependency_kinds={"fetch-issue": "unknown-kind"},
+            )
+
+    def test_all_optional_and_ordering_only_deps_are_explicitly_declared(self):
+        """Steps with optional/ordering-only deps must have them explicitly declared.
+
+        Policy assertions:
+        - gh-pull-request and glab-pull-request declare compose-request as optional
+        - code-quality declares implement as ordering-only
+        - compose-request declares acceptance as ordering-only
+        """
+        registry = get_step_registry()
+
+        # gh-pull-request: compose-request is optional
+        gh_meta = registry.get_step_metadata_by_slug("gh-pull-request")
+        assert gh_meta is not None, "gh-pull-request step must be registered"
+        assert gh_meta.dependency_kinds.get("compose-request") == "optional", (
+            "gh-pull-request must declare compose-request as optional"
+        )
+
+        # glab-pull-request: compose-request is optional
+        glab_meta = registry.get_step_metadata_by_slug("glab-pull-request")
+        assert glab_meta is not None, "glab-pull-request step must be registered"
+        assert glab_meta.dependency_kinds.get("compose-request") == "optional", (
+            "glab-pull-request must declare compose-request as optional"
+        )
+
+        # code-quality: implement is ordering-only
+        cq_meta = registry.get_step_metadata_by_slug("code-quality")
+        assert cq_meta is not None, "code-quality step must be registered"
+        assert cq_meta.dependency_kinds.get("implement") == "ordering-only", (
+            "code-quality must declare implement as ordering-only"
+        )
+
+        # compose-request: acceptance is ordering-only
+        cr_meta = registry.get_step_metadata_by_slug("compose-request")
+        assert cr_meta is not None, "compose-request step must be registered"
+        assert cr_meta.dependency_kinds.get("acceptance") == "ordering-only", (
+            "compose-request must declare acceptance as ordering-only"
+        )
