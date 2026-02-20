@@ -261,7 +261,7 @@ def test_fetch_comment_invalid_data_type(mock_get_client) -> None:
     mock_eq.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    with pytest.raises(ValueError, match="Expected dict from database for comment 1"):
+    with pytest.raises(TypeError, match="Expected dict from database for comment 1"):
         fetch_comment(1)
 
 

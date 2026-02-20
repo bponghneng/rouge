@@ -185,19 +185,18 @@ def test_create_command_non_utf8_spec_file(tmp_path) -> None:
 def test_create_command_empty_description() -> None:
     """Test create command with empty string description.
 
-    Note: Typer treats an empty string argument as no argument provided,
-    so this triggers the 'must provide description or spec-file' error.
+    Empty string is treated as whitespace-only and rejected early in validation.
     """
     result = runner.invoke(app, ["create", ""])
     assert result.exit_code == 1
-    assert "Must provide either a description argument or --spec-file" in result.output
+    assert "Description cannot be whitespace only" in result.output
 
 
 def test_create_command_whitespace_description() -> None:
     """Test create command with whitespace-only description."""
     result = runner.invoke(app, ["create", "   "])
     assert result.exit_code == 1
-    assert "Description cannot be empty" in result.output
+    assert "Description cannot be whitespace only" in result.output
 
 
 @patch("rouge.cli.issue.create_issue")
