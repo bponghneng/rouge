@@ -116,7 +116,7 @@ context.plan_data = plan_data  # Wrong!
   - Step must handle `None` case without failing
 
 - **Ordering-only**: Step doesn't read the artifact, just requires ordering constraint
-  - Does not call `load_artifact` or `load_optional_artifact`
+  - Does not call `load_required_artifact` or `load_optional_artifact`
   - Used to enforce execution order without data dependency
   - Common for steps that need side effects to complete first
 
@@ -248,7 +248,7 @@ pr_details = context.load_optional_artifact(
 - Registry `dependencies` must list all artifacts the step loads (required, optional, or ordering-only)
 - Registry `outputs` must list all artifacts the step writes
 - Registry `dependency_kinds` must match step's actual loading patterns:
-  - If step uses `load_artifact()`, dependency is required (default)
+  - If step uses `load_required_artifact()`, dependency is required (default)
   - If step uses `load_optional_artifact()`, dependency must be marked `"optional"`
   - If step doesn't load artifact, dependency must be marked `"ordering-only"`
 - Tests must verify registry alignment
