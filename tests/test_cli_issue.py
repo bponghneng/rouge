@@ -782,13 +782,10 @@ def test_update_command_invalid_type(mock_update_issue) -> None:
 @patch("rouge.cli.issue.update_issue")
 def test_update_command_empty_title(mock_update_issue) -> None:
     """Test update command with empty title."""
-    # Whitespace-only title is normalized to None at CLI layer, triggering "no fields" error
+    # Whitespace-only title triggers validation error
     result = runner.invoke(app, ["update", "123", "--title", "   "])
     assert result.exit_code == 1
-    assert (
-        "Error: No fields provided for update. At least one field must be specified."
-        in result.output
-    )
+    assert "Error: Field 'title' cannot be whitespace only" in result.output
     # update_issue should not be called since validation fails early
     mock_update_issue.assert_not_called()
 
@@ -796,13 +793,10 @@ def test_update_command_empty_title(mock_update_issue) -> None:
 @patch("rouge.cli.issue.update_issue")
 def test_update_command_empty_description(mock_update_issue) -> None:
     """Test update command with empty description."""
-    # Empty description is normalized to None at CLI layer, triggering "no fields" error
+    # Empty description triggers validation error
     result = runner.invoke(app, ["update", "123", "--description", ""])
     assert result.exit_code == 1
-    assert (
-        "Error: No fields provided for update. At least one field must be specified."
-        in result.output
-    )
+    assert "Error: Field 'description' cannot be whitespace only" in result.output
     # update_issue should not be called since validation fails early
     mock_update_issue.assert_not_called()
 

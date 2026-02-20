@@ -451,6 +451,16 @@ def update(
     """
     validate_issue_id(issue_id)
     try:
+        # Validate whitespace-only fields before normalization
+        if assigned_to is not None and assigned_to.strip() == "":
+            raise ValueError("Field 'assigned_to' cannot be whitespace only")
+
+        if title is not None and title.strip() == "":
+            raise ValueError("Field 'title' cannot be whitespace only")
+
+        if description is not None and description.strip() == "":
+            raise ValueError("Field 'description' cannot be whitespace only")
+
         # Normalize string fields: trim and convert empty strings to None
         if assigned_to is not None:
             assigned_to = assigned_to.strip() or None
@@ -462,6 +472,8 @@ def update(
         # Validate and normalize issue_type
         normalized_issue_type: Optional[str] = None
         if issue_type is not None:
+            if issue_type.strip() == "":
+                raise ValueError("Field 'issue_type' cannot be whitespace only")
             issue_type = issue_type.strip()
             if issue_type:
                 try:
