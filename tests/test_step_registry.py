@@ -415,7 +415,7 @@ class TestSlugFunctionality:
 class TestDependencyKindsValidation:
     """Tests for dependency_kinds validation in register()."""
 
-    def test_valid_dependency_kinds_optional(self):
+    def test_valid_dependency_kinds_optional(self) -> None:
         """Test registering step with valid 'optional' dependency_kinds."""
         registry = StepRegistry()
         registry.register(
@@ -429,7 +429,7 @@ class TestDependencyKindsValidation:
         assert metadata is not None
         assert metadata.dependency_kinds == {"issue": "optional"}
 
-    def test_valid_dependency_kinds_ordering_only(self):
+    def test_valid_dependency_kinds_ordering_only(self) -> None:
         """Test registering step with valid 'ordering-only' dependency_kinds."""
         registry = StepRegistry()
         registry.register(
@@ -443,7 +443,7 @@ class TestDependencyKindsValidation:
         assert metadata is not None
         assert metadata.dependency_kinds == {"plan": "ordering-only"}
 
-    def test_invalid_dependency_kinds_key_not_in_dependencies(self):
+    def test_invalid_dependency_kinds_key_not_in_dependencies(self) -> None:
         """Test that dependency_kinds key not in dependencies raises ValueError."""
         registry = StepRegistry()
 
@@ -455,7 +455,7 @@ class TestDependencyKindsValidation:
                 dependency_kinds={"nonexistent": "optional"},
             )
 
-    def test_invalid_dependency_kinds_value(self):
+    def test_invalid_dependency_kinds_value(self) -> None:
         """Test that invalid dependency_kinds value raises ValueError."""
         registry = StepRegistry()
 
@@ -467,7 +467,7 @@ class TestDependencyKindsValidation:
                 dependency_kinds={"issue": "invalid"},
             )
 
-    def test_invalid_dependency_kinds_value_required(self):
+    def test_invalid_dependency_kinds_value_required(self) -> None:
         """Test that 'required' in dependency_kinds value raises ValueError.
 
         'required' is implicit when a dependency is not in dependency_kinds,
@@ -483,11 +483,11 @@ class TestDependencyKindsValidation:
                 dependency_kinds={"issue": "required"},
             )
 
-    def test_multiple_invalid_keys(self):
+    def test_multiple_invalid_keys(self) -> None:
         """Test that first invalid dependency_kinds key is caught."""
         registry = StepRegistry()
 
-        with pytest.raises(ValueError, match="dependency_kinds key"):
+        with pytest.raises(ValueError, match="dependency_kinds key 'nonexistent1'"):
             registry.register(
                 MockStep,
                 dependencies=["issue"],
@@ -495,7 +495,7 @@ class TestDependencyKindsValidation:
                 dependency_kinds={"nonexistent1": "optional", "nonexistent2": "ordering-only"},
             )
 
-    def test_empty_dependency_kinds_is_valid(self):
+    def test_empty_dependency_kinds_is_valid(self) -> None:
         """Test that empty dependency_kinds dict is valid."""
         registry = StepRegistry()
         registry.register(
@@ -509,7 +509,7 @@ class TestDependencyKindsValidation:
         assert metadata is not None
         assert metadata.dependency_kinds == {}
 
-    def test_none_dependency_kinds_is_valid(self):
+    def test_none_dependency_kinds_is_valid(self) -> None:
         """Test that None dependency_kinds is valid."""
         registry = StepRegistry()
         registry.register(
@@ -523,7 +523,7 @@ class TestDependencyKindsValidation:
         assert metadata is not None
         assert metadata.dependency_kinds == {}
 
-    def test_mixed_valid_dependency_kinds(self):
+    def test_mixed_valid_dependency_kinds(self) -> None:
         """Test registering step with multiple valid dependency_kinds."""
         registry = StepRegistry()
         registry.register(

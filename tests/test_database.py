@@ -92,14 +92,14 @@ def test_create_issue_success(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_empty_description(mock_get_client) -> None:
+def test_create_issue_empty_description(_mock_get_client) -> None:
     """Test creating issue with empty description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         create_issue("")
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_whitespace_only(mock_get_client) -> None:
+def test_create_issue_whitespace_only(_mock_get_client) -> None:
     """Test creating issue with whitespace-only description fails."""
     with pytest.raises(ValueError, match="cannot be empty"):
         create_issue("   ")
