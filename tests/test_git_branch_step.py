@@ -6,15 +6,17 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue
+from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.git_branch_step import GIT_TIMEOUT, GitBranchStep
 from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture
-def context():
+def context(tmp_path):
     """Create a sample workflow context for testing."""
-    return WorkflowContext(issue_id=1, adw_id="test123")
+    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
+    return WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
 
 
 # === Basic Step Properties Tests ===
@@ -486,7 +488,7 @@ def test_branch_step_unexpected_error(mock_subprocess, mock_get_repo_path, conte
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_uses_issue_branch_when_set(
-    mock_subprocess, mock_get_repo_path, mock_update_issue
+    mock_subprocess, mock_get_repo_path, mock_update_issue, tmp_path
 ):
     """Test that branch name comes from context.issue.branch when set."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -498,7 +500,8 @@ def test_branch_step_uses_issue_branch_when_set(
     mock_subprocess.return_value = mock_result
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch="my-feature")
-    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue)
+    store = ArtifactStore(workflow_id="abc123", base_path=tmp_path)
+    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue, artifact_store=store)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -516,7 +519,7 @@ def test_branch_step_uses_issue_branch_when_set(
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
-    mock_subprocess, mock_get_repo_path, mock_update_issue
+    mock_subprocess, mock_get_repo_path, mock_update_issue, tmp_path
 ):
     """Test that branch name falls back to adw-<id> when context.issue.branch is None."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -528,7 +531,8 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
     mock_subprocess.return_value = mock_result
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch=None)
-    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue)
+    store = ArtifactStore(workflow_id="xyz789", base_path=tmp_path)
+    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue, artifact_store=store)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -545,7 +549,7 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch):
+def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch, tmp_path):
     """Test that branch name is correctly formatted from adw_id when no issue branch."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -565,7 +569,8 @@ def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mo
 
     for adw_id, expected_branch in test_cases:
         mock_subprocess.reset_mock()
-        context = WorkflowContext(issue_id=1, adw_id=adw_id)
+        store = ArtifactStore(workflow_id=adw_id, base_path=tmp_path / adw_id)
+        context = WorkflowContext(issue_id=1, adw_id=adw_id, artifact_store=store)
 
         step = GitBranchStep()
         result = step.run(context)

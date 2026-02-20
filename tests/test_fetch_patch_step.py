@@ -19,7 +19,6 @@ def mock_context():
     context.adw_id = "test-adw-patch"
     context.issue = None
     context.data = {}
-    context.artifacts_enabled = True
     context.artifact_store = Mock()
     return context
 
@@ -123,16 +122,15 @@ def test_fetch_patch_step_issue_not_found(
 @patch("rouge.core.workflow.steps.fetch_patch_step.update_status")
 @patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
-def test_fetch_patch_step_without_artifact_store(
+def test_fetch_patch_step_writes_artifact(
     mock_fetch_issue,
     mock_emit,
     mock_update_status,
     mock_context,
     sample_patch_issue,
 ):
-    """Test fetch patch step works without artifact store."""
-    mock_context.artifacts_enabled = False
-    mock_context.artifact_store = None
+    """Test fetch patch step always writes artifact to the artifact store."""
+    # artifact_store is always present (required field).
     mock_fetch_issue.return_value = sample_patch_issue
     mock_emit.return_value = ("success", "Comment inserted")
 
@@ -141,6 +139,8 @@ def test_fetch_patch_step_without_artifact_store(
 
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
+    # Artifact must always be written
+    mock_context.artifact_store.write_artifact.assert_called_once()
 
 
 def test_fetch_patch_step_is_critical():

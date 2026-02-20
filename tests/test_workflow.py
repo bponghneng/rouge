@@ -1,5 +1,7 @@
 """Tests for workflow orchestration."""
 
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -8,9 +10,20 @@ from postgrest.exceptions import APIError
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import execute_workflow, update_status
+from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.shared import derive_paths_from_plan
+from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.code_review_step import is_clean_review
 from rouge.core.workflow.types import StepResult
+
+
+def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> WorkflowContext:
+    """Create a WorkflowContext with a temporary artifact store for testing."""
+    tmp_dir = tempfile.TemporaryDirectory()
+    store = ArtifactStore(workflow_id=adw_id, base_path=Path(tmp_dir.name))
+    context = WorkflowContext(issue_id=issue_id, adw_id=adw_id, artifact_store=store, **kwargs)
+    context._tmp_dir = tmp_dir  # type: ignore[attr-defined]  # keeps dir alive until context is GC'd
+    return context
 
 
 @pytest.fixture
@@ -248,16 +261,16 @@ def test_is_clean_review_both_markers_missing():
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
 def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
     """Test code quality step passes strict JSON schema to Claude template request."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
     mock_emit.return_value = ("success", "ok")
     mock_response = Mock()
     mock_response.success = True
-    mock_response.output = '{"issues":[],"output":"code-quality","tools":[]}'
+    mock_response.output = '{"issues":[],"output":"code-quality","tools":["ruff"]}'
     mock_execute.return_value = mock_response
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     step = CodeQualityStep()
     result = step.run(context)
 
@@ -283,7 +296,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, mock_which):
     """Test successful PR creation with git push before gh pr create."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -309,7 +322,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -346,7 +359,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_get_repo_path, 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 def test_create_pr_step_missing_github_pat(mock_emit):
     """Test PR creation skipped when GITHUB_PAT is missing."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -354,7 +367,7 @@ def test_create_pr_step_missing_github_pat(mock_emit):
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -372,7 +385,7 @@ def test_create_pr_step_missing_github_pat(mock_emit):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 def test_create_pr_step_missing_pr_details(mock_emit):
     """Test PR creation skipped when pr_details is missing."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -380,7 +393,7 @@ def test_create_pr_step_missing_pr_details(mock_emit):
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     # No pr_details in context
 
     step = GhPullRequestStep()
@@ -395,7 +408,7 @@ def test_create_pr_step_missing_pr_details(mock_emit):
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit):
     """Test PR creation skipped when title is empty."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -403,7 +416,7 @@ def test_create_pr_step_empty_title(mock_emit):
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "",
         "summary": "Some summary",
@@ -427,7 +440,7 @@ def test_create_pr_step_already_exists_is_success(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation is idempotent when gh reports existing PR."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -446,7 +459,7 @@ def test_create_pr_step_already_exists_is_success(
     mock_subprocess.side_effect = [mock_push_result, mock_pr_result]
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -472,7 +485,7 @@ def test_create_pr_step_gh_command_failure(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation handles gh command failure."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -497,7 +510,7 @@ def test_create_pr_step_gh_command_failure(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -521,7 +534,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -545,7 +558,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -565,7 +578,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     """Test PR creation handles gh CLI not found via proactive detection."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -576,7 +589,7 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -603,7 +616,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
     mock_subprocess, mock_emit, mock_get_repo_path, mock_which
 ):
     """Test PR creation continues even when git push fails."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -628,7 +641,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -656,7 +669,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     """Test PR creation continues even when git push times out."""
     import subprocess
 
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -679,7 +692,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -725,7 +738,7 @@ def test_create_pr_step_name():
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo_path):
     """Test successful MR creation with git push before glab mr create."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     # Mock get_repo_path to return a specific path
@@ -746,7 +759,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -784,13 +797,13 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_get_repo
 @patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
 def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
     """Test MR creation skipped when GITLAB_PAT is missing."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -812,13 +825,13 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
 @patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
     """Test MR creation skipped when pr_details is missing."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     # No pr_details in context
 
     step = GlabPullRequestStep()
@@ -835,13 +848,13 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
     """Test MR creation skipped when title is empty."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "",
         "summary": "Some summary",
@@ -866,7 +879,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
 ):
     """Test MR creation handles glab command failure."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -886,7 +899,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -911,7 +924,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     """Test MR creation handles timeout on glab mr create."""
     import subprocess
 
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -930,7 +943,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -955,7 +968,7 @@ def test_create_gitlab_mr_step_glab_not_found(
     mock_subprocess, mock_logger, mock_emit, mock_get_repo_path
 ):
     """Test MR creation handles glab CLI not found."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -971,7 +984,7 @@ def test_create_gitlab_mr_step_glab_not_found(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -995,7 +1008,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
     mock_subprocess, mock_emit, mock_get_repo_path
 ):
     """Test MR creation continues even when git push fails."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -1015,7 +1028,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1042,7 +1055,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
     """Test MR creation continues even when git push times out."""
     import subprocess
 
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -1060,7 +1073,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1098,43 +1111,43 @@ def test_create_gitlab_mr_step_name():
 
 def test_prepare_pr_step_store_pr_details_success():
     """Test _store_pr_details stores validated dict correctly."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     step = ComposeRequestStep()
 
-    # Now _store_pr_details expects a dict (pre-validated), not a JSON string
+    # _store_pr_details expects a dict (pre-validated).
+    # Commits must be dicts (per ComposeRequestArtifact schema).
     pr_data = {
         "title": "feat: add feature",
         "summary": "This adds a feature.",
-        "commits": ["abc123", "def456"],
+        "commits": [{"message": "abc123"}, {"message": "def456"}],
     }
     step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
     assert context.data["pr_details"]["title"] == "feat: add feature"
     assert context.data["pr_details"]["summary"] == "This adds a feature."
-    assert context.data["pr_details"]["commits"] == ["abc123", "def456"]
+    assert context.data["pr_details"]["commits"] == [{"message": "abc123"}, {"message": "def456"}]
 
 
 def test_prepare_pr_step_store_pr_details_missing_fields():
     """Test _store_pr_details handles missing fields with defaults."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     step = ComposeRequestStep()
 
-    # Dict with only title - note this would normally fail JSON validation
-    # but _store_pr_details is now called after validation, so this tests
-    # that defaults are still applied for extra safety
-    pr_data = {"title": "only title"}
+    # Dict with title and a non-empty summary (empty summary fails artifact validation).
+    # Commits default to [] which is valid for ComposeRequestArtifact.
+    pr_data = {"title": "only title", "summary": "Default summary"}
     step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
     assert context.data["pr_details"]["title"] == "only title"
-    assert context.data["pr_details"]["summary"] == ""
+    assert context.data["pr_details"]["summary"] == "Default summary"
     assert context.data["pr_details"]["commits"] == []
 
 
@@ -1143,23 +1156,24 @@ def test_prepare_pr_step_store_pr_details_missing_fields():
 @patch("rouge.core.workflow.steps.compose_request_step.update_status")
 def test_prepare_pr_step_emits_raw_llm_response(mock_update_status, mock_execute, mock_emit):
     """Test ComposeRequestStep emits raw LLM response for debugging."""
-    from rouge.core.workflow.step_base import WorkflowContext
+
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
     # Mock successful template execution with valid JSON
+    # Commits must be dicts to pass ComposeRequestArtifact validation.
     pr_json = (
         '{"output": "pull_request", "title": "feat: test", '
-        '"summary": "Test summary", "commits": ["abc123"]}'
+        '"summary": "Test summary", "commits": [{"message": "abc123"}]}'
     )
     mock_response = Mock()
     mock_response.success = True
     mock_response.output = pr_json
     mock_execute.return_value = mock_response
 
-    context = WorkflowContext(issue_id=1, adw_id="adw123")
+    context = _make_context()
     step = ComposeRequestStep()
     result = step.run(context)
 

@@ -18,7 +18,6 @@ def mock_context():
     context.require_issue_id = 10
     context.adw_id = "test-adw-review"
     context.data = {}
-    context.artifacts_enabled = True
     context.artifact_store = Mock()
     return context
 
@@ -58,10 +57,13 @@ class TestCodeReviewStepRun:
         # Setup: plan loaded, review generation succeeds
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         # Mock for progress comment from run
@@ -99,10 +101,13 @@ class TestCodeReviewStepRun:
         # Setup: plan loaded, review generation succeeds
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
 
@@ -122,10 +127,12 @@ class TestCodeReviewStepRun:
         """Test that run fails when no plan is available for issue-based workflow."""
         mock_context.data = {}
 
-        def load_artifact_if_missing(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            return None
+        from rouge.core.workflow.step_base import StepInputError
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
+
+        mock_context.load_required_artifact = load_required_artifact
 
         step = CodeReviewStep()
         result = step.run(mock_context)
@@ -145,10 +152,13 @@ class TestCodeReviewStepRun:
         """Test that run fails when _generate_review fails."""
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.fail("CodeRabbit review failed")
 
@@ -172,10 +182,13 @@ class TestCodeReviewStepRun:
         """Test that review artifact is saved."""
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
@@ -208,10 +221,13 @@ class TestCodeReviewStepRun:
             "base_commit": "abc1234",
         }
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -242,10 +258,13 @@ class TestCodeReviewStepRun:
             "workflow_type": "codereview",
         }
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -276,10 +295,13 @@ class TestCodeReviewStepRun:
             "workflow_type": "patch",
         }
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -309,10 +331,13 @@ class TestCodeReviewStepRun:
         mock_context.issue_id = None
         mock_context.data = {"plan_data": sample_plan_data}
 
-        def load_artifact_if_missing(context_key, _artifact_type, _artifact_class, _extract_fn):
-            return mock_context.data.get(context_key)
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
 
-        mock_context.load_artifact_if_missing = load_artifact_if_missing
+        mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
 
