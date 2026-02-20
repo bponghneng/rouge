@@ -272,5 +272,7 @@ rouge/
 └── tests/                # consolidated unit tests
 ```
 
+See [src/rouge/core/workflow/ARTIFACT_POLICY.md](src/rouge/core/workflow/ARTIFACT_POLICY.md) for artifact dependency policy.
+
 For the broader methodology, specs, and AI-agent prompts, see the workspace
 README (`../README.md`).
