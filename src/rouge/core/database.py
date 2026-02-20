@@ -225,7 +225,7 @@ def fetch_comment(comment_id: int) -> Comment:
             raise ValueError(f"Comment with id {comment_id} not found")
 
         if not isinstance(response_data, dict):
-            raise ValueError(
+            raise TypeError(
                 f"Expected dict from database for comment {comment_id}, got {type(response_data)}"
             )
 
