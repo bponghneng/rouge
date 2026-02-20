@@ -16,7 +16,7 @@ class TestCommentListCommand:
     """Tests for 'rouge comment list' command."""
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_default_parameters(self, mock_list_comments):
+    def test_list_default_parameters(self, mock_list_comments) -> None:
         """Test comment list command with default parameters."""
         mock_list_comments.return_value = [
             Comment(
@@ -37,7 +37,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_issue_id_filter(self, mock_list_comments):
+    def test_list_with_issue_id_filter(self, mock_list_comments) -> None:
         """Test comment list command with --issue-id filter."""
         mock_list_comments.return_value = [
             Comment(
@@ -58,7 +58,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_source_filter(self, mock_list_comments):
+    def test_list_with_source_filter(self, mock_list_comments) -> None:
         """Test comment list command with --source filter."""
         mock_list_comments.return_value = [
             Comment(
@@ -79,7 +79,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_type_filter(self, mock_list_comments):
+    def test_list_with_type_filter(self, mock_list_comments) -> None:
         """Test comment list command with --type filter."""
         mock_list_comments.return_value = [
             Comment(
@@ -100,7 +100,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_limit(self, mock_list_comments):
+    def test_list_with_limit(self, mock_list_comments) -> None:
         """Test comment list command with --limit."""
         mock_list_comments.return_value = []
 
@@ -111,7 +111,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_offset(self, mock_list_comments):
+    def test_list_with_offset(self, mock_list_comments) -> None:
         """Test comment list command with --offset."""
         mock_list_comments.return_value = []
 
@@ -122,7 +122,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_limit_and_offset(self, mock_list_comments):
+    def test_list_with_limit_and_offset(self, mock_list_comments) -> None:
         """Test comment list command with both --limit and --offset."""
         mock_list_comments.return_value = [
             Comment(
@@ -142,7 +142,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_with_all_filters(self, mock_list_comments):
+    def test_list_with_all_filters(self, mock_list_comments) -> None:
         """Test comment list command with all filters combined."""
         mock_list_comments.return_value = []
 
@@ -168,7 +168,7 @@ class TestCommentListCommand:
         )
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_invalid_limit_zero(self, mock_list_comments):
+    def test_list_invalid_limit_zero(self, mock_list_comments) -> None:
         """Test comment list command with --limit 0 (invalid) exits with code 1."""
         result = runner.invoke(app, ["list", "--limit", "0"])
         assert result.exit_code == 1
@@ -176,7 +176,7 @@ class TestCommentListCommand:
         mock_list_comments.assert_not_called()
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_invalid_limit_negative(self, mock_list_comments):
+    def test_list_invalid_limit_negative(self, mock_list_comments) -> None:
         """Test comment list command with negative --limit."""
         result = runner.invoke(app, ["list", "--limit", "-5"])
         assert result.exit_code == 1
@@ -184,7 +184,7 @@ class TestCommentListCommand:
         mock_list_comments.assert_not_called()
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_invalid_offset_negative(self, mock_list_comments):
+    def test_list_invalid_offset_negative(self, mock_list_comments) -> None:
         """Test comment list command with --offset -1 (invalid) exits with code 1."""
         result = runner.invoke(app, ["list", "--offset", "-1"])
         assert result.exit_code == 1
@@ -192,7 +192,7 @@ class TestCommentListCommand:
         mock_list_comments.assert_not_called()
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_empty_results(self, mock_list_comments):
+    def test_list_empty_results(self, mock_list_comments) -> None:
         """Test comment list command prints 'No comments found.' when no results."""
         mock_list_comments.return_value = []
 
@@ -201,7 +201,7 @@ class TestCommentListCommand:
         assert "No comments found." in result.output
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_database_error(self, mock_list_comments):
+    def test_list_database_error(self, mock_list_comments) -> None:
         """Test comment list command handles ValueError from database layer."""
         mock_list_comments.side_effect = ValueError("Database connection failed")
 
@@ -210,7 +210,7 @@ class TestCommentListCommand:
         assert "Error: Database connection failed" in result.output
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_unexpected_error(self, mock_list_comments):
+    def test_list_unexpected_error(self, mock_list_comments) -> None:
         """Test comment list command handles unexpected errors."""
         mock_list_comments.side_effect = Exception("Unexpected failure")
 
@@ -219,7 +219,7 @@ class TestCommentListCommand:
         assert "Unexpected error: Unexpected failure" in result.output
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_multiple_comments(self, mock_list_comments):
+    def test_list_multiple_comments(self, mock_list_comments) -> None:
         """Test comment list command displays multiple comments correctly."""
         mock_list_comments.return_value = [
             Comment(
@@ -248,7 +248,7 @@ class TestCommentListCommand:
         assert "Issue" in result.output  # Header
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_truncates_long_comments(self, mock_list_comments):
+    def test_list_truncates_long_comments(self, mock_list_comments) -> None:
         """Test comment list command truncates very long comments in table format."""
         long_comment = "This is a very long comment that should be truncated in the table view" * 10
         mock_list_comments.return_value = [
@@ -270,7 +270,7 @@ class TestCommentListCommand:
         assert long_comment not in result.output
 
     @patch("rouge.cli.comment.list_comments")
-    def test_list_handles_none_fields(self, mock_list_comments):
+    def test_list_handles_none_fields(self, mock_list_comments) -> None:
         """Test comment list command handles None values in optional fields."""
         mock_list_comments.return_value = [
             Comment(
@@ -293,7 +293,7 @@ class TestCommentReadCommand:
     """Tests for 'rouge comment read' command."""
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_with_default_format(self, mock_fetch_comment):
+    def test_read_with_default_format(self, mock_fetch_comment) -> None:
         """Test comment read command with default format (text)."""
         mock_fetch_comment.return_value = Comment(
             id=123,
@@ -315,7 +315,7 @@ class TestCommentReadCommand:
         mock_fetch_comment.assert_called_once_with(123)
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_with_text_format_explicit(self, mock_fetch_comment):
+    def test_read_with_text_format_explicit(self, mock_fetch_comment) -> None:
         """Test comment read command with explicit --format text."""
         mock_fetch_comment.return_value = Comment(
             id=123,
@@ -332,7 +332,7 @@ class TestCommentReadCommand:
         assert "Test comment" in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_with_json_format(self, mock_fetch_comment):
+    def test_read_with_json_format(self, mock_fetch_comment) -> None:
         """Test comment read command with --format json (raw output)."""
         mock_comment = Comment(
             id=123,
@@ -359,7 +359,7 @@ class TestCommentReadCommand:
         mock_fetch_comment.assert_called_once_with(123)
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_with_json_format_short_flag(self, mock_fetch_comment):
+    def test_read_with_json_format_short_flag(self, mock_fetch_comment) -> None:
         """Test comment read command with -f json short flag."""
         mock_comment = Comment(
             id=456,
@@ -380,7 +380,7 @@ class TestCommentReadCommand:
         assert output_data["comment"] == "Another comment"
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_plan_artifact_markdown_rendering(self, mock_fetch_comment):
+    def test_read_plan_artifact_markdown_rendering(self, mock_fetch_comment) -> None:
         """Test comment read with --format text for plan artifact (markdown rendering)."""
         mock_fetch_comment.return_value = Comment(
             id=123,
@@ -411,7 +411,7 @@ class TestCommentReadCommand:
         assert "## Step 2" in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_compose_request_artifact_markdown_rendering(self, mock_fetch_comment):
+    def test_read_compose_request_artifact_markdown_rendering(self, mock_fetch_comment) -> None:
         """Test comment read with --format text for compose-request artifact."""
         mock_fetch_comment.return_value = Comment(
             id=124,
@@ -440,7 +440,7 @@ class TestCommentReadCommand:
         assert "## Changes" in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_non_markdown_artifact_formatted_fallback(self, mock_fetch_comment):
+    def test_read_non_markdown_artifact_formatted_fallback(self, mock_fetch_comment) -> None:
         """Test comment read with --format text for non-markdown artifact (formatted fallback)."""
         mock_fetch_comment.return_value = Comment(
             id=125,
@@ -464,7 +464,7 @@ class TestCommentReadCommand:
         assert '"value"' in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_comment_without_raw_data(self, mock_fetch_comment):
+    def test_read_comment_without_raw_data(self, mock_fetch_comment) -> None:
         """Test comment read with no raw data."""
         mock_fetch_comment.return_value = Comment(
             id=126,
@@ -484,7 +484,7 @@ class TestCommentReadCommand:
         assert "Raw Data (JSON):" not in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_comment_with_minimal_fields(self, mock_fetch_comment):
+    def test_read_comment_with_minimal_fields(self, mock_fetch_comment) -> None:
         """Test comment read with minimal fields (only required ones)."""
         mock_fetch_comment.return_value = Comment(
             id=127,
@@ -507,7 +507,7 @@ class TestCommentReadCommand:
         assert "Created:" not in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_invalid_comment_id(self, mock_fetch_comment):
+    def test_read_invalid_comment_id(self, mock_fetch_comment) -> None:
         """Test comment read with invalid ID (not found)."""
         mock_fetch_comment.side_effect = ValueError("Comment with id 999 not found")
 
@@ -517,7 +517,7 @@ class TestCommentReadCommand:
         mock_fetch_comment.assert_called_once_with(999)
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_database_error(self, mock_fetch_comment):
+    def test_read_database_error(self, mock_fetch_comment) -> None:
         """Test comment read handles database errors."""
         mock_fetch_comment.side_effect = ValueError("Database connection failed")
 
@@ -526,7 +526,7 @@ class TestCommentReadCommand:
         assert "Error: Database connection failed" in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_unexpected_error(self, mock_fetch_comment):
+    def test_read_unexpected_error(self, mock_fetch_comment) -> None:
         """Test comment read handles unexpected errors."""
         mock_fetch_comment.side_effect = Exception("Unexpected failure")
 
@@ -535,7 +535,7 @@ class TestCommentReadCommand:
         assert "Unexpected error: Unexpected failure" in result.output
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_plan_artifact_with_empty_plan_data(self, mock_fetch_comment):
+    def test_read_plan_artifact_with_empty_plan_data(self, mock_fetch_comment) -> None:
         """Test comment read with plan artifact but empty plan_data."""
         mock_fetch_comment.return_value = Comment(
             id=128,
@@ -554,7 +554,7 @@ class TestCommentReadCommand:
         # Should handle empty plan gracefully
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_compose_request_artifact_with_empty_summary(self, mock_fetch_comment):
+    def test_read_compose_request_artifact_with_empty_summary(self, mock_fetch_comment) -> None:
         """Test comment read with compose-request artifact but empty summary."""
         mock_fetch_comment.return_value = Comment(
             id=129,
@@ -573,7 +573,7 @@ class TestCommentReadCommand:
         # Should handle empty summary gracefully
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_malformed_artifact_data(self, mock_fetch_comment):
+    def test_read_malformed_artifact_data(self, mock_fetch_comment) -> None:
         """Test comment read with malformed artifact data (missing expected keys)."""
         mock_fetch_comment.return_value = Comment(
             id=130,
@@ -591,7 +591,7 @@ class TestCommentReadCommand:
         # Should handle gracefully without crashing
 
     @patch("rouge.cli.comment.fetch_comment")
-    def test_read_artifact_type_mismatch(self, mock_fetch_comment):
+    def test_read_artifact_type_mismatch(self, mock_fetch_comment) -> None:
         """Test comment read when artifact_type doesn't match comment type field."""
         mock_fetch_comment.return_value = Comment(
             id=131,
@@ -618,25 +618,25 @@ class TestCommentReadCommand:
 class TestTruncateStringHelper:
     """Tests for the truncate_string helper function."""
 
-    def test_truncate_none_returns_none_string(self):
+    def test_truncate_none_returns_none_string(self) -> None:
         """Test truncate_string with None returns '(none)'."""
         from rouge.cli.comment import truncate_string
 
         assert truncate_string(None, 10) == "(none)"
 
-    def test_truncate_short_string_unchanged(self):
+    def test_truncate_short_string_unchanged(self) -> None:
         """Test truncate_string with string shorter than max_length."""
         from rouge.cli.comment import truncate_string
 
         assert truncate_string("short", 10) == "short"
 
-    def test_truncate_exact_length_unchanged(self):
+    def test_truncate_exact_length_unchanged(self) -> None:
         """Test truncate_string with string exactly at max_length."""
         from rouge.cli.comment import truncate_string
 
         assert truncate_string("exactly10!", 10) == "exactly10!"
 
-    def test_truncate_long_string_with_ellipsis(self):
+    def test_truncate_long_string_with_ellipsis(self) -> None:
         """Test truncate_string with string longer than max_length adds ellipsis."""
         from rouge.cli.comment import truncate_string
 
@@ -644,13 +644,13 @@ class TestTruncateStringHelper:
         assert result == "This is..."
         assert len(result) == 10
 
-    def test_truncate_zero_max_length(self):
+    def test_truncate_zero_max_length(self) -> None:
         """Test truncate_string with max_length of 0."""
         from rouge.cli.comment import truncate_string
 
         assert truncate_string("test", 0) == ""
 
-    def test_truncate_max_length_1_2_3(self):
+    def test_truncate_max_length_1_2_3(self) -> None:
         """Test truncate_string with max_length 1, 2, 3 (edge cases)."""
         from rouge.cli.comment import truncate_string
 
@@ -662,7 +662,7 @@ class TestTruncateStringHelper:
 class TestRenderCommentTextHelper:
     """Tests for the render_comment_text helper function."""
 
-    def test_render_basic_comment(self):
+    def test_render_basic_comment(self) -> None:
         """Test render_comment_text with basic comment (no artifact)."""
         from rouge.cli.comment import render_comment_text
 
@@ -682,7 +682,7 @@ class TestRenderCommentTextHelper:
         assert "Type:        note" in result
         assert "Basic comment" in result
 
-    def test_render_plan_artifact(self):
+    def test_render_plan_artifact(self) -> None:
         """Test render_comment_text with plan artifact."""
         from rouge.cli.comment import render_comment_text
 
@@ -707,7 +707,7 @@ class TestRenderCommentTextHelper:
         assert "# Plan" in result
         assert "Step 1" in result
 
-    def test_render_compose_request_artifact(self):
+    def test_render_compose_request_artifact(self) -> None:
         """Test render_comment_text with compose-request artifact."""
         from rouge.cli.comment import render_comment_text
 
@@ -732,7 +732,7 @@ class TestRenderCommentTextHelper:
         assert "## Summary" in result
         assert "Fixed bugs" in result
 
-    def test_render_comment_with_raw_data(self):
+    def test_render_comment_with_raw_data(self) -> None:
         """Test render_comment_text with raw data (no special artifact)."""
         from rouge.cli.comment import render_comment_text
 
