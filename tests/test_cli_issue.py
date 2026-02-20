@@ -13,44 +13,44 @@ runner = CliRunner()
 # Tests for generate_title helper function
 
 
-def test_generate_title_short_description():
+def test_generate_title_short_description() -> None:
     """Test generate_title with description of 10 words or fewer."""
     description = "Fix the login bug"
     result = generate_title(description)
     assert result == "Fix the login bug"
 
 
-def test_generate_title_exact_10_words():
+def test_generate_title_exact_10_words() -> None:
     """Test generate_title with exactly 10 words."""
     description = "One two three four five six seven eight nine ten"
     result = generate_title(description)
     assert result == "One two three four five six seven eight nine ten"
 
 
-def test_generate_title_long_description():
+def test_generate_title_long_description() -> None:
     """Test generate_title with description longer than 10 words."""
     description = "One two three four five six seven eight nine ten eleven twelve"
     result = generate_title(description)
     assert result == "One two three four five six seven eight nine ten..."
 
 
-def test_generate_title_empty_description():
+def test_generate_title_empty_description() -> None:
     """Test generate_title with empty description."""
     assert generate_title("") == ""
 
 
-def test_generate_title_whitespace_only():
+def test_generate_title_whitespace_only() -> None:
     """Test generate_title with whitespace-only description."""
     assert generate_title("   ") == ""
     assert generate_title("\n\t") == ""
 
 
-def test_generate_title_none():
+def test_generate_title_none() -> None:
     """Test generate_title with None."""
     assert generate_title(None) == ""
 
 
-def test_generate_title_preserves_words():
+def test_generate_title_preserves_words() -> None:
     """Test that generate_title preserves word content correctly."""
     description = "Implement dark mode toggle in the application settings page component now"
     result = generate_title(description)
@@ -61,7 +61,7 @@ def test_generate_title_preserves_words():
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_description_only(mock_create_issue):
+def test_create_command_description_only(mock_create_issue) -> None:
     """Test create command with description only (auto-generated title)."""
     mock_issue = Issue(id=123, description="Fix the login bug", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -78,7 +78,7 @@ def test_create_command_description_only(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_description_with_explicit_title(mock_create_issue):
+def test_create_command_description_with_explicit_title(mock_create_issue) -> None:
     """Test create command with description and explicit title."""
     mock_issue = Issue(id=456, description="Fix the login bug", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -97,7 +97,7 @@ def test_create_command_description_with_explicit_title(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_spec_file_with_title(mock_create_issue, tmp_path):
+def test_create_command_spec_file_with_title(mock_create_issue, tmp_path) -> None:
     """Test create command with spec file and title."""
     mock_issue = Issue(id=789, description="Detailed spec content", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -116,7 +116,7 @@ def test_create_command_spec_file_with_title(mock_create_issue, tmp_path):
     )
 
 
-def test_create_command_spec_file_without_title(tmp_path):
+def test_create_command_spec_file_without_title(tmp_path) -> None:
     """Test create command with spec file but no title (should error)."""
     spec_file = tmp_path / "spec.txt"
     spec_file.write_text("Detailed spec content")
@@ -126,8 +126,8 @@ def test_create_command_spec_file_without_title(tmp_path):
     assert "--spec-file requires explicit --title" in result.output
 
 
-def test_create_command_description_and_spec_file_error(tmp_path):
-    """Test create command with both description and spec-file (should error: mutually exclusive)."""
+def test_create_command_description_and_spec_file_error(tmp_path) -> None:
+    """Test create command with both description and spec-file (mutually exclusive)."""
     spec_file = tmp_path / "spec.txt"
     spec_file.write_text("Spec content")
 
@@ -139,21 +139,23 @@ def test_create_command_description_and_spec_file_error(tmp_path):
     assert "Cannot use both description argument and --spec-file" in result.output
 
 
-def test_create_command_no_description_no_spec_file():
+def test_create_command_no_description_no_spec_file() -> None:
     """Test create command with neither description nor spec-file (should error)."""
     result = runner.invoke(app, ["create"])
     assert result.exit_code == 1
     assert "Must provide either a description argument or --spec-file" in result.output
 
 
-def test_create_command_file_not_found():
+def test_create_command_file_not_found() -> None:
     """Test create command with non-existent spec file."""
-    result = runner.invoke(app, ["create", "--spec-file", "/nonexistent/file.txt", "--title", "Title"])
+    result = runner.invoke(
+        app, ["create", "--spec-file", "/nonexistent/file.txt", "--title", "Title"]
+    )
     assert result.exit_code == 1
     assert "File not found" in result.output
 
 
-def test_create_command_empty_file(tmp_path):
+def test_create_command_empty_file(tmp_path) -> None:
     """Test create command with empty spec file."""
     spec_file = tmp_path / "empty.txt"
     spec_file.write_text("")
@@ -163,14 +165,14 @@ def test_create_command_empty_file(tmp_path):
     assert "File is empty" in result.output
 
 
-def test_create_command_directory_instead_of_file(tmp_path):
+def test_create_command_directory_instead_of_file(tmp_path) -> None:
     """Test create command with directory instead of file."""
     result = runner.invoke(app, ["create", "--spec-file", str(tmp_path), "--title", "Title"])
     assert result.exit_code == 1
     assert "not a file" in result.output.lower()
 
 
-def test_create_command_non_utf8_spec_file(tmp_path):
+def test_create_command_non_utf8_spec_file(tmp_path) -> None:
     """Test create command with non-UTF-8 spec file."""
     spec_file = tmp_path / "bad.txt"
     spec_file.write_bytes(b"\xff\xfe")
@@ -180,7 +182,7 @@ def test_create_command_non_utf8_spec_file(tmp_path):
     assert "not valid UTF-8" in result.output
 
 
-def test_create_command_empty_description():
+def test_create_command_empty_description() -> None:
     """Test create command with empty string description.
 
     Note: Typer treats an empty string argument as no argument provided,
@@ -191,7 +193,7 @@ def test_create_command_empty_description():
     assert "Must provide either a description argument or --spec-file" in result.output
 
 
-def test_create_command_whitespace_description():
+def test_create_command_whitespace_description() -> None:
     """Test create command with whitespace-only description."""
     result = runner.invoke(app, ["create", "   "])
     assert result.exit_code == 1
@@ -199,7 +201,7 @@ def test_create_command_whitespace_description():
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_whitespace_only_file(mock_create_issue, tmp_path):
+def test_create_command_whitespace_only_file(mock_create_issue, tmp_path) -> None:
     """Test create command with file containing only whitespace."""
     spec_file = tmp_path / "whitespace.txt"
     spec_file.write_text("   \n\t\n   ")
@@ -211,7 +213,7 @@ def test_create_command_whitespace_only_file(mock_create_issue, tmp_path):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_long_description_auto_title(mock_create_issue):
+def test_create_command_long_description_auto_title(mock_create_issue) -> None:
     """Test create command with long description gets truncated auto-generated title."""
     mock_issue = Issue(id=111, description="Long description", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -229,7 +231,7 @@ def test_create_command_long_description_auto_title(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_create_issue_value_error(mock_create_issue):
+def test_create_command_create_issue_value_error(mock_create_issue) -> None:
     """Test create command handles ValueError from create_issue."""
     mock_create_issue.side_effect = ValueError("Database error")
 
@@ -239,7 +241,7 @@ def test_create_command_create_issue_value_error(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_short_title_flag(mock_create_issue):
+def test_create_command_short_title_flag(mock_create_issue) -> None:
     """Test create command with -t short flag for title."""
     mock_issue = Issue(id=222, description="Description", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -256,7 +258,7 @@ def test_create_command_short_title_flag(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path):
+def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path) -> None:
     """Test create command with -f short flag for spec-file."""
     mock_issue = Issue(id=333, description="File content", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -276,7 +278,7 @@ def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_branch_long_flag(mock_create_issue):
+def test_create_command_branch_long_flag(mock_create_issue) -> None:
     """Test create command with --branch long flag."""
     mock_issue = Issue(id=321, description="Some description", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -293,7 +295,7 @@ def test_create_command_branch_long_flag(mock_create_issue):
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_command_branch_short_flag(mock_create_issue):
+def test_create_command_branch_short_flag(mock_create_issue) -> None:
     """Test create command with -b short flag for branch."""
     mock_issue = Issue(id=321, description="Some description", status="pending")
     mock_create_issue.return_value = mock_issue
@@ -313,7 +315,7 @@ def test_create_command_branch_short_flag(mock_create_issue):
 
 
 @patch("rouge.cli.issue.fetch_issue")
-def test_read_command_success(mock_fetch_issue):
+def test_read_command_success(mock_fetch_issue) -> None:
     """Test read command with valid issue ID."""
     mock_issue = Issue(
         id=123,
@@ -342,7 +344,7 @@ def test_read_command_success(mock_fetch_issue):
 
 
 @patch("rouge.cli.issue.fetch_issue")
-def test_read_command_minimal_issue(mock_fetch_issue):
+def test_read_command_minimal_issue(mock_fetch_issue) -> None:
     """Test read command with minimal issue (only required fields)."""
     mock_issue = Issue(
         id=456,
@@ -366,7 +368,7 @@ def test_read_command_minimal_issue(mock_fetch_issue):
 
 
 @patch("rouge.cli.issue.fetch_issue")
-def test_read_command_non_existent_issue(mock_fetch_issue):
+def test_read_command_non_existent_issue(mock_fetch_issue) -> None:
     """Test read command with non-existent issue ID."""
     mock_fetch_issue.side_effect = ValueError("Issue not found")
 
@@ -377,7 +379,7 @@ def test_read_command_non_existent_issue(mock_fetch_issue):
 
 
 @patch("rouge.cli.issue.fetch_issue")
-def test_read_command_database_error(mock_fetch_issue):
+def test_read_command_database_error(mock_fetch_issue) -> None:
     """Test read command handles unexpected errors."""
     mock_fetch_issue.side_effect = Exception("Database connection failed")
 
@@ -388,7 +390,7 @@ def test_read_command_database_error(mock_fetch_issue):
 
 
 @patch("rouge.cli.issue.fetch_issue")
-def test_read_command_completed_issue(mock_fetch_issue):
+def test_read_command_completed_issue(mock_fetch_issue) -> None:
     """Test read command with completed issue."""
     mock_issue = Issue(
         id=789,
@@ -410,7 +412,7 @@ def test_read_command_completed_issue(mock_fetch_issue):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_no_issues(mock_fetch_all_issues):
+def test_list_command_no_issues(mock_fetch_all_issues) -> None:
     """Test list command with no issues."""
     mock_fetch_all_issues.return_value = []
 
@@ -421,7 +423,7 @@ def test_list_command_no_issues(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_single_issue(mock_fetch_all_issues):
+def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     """Test list command with single issue."""
     mock_issue = Issue(
         id=1,
@@ -448,7 +450,7 @@ def test_list_command_single_issue(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_multiple_issues(mock_fetch_all_issues):
+def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
     """Test list command with multiple issues."""
     mock_issues = [
         Issue(
@@ -496,7 +498,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_json_format(mock_fetch_all_issues):
+def test_list_command_json_format(mock_fetch_all_issues) -> None:
     """Test list command with JSON output format."""
     mock_issues = [
         Issue(
@@ -526,7 +528,7 @@ def test_list_command_json_format(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_json_format_empty(mock_fetch_all_issues):
+def test_list_command_json_format_empty(mock_fetch_all_issues) -> None:
     """Test list command with JSON format and no issues."""
     mock_fetch_all_issues.return_value = []
 
@@ -542,7 +544,7 @@ def test_list_command_json_format_empty(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_table_format_explicit(mock_fetch_all_issues):
+def test_list_command_table_format_explicit(mock_fetch_all_issues) -> None:
     """Test list command with explicit table format."""
     mock_issue = Issue(
         id=1,
@@ -561,7 +563,7 @@ def test_list_command_table_format_explicit(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_short_format_flag(mock_fetch_all_issues):
+def test_list_command_short_format_flag(mock_fetch_all_issues) -> None:
     """Test list command with -f short flag."""
     mock_issue = Issue(
         id=1,
@@ -583,7 +585,7 @@ def test_list_command_short_format_flag(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_truncates_long_title(mock_fetch_all_issues):
+def test_list_command_truncates_long_title(mock_fetch_all_issues) -> None:
     """Test list command truncates very long titles in table format."""
     long_title = "This is a very long title that should be truncated in the table view"
     mock_issue = Issue(
@@ -605,7 +607,7 @@ def test_list_command_truncates_long_title(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_database_error(mock_fetch_all_issues):
+def test_list_command_database_error(mock_fetch_all_issues) -> None:
     """Test list command handles database errors."""
     mock_fetch_all_issues.side_effect = ValueError("Database error")
 
@@ -616,7 +618,7 @@ def test_list_command_database_error(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_unexpected_error(mock_fetch_all_issues):
+def test_list_command_unexpected_error(mock_fetch_all_issues) -> None:
     """Test list command handles unexpected errors."""
     mock_fetch_all_issues.side_effect = Exception("Unexpected failure")
 
@@ -630,7 +632,7 @@ def test_list_command_unexpected_error(mock_fetch_all_issues):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_single_field_assigned_to(mock_update_issue):
+def test_update_command_single_field_assigned_to(mock_update_issue) -> None:
     """Test update command with single field (assigned_to)."""
     mock_issue = Issue(
         id=123,
@@ -647,7 +649,7 @@ def test_update_command_single_field_assigned_to(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_single_field_type(mock_update_issue):
+def test_update_command_single_field_type(mock_update_issue) -> None:
     """Test update command with single field (type)."""
     mock_issue = Issue(
         id=456,
@@ -664,7 +666,7 @@ def test_update_command_single_field_type(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_single_field_title(mock_update_issue):
+def test_update_command_single_field_title(mock_update_issue) -> None:
     """Test update command with single field (title)."""
     mock_issue = Issue(
         id=789,
@@ -681,7 +683,7 @@ def test_update_command_single_field_title(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_single_field_description(mock_update_issue):
+def test_update_command_single_field_description(mock_update_issue) -> None:
     """Test update command with single field (description)."""
     mock_issue = Issue(
         id=111,
@@ -701,7 +703,7 @@ def test_update_command_single_field_description(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_multiple_fields(mock_update_issue):
+def test_update_command_multiple_fields(mock_update_issue) -> None:
     """Test update command with multiple fields simultaneously."""
     mock_issue = Issue(
         id=222,
@@ -740,18 +742,21 @@ def test_update_command_multiple_fields(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_no_fields_provided(mock_update_issue):
+def test_update_command_no_fields_provided(mock_update_issue) -> None:
     """Test update command with no fields provided (should show error)."""
-    mock_update_issue.side_effect = ValueError("No fields provided for update")
-
+    # Error is now caught at CLI validation layer before calling update_issue
     result = runner.invoke(app, ["update", "123"])
     assert result.exit_code == 1
-    assert "Error: No fields provided for update" in result.output
-    mock_update_issue.assert_called_once_with(123)
+    assert (
+        "Error: No fields provided for update. At least one field must be specified."
+        in result.output
+    )
+    # update_issue should not be called since validation fails early
+    mock_update_issue.assert_not_called()
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_invalid_worker_id(mock_update_issue):
+def test_update_command_invalid_worker_id(mock_update_issue) -> None:
     """Test update command with invalid worker ID."""
     mock_update_issue.side_effect = ValueError(
         "Invalid worker ID 'invalid-worker'. Must be one of: alleycat-1, alleycat-2, "
@@ -765,42 +770,46 @@ def test_update_command_invalid_worker_id(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_invalid_type(mock_update_issue):
+def test_update_command_invalid_type(mock_update_issue) -> None:
     """Test update command with invalid type."""
-    mock_update_issue.side_effect = ValueError(
-        "Invalid issue_type 'invalid'. Must be one of: main, patch"
-    )
-
+    # Error is now caught at CLI validation layer with improved message
     result = runner.invoke(app, ["update", "123", "--type", "invalid"])
     assert result.exit_code == 1
-    assert "Error: Invalid issue_type 'invalid'" in result.output
-    mock_update_issue.assert_called_once_with(123, issue_type="invalid")
+    assert "Error: Invalid issue type 'invalid'. Must be one of: main, patch" in result.output
+    # update_issue should not be called since validation fails early
+    mock_update_issue.assert_not_called()
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_empty_title(mock_update_issue):
+def test_update_command_empty_title(mock_update_issue) -> None:
     """Test update command with empty title."""
-    mock_update_issue.side_effect = ValueError("Title cannot be empty/whitespace if provided")
-
+    # Whitespace-only title is normalized to None at CLI layer, triggering "no fields" error
     result = runner.invoke(app, ["update", "123", "--title", "   "])
     assert result.exit_code == 1
-    assert "Error: Title cannot be empty/whitespace if provided" in result.output
-    mock_update_issue.assert_called_once_with(123, title="   ")
+    assert (
+        "Error: No fields provided for update. At least one field must be specified."
+        in result.output
+    )
+    # update_issue should not be called since validation fails early
+    mock_update_issue.assert_not_called()
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_empty_description(mock_update_issue):
+def test_update_command_empty_description(mock_update_issue) -> None:
     """Test update command with empty description."""
-    mock_update_issue.side_effect = ValueError("Description cannot be empty")
-
+    # Empty description is normalized to None at CLI layer, triggering "no fields" error
     result = runner.invoke(app, ["update", "123", "--description", ""])
     assert result.exit_code == 1
-    assert "Error: Description cannot be empty" in result.output
-    mock_update_issue.assert_called_once_with(123, description="")
+    assert (
+        "Error: No fields provided for update. At least one field must be specified."
+        in result.output
+    )
+    # update_issue should not be called since validation fails early
+    mock_update_issue.assert_not_called()
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_non_existent_issue(mock_update_issue):
+def test_update_command_non_existent_issue(mock_update_issue) -> None:
     """Test update command with non-existent issue ID."""
     mock_update_issue.side_effect = ValueError("Issue with id 999 not found")
 
@@ -811,7 +820,7 @@ def test_update_command_non_existent_issue(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_type_error(mock_update_issue):
+def test_update_command_type_error(mock_update_issue) -> None:
     """Test update command handles TypeError."""
     mock_update_issue.side_effect = TypeError("Worker ID must be a string")
 
@@ -822,7 +831,7 @@ def test_update_command_type_error(mock_update_issue):
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_unexpected_error(mock_update_issue):
+def test_update_command_unexpected_error(mock_update_issue) -> None:
     """Test update command handles unexpected errors."""
     mock_update_issue.side_effect = Exception("Database connection failed")
 
@@ -836,7 +845,7 @@ def test_update_command_unexpected_error(mock_update_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_force(mock_delete_issue):
+def test_delete_command_with_force(mock_delete_issue) -> None:
     """Test delete command with --force flag (no confirmation)."""
     mock_delete_issue.return_value = True
 
@@ -847,7 +856,7 @@ def test_delete_command_with_force(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_confirmation_yes(mock_delete_issue):
+def test_delete_command_with_confirmation_yes(mock_delete_issue) -> None:
     """Test delete command with confirmation (user answers yes)."""
     mock_delete_issue.return_value = True
 
@@ -859,7 +868,7 @@ def test_delete_command_with_confirmation_yes(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_confirmation_yes_full(mock_delete_issue):
+def test_delete_command_with_confirmation_yes_full(mock_delete_issue) -> None:
     """Test delete command with confirmation (user answers 'yes' full word)."""
     mock_delete_issue.return_value = True
 
@@ -871,7 +880,7 @@ def test_delete_command_with_confirmation_yes_full(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_confirmation_no(mock_delete_issue):
+def test_delete_command_with_confirmation_no(mock_delete_issue) -> None:
     """Test delete command with confirmation (user answers no)."""
     result = runner.invoke(app, ["delete", "111"], input="n\n")
     assert result.exit_code == 0
@@ -880,7 +889,7 @@ def test_delete_command_with_confirmation_no(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_confirmation_empty(mock_delete_issue):
+def test_delete_command_with_confirmation_empty(mock_delete_issue) -> None:
     """Test delete command with confirmation (user enters just whitespace)."""
     result = runner.invoke(app, ["delete", "222"], input=" \n")
     assert result.exit_code == 0
@@ -889,7 +898,7 @@ def test_delete_command_with_confirmation_empty(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_with_confirmation_invalid(mock_delete_issue):
+def test_delete_command_with_confirmation_invalid(mock_delete_issue) -> None:
     """Test delete command with confirmation (user answers something else)."""
     result = runner.invoke(app, ["delete", "333"], input="maybe\nn\n")
     assert result.exit_code == 0
@@ -898,7 +907,7 @@ def test_delete_command_with_confirmation_invalid(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_non_existent_issue(mock_delete_issue):
+def test_delete_command_non_existent_issue(mock_delete_issue) -> None:
     """Test delete command with non-existent issue ID."""
     mock_delete_issue.side_effect = ValueError("Issue with id 999 not found")
 
@@ -909,7 +918,7 @@ def test_delete_command_non_existent_issue(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_database_error(mock_delete_issue):
+def test_delete_command_database_error(mock_delete_issue) -> None:
     """Test delete command handles database errors."""
     mock_delete_issue.side_effect = ValueError("Database error")
 
@@ -920,7 +929,7 @@ def test_delete_command_database_error(mock_delete_issue):
 
 
 @patch("rouge.cli.issue.delete_issue")
-def test_delete_command_unexpected_error(mock_delete_issue):
+def test_delete_command_unexpected_error(mock_delete_issue) -> None:
     """Test delete command handles unexpected errors."""
     mock_delete_issue.side_effect = Exception("Unexpected failure")
 
