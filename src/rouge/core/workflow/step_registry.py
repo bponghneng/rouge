@@ -481,7 +481,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         outputs=["code-quality"],
         description=(
             "Run code quality checks (linting, type checking). "
-            "Depends on implement for ordering only."
+            "Ordering-only dependency on implement."
         ),
         dependency_kinds={"implement": "ordering-only"},
     )
@@ -502,7 +502,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["acceptance"],
         outputs=["compose-request"],
         description=(
-            "Prepare pull request metadata and commits. " "Depends on acceptance for ordering only."
+            "Prepare pull request metadata and commits. " "Ordering-only dependency on acceptance."
         ),
         dependency_kinds={"acceptance": "ordering-only"},
     )
@@ -514,7 +514,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["compose-request"],
         outputs=["gh-pull-request"],
         description=(
-            "Create GitHub pull request via gh CLI. " "Optionally depends on compose-request."
+            "Create GitHub pull request via gh CLI. " "Optional dependency on compose-request."
         ),
         dependency_kinds={"compose-request": "optional"},
     )
@@ -527,7 +527,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["compose-request"],
         outputs=["glab-pull-request"],
         description=(
-            "Create GitLab merge request via glab CLI. " "Optionally depends on compose-request."
+            "Create GitLab merge request via glab CLI. " "Optional dependency on compose-request."
         ),
         dependency_kinds={"compose-request": "optional"},
     )
