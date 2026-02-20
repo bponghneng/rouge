@@ -82,10 +82,18 @@ def validate_new_args(
         )
         raise typer.Exit(1)
 
-    # Validation: title cannot be whitespace only (when provided with spec_file)
-    if title is not None and spec_file and title.strip() == "":
+    # Validation: title cannot be whitespace only (when provided)
+    if title is not None and title.strip() == "":
         typer.echo(
             "Error: Title cannot be whitespace only",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: description cannot be whitespace only (when provided)
+    if description is not None and description.strip() == "":
+        typer.echo(
+            "Error: Description cannot be whitespace only",
             err=True,
         )
         raise typer.Exit(1)
@@ -190,11 +198,10 @@ def prepare_issue(
             raise typer.Exit(1)
 
         # Auto-generate title if not provided
-        if title:
-            issue_title = title.strip()
-            if not issue_title:
-                typer.echo("Error: Title cannot be empty", err=True)
-                raise typer.Exit(1)
+        # Strip title before checking emptiness
+        stripped_title = title.strip() if title else ""
+        if stripped_title:
+            issue_title = stripped_title
         else:
             issue_title = generate_title(issue_description)
 
