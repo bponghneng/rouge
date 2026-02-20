@@ -107,7 +107,7 @@ class StepRegistry:
                 )
 
         # Validate all dependency_kinds values are valid
-        valid_kinds = {"optional", "ordering-only"}
+        valid_kinds = ("optional", "ordering-only")
         for artifact_type, kind in dep_kinds.items():
             if kind not in valid_kinds:
                 raise ValueError(
