@@ -20,7 +20,7 @@ runner = CliRunner()
 # Tests for top-level CLI commands
 
 
-def test_cli_help():
+def test_cli_help() -> None:
     """Test CLI help command shows grouped commands."""
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
@@ -33,7 +33,7 @@ def test_cli_help():
     assert "artifact" in result.output.lower()
 
 
-def test_cli_version():
+def test_cli_version() -> None:
     """Test version flag."""
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
