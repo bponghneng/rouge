@@ -190,9 +190,29 @@ def prepare_issue(
             raise typer.Exit(1)
 
         # Auto-generate title if not provided
-        issue_title = title.strip() if title else generate_title(issue_description)
+        if title:
+            issue_title = title.strip()
+            if not issue_title:
+                typer.echo("Error: Title cannot be empty", err=True)
+                raise typer.Exit(1)
+        else:
+            issue_title = generate_title(issue_description)
 
     return (issue_title, issue_description)
+
+
+def validate_issue_id(issue_id: int) -> None:
+    """Validate that issue_id is a positive integer.
+
+    Args:
+        issue_id: The issue ID to validate
+
+    Raises:
+        typer.Exit: If issue_id is not positive (<=0)
+    """
+    if issue_id <= 0:
+        typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
+        raise typer.Exit(1)
 
 
 def truncate_string(s: Optional[str], max_length: int) -> str:
@@ -296,6 +316,7 @@ def read(
     Example:
         rouge issue read 123
     """
+    validate_issue_id(issue_id)
     try:
         issue = fetch_issue(issue_id)
 
@@ -421,13 +442,41 @@ def update(
         rouge issue update 123 --description "Updated description"
         rouge issue update 123 --title "Title" --description "Description"
     """
+    validate_issue_id(issue_id)
     try:
+        # Normalize string fields: trim and convert empty strings to None
+        if assigned_to is not None:
+            assigned_to = assigned_to.strip() or None
+        if title is not None:
+            title = title.strip() or None
+        if description is not None:
+            description = description.strip() or None
+
+        # Validate and normalize issue_type
+        normalized_issue_type: Optional[str] = None
+        if issue_type is not None:
+            issue_type = issue_type.strip()
+            if issue_type:
+                try:
+                    # Parse to IssueType enum for validation
+                    parsed_type = IssueType(issue_type.lower())
+                    normalized_issue_type = parsed_type.value
+                except ValueError:
+                    valid_types = ", ".join([t.value for t in IssueType])
+                    raise ValueError(
+                        f"Invalid issue type '{issue_type}'. Must be one of: {valid_types}"
+                    )
+
+        # Check if all normalized fields are None
+        if all(field is None for field in [assigned_to, normalized_issue_type, title, description]):
+            raise ValueError("No fields provided for update. At least one field must be specified.")
+
         # Build kwargs dict with only non-None values
         kwargs = {}
         if assigned_to is not None:
             kwargs["assigned_to"] = assigned_to
-        if issue_type is not None:
-            kwargs["issue_type"] = issue_type
+        if normalized_issue_type is not None:
+            kwargs["issue_type"] = normalized_issue_type
         if title is not None:
             kwargs["title"] = title
         if description is not None:
@@ -472,6 +521,7 @@ def delete(
         rouge issue delete 123
         rouge issue delete 123 --force
     """
+    validate_issue_id(issue_id)
     try:
         # Prompt for confirmation unless --force is used
         if not force:
