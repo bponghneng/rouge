@@ -114,24 +114,26 @@ class PlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load issue from artifact if not in context
-        issue = context.load_issue_artifact_if_missing(FetchIssueArtifact, lambda a: a.issue)
+        # Load issue from artifact (required)
+        try:
+            issue = context.load_required_artifact(
+                "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
+            )
+        except Exception as e:
+            logger.error("Cannot build plan: issue not fetched: %s", e)
+            return StepResult.fail(f"Cannot build plan: issue not fetched: {e}")
 
-        if issue is None:
-            logger.error("Cannot build plan: issue not fetched")
-            return StepResult.fail("Cannot build plan: issue not fetched")
-
-        # Try to load classification from artifact if not in context
-        classify_data: ClassifyData | None = context.load_artifact_if_missing(
-            "classify_data",
-            "classify",
-            ClassifyArtifact,
-            lambda a: a.classify_data,
-        )
-
-        if classify_data is None:
-            logger.error("Cannot build plan: classify_data not available")
-            return StepResult.fail("Cannot build plan: classify_data not available")
+        # Load classification from artifact (required)
+        try:
+            classify_data: ClassifyData = context.load_required_artifact(
+                "classify_data",
+                "classify",
+                ClassifyArtifact,
+                lambda a: a.classify_data,
+            )
+        except Exception as e:
+            logger.error("Cannot build plan: classify_data not available: %s", e)
+            return StepResult.fail(f"Cannot build plan: classify_data not available: {e}")
 
         plan_response = self._build_plan(
             issue,
@@ -146,12 +148,8 @@ class PlanStep(WorkflowStep):
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
 
-        # Save artifact if artifact store is available
-        if (
-            context.artifacts_enabled
-            and context.artifact_store is not None
-            and plan_response.data is not None
-        ):
+        # Save artifact
+        if plan_response.data is not None:
             artifact = PlanArtifact(
                 workflow_id=context.adw_id,
                 plan_data=plan_response.data,

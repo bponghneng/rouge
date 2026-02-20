@@ -63,8 +63,8 @@ class GlabPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load pr_details from artifact if not in context
-        pr_details = context.load_artifact_if_missing(
+        # Try to load pr_details from artifact if not in context (optional)
+        pr_details = context.load_optional_artifact(
             "pr_details",
             "compose-request",
             ComposeRequestArtifact,
@@ -192,18 +192,17 @@ class GlabPullRequestStep(WorkflowStep):
             mr_url = result.stdout.strip()
             logger.info("Merge request created: %s", mr_url)
 
-            # Save artifact if artifact store is available
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = GlabPullRequestArtifact(
-                    workflow_id=context.adw_id,
-                    url=mr_url,
-                    platform="gitlab",
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
+            # Save artifact
+            artifact = GlabPullRequestArtifact(
+                workflow_id=context.adw_id,
+                url=mr_url,
+                platform="gitlab",
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
 
             # Emit progress comment with MR details
             comment_data = {

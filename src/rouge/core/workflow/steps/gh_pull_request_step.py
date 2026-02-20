@@ -51,8 +51,8 @@ class GhPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load pr_details from artifact if not in context
-        pr_details = context.load_artifact_if_missing(
+        # Try to load pr_details from artifact if not in context (optional)
+        pr_details = context.load_optional_artifact(
             "pr_details",
             "compose-request",
             ComposeRequestArtifact,
@@ -198,19 +198,16 @@ class GhPullRequestStep(WorkflowStep):
                 if existing_pr_url:
                     logger.info("Pull request already exists: %s", existing_pr_url)
 
-                    if context.artifacts_enabled and context.artifact_store is not None:
-                        artifact = GhPullRequestArtifact(
-                            workflow_id=context.adw_id,
-                            url=existing_pr_url,
-                            platform="github",
-                        )
-                        context.artifact_store.write_artifact(artifact)
-                        logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
+                    artifact = GhPullRequestArtifact(
+                        workflow_id=context.adw_id,
+                        url=existing_pr_url,
+                        platform="github",
+                    )
+                    context.artifact_store.write_artifact(artifact)
+                    logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
 
-                        status, msg = emit_artifact_comment(
-                            context.issue_id, context.adw_id, artifact
-                        )
-                        log_artifact_comment_status(status, msg)
+                    status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                    log_artifact_comment_status(status, msg)
 
                     payload = CommentPayload(
                         issue_id=context.require_issue_id,
@@ -257,18 +254,17 @@ class GhPullRequestStep(WorkflowStep):
             pr_url = result.stdout.strip()
             logger.info("Pull request created: %s", pr_url)
 
-            # Save artifact if artifact store is available
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = GhPullRequestArtifact(
-                    workflow_id=context.adw_id,
-                    url=pr_url,
-                    platform="github",
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
+            # Save artifact
+            artifact = GhPullRequestArtifact(
+                workflow_id=context.adw_id,
+                url=pr_url,
+                platform="github",
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved pull_request artifact for workflow %s", context.adw_id)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
 
             # Emit progress comment with PR details
             comment_data = {

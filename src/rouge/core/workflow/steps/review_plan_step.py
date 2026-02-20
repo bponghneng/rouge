@@ -11,7 +11,11 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
-from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.notifications.comments import (
+    emit_artifact_comment,
+    emit_comment_from_payload,
+    log_artifact_comment_status,
+)
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -141,12 +145,14 @@ class ReviewPlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load issue from artifact if not in context
-        issue = context.load_issue_artifact_if_missing(FetchIssueArtifact, lambda a: a.issue)
-
-        if issue is None:
-            logger.error("Cannot derive base commit: issue not fetched")
-            return StepResult.fail("Cannot derive base commit: issue not fetched")
+        # Load issue from artifact (required)
+        try:
+            issue = context.load_required_artifact(
+                "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
+            )
+        except Exception as e:
+            logger.error("Cannot derive base commit: issue not fetched: %s", e)
+            return StepResult.fail(f"Cannot derive base commit: issue not fetched: {e}")
 
         derive_response = self._derive_base_commit(
             issue,
@@ -168,14 +174,16 @@ class ReviewPlanStep(WorkflowStep):
         context.data["workflow_type"] = "codereview"
         context.data["base_commit"] = derive_response.data.plan
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = PlanArtifact(
-                workflow_id=context.adw_id,
-                plan_data=derive_response.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved review plan artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = PlanArtifact(
+            workflow_id=context.adw_id,
+            plan_data=derive_response.data,
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved review plan artifact for workflow %s", context.adw_id)
+
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)
 
         # Build progress comment from parsed data
         parsed_data = derive_response.metadata.get("parsed_data", {})

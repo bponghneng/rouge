@@ -202,16 +202,15 @@ class ComposeRequestStep(WorkflowStep):
             len(pr_details["commits"]),
         )
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ComposeRequestArtifact(
-                workflow_id=context.adw_id,
-                title=pr_details["title"],
-                summary=pr_details["summary"],
-                commits=pr_details["commits"],
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)
+        # Save artifact to the artifact store
+        artifact = ComposeRequestArtifact(
+            workflow_id=context.adw_id,
+            title=pr_details["title"],
+            summary=pr_details["summary"],
+            commits=pr_details["commits"],
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)

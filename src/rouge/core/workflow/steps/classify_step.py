@@ -135,12 +135,14 @@ class ClassifyStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Try to load issue from artifact if not in context
-        issue = context.load_issue_artifact_if_missing(FetchIssueArtifact, lambda a: a.issue)
-
-        if issue is None:
-            logger.error("Cannot classify: issue not fetched")
-            return StepResult.fail("Cannot classify: issue not fetched")
+        # Load issue from artifact (required)
+        try:
+            issue = context.load_required_artifact(
+                "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
+            )
+        except Exception as e:
+            logger.error("Cannot classify: issue not fetched: %s", e)
+            return StepResult.fail(f"Cannot classify: issue not fetched: {e}")
 
         result = self._classify_issue(issue, context.adw_id)
 
@@ -155,17 +157,16 @@ class ClassifyStep(WorkflowStep):
         # Store classification data in context
         context.data["classify_data"] = result.data
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ClassifyArtifact(
-                workflow_id=context.adw_id,
-                classify_data=result.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved classification artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = ClassifyArtifact(
+            workflow_id=context.adw_id,
+            classify_data=result.data,
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved classification artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)
 
         issue_command = result.data.command
         classification_data = result.data.classification

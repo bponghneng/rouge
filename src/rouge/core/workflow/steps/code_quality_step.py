@@ -100,12 +100,8 @@ class CodeQualityStep(WorkflowStep):
 
             logger.info("Code quality checks completed successfully")
 
-            # Save artifact if artifact store is available
-            if (
-                context.artifacts_enabled
-                and context.artifact_store is not None
-                and parse_result.data is not None
-            ):
+            # Save artifact to the artifact store
+            if parse_result.data is not None:
                 artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
                     output=parse_result.data.get("output", ""),

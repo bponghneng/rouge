@@ -61,18 +61,16 @@ class FetchPatchStep(WorkflowStep):
                 issue.adw_id,
             )
 
-            # Save artifact if artifact store is available
-            if context.artifacts_enabled and context.artifact_store is not None:
-                # Save patch artifact with the issue
-                artifact = FetchPatchArtifact(
-                    workflow_id=context.adw_id,
-                    patch=issue,
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved patch artifact for workflow %s", context.adw_id)
+            # Save artifact to the artifact store
+            artifact = FetchPatchArtifact(
+                workflow_id=context.adw_id,
+                patch=issue,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved patch artifact for workflow %s", context.adw_id)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
 
             # Update status to "started" - best-effort, non-blocking
             update_status(issue_id, "started")

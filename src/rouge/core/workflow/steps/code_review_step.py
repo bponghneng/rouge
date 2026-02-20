@@ -159,16 +159,16 @@ class CodeReviewStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         # Load plan data from PlanArtifact (codereview now always has an issue)
-        plan_data = context.load_artifact_if_missing(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: a.plan_data,
-        )
-
-        if plan_data is None:
-            logger.warning("No plan data available")
-            return StepResult.fail("No plan data available")
+        try:
+            plan_data = context.load_required_artifact(
+                "plan_data",
+                "plan",
+                PlanArtifact,
+                lambda a: a.plan_data,
+            )
+        except Exception as e:
+            logger.warning("No plan data available: %s", e)
+            return StepResult.fail(f"No plan data available: {e}")
 
         repo_path = get_repo_path()
 
@@ -205,14 +205,13 @@ class CodeReviewStep(WorkflowStep):
         else:
             logger.info("Review contains issues that need to be addressed")
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = CodeReviewArtifact(
-                workflow_id=context.adw_id,
-                review_data=review_result.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved review artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = CodeReviewArtifact(
+            workflow_id=context.adw_id,
+            review_data=review_result.data,
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved review artifact for workflow %s", context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:
