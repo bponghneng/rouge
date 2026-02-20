@@ -68,6 +68,23 @@ def validate_string_option(value: Optional[str]) -> Optional[str]:
     return trimmed
 
 
+def validate_positive_int(value: Optional[int], field_name: str) -> None:
+    """Validate that an integer value is positive (> 0).
+
+    Args:
+        value: The integer value to validate (or None)
+        field_name: Name of the field for error messages
+
+    Raises:
+        typer.BadParameter: If the value is not positive (must be > 0)
+    """
+    if value is None:
+        return
+
+    if value <= 0:
+        raise typer.BadParameter(f"{field_name} must be greater than 0")
+
+
 def render_comment_text(comment: Comment) -> str:
     """Render a comment in human-readable text format.
 
@@ -172,6 +189,7 @@ def list_command(
         rouge comment list --issue-id 5
         rouge comment list --source agent --type plan --limit 5 --offset 10
     """
+    validate_positive_int(issue_id, "--issue-id")
     if limit < 1:
         typer.echo("Error: --limit must be at least 1", err=True)
         raise typer.Exit(1)
@@ -245,6 +263,7 @@ def read_command(
         rouge comment read 123 --format text
         rouge comment read 123 --format json
     """
+    validate_positive_int(comment_id, "comment_id")
     try:
         comment = fetch_comment(comment_id)
 

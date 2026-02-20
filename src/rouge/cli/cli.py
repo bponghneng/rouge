@@ -48,7 +48,7 @@ app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
 
 
-def version_callback(value: Optional[bool]):
+def version_callback(value: Optional[bool]) -> None:
     """Print version and exit."""
     if value:
         typer.echo(f"Rouge CLI version {__version__}")
@@ -57,7 +57,7 @@ def version_callback(value: Optional[bool]):
 
 @app.callback()
 def main(
-    version: Optional[bool] = typer.Option(
+    _version: Optional[bool] = typer.Option(
         None,
         "--version",
         "-v",
@@ -65,7 +65,7 @@ def main(
         is_eager=True,
         help="Show version and exit",
     ),
-):
+) -> None:
     """Rouge CLI - Workflow management."""
     pass
 
