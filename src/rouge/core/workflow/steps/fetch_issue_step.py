@@ -45,17 +45,16 @@ class FetchIssueStep(WorkflowStep):
             logger.info("Issue fetched: ID=%s, Status=%s", issue.id, issue.status)
             context.issue = issue
 
-            # Save artifact if artifact store is available
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = FetchIssueArtifact(
-                    workflow_id=context.adw_id,
-                    issue=issue,
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved issue artifact for workflow %s", context.adw_id)
+            # Save artifact
+            artifact = FetchIssueArtifact(
+                workflow_id=context.adw_id,
+                issue=issue,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved issue artifact for workflow %s", context.adw_id)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
 
             # Update status to "started" - best-effort, non-blocking
             update_status(issue_id, "started")

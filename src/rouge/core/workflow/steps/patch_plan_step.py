@@ -16,9 +16,9 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
-from rouge.core.workflow.artifacts import PlanArtifact
+from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
@@ -125,18 +125,23 @@ class PatchPlanStep(WorkflowStep):
     def run(self, context: WorkflowContext) -> StepResult:
         """Build standalone plan for patch issue and store in context.
 
-        Uses the patch issue already set on context.issue by FetchPatchStep.
+        Loads the patch issue from the fetch-patch artifact (required).
 
         Args:
-            context: Workflow context with patch issue from FetchPatchStep
+            context: Workflow context with fetch-patch artifact from FetchPatchStep
 
         Returns:
             StepResult with success status and optional error message
         """
-        # The patch issue is set on context.issue by FetchPatchStep
-        issue = context.issue
-
-        if issue is None:
+        # Load issue from fetch-patch artifact (required)
+        try:
+            issue = context.load_required_artifact(
+                "fetch_patch_data",
+                "fetch-patch",
+                FetchPatchArtifact,
+                lambda a: a.patch,
+            )
+        except StepInputError:
             logger.error("Cannot build patch plan: patch issue not available")
             return StepResult.fail("Cannot build patch plan: patch issue not available")
 
@@ -150,12 +155,8 @@ class PatchPlanStep(WorkflowStep):
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
 
-        # Save artifact if artifact store is available
-        if (
-            context.artifacts_enabled
-            and context.artifact_store is not None
-            and plan_response.data is not None
-        ):
+        # Save artifact to the artifact store
+        if plan_response.data is not None:
             artifact = PlanArtifact(
                 workflow_id=context.adw_id,
                 plan_data=plan_response.data,

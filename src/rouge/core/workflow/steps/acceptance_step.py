@@ -159,12 +159,15 @@ class AcceptanceStep(WorkflowStep):
         Returns:
             Plan text string, or None if no plan artifact is available
         """
-        plan_data = context.load_artifact_if_missing(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: a.plan_data,
-        )
+        try:
+            plan_data = context.load_required_artifact(
+                "plan_data",
+                "plan",
+                PlanArtifact,
+                lambda a: a.plan_data,
+            )
+        except Exception:
+            return None
 
         if plan_data is not None:
             logger.info("Using plan for acceptance validation")
@@ -203,37 +206,35 @@ class AcceptanceStep(WorkflowStep):
         if not acceptance_result.success:
             logger.error("Failed to validate plan acceptance: %s", acceptance_result.error)
             # Save artifact even on failure
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = AcceptanceArtifact(
-                    workflow_id=context.adw_id,
-                    success=False,
-                    message=acceptance_result.error,
-                )
-                context.artifact_store.write_artifact(artifact)
+            artifact = AcceptanceArtifact(
+                workflow_id=context.adw_id,
+                success=False,
+                message=acceptance_result.error,
+            )
+            context.artifact_store.write_artifact(artifact)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
             return StepResult.fail(f"Failed to validate plan acceptance: {acceptance_result.error}")
 
         logger.info("Plan acceptance validated successfully")
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = AcceptanceArtifact(
-                workflow_id=context.adw_id,
-                success=True,
-                message="Plan acceptance validated successfully",
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = AcceptanceArtifact(
+            workflow_id=context.adw_id,
+            success=True,
+            message="Plan acceptance validated successfully",
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            if status == "success":
-                logger.debug(msg)
-            elif status == "skipped":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        if status == "success":
+            logger.debug(msg)
+        elif status == "skipped":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(

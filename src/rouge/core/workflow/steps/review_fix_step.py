@@ -200,18 +200,17 @@ class ReviewFixStep(WorkflowStep):
             logger.info("Review is clean, no issues to address")
             return StepResult.ok(None)
 
-        # Try to load review_data from artifact if not in context
-        review_data = context.load_artifact_if_missing(
-            "review_data",
-            "code-review",
-            CodeReviewArtifact,
-            lambda a: a.review_data,
-        )
-
-        # Only proceed if we have review data (review generation succeeded)
-        if review_data is None:
-            logger.warning("No review data available, skipping address review")
-            return StepResult.ok(None)  # Not a failure - just nothing to do
+        # Load review_data from artifact (required)
+        try:
+            review_data = context.load_required_artifact(
+                "review_data",
+                "code-review",
+                CodeReviewArtifact,
+                lambda a: a.review_data,
+            )
+        except Exception as e:
+            logger.warning("Missing required code-review artifact: %s", e)
+            return StepResult.fail("Missing required code-review artifact")
 
         review_text = review_data.review_text.strip()
         if not review_text:
@@ -227,16 +226,15 @@ class ReviewFixStep(WorkflowStep):
         if not review_issues_result.success:
             logger.error("Failed to address review issues: %s", review_issues_result.error)
             # Save artifact even on failure
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = ReviewFixArtifact(
-                    workflow_id=context.adw_id,
-                    success=False,
-                    message=review_issues_result.error,
-                )
-                context.artifact_store.write_artifact(artifact)
+            artifact = ReviewFixArtifact(
+                workflow_id=context.adw_id,
+                success=False,
+                message=review_issues_result.error,
+            )
+            context.artifact_store.write_artifact(artifact)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
             return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
         logger.info("Review issues addressed successfully")
@@ -256,16 +254,14 @@ class ReviewFixStep(WorkflowStep):
             )
 
             # Save artifact with iteration limit message
-            if context.artifacts_enabled and context.artifact_store is not None:
-                artifact = ReviewFixArtifact(
-                    workflow_id=context.adw_id,
-                    success=True,
-                    message=(
-                        f"Review issues addressed, max iterations "
-                        f"({MAX_REVIEW_ITERATIONS}) reached"
-                    ),
-                )
-                context.artifact_store.write_artifact(artifact)
+            artifact = ReviewFixArtifact(
+                workflow_id=context.adw_id,
+                success=True,
+                message=(
+                    f"Review issues addressed, max iterations " f"({MAX_REVIEW_ITERATIONS}) reached"
+                ),
+            )
+            context.artifact_store.write_artifact(artifact)
 
             # Insert progress comment - best-effort, non-blocking
             if context.issue_id is not None:
@@ -300,21 +296,20 @@ class ReviewFixStep(WorkflowStep):
         # Budget remains, request re-review
         logger.info("Requesting re-review (iteration %s/%s)", rerun_count, MAX_REVIEW_ITERATIONS)
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ReviewFixArtifact(
-                workflow_id=context.adw_id,
-                success=True,
-                message=(
-                    f"Review issues addressed, re-running review "
-                    f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})"
-                ),
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = ReviewFixArtifact(
+            workflow_id=context.adw_id,
+            success=True,
+            message=(
+                f"Review issues addressed, re-running review "
+                f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})"
+            ),
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:

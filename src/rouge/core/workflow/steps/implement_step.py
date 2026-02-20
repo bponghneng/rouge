@@ -122,13 +122,20 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        # Load plan from current workflow artifacts
-        plan_data = context.load_artifact_if_missing(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: a.plan_data,
-        )
+        # Load plan from artifact (required)
+        try:
+            plan_data = context.load_required_artifact(
+                "plan_data",
+                "plan",
+                PlanArtifact,
+                lambda a: a.plan_data,
+            )
+        except Exception as e:
+            logger.error("Cannot implement: no plan available: %s", e)
+            return StepResult.fail(
+                f"Cannot implement: no plan available: {e}",
+                rerun_from=self.plan_step_name,
+            )
         plan_text = plan_data.plan if plan_data is not None else None
 
         if plan_text is None:
@@ -157,17 +164,16 @@ class ImplementStep(WorkflowStep):
         # Store implementation data in context
         context.data["implement_data"] = implement_response.data
 
-        # Save artifact if artifact store is available
-        if context.artifacts_enabled and context.artifact_store is not None:
-            artifact = ImplementArtifact(
-                workflow_id=context.adw_id,
-                implement_data=implement_response.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved implementation artifact for workflow %s", context.adw_id)
+        # Save artifact
+        artifact = ImplementArtifact(
+            workflow_id=context.adw_id,
+            implement_data=implement_response.data,
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved implementation artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
