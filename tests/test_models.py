@@ -221,3 +221,20 @@ def test_issue_failed_status():
     """Test that Issue accepts failed status."""
     issue = Issue(id=1, description="Test", status="failed")
     assert issue.status == "failed"
+
+
+def test_issue_codereview_type() -> None:
+    """Test creating Issue with type='codereview'."""
+    issue = Issue(id=1, description="Review PR #123", type="codereview")
+    assert issue.id == 1
+    assert issue.description == "Review PR #123"
+    assert issue.type == "codereview"
+    assert issue.status == "pending"
+
+
+def test_issue_type_validation() -> None:
+    """Test that Issue accepts all valid types."""
+    valid_types = ["main", "patch", "codereview"]
+    for issue_type in valid_types:
+        issue = Issue(id=1, description="Test issue", type=issue_type)
+        assert issue.type == issue_type

@@ -810,6 +810,38 @@ def test_create_issue_auto_generates_adw_id(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
+def test_create_issue_with_explicit_type_codereview(mock_get_client) -> None:
+    """Test creating issue with explicit type='codereview'."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 10,
+            "description": "Code review for feature X",
+            "status": "pending",
+            "type": "codereview",
+            "adw_id": "review123",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Code review for feature X", issue_type="codereview")
+    assert issue.id == 10
+    assert issue.description == "Code review for feature X"
+    assert issue.type == "codereview"
+
+    # Verify the insert data included the type
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "codereview"
+
+
+@patch("rouge.core.database.get_client")
 def test_create_issue_invalid_type(_mock_get_client) -> None:
     """Test creating issue with invalid type raises ValueError."""
     with pytest.raises(ValueError, match="Invalid issue_type"):
@@ -1511,6 +1543,46 @@ def test_update_issue_both_types(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
+def test_update_issue_with_type_codereview(mock_get_client) -> None:
+    """Test updating issue_type to 'codereview'."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "type": "codereview",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, issue_type="codereview")
+    assert issue.id == 1
+    assert issue.type == "codereview"
+    mock_table.update.assert_called_once_with({"type": "codereview"})
+
+
+@patch("rouge.core.database.get_client")
 def test_update_issue_single_field_status(mock_get_client) -> None:
     """Test updating only status field."""
     mock_client = Mock()
@@ -1730,3 +1802,94 @@ def test_update_issue_branch_trims_whitespace(mock_get_client) -> None:
     assert issue.branch == "trimmed-branch"
     # Verify trimmed value was passed to database
     mock_table.update.assert_called_once_with({"branch": "trimmed-branch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_clear_branch(mock_get_client) -> None:
+    """Test clearing branch by setting to None."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "branch": None,
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, branch=None)
+    assert issue.id == 1
+    assert issue.branch is None
+    mock_table.update.assert_called_once_with({"branch": None})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_clear_branch_persists_to_database(mock_get_client) -> None:
+    """Test that branch clearing persists to database correctly."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update - simulating issue that previously had a branch
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue with cleared branch",
+            "status": "started",
+            "branch": None,  # Database returns None after clearing
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T01:00:00Z",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    # Call update_issue with branch=None to clear the branch
+    issue = update_issue(1, branch=None)
+
+    # Verify the branch field was cleared
+    assert issue.id == 1
+    assert issue.branch is None
+    assert issue.description == "Test issue with cleared branch"
+
+    # Verify that the update call included branch: None
+    mock_table.update.assert_called_once_with({"branch": None})
+
+    # Verify the database update was executed
+    mock_eq_update.execute.assert_called_once()
