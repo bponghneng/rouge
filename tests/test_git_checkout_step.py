@@ -1,6 +1,7 @@
 """Tests for GitCheckoutStep git branch checkout."""
 
 import subprocess
+from typing import Generator
 from unittest.mock import Mock, patch
 
 import pytest
@@ -13,7 +14,7 @@ from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture(autouse=True, scope="module")
-def patch_external_helpers():
+def patch_external_helpers() -> Generator[None, None, None]:
     """Patch external helper functions to avoid side effects during tests.
 
     This fixture patches emit_artifact_comment and log_artifact_comment_status
@@ -832,6 +833,7 @@ def test_checkout_step_unexpected_error(mock_subprocess, mock_get_repo_path, con
 
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_returns_step_result_ok(mock_subprocess, mock_get_repo_path, context) -> None:
     """Successful execution returns StepResult with success=True."""
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -853,6 +855,7 @@ def test_checkout_step_returns_step_result_ok(mock_subprocess, mock_get_repo_pat
 
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_returns_step_result_fail(
     mock_subprocess, mock_get_repo_path, context
 ) -> None:
