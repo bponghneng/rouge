@@ -182,7 +182,7 @@ class ReviewPlanStep(WorkflowStep):
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved review plan artifact for workflow %s", context.adw_id)
 
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        status, msg = emit_artifact_comment(context.require_issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
         # Build progress comment from parsed data
