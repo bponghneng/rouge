@@ -16,7 +16,7 @@ from rouge.core.workflow.artifacts import (
     PlanArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, StepResult
 
 logger = logging.getLogger(__name__)
@@ -130,7 +130,7 @@ class ImplementStep(WorkflowStep):
                 PlanArtifact,
                 lambda a: a.plan_data,
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.error("Cannot implement: no plan available: %s", e)
             return StepResult.fail(
                 f"Cannot implement: no plan available: {e}",

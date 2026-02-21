@@ -1,6 +1,7 @@
 """Pull request preparation step implementation."""
 
 import logging
+from typing import Any, Dict
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -182,7 +183,7 @@ class ComposeRequestStep(WorkflowStep):
         else:
             logger.error(msg)
 
-    def _store_pr_details(self, pr_data: dict, context: WorkflowContext) -> None:
+    def _store_pr_details(self, pr_data: Dict[str, Any], context: WorkflowContext) -> None:
         """Store validated PR details in context for CreatePullRequestStep.
 
         Args:

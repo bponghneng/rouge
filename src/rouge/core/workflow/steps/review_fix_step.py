@@ -12,7 +12,7 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
@@ -208,7 +208,7 @@ class ReviewFixStep(WorkflowStep):
                 CodeReviewArtifact,
                 lambda a: a.review_data,
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.warning("Missing required code-review artifact: %s", e)
             return StepResult.fail("Missing required code-review artifact")
 

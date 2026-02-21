@@ -17,7 +17,7 @@ from rouge.core.workflow.artifacts import (
     PlanArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, PlanData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
@@ -119,7 +119,7 @@ class PlanStep(WorkflowStep):
             issue = context.load_required_artifact(
                 "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.error("Cannot build plan: issue not fetched: %s", e)
             return StepResult.fail(f"Cannot build plan: issue not fetched: {e}")
 
@@ -131,7 +131,7 @@ class PlanStep(WorkflowStep):
                 ClassifyArtifact,
                 lambda a: a.classify_data,
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.error("Cannot build plan: classify_data not available: %s", e)
             return StepResult.fail(f"Cannot build plan: classify_data not available: {e}")
 

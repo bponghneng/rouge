@@ -14,7 +14,7 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.workflow.artifacts import ClassifyArtifact, FetchIssueArtifact
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
 
 logger = logging.getLogger(__name__)
@@ -140,7 +140,7 @@ class ClassifyStep(WorkflowStep):
             issue = context.load_required_artifact(
                 "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.error("Cannot classify: issue not fetched: %s", e)
             return StepResult.fail(f"Cannot classify: issue not fetched: {e}")
 
