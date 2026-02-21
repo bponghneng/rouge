@@ -1,15 +1,29 @@
 """Set up git branch for workflow execution.
 
 This step prepares the git environment for a workflow by:
-1. Checking out the default branch
-2. Fetching the latest origin state
-3. Resetting to the latest origin state
-4. Creating a new feature branch for the workflow
+1. Checking out the default branch (with fallback to git checkout -t origin/<branch>
+   if local branch is missing)
+2. Fetching the latest remote state from all remotes with git fetch --all --prune
+3. Resetting to the latest origin state with git reset --hard
+4. Deleting any existing workflow branch (if present) with git branch -D
+5. Creating a new feature branch for the workflow
 
-WARNING: This step uses destructive git operations (git reset --hard) which
-will discard any uncommitted changes. This is acceptable for worker environments
-but requires explicit opt-in via ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS environment
-variable in development environments to prevent accidental data loss.
+Standardized Error Messages:
+- ERROR_MISSING_DEFAULT_BRANCH: Default branch not found locally or on remote
+- ERROR_CHECKOUT_FAILED: Failed to checkout default branch
+- ERROR_FETCH_FAILED: git fetch --all --prune failed
+- ERROR_RESET_FAILED: git reset --hard failed
+- ERROR_INVALID_BRANCH_NAME: Invalid branch name (whitespace-only)
+- ERROR_DELETE_BRANCH_FAILED: Failed to delete existing branch
+- ERROR_CREATE_BRANCH_FAILED: Failed to create branch
+- ERROR_TIMEOUT: Git operation timed out
+- ERROR_GIT_NOT_FOUND: git command not found
+
+WARNING: This step uses destructive git operations (git reset --hard, git branch -D)
+which will discard any uncommitted changes and delete existing branches. This is
+acceptable for worker environments but requires explicit opt-in via
+ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS environment variable in development environments
+to prevent accidental data loss.
 """
 
 import logging
@@ -28,6 +42,17 @@ logger = logging.getLogger(__name__)
 # Default timeout for git operations (60 seconds)
 GIT_TIMEOUT = 60
 
+# Standardized error message templates
+ERROR_MISSING_DEFAULT_BRANCH = "Default branch '{default_branch}' not found locally or on remote."
+ERROR_CHECKOUT_FAILED = "Failed to checkout default branch '{default_branch}'"
+ERROR_FETCH_FAILED = "git fetch --all --prune failed"
+ERROR_RESET_FAILED = "git reset --hard failed"
+ERROR_INVALID_BRANCH_NAME = "Invalid branch name: issue.branch is whitespace-only"
+ERROR_DELETE_BRANCH_FAILED = "Failed to delete existing branch '{branch}'"
+ERROR_CREATE_BRANCH_FAILED = "Failed to create branch '{branch}'"
+ERROR_TIMEOUT = "Git operation timed out after {timeout} seconds."
+ERROR_GIT_NOT_FOUND = "git command not found - ensure git is installed and in PATH"
+
 
 class GitBranchStep(WorkflowStep):
     """Set up git branch for workflow execution.
@@ -35,12 +60,21 @@ class GitBranchStep(WorkflowStep):
     This step prepares the repository by checking out the default branch,
     resetting to origin, and creating a new workflow branch.
 
+    If the local default branch is missing, automatically falls back to checking
+    out from the remote with tracking (git checkout -t origin/<branch>).
+
     Environment Variables:
         DEFAULT_GIT_BRANCH: The default branch to checkout (defaults to "main")
         REPO_PATH: The repository path (defaults to current directory)
         ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS: Set to "true" to allow destructive git
-            operations (git reset --hard). Required for non-worker environments
-            to prevent accidental data loss.
+            operations (git reset --hard, git branch -D). Required for non-worker
+            environments to prevent accidental data loss.
+
+    Error Messages:
+        Uses standardized error message templates defined as module constants
+        (ERROR_MISSING_DEFAULT_BRANCH, ERROR_CHECKOUT_FAILED, ERROR_FETCH_FAILED,
+        ERROR_RESET_FAILED, ERROR_INVALID_BRANCH_NAME, ERROR_DELETE_BRANCH_FAILED,
+        ERROR_CREATE_BRANCH_FAILED, ERROR_TIMEOUT, ERROR_GIT_NOT_FOUND).
     """
 
     @property
@@ -95,30 +129,64 @@ class GitBranchStep(WorkflowStep):
                 cwd=repo_path,
             )
             if checkout_result.returncode != 0:
-                error_msg = (
-                    f"git checkout {default_branch} failed "
-                    f"(exit code {checkout_result.returncode}): {checkout_result.stderr}"
+                # Log detailed diagnostics at DEBUG level
+                logger.debug(
+                    "git checkout %s failed: exit_code=%d, stderr=%s",
+                    default_branch,
+                    checkout_result.returncode,
+                    checkout_result.stderr.strip(),
                 )
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Checked out %s branch", default_branch)
 
-            # Step 2: Fetch latest origin state
+                # Check if failure is due to missing local branch
+                stderr = checkout_result.stderr.lower()
+                if "pathspec" in stderr and "did not match" in stderr:
+                    logger.debug("Local default branch not found, trying remote fallback")
+                    # Attempt to checkout from remote with tracking
+                    fallback_result = subprocess.run(
+                        ["git", "checkout", "-t", f"origin/{default_branch}"],
+                        capture_output=True,
+                        text=True,
+                        timeout=GIT_TIMEOUT,
+                        cwd=repo_path,
+                    )
+                    if fallback_result.returncode != 0:
+                        logger.debug(
+                            "Remote fallback failed: exit_code=%d, stderr=%s",
+                            fallback_result.returncode,
+                            fallback_result.stderr.strip(),
+                        )
+                        error_msg = ERROR_MISSING_DEFAULT_BRANCH.format(
+                            default_branch=default_branch
+                        )
+                        logger.error(error_msg)
+                        return StepResult.fail(error_msg)
+                    logger.debug("Checked out default branch %s from remote", default_branch)
+                else:
+                    # Other checkout failure - fail fast without fallback
+                    error_msg = ERROR_CHECKOUT_FAILED.format(default_branch=default_branch)
+                    logger.error(error_msg)
+                    return StepResult.fail(error_msg)
+            else:
+                logger.debug("Checked out %s branch", default_branch)
+
+            # Step 2: Fetch latest remote state from all remotes and prune deleted refs
             fetch_result = subprocess.run(
-                ["git", "fetch", "origin"],
+                ["git", "fetch", "--all", "--prune"],
                 capture_output=True,
                 text=True,
                 timeout=GIT_TIMEOUT,
                 cwd=repo_path,
             )
             if fetch_result.returncode != 0:
-                error_msg = (
-                    "git fetch origin failed "
-                    f"(exit code {fetch_result.returncode}): {fetch_result.stderr}"
+                logger.debug(
+                    "git fetch --all --prune failed: exit_code=%d, stderr=%s",
+                    fetch_result.returncode,
+                    fetch_result.stderr.strip(),
                 )
+                error_msg = ERROR_FETCH_FAILED
                 logger.error(error_msg)
                 return StepResult.fail(error_msg)
-            logger.debug("Fetched latest origin state")
+            logger.debug("Fetched latest remote state from all remotes")
 
             # Step 3: Reset to origin state (destructive operation)
             reset_result = subprocess.run(
@@ -129,10 +197,13 @@ class GitBranchStep(WorkflowStep):
                 cwd=repo_path,
             )
             if reset_result.returncode != 0:
-                error_msg = (
-                    f"git reset --hard origin/{default_branch} failed "
-                    f"(exit code {reset_result.returncode}): {reset_result.stderr}"
+                logger.debug(
+                    "git reset --hard origin/%s failed: exit_code=%d, stderr=%s",
+                    default_branch,
+                    reset_result.returncode,
+                    reset_result.stderr.strip(),
                 )
+                error_msg = ERROR_RESET_FAILED
                 logger.error(error_msg)
                 return StepResult.fail(error_msg)
             logger.debug("Reset to origin/%s", default_branch)
@@ -141,12 +212,49 @@ class GitBranchStep(WorkflowStep):
             if context.issue and context.issue.branch:
                 branch_candidate = context.issue.branch.strip()
                 if not branch_candidate:
-                    error_msg = "Invalid branch name: issue.branch is whitespace-only"
+                    error_msg = ERROR_INVALID_BRANCH_NAME
                     logger.error(error_msg)
                     return StepResult.fail(error_msg)
                 branch_name = branch_candidate
             else:
                 branch_name = f"adw-{context.adw_id}"
+
+            # Check if local branch already exists
+            check_branch_result = subprocess.run(
+                ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
+                capture_output=True,
+                text=True,
+                timeout=GIT_TIMEOUT,
+                cwd=repo_path,
+            )
+            if check_branch_result.returncode == 0:
+                # Branch exists locally - delete it to ensure fresh creation
+                logger.debug(
+                    "Local branch %s exists, deleting to ensure fresh creation",
+                    branch_name,
+                )
+                delete_branch_result = subprocess.run(
+                    ["git", "branch", "-D", branch_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if delete_branch_result.returncode != 0:
+                    logger.debug(
+                        "git branch -D %s failed: exit_code=%d, stderr=%s",
+                        branch_name,
+                        delete_branch_result.returncode,
+                        delete_branch_result.stderr.strip(),
+                    )
+                    error_msg = ERROR_DELETE_BRANCH_FAILED.format(branch=branch_name)
+                    logger.error(error_msg)
+                    return StepResult.fail(error_msg)
+                logger.debug("Deleted existing branch %s", branch_name)
+            else:
+                logger.debug("Local branch %s does not exist, will create fresh", branch_name)
+
+            # Create and checkout new workflow branch
             create_branch_result = subprocess.run(
                 ["git", "checkout", "-b", branch_name],
                 capture_output=True,
@@ -155,10 +263,13 @@ class GitBranchStep(WorkflowStep):
                 cwd=repo_path,
             )
             if create_branch_result.returncode != 0:
-                error_msg = (
-                    f"git checkout -b {branch_name} failed "
-                    f"(exit code {create_branch_result.returncode}): {create_branch_result.stderr}"
+                logger.debug(
+                    "git checkout -b %s failed: exit_code=%d, stderr=%s",
+                    branch_name,
+                    create_branch_result.returncode,
+                    create_branch_result.stderr.strip(),
                 )
+                error_msg = ERROR_CREATE_BRANCH_FAILED.format(branch=branch_name)
                 logger.error(error_msg)
                 return StepResult.fail(error_msg)
             logger.debug("Created and checked out branch %s", branch_name)
@@ -185,11 +296,12 @@ class GitBranchStep(WorkflowStep):
             return StepResult.ok(None)
 
         except subprocess.TimeoutExpired as e:
-            error_msg = f"Git operation timed out after {GIT_TIMEOUT} seconds: {e.cmd}"
+            logger.debug("Git operation timed out: cmd=%s, timeout=%d", e.cmd, GIT_TIMEOUT)
+            error_msg = ERROR_TIMEOUT.format(timeout=GIT_TIMEOUT)
             logger.error(error_msg)
             return StepResult.fail(error_msg)
         except FileNotFoundError:
-            error_msg = "git command not found - ensure git is installed and in PATH"
+            error_msg = ERROR_GIT_NOT_FOUND
             logger.error(error_msg)
             return StepResult.fail(error_msg)
         except Exception as e:
