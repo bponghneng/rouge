@@ -257,17 +257,18 @@ class GitCheckoutStep(WorkflowStep):
                 return StepResult.fail(error_msg)
             logger.debug("Pulled latest changes for branch %s", branch)
 
-            # Save artifact to the artifact store
-            artifact = GitCheckoutArtifact(
-                workflow_id=context.adw_id,
-                branch=branch,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved git_checkout artifact for workflow %s", context.adw_id)
+            # Save artifact if artifact store is available
+            if context.artifact_store is not None:
+                artifact = GitCheckoutArtifact(
+                    workflow_id=context.adw_id,
+                    branch=branch,
+                )
+                context.artifact_store.write_artifact(artifact)
+                logger.debug("Saved git_checkout artifact for workflow %s", context.adw_id)
 
-            if context.issue_id is not None:
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+                if context.issue_id is not None:
+                    status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                    log_artifact_comment_status(status, msg)
 
             logger.info("Git checkout complete: branch=%s", branch)
             return StepResult.ok(None)
