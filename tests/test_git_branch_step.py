@@ -12,6 +12,22 @@ from rouge.core.workflow.steps.git_branch_step import GIT_TIMEOUT, GitBranchStep
 from rouge.core.workflow.types import StepResult
 
 
+@pytest.fixture(autouse=True, scope="module")
+def patch_external_helpers():
+    """Patch external helper functions to avoid side effects during tests.
+
+    This fixture patches emit_artifact_comment and log_artifact_comment_status
+    across all tests in this module to prevent actual comment emission.
+    """
+    with (
+        patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment") as mock_emit,
+        patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status"),
+    ):
+        # Configure emit_artifact_comment to return success by default
+        mock_emit.return_value = ("success", "ok")
+        yield
+
+
 @pytest.fixture
 def context(tmp_path) -> WorkflowContext:
     """Create a sample workflow context for testing."""
@@ -43,7 +59,14 @@ def test_branch_step_is_critical():
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, mock_emit_artifact_comment, mock_log_artifact_comment_status, context):
+def test_branch_step_success(
+    mock_subprocess,
+    mock_get_repo_path,
+    _mock_update_branch,
+    mock_emit_artifact_comment,
+    mock_log_artifact_comment_status,
+    context,
+):
     """Test successful git setup with all commands succeeding."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -60,11 +83,11 @@ def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_b
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref (branch doesn't exist)
-        mock_success,         # checkout -b
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref (branch doesn't exist)
+        mock_success,  # checkout -b
     ]
     mock_emit_artifact_comment.return_value = ("success", "ok")
 
@@ -95,7 +118,13 @@ def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_b
 
     # Verify git show-ref was called fourth
     show_ref_call = mock_subprocess.call_args_list[3]
-    assert show_ref_call[0][0] == ["git", "show-ref", "--verify", "--quiet", "refs/heads/adw-test123"]
+    assert show_ref_call[0][0] == [
+        "git",
+        "show-ref",
+        "--verify",
+        "--quiet",
+        "refs/heads/adw-test123",
+    ]
 
     # Verify git checkout -b was called fifth (fallback branch name)
     branch_call = mock_subprocess.call_args_list[4]
@@ -215,11 +244,11 @@ def test_branch_step_destructive_ops_case_insensitive(
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref
-        mock_success,         # checkout -b
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref
+        mock_success,  # checkout -b
     ]
 
     step = GitBranchStep()
@@ -252,11 +281,11 @@ def test_branch_step_destructive_ops_uppercase(
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref
-        mock_success,         # checkout -b
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref
+        mock_success,  # checkout -b
     ]
 
     step = GitBranchStep()
@@ -345,11 +374,11 @@ def test_branch_step_branch_creation_failure(mock_subprocess, mock_get_repo_path
     mock_branch_result.stderr = "fatal: not a valid object name: 'main'"
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref (branch doesn't exist)
-        mock_branch_result,   # checkout -b fails
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref (branch doesn't exist)
+        mock_branch_result,  # checkout -b fails
     ]
 
     step = GitBranchStep()
@@ -517,11 +546,11 @@ def test_branch_step_uses_issue_branch_when_set(
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref
-        mock_success,         # checkout -b
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref
+        mock_success,  # checkout -b
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch="my-feature")
@@ -561,11 +590,11 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref
-        mock_success,         # checkout -b
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref
+        mock_success,  # checkout -b
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch=None)
@@ -587,7 +616,9 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mock_update_branch, tmp_path):
+def test_branch_step_branch_name_format(
+    mock_subprocess, mock_get_repo_path, _mock_update_branch, tmp_path
+):
     """Test that branch name is correctly formatted from adw_id when no issue branch."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -613,11 +644,11 @@ def test_branch_step_branch_name_format(mock_subprocess, mock_get_repo_path, _mo
     for adw_id, expected_branch in test_cases:
         mock_subprocess.reset_mock()
         mock_subprocess.side_effect = [
-            mock_success,         # checkout
-            mock_success,         # fetch
-            mock_success,         # reset
-            mock_show_ref_fail,   # show-ref
-            mock_success,         # checkout -b
+            mock_success,  # checkout
+            mock_success,  # fetch
+            mock_success,  # reset
+            mock_show_ref_fail,  # show-ref
+            mock_success,  # checkout -b
         ]
         store = ArtifactStore(workflow_id=adw_id, base_path=tmp_path / adw_id)
         context = WorkflowContext(issue_id=1, adw_id=adw_id, artifact_store=store)
@@ -778,12 +809,12 @@ def test_missing_default_branch_fallback(
     mock_show_ref_fail.stderr = ""
 
     mock_subprocess.side_effect = [
-        mock_checkout_fail,      # First checkout fails
+        mock_checkout_fail,  # First checkout fails
         mock_checkout_fallback,  # Fallback checkout succeeds
-        mock_success,            # fetch
-        mock_success,            # reset
-        mock_show_ref_fail,      # show-ref (branch doesn't exist)
-        mock_success,            # checkout -b
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref (branch doesn't exist)
+        mock_success,  # checkout -b
     ]
 
     step = GitBranchStep()
@@ -817,7 +848,7 @@ def test_missing_default_branch_fallback_also_fails(mock_subprocess, mock_get_re
     mock_checkout_fallback_fail.stderr = "fatal: 'origin/main' is not a commit"
 
     mock_subprocess.side_effect = [
-        mock_checkout_fail,           # First checkout fails
+        mock_checkout_fail,  # First checkout fails
         mock_checkout_fallback_fail,  # Fallback also fails
     ]
 
@@ -853,7 +884,13 @@ def test_existing_workflow_branch_deletion(
 
     # Verify git show-ref was called to check for existing branch
     show_ref_call = mock_subprocess.call_args_list[3]
-    assert show_ref_call[0][0] == ["git", "show-ref", "--verify", "--quiet", "refs/heads/adw-test123"]
+    assert show_ref_call[0][0] == [
+        "git",
+        "show-ref",
+        "--verify",
+        "--quiet",
+        "refs/heads/adw-test123",
+    ]
 
     # Verify git branch -D was called to delete existing branch
     delete_call = mock_subprocess.call_args_list[4]
@@ -927,13 +964,15 @@ def test_branch_deletion_failure(mock_subprocess, mock_get_repo_path, context):
     mock_delete_fail = Mock()
     mock_delete_fail.returncode = 1
     mock_delete_fail.stdout = ""
-    mock_delete_fail.stderr = "error: Cannot delete branch 'adw-test123' checked out at '/path/to/repo'"
+    mock_delete_fail.stderr = (
+        "error: Cannot delete branch 'adw-test123' checked out at '/path/to/repo'"
+    )
 
     mock_subprocess.side_effect = [
-        mock_success,      # checkout
-        mock_success,      # fetch
-        mock_success,      # reset
-        mock_success,      # show-ref (branch exists)
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_success,  # show-ref (branch exists)
         mock_delete_fail,  # branch -D fails
     ]
 
@@ -1068,11 +1107,11 @@ def test_standardized_error_message_create_branch_failed(
     mock_create_fail.stderr = "fatal: not a valid object name: 'main'"
 
     mock_subprocess.side_effect = [
-        mock_success,         # checkout
-        mock_success,         # fetch
-        mock_success,         # reset
-        mock_show_ref_fail,   # show-ref (branch doesn't exist)
-        mock_create_fail,     # checkout -b fails
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_show_ref_fail,  # show-ref (branch doesn't exist)
+        mock_create_fail,  # checkout -b fails
     ]
 
     step = GitBranchStep()
@@ -1120,10 +1159,10 @@ def test_standardized_error_message_delete_branch_failed(
     mock_delete_fail.stderr = "error: Cannot delete branch"
 
     mock_subprocess.side_effect = [
-        mock_success,      # checkout
-        mock_success,      # fetch
-        mock_success,      # reset
-        mock_success,      # show-ref (branch exists)
+        mock_success,  # checkout
+        mock_success,  # fetch
+        mock_success,  # reset
+        mock_success,  # show-ref (branch exists)
         mock_delete_fail,  # branch -D fails
     ]
 
