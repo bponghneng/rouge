@@ -586,11 +586,13 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     assert "Title" in result.output
     assert "Type" in result.output
     assert "Status" in result.output
+    assert "Branch" in result.output
     assert "Assigned To" in result.output
     assert "1" in result.output
     assert "Single Issue" in result.output
     assert "pending" in result.output
     assert "main" in result.output
+    assert "(none)" in result.output  # No branch
     assert "(none)" in result.output  # No assignment
     mock_fetch_all_issues.assert_called_once()
 
@@ -613,6 +615,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
             description="Second description",
             status="started",
             type="patch",
+            branch="feature/patch-2",
             assigned_to="local-2",
         ),
         Issue(
@@ -636,6 +639,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
     assert "local-1" in result.output
     assert "2" in result.output
     assert "Second Issue" in result.output
+    assert "feature/patch-2" in result.output
     assert "local-2" in result.output
     assert "3" in result.output
     assert "Third Issue" in result.output
