@@ -13,7 +13,7 @@ from rouge.core.workflow.types import StepResult
 
 
 @pytest.fixture
-def context(tmp_path):
+def context(tmp_path) -> WorkflowContext:
     """Create a sample workflow context for testing."""
     store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
     return WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
@@ -38,10 +38,12 @@ def test_branch_step_is_critical():
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
+@patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status")
+@patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment")
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, context):
+def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_branch, mock_emit_artifact_comment, mock_log_artifact_comment_status, context):
     """Test successful git setup with all commands succeeding."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
@@ -72,6 +74,7 @@ def test_branch_step_success(mock_subprocess, mock_get_repo_path, _mock_update_b
         mock_reset_result,
         mock_create_branch_result,
     ]
+    mock_emit_artifact_comment.return_value = ("success", "ok")
 
     step = GitBranchStep()
     result = step.run(context)

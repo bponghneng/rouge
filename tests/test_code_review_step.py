@@ -52,7 +52,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test successful review generation emits artifact comment with full review data."""
         # Setup: plan loaded, review generation succeeds
         mock_context.data = {"plan_data": sample_plan_data}
@@ -96,7 +96,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test that step succeeds even if progress comment fails (non-blocking)."""
         # Setup: plan loaded, review generation succeeds
         mock_context.data = {"plan_data": sample_plan_data}
@@ -123,7 +123,7 @@ class TestCodeReviewStepRun:
         # Verify emit_comment_from_payload was called once (for progress comment)
         assert mock_emit_comment.call_count == 1
 
-    def test_run_fails_when_no_plan_available_for_issue_workflow(self, mock_context):
+    def test_run_fails_when_no_plan_available_for_issue_workflow(self, mock_context) -> None:
         """Test that run fails when no plan is available for issue-based workflow."""
         mock_context.data = {}
 
@@ -148,7 +148,7 @@ class TestCodeReviewStepRun:
         _mock_emit_comment,
         mock_context,
         sample_plan_data,
-    ):
+    ) -> None:
         """Test that run fails when _generate_review fails."""
         mock_context.data = {"plan_data": sample_plan_data}
 
@@ -178,7 +178,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test that review artifact is saved."""
         mock_context.data = {"plan_data": sample_plan_data}
 
@@ -213,7 +213,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test codereview workflow passes base_commit from context to CodeRabbit."""
         mock_context.data = {
             "plan_data": sample_plan_data,
@@ -250,7 +250,7 @@ class TestCodeReviewStepRun:
         mock_emit_comment,
         mock_context,
         sample_review_data,
-    ):
+    ) -> None:
         """Test codereview workflow falls back to plan_data.plan when base_commit is missing."""
         plan_data = PlanData(plan="def5678", summary="Derived base commit", session_id="session-123")
         mock_context.data = {
@@ -288,7 +288,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test patch/main workflows never use plan markdown as CodeRabbit base_commit."""
         mock_context.data = {
             "plan_data": sample_plan_data,
@@ -325,7 +325,7 @@ class TestCodeReviewStepRun:
         mock_context,
         sample_plan_data,
         sample_review_data,
-    ):
+    ) -> None:
         """Test that standalone codereview workflow works without issue_id."""
         # Standalone workflow: no issue_id
         mock_context.issue_id = None
@@ -366,7 +366,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists,
         mock_subprocess,
         mock_emit_comment,
-    ):
+    ) -> None:
         """Test _generate_review emits artifact comment with type='artifact' and full review data in raw."""
         mock_exists.return_value = True
 
@@ -415,7 +415,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists,
         mock_subprocess,
         mock_emit_comment,
-    ):
+    ) -> None:
         """Test _generate_review succeeds even if emit_comment_from_payload fails."""
         mock_exists.return_value = True
 
@@ -450,7 +450,7 @@ class TestCodeReviewStepGenerateReview:
         self,
         mock_exists,
         _mock_subprocess,
-    ):
+    ) -> None:
         """Test _generate_review fails when .coderabbit.yaml config is missing."""
         mock_exists.return_value = False
 
@@ -473,7 +473,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists,
         mock_subprocess,
         _mock_emit_comment,
-    ):
+    ) -> None:
         """Test _generate_review fails when CodeRabbit subprocess fails."""
         mock_exists.return_value = True
 
@@ -503,7 +503,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists,
         mock_subprocess,
         _mock_emit_comment,
-    ):
+    ) -> None:
         """Test _generate_review handles subprocess timeout."""
         mock_exists.return_value = True
 

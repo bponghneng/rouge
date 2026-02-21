@@ -11,7 +11,7 @@ from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> WorkflowContext:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10

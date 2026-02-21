@@ -7,7 +7,7 @@ import pytest
 from rouge.core.workflow.artifacts import (
     PlanArtifact,
 )
-from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext
 from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
 from rouge.core.workflow.types import (
     PlanData,
@@ -15,7 +15,7 @@ from rouge.core.workflow.types import (
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> WorkflowContext:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
@@ -58,7 +58,7 @@ class TestLoadPlanText:
         mock_context.data = {}
 
         def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            raise Exception("Required artifact 'plan' not found")
+            raise StepInputError("Required artifact 'plan' not found")
 
         mock_context.load_required_artifact = load_required_artifact
 
@@ -80,7 +80,7 @@ class TestLoadPlanText:
                 value = extract_fn(plan_artifact)
                 mock_context.data[context_key] = value
                 return value
-            raise Exception(f"Required artifact '{artifact_type}' not found")
+            raise StepInputError(f"Required artifact '{artifact_type}' not found")
 
         mock_context.load_required_artifact = load_required_artifact
 
