@@ -7,6 +7,7 @@ from typing import Optional
 
 import typer
 
+from rouge.cli.reset import reset as reset_command
 from rouge.core.database import (
     create_issue,
     delete_issue,
@@ -23,6 +24,7 @@ class IssueType(str, Enum):
 
     MAIN = "main"
     PATCH = "patch"
+    CODEREVIEW = "codereview"
 
 
 class OutputFormat(str, Enum):
@@ -59,6 +61,8 @@ def validate_new_args(
     spec_file: Optional[Path],
     title: Optional[str],
     branch: Optional[str] = None,
+    parent_issue_id: Optional[int] = None,
+    issue_type: IssueType = IssueType.MAIN,
 ) -> None:
     """Validate arguments for the new command.
 
@@ -70,6 +74,8 @@ def validate_new_args(
         spec_file: Path to file containing issue description (or None)
         title: Explicit title for the issue (or None)
         branch: Pre-set branch name for the issue (or None)
+        parent_issue_id: Parent issue ID for patch issues (or None)
+        issue_type: Issue type (main, patch, or codereview)
 
     Raises:
         typer.Exit: If validation fails
@@ -118,6 +124,42 @@ def validate_new_args(
     if spec_file and not title:
         typer.echo(
             "Error: --spec-file requires explicit --title option",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: parent_issue_id must be positive if provided
+    if parent_issue_id is not None and parent_issue_id <= 0:
+        typer.echo(
+            f"Error: parent_issue_id must be greater than 0, got {parent_issue_id}",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: for patch issues, exactly one of branch or parent_issue_id must be provided
+    if issue_type == IssueType.PATCH:
+        has_branch = branch is not None
+        has_parent = parent_issue_id is not None
+
+        if not has_branch and not has_parent:
+            typer.echo(
+                "Error: For patch issues, either --branch or --parent-issue-id must be provided",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+        if has_branch and has_parent:
+            typer.echo(
+                "Error: For patch issues, cannot use both --branch and --parent-issue-id",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+    # Validation: for non-patch issues, reject parent_issue_id if provided
+    if issue_type != IssueType.PATCH and parent_issue_id is not None:
+        typer.echo(
+            f"Error: --parent-issue-id is only allowed for patch issues, "
+            f"not {issue_type.value} issues",
             err=True,
         )
         raise typer.Exit(1)
@@ -270,6 +312,12 @@ def create(
     branch: Optional[str] = typer.Option(
         None, "--branch", "-b", help="Pre-set branch name for the issue.", show_default=True
     ),
+    parent_issue_id: Optional[int] = typer.Option(
+        None,
+        "--parent-issue-id",
+        help="Parent issue ID for patch issues (mutually exclusive with --branch for patch issues)",
+        show_default=True,
+    ),
 ) -> None:
     """Create a new issue.
 
@@ -279,16 +327,43 @@ def create(
     - Spec file + title: `rouge issue create --spec-file spec.txt --title "Feature X"`
     - With type: `rouge issue create --spec-file patch.txt --title "Patch fix" --type patch`
 
+    Branch specification options:
+    - --branch: Explicitly set the branch name for any issue type
+    - --parent-issue-id: For patch issues only, inherit branch from parent issue
+
+    Patch issue validation rules:
+    - For patch issues, exactly one of --branch or --parent-issue-id must be provided
+    - The --parent-issue-id option is only valid for patch issues
+    - If --parent-issue-id is provided, the branch will be inherited from the parent issue
+    - The parent issue must exist and have a branch assigned
+
     Examples:
         rouge issue create "Fix authentication bug in login flow"
         rouge issue create "Implement dark mode" --title "Dark mode feature"
         rouge issue create --spec-file feature-spec.txt --title "New feature"
-        rouge issue create --spec-file patch-spec.txt --title "Bug fix" --type patch
+        rouge issue create --spec-file patch-spec.txt --title "Bug fix" \\
+            --type patch --branch my-branch
+        rouge issue create "Fix typo" --type patch --parent-issue-id 123
     """
-    validate_new_args(description, spec_file, title, branch)
+    validate_new_args(description, spec_file, title, branch, parent_issue_id, issue_type)
     issue_title, issue_description = prepare_issue(description, spec_file, title)
 
     normalized_branch = branch.strip() if branch is not None else None
+
+    # If parent_issue_id is provided, fetch parent and extract branch
+    if parent_issue_id is not None:
+        try:
+            parent = fetch_issue(parent_issue_id)
+            if parent.branch is None:
+                typer.echo(
+                    f"Error: Parent issue {parent_issue_id} has no branch",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            normalized_branch = parent.branch
+        except ValueError as e:
+            typer.echo(f"Error: {e}", err=True)
+            raise typer.Exit(1)
 
     try:
         issue = create_issue(
@@ -561,3 +636,7 @@ def delete(
     except Exception as e:
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
+
+
+# Register reset command from reset module
+app.command()(reset_command)

@@ -310,6 +310,151 @@ def test_create_command_branch_short_flag(mock_create_issue) -> None:
     )
 
 
+# Tests for patch creation with branch and parent_issue_id
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_branch_succeeds(mock_create_issue) -> None:
+    """Test patch creation with --branch succeeds."""
+    mock_issue = Issue(
+        id=400, description="Patch description", status="pending", type="patch", branch="feature/test"
+    )
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(
+        app,
+        ["create", "Patch description", "--type", "patch", "--branch", "feature/test"],
+    )
+    assert result.exit_code == 0
+    assert "400" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Patch description",
+        title="Patch description",
+        issue_type="patch",
+        branch="feature/test",
+    )
+
+
+@patch("rouge.cli.issue.fetch_issue")
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_parent_issue_id_succeeds(
+    mock_create_issue, mock_fetch_issue
+) -> None:
+    """Test patch creation with --parent-issue-id (parent has branch) succeeds and inherits branch."""
+    # Mock parent issue with branch
+    parent_issue = Issue(
+        id=100, description="Parent issue", status="pending", branch="feature/parent"
+    )
+    mock_fetch_issue.return_value = parent_issue
+
+    mock_patch_issue = Issue(
+        id=401,
+        description="Patch description",
+        status="pending",
+        type="patch",
+        branch="feature/parent",
+    )
+    mock_create_issue.return_value = mock_patch_issue
+
+    result = runner.invoke(
+        app,
+        ["create", "Patch description", "--type", "patch", "--parent-issue-id", "100"],
+    )
+    assert result.exit_code == 0
+    assert "401" in result.output
+    mock_fetch_issue.assert_called_once_with(100)
+    mock_create_issue.assert_called_once_with(
+        description="Patch description",
+        title="Patch description",
+        issue_type="patch",
+        branch="feature/parent",
+    )
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_both_branch_and_parent_issue_id_fails(mock_create_issue) -> None:
+    """Test patch creation with both --branch and --parent-issue-id fails."""
+    result = runner.invoke(
+        app,
+        [
+            "create",
+            "Patch description",
+            "--type",
+            "patch",
+            "--branch",
+            "feature/test",
+            "--parent-issue-id",
+            "100",
+        ],
+    )
+    assert result.exit_code == 1
+    assert "Error: For patch issues, cannot use both --branch and --parent-issue-id" in result.output
+    mock_create_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_neither_branch_nor_parent_issue_id_fails(mock_create_issue) -> None:
+    """Test patch creation with neither --branch nor --parent-issue-id fails."""
+    result = runner.invoke(
+        app,
+        ["create", "Patch description", "--type", "patch"],
+    )
+    assert result.exit_code == 1
+    assert "Error: For patch issues, either --branch or --parent-issue-id must be provided" in result.output
+    mock_create_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.fetch_issue")
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_parent_issue_id_without_branch_fails(
+    mock_create_issue, mock_fetch_issue
+) -> None:
+    """Test patch creation with --parent-issue-id pointing to parent without branch fails."""
+    # Mock parent issue without branch
+    parent_issue = Issue(id=100, description="Parent issue", status="pending", branch=None)
+    mock_fetch_issue.return_value = parent_issue
+
+    result = runner.invoke(
+        app,
+        ["create", "Patch description", "--type", "patch", "--parent-issue-id", "100"],
+    )
+    assert result.exit_code == 1
+    assert "Error: Parent issue 100 has no branch" in result.output
+    mock_fetch_issue.assert_called_once_with(100)
+    mock_create_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.fetch_issue")
+@patch("rouge.cli.issue.create_issue")
+def test_create_patch_with_nonexistent_parent_issue_id_fails(
+    mock_create_issue, mock_fetch_issue
+) -> None:
+    """Test patch creation with --parent-issue-id pointing to non-existent issue fails."""
+    # Mock fetch_issue to raise ValueError for non-existent issue
+    mock_fetch_issue.side_effect = ValueError("Issue with id 999 not found")
+
+    result = runner.invoke(
+        app,
+        ["create", "Patch description", "--type", "patch", "--parent-issue-id", "999"],
+    )
+    assert result.exit_code == 1
+    assert "Error: Issue with id 999 not found" in result.output
+    mock_fetch_issue.assert_called_once_with(999)
+    mock_create_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_non_patch_with_parent_issue_id_fails(mock_create_issue) -> None:
+    """Test non-patch creation with --parent-issue-id fails."""
+    result = runner.invoke(
+        app,
+        ["create", "Main issue description", "--type", "main", "--parent-issue-id", "100"],
+    )
+    assert result.exit_code == 1
+    assert "Error: --parent-issue-id is only allowed for patch issues, not main issues" in result.output
+    mock_create_issue.assert_not_called()
+
+
 # Tests for read command
 
 
