@@ -161,8 +161,17 @@ def fetch_issue(issue_id: int) -> Issue:
         raise ValueError(f"Failed to fetch issue {issue_id}: {e}") from e
 
 
-def fetch_all_issues() -> list[Issue]:
+def fetch_all_issues(
+    limit: int = 5,
+    issue_type: Optional[str] = None,
+    status: Optional[str] = None,
+) -> list[Issue]:
     """Fetch all issues ordered by creation date (newest first).
+
+    Args:
+        limit: Maximum number of issues to return (default: 5)
+        issue_type: Filter by issue type (e.g., 'main', 'patch', 'codereview')
+        status: Filter by status (e.g., 'pending', 'started', 'completed', 'failed')
 
     Returns:
         List of Issue objects
@@ -172,7 +181,16 @@ def fetch_all_issues() -> list[Issue]:
     """
     try:
         client = get_client()
-        response = client.table("issues").select("*").order("created_at", desc=True).execute()
+        query = client.table("issues").select("*")
+
+        # Apply filters before ordering
+        if issue_type is not None:
+            query = query.eq("type", issue_type)
+        if status is not None:
+            query = query.eq("status", status)
+
+        # Apply ordering and limit
+        response = query.order("created_at", desc=True).limit(limit).execute()
 
         rows = response.data
         if not rows:
