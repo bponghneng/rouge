@@ -8,7 +8,7 @@ from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import CodeReviewArtifact, PlanArtifact
 from rouge.core.workflow.shared import get_repo_path
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class CodeReviewStep(WorkflowStep):
                 PlanArtifact,
                 lambda a: a.plan_data,
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.warning("No plan data available: %s", e)
             return StepResult.fail(f"No plan data available: {e}")
 

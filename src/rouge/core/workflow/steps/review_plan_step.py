@@ -18,7 +18,7 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ class ReviewPlanStep(WorkflowStep):
             issue = context.load_required_artifact(
                 "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
             )
-        except Exception as e:
+        except StepInputError as e:
             logger.error("Cannot derive base commit: issue not fetched: %s", e)
             return StepResult.fail(f"Cannot derive base commit: issue not fetched: {e}")
 

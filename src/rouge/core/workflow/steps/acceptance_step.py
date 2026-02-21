@@ -14,7 +14,7 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_VALIDATOR
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class AcceptanceStep(WorkflowStep):
                 PlanArtifact,
                 lambda a: a.plan_data,
             )
-        except Exception:
+        except StepInputError:
             return None
 
         if plan_data is not None:
@@ -229,12 +229,7 @@ class AcceptanceStep(WorkflowStep):
         logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
 
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-        if status == "success":
-            logger.debug(msg)
-        elif status == "skipped":
-            logger.debug(msg)
-        else:
-            logger.error(msg)
+        log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
