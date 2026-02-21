@@ -4,6 +4,7 @@ Tests verify that PatchPlanStep loads the patch issue from the fetch-patch
 artifact (not from context.issue directly).
 """
 
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -29,7 +30,7 @@ def patch_issue() -> Issue:
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store."""
     return ArtifactStore(workflow_id="test-adw-patch-plan", base_path=tmp_path)
 
@@ -72,7 +73,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         mock_emit,
         context_with_artifact,
         patch_issue,
-    ):
+    ) -> None:
         """Step loads the patch issue from the fetch-patch artifact, not context.issue."""
         plan_data = PlanData(
             plan="## Patch Plan\nFix typo",
@@ -103,7 +104,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         mock_emit,
         context_with_artifact,
         patch_issue,
-    ):
+    ) -> None:
         """Step succeeds even when context.issue is None if fetch-patch artifact exists."""
         # Explicitly leave context.issue as None (the default)
         assert context_with_artifact.issue is None
@@ -118,7 +119,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 
         assert result.success is True
 
-    def test_fails_when_fetch_patch_artifact_missing(self, context_without_artifact):
+    def test_fails_when_fetch_patch_artifact_missing(self, context_without_artifact) -> None:
         """Step fails when fetch-patch artifact is absent (required dependency)."""
         step = PatchPlanStep()
         result = step.run(context_without_artifact)
@@ -136,7 +137,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         mock_emit,
         context_with_artifact,
         patch_issue,
-    ):
+    ) -> None:
         """Step saves a PlanArtifact (not a PatchPlanArtifact)."""
         plan_data = PlanData(
             plan="## Plan\nDo the thing",
@@ -162,7 +163,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         mock_emit_artifact,
         mock_emit,
         context_with_artifact,
-    ):
+    ) -> None:
         """Step reads only the fetch-patch artifact, not fetch-issue or plan artifacts."""
         plan_data = PlanData(plan="## Plan\nFix", summary="Fix things")
         mock_build.return_value = StepResult.ok(plan_data)
@@ -192,12 +193,12 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 class TestBuildPatchPlanStepProperties:
     """Tests for PatchPlanStep properties."""
 
-    def test_step_name(self):
+    def test_step_name(self) -> None:
         """Test step has correct name."""
         step = PatchPlanStep()
         assert step.name == "Building patch plan"
 
-    def test_step_is_critical(self):
+    def test_step_is_critical(self) -> None:
         """Test step is critical."""
         step = PatchPlanStep()
         assert step.is_critical is True

@@ -55,7 +55,7 @@ class TestClassifyStepRun:
         mock_context,
         sample_issue,
         sample_classify_data,
-    ):
+    ) -> None:
         """Test successful classification emits artifact comment."""
         # Setup: issue loaded via load_required_artifact, classification succeeds
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -102,7 +102,7 @@ class TestClassifyStepRun:
         mock_context,
         sample_issue,
         sample_classify_data,
-    ):
+    ) -> None:
         """Test that step succeeds even if emit_artifact_comment returns error (non-blocking)."""
         # Setup: issue loaded, classification succeeds
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -129,7 +129,7 @@ class TestClassifyStepRun:
         # Verify the workflow continues and emits progress comment
         mock_emit_comment.assert_called_once()
 
-    def test_run_fails_when_no_issue_available(self, mock_context):
+    def test_run_fails_when_no_issue_available(self, mock_context) -> None:
         """Test that run fails when no issue is available (load_required_artifact raises)."""
         mock_context.data = {}
 
@@ -156,7 +156,7 @@ class TestClassifyStepRun:
         _mock_emit_comment,
         mock_context,
         sample_issue,
-    ):
+    ) -> None:
         """Test that run fails when _classify_issue fails."""
 
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -190,7 +190,7 @@ class TestClassifyStepRun:
         mock_context,
         sample_issue,
         sample_classify_data,
-    ):
+    ) -> None:
         """Test that classification artifact is saved."""
 
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -226,7 +226,7 @@ class TestClassifyStepRun:
         mock_context,
         sample_issue,
         sample_classify_data,
-    ):
+    ) -> None:
         """Test that artifact comment is always emitted when classification succeeds.
 
         Previously there was a guard for artifacts_enabled. Now artifact_store is always

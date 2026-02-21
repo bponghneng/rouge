@@ -26,6 +26,24 @@ def mock_context():
 
 
 @pytest.fixture
+def mock_load_required_artifact(mock_context):
+    """Configure mock_context.load_required_artifact with shared _load helper logic.
+
+    The helper reads from context.data and raises StepInputError when the key is absent.
+    Returns the configured mock_context.
+    """
+
+    def _load(context_key, _artifact_type, _artifact_class, _extract_fn):
+        value = mock_context.data.get(context_key)
+        if value is None:
+            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
+        return value
+
+    mock_context.load_required_artifact = _load
+    return mock_context
+
+
+@pytest.fixture
 def sample_plan_data():
     """Create a sample PlanData."""
     return PlanData(
@@ -53,20 +71,13 @@ class TestImplementStepRun:
         self,
         mock__implement_plan,
         mock_emit,
-        mock_context,
+        mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
     ):
         """Test successful implementation using plan."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
-
-        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
-            value = mock_context.data.get(context_key)
-            if value is None:
-                raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-            return value
-
-        mock_context.load_required_artifact = load_required_artifact
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
         mock_emit.return_value = ("success", "Comment inserted")
@@ -81,14 +92,10 @@ class TestImplementStepRun:
             mock_context.adw_id,
         )
 
-    def test_run_fails_when_no_plan_available(self, mock_context):
+    def test_run_fails_when_no_plan_available(self, mock_load_required_artifact):
         """Test that run fails when no plan is available."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {}
-
-        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-
-        mock_context.load_required_artifact = load_required_artifact
 
         step = ImplementStep()
         result = step.run(mock_context)
@@ -102,19 +109,12 @@ class TestImplementStepRun:
         self,
         mock__implement_plan,
         _mock_emit,
-        mock_context,
+        mock_load_required_artifact,
         sample_plan_data,
     ):
         """Test that run fails when _implement_plan fails."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
-
-        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
-            value = mock_context.data.get(context_key)
-            if value is None:
-                raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-            return value
-
-        mock_context.load_required_artifact = load_required_artifact
 
         mock__implement_plan.return_value = StepResult.fail("Implementation failed")
 
@@ -131,20 +131,13 @@ class TestImplementStepRun:
         self,
         mock__implement_plan,
         mock_emit,
-        mock_context,
+        mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
     ):
         """Test that implementation artifact is saved."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
-
-        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
-            value = mock_context.data.get(context_key)
-            if value is None:
-                raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-            return value
-
-        mock_context.load_required_artifact = load_required_artifact
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
         mock_emit.return_value = ("success", "Comment inserted")
@@ -164,14 +157,10 @@ class TestImplementStepRun:
 class TestImplementStepRerunBehavior:
     """Tests for ImplementStep rerun behavior when plan is missing."""
 
-    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_context):
+    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_load_required_artifact):
         """Test ImplementStep requests rerun from default plan step when plan is missing."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {}
-
-        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-
-        mock_context.load_required_artifact = load_required_artifact
 
         step = ImplementStep()
         result = step.run(mock_context)
@@ -180,14 +169,10 @@ class TestImplementStepRerunBehavior:
         assert "no plan available" in result.error
         assert result.rerun_from == "Building implementation plan"
 
-    def test_rerun_from_custom_plan_step_when_no_plan(self, mock_context):
+    def test_rerun_from_custom_plan_step_when_no_plan(self, mock_load_required_artifact):
         """Test ImplementStep requests rerun from custom plan step name when plan is missing."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {}
-
-        def load_required_artifact(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-
-        mock_context.load_required_artifact = load_required_artifact
 
         step = ImplementStep(plan_step_name="Building patch plan")
         result = step.run(mock_context)
@@ -198,20 +183,13 @@ class TestImplementStepRerunBehavior:
 
     def test_no_rerun_from_when_plan_available(
         self,
-        mock_context,
+        mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
     ):
         """Test that ImplementStep does not set rerun_from when plan is available."""
+        mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
-
-        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
-            value = mock_context.data.get(context_key)
-            if value is None:
-                raise StepInputError(f"Required artifact '{_artifact_type}' not found")
-            return value
-
-        mock_context.load_required_artifact = load_required_artifact
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
             with patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload") as mock_e:

@@ -6,6 +6,7 @@ Focuses on confirming that CodeQualityStep:
 - Only reads artifacts from its own execution (writes code-quality artifact)
 """
 
+from pathlib import Path
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -17,7 +18,7 @@ from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store with no implement artifact."""
     return ArtifactStore(workflow_id="test-code-quality", base_path=tmp_path)
 

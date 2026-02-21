@@ -71,8 +71,9 @@ class TestComposeRequestOrderingOnlyDependency:
             base_context.artifact_store, "read_artifact", side_effect=tracking_read
         ):
             step = ComposeRequestStep()
-            step.run(base_context)
+            result = step.run(base_context)
 
+        assert result.success is True
         # Assert acceptance artifact was never read
         assert "acceptance" not in read_calls
 
