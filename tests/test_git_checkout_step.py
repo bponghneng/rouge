@@ -102,6 +102,7 @@ def test_checkout_step_fails_when_branch_is_empty_string(tmp_path):
     assert "issue.branch is not set" in result.error
 
 
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path):
     """Step loads the issue from the fetch-patch artifact, not from context.issue."""
     store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
@@ -116,8 +117,9 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path):
         mock_repo.return_value = "/repo"
         mock_emit.return_value = ("ok", "ok")
         mock_checkout = Mock(returncode=0, stdout="", stderr="")
+        mock_fetch = Mock(returncode=0, stdout="", stderr="")
         mock_pull = Mock(returncode=0, stdout="", stderr="")
-        mock_sub.side_effect = [mock_checkout, mock_pull]
+        mock_sub.side_effect = [mock_checkout, mock_fetch, mock_pull]
 
         step = GitCheckoutStep()
         result = step.run(ctx)
@@ -208,13 +210,14 @@ def test_checkout_step_success_no_artifact_store(mock_subprocess, mock_get_repo_
     """Happy path without an artifact store: no artifact write is attempted."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    mock_result = Mock()
-    mock_result.returncode = 0
-    mock_result.stdout = ""
-    mock_result.stderr = ""
-    mock_subprocess.return_value = mock_result
+    mock_checkout = Mock(returncode=0, stdout="", stderr="")
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_pull = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
 
-    # No artifact_store set on context
+    # No artifact_store set on context; use cached fetch-patch data
+    context.data["fetch_patch_data"] = _make_issue(branch="feature-branch")
+    context.artifact_store = None
     assert context.artifact_store is None
 
     step = GitCheckoutStep()
