@@ -263,6 +263,9 @@ class ReviewFixStep(WorkflowStep):
             )
             context.artifact_store.write_artifact(artifact)
 
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
+
             # Insert progress comment - best-effort, non-blocking
             if context.issue_id is not None:
                 payload = CommentPayload(
