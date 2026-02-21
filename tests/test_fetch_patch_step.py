@@ -128,7 +128,7 @@ def test_fetch_patch_step_writes_artifact(
     mock_update_status,
     mock_context,
     sample_patch_issue,
-):
+) -> None:
     """Test fetch patch step always writes artifact to the artifact store."""
     # artifact_store is always present (required field).
     mock_fetch_issue.return_value = sample_patch_issue

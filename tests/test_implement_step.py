@@ -26,14 +26,14 @@ def mock_context():
 
 
 @pytest.fixture
-def mock_load_required_artifact(mock_context):
+def mock_load_required_artifact(mock_context) -> WorkflowContext:
     """Configure mock_context.load_required_artifact with shared _load helper logic.
 
     The helper reads from context.data and raises StepInputError when the key is absent.
     Returns the configured mock_context.
     """
 
-    def _load(context_key, _artifact_type, _artifact_class, _extract_fn):
+    def _load(context_key, _artifact_type, _artifact_class, _extract_fn) -> object:
         value = mock_context.data.get(context_key)
         if value is None:
             raise StepInputError(f"Required artifact '{_artifact_type}' not found")
@@ -65,21 +65,24 @@ def sample_implement_data():
 class TestImplementStepRun:
     """Tests for ImplementStep.run method."""
 
+    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_success_with_plan(
         self,
         mock__implement_plan,
+        mock_emit_artifact,
         mock_emit,
         mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
-    ):
+    ) -> None:
         """Test successful implementation using plan."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementStep()
@@ -92,7 +95,7 @@ class TestImplementStepRun:
             mock_context.adw_id,
         )
 
-    def test_run_fails_when_no_plan_available(self, mock_load_required_artifact):
+    def test_run_fails_when_no_plan_available(self, mock_load_required_artifact) -> None:
         """Test that run fails when no plan is available."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
@@ -111,7 +114,7 @@ class TestImplementStepRun:
         _mock_emit,
         mock_load_required_artifact,
         sample_plan_data,
-    ):
+    ) -> None:
         """Test that run fails when _implement_plan fails."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
@@ -125,21 +128,24 @@ class TestImplementStepRun:
         assert "Implementation failed" in result.error
         _mock_emit.assert_not_called()
 
+    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_saves_artifact(
         self,
         mock__implement_plan,
+        mock_emit_artifact,
         mock_emit,
         mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
-    ):
+    ) -> None:
         """Test that implementation artifact is saved."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementStep()
@@ -157,7 +163,7 @@ class TestImplementStepRun:
 class TestImplementStepRerunBehavior:
     """Tests for ImplementStep rerun behavior when plan is missing."""
 
-    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_load_required_artifact):
+    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_load_required_artifact) -> None:
         """Test ImplementStep requests rerun from default plan step when plan is missing."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
@@ -169,7 +175,7 @@ class TestImplementStepRerunBehavior:
         assert "no plan available" in result.error
         assert result.rerun_from == "Building implementation plan"
 
-    def test_rerun_from_custom_plan_step_when_no_plan(self, mock_load_required_artifact):
+    def test_rerun_from_custom_plan_step_when_no_plan(self, mock_load_required_artifact) -> None:
         """Test ImplementStep requests rerun from custom plan step name when plan is missing."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
@@ -186,32 +192,34 @@ class TestImplementStepRerunBehavior:
         mock_load_required_artifact,
         sample_plan_data,
         sample_implement_data,
-    ):
+    ) -> None:
         """Test that ImplementStep does not set rerun_from when plan is available."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
             with patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload") as mock_e:
-                mock_impl.return_value = StepResult.ok(sample_implement_data)
-                mock_e.return_value = ("success", "ok")
+                with patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment") as mock_emit_artifact:
+                    mock_impl.return_value = StepResult.ok(sample_implement_data)
+                    mock_e.return_value = ("success", "ok")
+                    mock_emit_artifact.return_value = ("success", "ok")
 
-                step = ImplementStep()
-                result = step.run(mock_context)
+                    step = ImplementStep()
+                    result = step.run(mock_context)
 
-                assert result.success is True
-                assert result.rerun_from is None
+                    assert result.success is True
+                    assert result.rerun_from is None
 
 
 class TestImplementStepProperties:
     """Tests for ImplementStep properties."""
 
-    def test_step_name(self):
+    def test_step_name(self) -> None:
         """Test that ImplementStep has correct name."""
         step = ImplementStep()
         assert step.name == "Implementing solution"
 
-    def test_step_is_critical(self):
+    def test_step_is_critical(self) -> None:
         """Test that ImplementStep is critical by default."""
         step = ImplementStep()
         assert step.is_critical is True
