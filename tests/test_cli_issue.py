@@ -565,7 +565,7 @@ def test_list_command_no_issues(mock_fetch_all_issues) -> None:
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
     assert "No issues found." in result.output
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -592,7 +592,7 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     assert "pending" in result.output
     assert "main" in result.output
     assert "(none)" in result.output  # No assignment
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -640,7 +640,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
     assert "3" in result.output
     assert "Third Issue" in result.output
     assert "(none)" in result.output  # Third issue has no assignment
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -670,7 +670,7 @@ def test_list_command_json_format(mock_fetch_all_issues) -> None:
     assert issues_data[0]["description"] == "Test description"
     assert issues_data[0]["status"] == "pending"
     assert issues_data[0]["type"] == "main"
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -686,7 +686,7 @@ def test_list_command_json_format_empty(mock_fetch_all_issues) -> None:
     issues_data = json.loads(result.output)
     assert isinstance(issues_data, list)
     assert len(issues_data) == 0
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -705,7 +705,7 @@ def test_list_command_table_format_explicit(mock_fetch_all_issues) -> None:
     assert result.exit_code == 0
     assert "ID" in result.output
     assert "Table Test" in result.output
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -727,7 +727,7 @@ def test_list_command_short_format_flag(mock_fetch_all_issues) -> None:
     issues_data = json.loads(result.output)
     assert len(issues_data) == 1
     assert issues_data[0]["title"] == "Short Flag Test"
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -749,7 +749,7 @@ def test_list_command_truncates_long_title(mock_fetch_all_issues) -> None:
     assert "..." in result.output
     # Full title should not appear in table output
     assert long_title not in result.output
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -760,7 +760,7 @@ def test_list_command_database_error(mock_fetch_all_issues) -> None:
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 1
     assert "Error: Database error" in result.output
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -771,7 +771,224 @@ def test_list_command_unexpected_error(mock_fetch_all_issues) -> None:
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 1
     assert "Unexpected error: Unexpected failure" in result.output
-    mock_fetch_all_issues.assert_called_once()
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_default_limit_five(mock_fetch_all_issues) -> None:
+    """Test list command returns only 5 issues by default when more are available."""
+    # Create 10 mock issues
+    mock_issues = [
+        Issue(
+            id=i,
+            title=f"Issue {i}",
+            description=f"Description {i}",
+            status="pending",
+            type="main",
+        )
+        for i in range(1, 11)
+    ]
+    # Mock returns only 5 (simulating server-side limit)
+    mock_fetch_all_issues.return_value = mock_issues[:5]
+
+    result = runner.invoke(app, ["list"])
+    assert result.exit_code == 0
+    # Verify default limit of 5 is used
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
+    # Verify only 5 issues are in output
+    for i in range(1, 6):
+        assert f"Issue {i}" in result.output
+    # Verify issues 6-10 are not in output
+    for i in range(6, 11):
+        assert f"Issue {i}" not in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_limit_override(mock_fetch_all_issues) -> None:
+    """Test list command with --limit 20 returns up to 20 issues."""
+    # Create 25 mock issues
+    mock_issues = [
+        Issue(
+            id=i,
+            title=f"Issue {i}",
+            description=f"Description {i}",
+            status="pending",
+            type="main",
+        )
+        for i in range(1, 26)
+    ]
+    # Mock returns 20 (simulating server-side limit)
+    mock_fetch_all_issues.return_value = mock_issues[:20]
+
+    result = runner.invoke(app, ["list", "--limit", "20"])
+    assert result.exit_code == 0
+    # Verify limit of 20 is used
+    mock_fetch_all_issues.assert_called_once_with(limit=20, issue_type=None, status=None)
+    # Verify first 20 issues are in output
+    for i in range(1, 21):
+        assert f"Issue {i}" in result.output
+    # Verify issues 21-25 are not in output
+    for i in range(21, 26):
+        assert f"Issue {i}" not in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_filter_by_type_patch(mock_fetch_all_issues) -> None:
+    """Test list command with --type patch returns only patch issues."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Patch Issue 1",
+            description="Patch description",
+            status="pending",
+            type="patch",
+        ),
+        Issue(
+            id=2,
+            title="Patch Issue 2",
+            description="Patch description",
+            status="completed",
+            type="patch",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--type", "patch"])
+    assert result.exit_code == 0
+    # Verify type filter is passed correctly
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="patch", status=None)
+    # Verify patch issues are in output
+    assert "Patch Issue 1" in result.output
+    assert "Patch Issue 2" in result.output
+    assert "patch" in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_filter_by_type_codereview(mock_fetch_all_issues) -> None:
+    """Test list command with --type codereview returns only codereview issues."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Code Review Issue",
+            description="Review description",
+            status="pending",
+            type="codereview",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--type", "codereview"])
+    assert result.exit_code == 0
+    # Verify type filter is passed correctly
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="codereview", status=None)
+    # Verify codereview issue is in output
+    assert "Code Review Issue" in result.output
+    assert "codereview" in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_filter_by_status_failed(mock_fetch_all_issues) -> None:
+    """Test list command with --status failed returns only failed issues."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Failed Issue 1",
+            description="Failed description",
+            status="failed",
+            type="main",
+        ),
+        Issue(
+            id=2,
+            title="Failed Issue 2",
+            description="Failed description",
+            status="failed",
+            type="patch",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--status", "failed"])
+    assert result.exit_code == 0
+    # Verify status filter is passed correctly
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status="failed")
+    # Verify failed issues are in output
+    assert "Failed Issue 1" in result.output
+    assert "Failed Issue 2" in result.output
+    assert "failed" in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_combined_filters(mock_fetch_all_issues) -> None:
+    """Test list command with --limit 10 --type patch --status started honors all filters."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Started Patch 1",
+            description="Patch description",
+            status="started",
+            type="patch",
+        ),
+        Issue(
+            id=2,
+            title="Started Patch 2",
+            description="Patch description",
+            status="started",
+            type="patch",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--limit", "10", "--type", "patch", "--status", "started"])
+    assert result.exit_code == 0
+    # Verify all filters are passed correctly
+    mock_fetch_all_issues.assert_called_once_with(limit=10, issue_type="patch", status="started")
+    # Verify filtered issues are in output
+    assert "Started Patch 1" in result.output
+    assert "Started Patch 2" in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_json_format_with_filters(mock_fetch_all_issues) -> None:
+    """Test list command with --format json --limit 3 --type main honors filters and outputs JSON."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Main Issue 1",
+            description="Main description",
+            status="pending",
+            type="main",
+        ),
+        Issue(
+            id=2,
+            title="Main Issue 2",
+            description="Main description",
+            status="completed",
+            type="main",
+        ),
+        Issue(
+            id=3,
+            title="Main Issue 3",
+            description="Main description",
+            status="started",
+            type="main",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--format", "json", "--limit", "3", "--type", "main"])
+    assert result.exit_code == 0
+    # Verify filters are passed correctly
+    mock_fetch_all_issues.assert_called_once_with(limit=3, issue_type="main", status=None)
+    # Verify JSON output
+    import json
+
+    issues_data = json.loads(result.output)
+    assert isinstance(issues_data, list)
+    assert len(issues_data) == 3
+    assert all(issue["type"] == "main" for issue in issues_data)
+    assert issues_data[0]["title"] == "Main Issue 1"
+    assert issues_data[1]["title"] == "Main Issue 2"
+    assert issues_data[2]["title"] == "Main Issue 3"
 
 
 # Tests for update command

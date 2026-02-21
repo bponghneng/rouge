@@ -424,23 +424,60 @@ def list_issues(
         help="Output format: 'table' for human-readable, 'json' for scripting",
         show_default=True,
     ),
+    limit: int = typer.Option(
+        5,
+        "--limit",
+        "-l",
+        help="Maximum number of issues to return (default: 5)",
+        show_default=True,
+    ),
+    issue_type: Optional[str] = typer.Option(
+        None,
+        "--type",
+        "-t",
+        help="Filter by issue type",
+        case_sensitive=False,
+    ),
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        "-s",
+        help="Filter by status",
+        case_sensitive=False,
+    ),
 ) -> None:
     """List all issues.
 
-    Fetches all issues from the database and displays them in the specified format.
+    Fetches issues from the database and displays them in the specified format.
     Issues are ordered by creation date (newest first).
 
     Formats:
         - table: Human-readable table with columns: ID, Title, Type, Status, Assigned To
         - json: Machine-readable JSON array of issue objects
 
+    Filter Options:
+        - limit: Maximum number of issues to return (default: 5)
+        - issue_type: Filter by issue type ('main', 'patch', 'codereview')
+        - status: Filter by status ('pending', 'started', 'completed', 'failed')
+
     Examples:
         rouge issue list
-        rouge issue list --format table
-        rouge issue list --format json
+        rouge issue list --limit 10
+        rouge issue list --type main --status pending
+        rouge issue list --format json --limit 20
     """
+    # Trim and validate string options
+    if issue_type is not None:
+        issue_type = issue_type.strip()
+        if not issue_type:
+            raise typer.BadParameter("Issue type cannot be empty or whitespace-only")
+    if status is not None:
+        status = status.strip()
+        if not status:
+            raise typer.BadParameter("Status cannot be empty or whitespace-only")
+
     try:
-        issues = fetch_all_issues()
+        issues = fetch_all_issues(limit=limit, issue_type=issue_type, status=status)
 
         if format == OutputFormat.JSON:
             # JSON format: output array of issue objects
