@@ -7,7 +7,7 @@ from typing import Optional
 
 import typer
 
-from rouge.cli.reset import reset as reset_command
+from rouge.cli.utils import validate_issue_id
 from rouge.core.database import (
     create_issue,
     delete_issue,
@@ -248,20 +248,6 @@ def prepare_issue(
             issue_title = generate_title(issue_description)
 
     return (issue_title, issue_description)
-
-
-def validate_issue_id(issue_id: int) -> None:
-    """Validate that issue_id is a positive integer.
-
-    Args:
-        issue_id: The issue ID to validate
-
-    Raises:
-        typer.Exit: If issue_id is not positive (<=0)
-    """
-    if issue_id <= 0:
-        typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
-        raise typer.Exit(1)
 
 
 def truncate_string(s: Optional[str], max_length: int) -> str:
@@ -636,7 +622,3 @@ def delete(
     except Exception as e:
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
-
-
-# Register reset command from reset module
-app.command()(reset_command)
