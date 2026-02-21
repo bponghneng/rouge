@@ -10,9 +10,12 @@ For command group tests, see:
 - test_cli_comment.py: Tests for `rouge comment` commands
 """
 
+from unittest.mock import patch
+
 from typer.testing import CliRunner
 
 from rouge.cli.cli import app
+from rouge.core.models import Issue
 
 runner = CliRunner()
 
@@ -136,3 +139,271 @@ def test_artifact_command_group_exists() -> None:
     result = runner.invoke(app, ["artifact", "--help"])
     assert result.exit_code == 0
     assert "artifact" in result.output.lower()
+
+
+# Tests for reset command
+
+
+def test_reset_command_exists() -> None:
+    """Test that 'reset' command is registered as top-level command."""
+    result = runner.invoke(app, ["reset", "--help"])
+    assert result.exit_code == 0
+    assert "reset" in result.output.lower()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with failed issue succeeds."""
+    # Mock a failed main issue
+    mock_issue = Issue(
+        id=123,
+        description="Test issue",
+        status="failed",
+        type="main",
+        assigned_to="local-1",
+        branch="feature/test",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue
+    updated_issue = Issue(
+        id=123,
+        description="Test issue",
+        status="pending",
+        type="main",
+        assigned_to=None,
+        branch=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(app, ["reset", "123"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_fetch_issue.assert_called_once_with(123)
+    mock_update_issue.assert_called_once_with(
+        123,
+        assigned_to=None,
+        status="pending",
+        branch=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_non_failed_issue_fails(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with non-failed issue fails with clear error."""
+    # Mock a pending issue
+    mock_issue = Issue(
+        id=456,
+        description="Test issue",
+        status="pending",
+        type="main",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["reset", "456"])
+    assert result.exit_code == 1
+    assert "Error: Issue 456 has status 'pending', can only reset 'failed' issues" in result.output
+    mock_fetch_issue.assert_called_once_with(456)
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_started_issue_fails(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with started issue fails."""
+    # Mock a started issue
+    mock_issue = Issue(
+        id=789,
+        description="Test issue",
+        status="started",
+        type="main",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["reset", "789"])
+    assert result.exit_code == 1
+    assert "Error: Issue 789 has status 'started', can only reset 'failed' issues" in result.output
+    mock_fetch_issue.assert_called_once_with(789)
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_completed_issue_fails(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with completed issue fails."""
+    # Mock a completed issue
+    mock_issue = Issue(
+        id=321,
+        description="Test issue",
+        status="completed",
+        type="main",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["reset", "321"])
+    assert result.exit_code == 1
+    assert "Error: Issue 321 has status 'completed', can only reset 'failed' issues" in result.output
+    mock_fetch_issue.assert_called_once_with(321)
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_non_existent_issue_fails(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with non-existent issue fails."""
+    # Mock fetch_issue to raise ValueError
+    mock_fetch_issue.side_effect = ValueError("Issue with id 999 not found")
+
+    result = runner.invoke(app, ["reset", "999"])
+    assert result.exit_code == 1
+    assert "Error: Issue with id 999 not found" in result.output
+    mock_fetch_issue.assert_called_once_with(999)
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_main_issue_clears_branch(
+    mock_fetch_issue, mock_update_issue
+) -> None:
+    """Test reset command with failed main issue clears branch."""
+    # Mock a failed main issue with branch
+    mock_issue = Issue(
+        id=111,
+        description="Test main issue",
+        status="failed",
+        type="main",
+        assigned_to="local-1",
+        branch="feature/main-branch",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue
+    updated_issue = Issue(
+        id=111,
+        description="Test main issue",
+        status="pending",
+        type="main",
+        assigned_to=None,
+        branch=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(app, ["reset", "111"])
+    assert result.exit_code == 0
+    assert "111" in result.output
+    mock_fetch_issue.assert_called_once_with(111)
+    # Verify branch is set to None
+    mock_update_issue.assert_called_once_with(
+        111,
+        assigned_to=None,
+        status="pending",
+        branch=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_codereview_issue_clears_branch(
+    mock_fetch_issue, mock_update_issue
+) -> None:
+    """Test reset command with failed codereview issue clears branch."""
+    # Mock a failed codereview issue with branch
+    mock_issue = Issue(
+        id=222,
+        description="Test codereview issue",
+        status="failed",
+        type="codereview",
+        assigned_to="local-2",
+        branch="feature/codereview-branch",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue
+    updated_issue = Issue(
+        id=222,
+        description="Test codereview issue",
+        status="pending",
+        type="codereview",
+        assigned_to=None,
+        branch=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(app, ["reset", "222"])
+    assert result.exit_code == 0
+    assert "222" in result.output
+    mock_fetch_issue.assert_called_once_with(222)
+    # Verify branch is set to None
+    mock_update_issue.assert_called_once_with(
+        222,
+        assigned_to=None,
+        status="pending",
+        branch=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_patch_issue_preserves_branch(
+    mock_fetch_issue, mock_update_issue
+) -> None:
+    """Test reset command with failed patch issue preserves branch."""
+    # Mock a failed patch issue with branch
+    mock_issue = Issue(
+        id=333,
+        description="Test patch issue",
+        status="failed",
+        type="patch",
+        assigned_to="local-3",
+        branch="feature/patch-branch",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue (branch preserved)
+    updated_issue = Issue(
+        id=333,
+        description="Test patch issue",
+        status="pending",
+        type="patch",
+        assigned_to=None,
+        branch="feature/patch-branch",
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(app, ["reset", "333"])
+    assert result.exit_code == 0
+    assert "333" in result.output
+    mock_fetch_issue.assert_called_once_with(333)
+    # Verify branch is NOT in kwargs (preserves existing value)
+    mock_update_issue.assert_called_once_with(
+        333,
+        assigned_to=None,
+        status="pending",
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_invalid_issue_id_zero(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with issue_id of 0 fails."""
+    result = runner.invoke(app, ["reset", "0"])
+    assert result.exit_code == 1
+    assert "Error: issue_id must be greater than 0, got 0" in result.output
+    mock_fetch_issue.assert_not_called()
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_unexpected_error(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command handles unexpected errors."""
+    mock_fetch_issue.side_effect = Exception("Database connection failed")
+
+    result = runner.invoke(app, ["reset", "123"])
+    assert result.exit_code == 1
+    assert "Unexpected error: Database connection failed" in result.output
+    mock_fetch_issue.assert_called_once_with(123)
+    mock_update_issue.assert_not_called()
