@@ -11,6 +11,7 @@ from rouge import __version__
 from rouge.cli.artifact import app as artifact_app
 from rouge.cli.comment import app as comment_app
 from rouge.cli.issue import app as issue_app
+from rouge.cli.reset import reset
 from rouge.cli.step import app as step_app
 from rouge.cli.workflow import app as workflow_app
 from rouge.core.database import init_db_env
@@ -46,6 +47,9 @@ app.add_typer(workflow_app, name="workflow")
 app.add_typer(comment_app, name="comment")
 app.add_typer(step_app, name="step")
 app.add_typer(artifact_app, name="artifact")
+
+# Register top-level commands
+app.command()(reset)
 
 
 def version_callback(value: Optional[bool]) -> None:
