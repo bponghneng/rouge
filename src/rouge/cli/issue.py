@@ -452,7 +452,7 @@ def list_issues(
     Issues are ordered by creation date (newest first).
 
     Formats:
-        - table: Human-readable table with columns: ID, Title, Type, Status, Assigned To
+        - table: Human-readable table with columns: ID, Title, Type, Status, Branch, Assigned To
         - json: Machine-readable JSON array of issue objects
 
     Filter Options:
@@ -490,18 +490,22 @@ def list_issues(
                 return
 
             # Print header
-            typer.echo(f"{'ID':<8} {'Title':<42} {'Type':<8} {'Status':<12} {'Assigned To':<15}")
-            typer.echo("-" * 87)
+            typer.echo(
+                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} "
+                f"{'Branch':<18} {'Assigned To':<12}"
+            )
+            typer.echo("-" * 93)
 
             # Print each issue
             for issue in issues:
-                truncated_title = truncate_string(issue.title, 40)
+                truncated_title = truncate_string(issue.title, 30)
                 assigned_to = issue.assigned_to or "(none)"
+                branch = issue.branch or "(none)"
 
                 # Format the row with proper spacing
                 row = (
-                    f"{issue.id:<8} {truncated_title:<42} "
-                    f"{issue.type:<8} {issue.status:<12} {assigned_to:<15}"
+                    f"{issue.id:<6} {truncated_title:<32} "
+                    f"{issue.type:<10} {issue.status:<10} {branch:<18} {assigned_to:<12}"
                 )
                 typer.echo(row)
 
