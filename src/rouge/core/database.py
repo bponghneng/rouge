@@ -376,7 +376,7 @@ def create_issue(
             raise ValueError("Title cannot be empty/whitespace if provided")
 
         # Validate issue_type
-        valid_types = {"main", "patch"}
+        valid_types = {"main", "patch", "codereview"}
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
@@ -449,7 +449,7 @@ def update_issue(
     title: Optional[str] | _Unset = UNSET,
     description: str | _Unset = UNSET,
     status: str | _Unset = UNSET,
-    branch: str | _Unset = UNSET,
+    branch: Optional[str] | _Unset = UNSET,
 ) -> Issue:
     """Update multiple fields on an issue in a single operation.
 
@@ -460,7 +460,7 @@ def update_issue(
         title: Issue title or None to clear, or UNSET to skip
         description: Issue description, or UNSET to skip
         status: Issue status ('pending', 'started', 'completed', 'failed'), or UNSET to skip
-        branch: Branch name, or UNSET to skip
+        branch: Branch name or None to clear, or UNSET to skip
 
     Returns:
         Updated Issue object
@@ -488,7 +488,7 @@ def update_issue(
 
     # Validate and add issue_type to updates
     if not isinstance(issue_type, _Unset):
-        valid_types = {"main", "patch"}
+        valid_types = {"main", "patch", "codereview"}
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
@@ -523,9 +523,10 @@ def update_issue(
 
     # Validate and add branch to updates
     if not isinstance(branch, _Unset):
-        if not branch or not branch.strip():
+        if branch is not None and (not branch or not branch.strip()):
             raise ValueError("Branch cannot be empty")
-        branch = branch.strip()
+        if branch is not None:
+            branch = branch.strip()
         updates["branch"] = branch
 
     # Ensure at least one field is being updated
