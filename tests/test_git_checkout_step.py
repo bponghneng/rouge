@@ -137,14 +137,14 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
         mock_checkout = Mock(returncode=0, stdout="", stderr="")
         mock_fetch = Mock(returncode=0, stdout="", stderr="")
         mock_pull = Mock(returncode=0, stdout="", stderr="")
-        mock_sub.side_effect = [mock_checkout, mock_fetch, mock_pull]
+        mock_sub.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
         step = GitCheckoutStep()
         result = step.run(ctx)
 
     assert result.success is True
     # Verify branch from artifact was used
-    checkout_call = mock_sub.call_args_list[0]
+    checkout_call = mock_sub.call_args_list[1]
     assert "artifact-branch" in checkout_call[0][0]
 
 
@@ -177,7 +177,7 @@ def test_checkout_step_success(
     mock_pull.stdout = ""
     mock_pull.stderr = ""
 
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
     mock_emit_comment.return_value = ("ok", "comment posted")
 
     # Provide an artifact store so the artifact write path is exercised
@@ -195,19 +195,19 @@ def test_checkout_step_success(
     assert result.error is None
     assert mock_subprocess.call_count == 3
 
+    # Verify git fetch --all --prune call
+    fetch_call = mock_subprocess.call_args_list[0]
+    assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
+    assert fetch_call[1]["cwd"] == "/path/to/repo"
+    assert fetch_call[1]["timeout"] == GIT_TIMEOUT
+
     # Verify git checkout call
-    checkout_call = mock_subprocess.call_args_list[0]
+    checkout_call = mock_subprocess.call_args_list[1]
     assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
     assert checkout_call[1]["cwd"] == "/path/to/repo"
     assert checkout_call[1]["timeout"] == GIT_TIMEOUT
     assert checkout_call[1]["capture_output"] is True
     assert checkout_call[1]["text"] is True
-
-    # Verify git fetch --all --prune call
-    fetch_call = mock_subprocess.call_args_list[1]
-    assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
-    assert fetch_call[1]["cwd"] == "/path/to/repo"
-    assert fetch_call[1]["timeout"] == GIT_TIMEOUT
 
     # Verify git pull --rebase call
     pull_call = mock_subprocess.call_args_list[2]
@@ -235,7 +235,7 @@ def test_checkout_step_success_no_artifact_store(
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
     # No artifact_store set on context; use cached fetch-patch data
     context.data["fetch_patch_data"] = _make_issue(branch="feature-branch")
@@ -246,7 +246,7 @@ def test_checkout_step_success_no_artifact_store(
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 3  # checkout, fetch, pull
+    assert mock_subprocess.call_count == 3  # fetch, checkout, pull
 
 
 # === git checkout Failure ===
@@ -263,15 +263,16 @@ def test_checkout_step_git_checkout_fails(mock_subprocess, mock_get_repo_path, c
     mock_checkout.returncode = 1
     mock_checkout.stdout = ""
     mock_checkout.stderr = "error: permission denied"
-    mock_subprocess.return_value = mock_checkout
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is False
     assert "Failed to checkout branch" in result.error
-    # Should stop after first command fails (no fallback for non-pathspec errors)
-    assert mock_subprocess.call_count == 1
+    # Should stop after checkout fails (no fallback for non-pathspec errors)
+    assert mock_subprocess.call_count == 2
 
 
 # === Dirty State Cleanup Tests ===
@@ -286,14 +287,14 @@ def test_checkout_step_dirty_state_cleanup_allowed(
     """When ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true, dirty state is cleaned before checkout."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Mock successful reset, clean, checkout, fetch, and pull
+    # Mock successful reset, clean, fetch, checkout, and pull
     mock_reset = Mock(returncode=0, stdout="", stderr="")
     mock_clean = Mock(returncode=0, stdout="", stderr="")
-    mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_fetch, mock_checkout, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -313,8 +314,12 @@ def test_checkout_step_dirty_state_cleanup_allowed(
     assert clean_call[1]["cwd"] == "/path/to/repo"
     assert clean_call[1]["timeout"] == GIT_TIMEOUT
 
-    # Verify checkout was called third
-    checkout_call = mock_subprocess.call_args_list[2]
+    # Verify fetch was called third
+    fetch_call = mock_subprocess.call_args_list[2]
+    assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
+
+    # Verify checkout was called fourth
+    checkout_call = mock_subprocess.call_args_list[3]
     assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
 
 
@@ -325,7 +330,8 @@ def test_checkout_step_dirty_state_denial(mock_subprocess, mock_get_repo_path, c
     """When destructive ops not allowed and dirty state detected, step fails with standard error."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    # Simulate checkout failure due to dirty working tree
+    # Simulate checkout failure due to dirty working tree (after a successful fetch)
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock()
     mock_checkout.returncode = 1
     mock_checkout.stdout = ""
@@ -333,7 +339,7 @@ def test_checkout_step_dirty_state_denial(mock_subprocess, mock_get_repo_path, c
         "error: Your local changes to the following files would be overwritten by checkout"
     )
 
-    mock_subprocess.return_value = mock_checkout
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -341,8 +347,8 @@ def test_checkout_step_dirty_state_denial(mock_subprocess, mock_get_repo_path, c
     assert result.success is False
     assert "Cannot checkout branch: working tree has uncommitted changes" in result.error
     assert "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true" in result.error
-    # Should only try checkout once (no reset/clean since not allowed)
-    assert mock_subprocess.call_count == 1
+    # Should fetch then attempt checkout once (no reset/clean since not allowed)
+    assert mock_subprocess.call_count == 2
 
 
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
@@ -360,7 +366,7 @@ def test_checkout_step_dirty_state_uncommitted_changes(
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_fetch, mock_checkout, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -444,9 +450,9 @@ def test_checkout_step_missing_local_branch_fallback_success(
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
     mock_subprocess.side_effect = [
+        mock_fetch,
         mock_checkout_fail,
         mock_checkout_fallback,
-        mock_fetch,
         mock_pull,
     ]
 
@@ -456,12 +462,16 @@ def test_checkout_step_missing_local_branch_fallback_success(
     assert result.success is True
     assert mock_subprocess.call_count == 4
 
+    # Verify fetch runs before checkout attempts
+    fetch_call = mock_subprocess.call_args_list[0]
+    assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
+
     # Verify first checkout attempt
-    first_checkout = mock_subprocess.call_args_list[0]
+    first_checkout = mock_subprocess.call_args_list[1]
     assert first_checkout[0][0] == ["git", "checkout", "feature-branch"]
 
     # Verify fallback checkout with tracking
-    fallback_checkout = mock_subprocess.call_args_list[1]
+    fallback_checkout = mock_subprocess.call_args_list[2]
     assert fallback_checkout[0][0] == ["git", "checkout", "-t", "origin/feature-branch"]
     assert fallback_checkout[1]["cwd"] == "/path/to/repo"
     assert fallback_checkout[1]["timeout"] == GIT_TIMEOUT
@@ -490,14 +500,15 @@ def test_checkout_step_missing_local_branch_fallback_fails(
     mock_fallback_fail.stdout = ""
     mock_fallback_fail.stderr = "fatal: 'origin/feature-branch' is not a commit"
 
-    mock_subprocess.side_effect = [mock_checkout_fail, mock_fallback_fail]
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout_fail, mock_fallback_fail]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is False
     assert "Branch 'feature-branch' not found locally or on remote." in result.error
-    assert mock_subprocess.call_count == 2
+    assert mock_subprocess.call_count == 3
 
 
 @patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
@@ -515,15 +526,16 @@ def test_checkout_step_missing_local_branch_no_fallback_for_other_errors(
     mock_checkout.stdout = ""
     mock_checkout.stderr = "error: permission denied"
 
-    mock_subprocess.return_value = mock_checkout
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is False
     assert "Failed to checkout branch" in result.error
-    # Should only call checkout once (no fallback for non-pathspec errors)
-    assert mock_subprocess.call_count == 1
+    # Should fetch then call checkout once (no fallback for non-pathspec errors)
+    assert mock_subprocess.call_count == 2
 
 
 # === Fetch All Prune Tests ===
@@ -533,14 +545,14 @@ def test_checkout_step_missing_local_branch_no_fallback_for_other_errors(
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_fetch_all_prune_called(mock_subprocess, mock_get_repo_path, context) -> None:
-    """git fetch --all --prune is called after checkout and before pull."""
+    """git fetch --all --prune is called before checkout and before pull."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -548,14 +560,14 @@ def test_checkout_step_fetch_all_prune_called(mock_subprocess, mock_get_repo_pat
     assert result.success is True
     assert mock_subprocess.call_count == 3
 
-    # Verify fetch was called after checkout and before pull
-    checkout_call = mock_subprocess.call_args_list[0]
-    assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
-
-    fetch_call = mock_subprocess.call_args_list[1]
+    # Verify fetch was called before checkout and before pull
+    fetch_call = mock_subprocess.call_args_list[0]
     assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
     assert fetch_call[1]["cwd"] == "/path/to/repo"
     assert fetch_call[1]["timeout"] == GIT_TIMEOUT
+
+    checkout_call = mock_subprocess.call_args_list[1]
+    assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
 
     pull_call = mock_subprocess.call_args_list[2]
     assert pull_call[0][0] == ["git", "pull", "--rebase", "origin", "feature-branch"]
@@ -568,13 +580,12 @@ def test_checkout_step_fetch_all_prune_fails(mock_subprocess, mock_get_repo_path
     """When git fetch --all --prune fails, step fails immediately."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock()
     mock_fetch.returncode = 1
     mock_fetch.stdout = ""
     mock_fetch.stderr = "error: unable to access remote"
 
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch]
+    mock_subprocess.side_effect = [mock_fetch]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -582,8 +593,8 @@ def test_checkout_step_fetch_all_prune_fails(mock_subprocess, mock_get_repo_path
     assert result.success is False
     assert "git fetch --all --prune failed" in result.error
     assert "exit code 1" in result.error
-    # Should stop after fetch fails (no pull attempt)
-    assert mock_subprocess.call_count == 2
+    # Should stop immediately when fetch fails (no checkout/pull attempt)
+    assert mock_subprocess.call_count == 1
 
 
 # === Standardized Error Messages Tests ===
@@ -609,7 +620,8 @@ def test_checkout_step_standardized_error_missing_branch(
     mock_fallback_fail.stdout = ""
     mock_fallback_fail.stderr = "error: remote branch not found"
 
-    mock_subprocess.side_effect = [mock_checkout_fail, mock_fallback_fail]
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout_fail, mock_fallback_fail]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -632,7 +644,8 @@ def test_checkout_step_standardized_error_dirty_tree(
     mock_checkout.stdout = ""
     mock_checkout.stderr = "error: Your local changes would be overwritten by checkout"
 
-    mock_subprocess.return_value = mock_checkout
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -654,14 +667,14 @@ def test_checkout_step_standardized_error_pull_rebase_conflict(
     """Pull-rebase conflict error returns standardized message."""
     mock_get_repo_path.return_value = "/path/to/repo"
 
-    mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock()
     mock_pull.returncode = 1
     mock_pull.stdout = ""
     mock_pull.stderr = "error: could not apply commit... CONFLICT (content): merge conflict"
 
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)

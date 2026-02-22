@@ -3,9 +3,9 @@
 This step switches to an already-created feature branch by:
 1. (Optional) Running git reset --hard and git clean -fd to clean dirty state
    (only if ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true)
-2. Running git checkout <branch> (with fallback to git checkout -t origin/<branch>
+2. Running git fetch --all --prune to update remote refs
+3. Running git checkout <branch> (with fallback to git checkout -t origin/<branch>
    if local branch is missing)
-3. Running git fetch --all --prune to update remote refs
 4. Running git pull --rebase to bring the branch up to date
 
 It is intended for workflows that resume work on an existing branch (e.g.
@@ -161,7 +161,26 @@ class GitCheckoutStep(WorkflowStep):
                     return StepResult.fail(error_msg)
                 logger.debug("Cleaned untracked files")
 
-            # Step 1: Checkout the branch
+            # Step 1: Fetch all remote refs and prune deleted branches
+            fetch_result = subprocess.run(
+                ["git", "fetch", "--all", "--prune"],
+                capture_output=True,
+                text=True,
+                timeout=GIT_TIMEOUT,
+                cwd=repo_path,
+            )
+            if fetch_result.returncode != 0:
+                logger.debug(
+                    "git fetch --all --prune failed: exit_code=%d, stderr=%s",
+                    fetch_result.returncode,
+                    fetch_result.stderr.strip(),
+                )
+                error_msg = f"git fetch --all --prune failed (exit code {fetch_result.returncode})"
+                logger.error(error_msg)
+                return StepResult.fail(error_msg)
+            logger.debug("Fetched latest remote refs")
+
+            # Step 2: Checkout the branch
             checkout_result = subprocess.run(
                 ["git", "checkout", branch],
                 capture_output=True,
@@ -213,25 +232,6 @@ class GitCheckoutStep(WorkflowStep):
                     return StepResult.fail(error_msg)
             else:
                 logger.debug("Checked out branch %s", branch)
-
-            # Step 2: Fetch all remote refs and prune deleted branches
-            fetch_result = subprocess.run(
-                ["git", "fetch", "--all", "--prune"],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if fetch_result.returncode != 0:
-                logger.debug(
-                    "git fetch --all --prune failed: exit_code=%d, stderr=%s",
-                    fetch_result.returncode,
-                    fetch_result.stderr.strip(),
-                )
-                error_msg = f"git fetch --all --prune failed (exit code {fetch_result.returncode})"
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Fetched latest remote refs")
 
             # Step 3: Pull with rebase to bring branch up to date
             pull_result = subprocess.run(
