@@ -60,35 +60,51 @@ class TestReviewFixStepMissingArtifact:
 
 
 class TestReviewFixStepCleanReviewShortCircuit:
-    """Tests verifying that a clean review skips artifact loading."""
+    """Tests verifying that a clean review short-circuits without addressing issues."""
 
-    def test_skips_artifact_loading_when_review_is_clean(self, base_context: WorkflowContext) -> None:
-        """When review_is_clean=True the step succeeds without reading any artifact."""
-        base_context.data["review_is_clean"] = True
+    def test_skips_review_fix_when_artifact_is_clean(self, store: ArtifactStore) -> None:
+        """When artifact.is_clean=True the step succeeds without addressing issues."""
+        # Create a clean review artifact
+        artifact = CodeReviewArtifact(
+            workflow_id="test-review-fix",
+            review_data=ReviewData(review_text="Code looks good"),
+            is_clean=True,
+        )
+        store.write_artifact(artifact)
 
-        read_calls: list[str] = []
-        original_read = base_context.artifact_store.read_artifact
+        context = WorkflowContext(
+            adw_id="test-review-fix",
+            issue_id=99,
+            artifact_store=store,
+        )
 
-        def tracking_read(artifact_type, model_class=None):
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(
-            base_context.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
-            step = ReviewFixStep()
-            result = step.run(base_context)
+        # Mock _address_review_issues to verify it's not called
+        step = ReviewFixStep()
+        with patch.object(step, "_address_review_issues") as mock_address:
+            result = step.run(context)
 
         assert result.success is True
-        # No artifacts should have been read
-        assert "code-review" not in read_calls
+        # _address_review_issues should not have been called
+        mock_address.assert_not_called()
 
-    def test_succeeds_when_review_is_clean(self, base_context: WorkflowContext) -> None:
-        """Clean review short-circuit returns success even without any artifacts."""
-        base_context.data["review_is_clean"] = True
+    def test_succeeds_when_review_is_clean(self, store: ArtifactStore) -> None:
+        """Clean review short-circuit returns success."""
+        # Create a clean review artifact
+        artifact = CodeReviewArtifact(
+            workflow_id="test-review-fix",
+            review_data=ReviewData(review_text="Code looks good"),
+            is_clean=True,
+        )
+        store.write_artifact(artifact)
+
+        context = WorkflowContext(
+            adw_id="test-review-fix",
+            issue_id=99,
+            artifact_store=store,
+        )
 
         step = ReviewFixStep()
-        result = step.run(base_context)
+        result = step.run(context)
 
         assert result.success is True
         assert result.error is None

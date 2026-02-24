@@ -205,7 +205,7 @@ class TestCodeReviewRerunBehavior:
 
     def test_review_fix_step_returns_rerun_from_code_review(self) -> None:
         """ReviewFixStep should return rerun_from set to CodeReviewStep name when issues are addressed."""
-        from rouge.core.workflow.artifacts import CodeReviewArtifact
+        from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewData
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
         # Create a mock context with review data
@@ -216,11 +216,15 @@ class TestCodeReviewRerunBehavior:
             artifact_store=mock_artifact_store,
         )
 
-        # Set review data in context (not clean, has issues)
-        from rouge.core.workflow.artifacts import ReviewData
+        # Create a review artifact with issues (not clean)
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-adw-001",
+            review_data=ReviewData(review_text="Some review feedback with issues"),
+            is_clean=False,
+        )
 
-        context.data["review_data"] = ReviewData(review_text="Some review feedback with issues")
-        context.data["review_is_clean"] = False
+        # Mock load_required_artifact to return the artifact
+        context.load_required_artifact = MagicMock(return_value=review_artifact)  # type: ignore
 
         # Mock the address review issues method to succeed
         review_fix_step = ReviewFixStep()
@@ -239,6 +243,8 @@ class TestCodeReviewRerunBehavior:
 
     def test_review_fix_step_does_not_rerun_when_clean(self) -> None:
         """ReviewFixStep should not request rerun when review is clean."""
+        from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewData
+
         # Create a mock context with clean review
         mock_artifact_store = MagicMock()
         context = WorkflowContext(
@@ -247,8 +253,15 @@ class TestCodeReviewRerunBehavior:
             artifact_store=mock_artifact_store,
         )
 
-        # Set review_is_clean flag
-        context.data["review_is_clean"] = True
+        # Create a clean review artifact
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-adw-002",
+            review_data=ReviewData(review_text="Code looks good"),
+            is_clean=True,
+        )
+
+        # Mock load_required_artifact to return the clean artifact
+        context.load_required_artifact = MagicMock(return_value=review_artifact)  # type: ignore
 
         review_fix_step = ReviewFixStep()
         result = review_fix_step.run(context)
@@ -259,7 +272,7 @@ class TestCodeReviewRerunBehavior:
 
     def test_review_fix_step_does_not_rerun_after_max_iterations(self) -> None:
         """ReviewFixStep should not request rerun after reaching max iterations."""
-        from rouge.core.workflow.artifacts import ReviewData
+        from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewData
 
         # Create a mock context with review data
         mock_artifact_store = MagicMock()
@@ -269,9 +282,17 @@ class TestCodeReviewRerunBehavior:
             artifact_store=mock_artifact_store,
         )
 
-        # Set review data and iteration count at max
-        context.data["review_data"] = ReviewData(review_text="Some review feedback")
-        context.data["review_is_clean"] = False
+        # Create a review artifact with issues (not clean)
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-adw-003",
+            review_data=ReviewData(review_text="Some review feedback"),
+            is_clean=False,
+        )
+
+        # Mock load_required_artifact to return the artifact
+        context.load_required_artifact = MagicMock(return_value=review_artifact)  # type: ignore
+
+        # Set iteration count at max
         context.data["review_fix_rerun_count"] = 4  # Will be incremented to 5 (max)
 
         # Mock the address review issues method to succeed

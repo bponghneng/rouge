@@ -87,6 +87,14 @@ class TestCodeReviewStepRun:
         assert call_payload.kind == "workflow"
         assert "CodeRabbit review complete" in call_payload.text
 
+        # Verify artifact was written with correct fields
+        mock_context.artifact_store.write_artifact.assert_called_once()
+        saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
+        assert saved_artifact.artifact_type == "code-review"
+        assert saved_artifact.review_data == sample_review_data
+        # Verify is_clean field is set (default is False for non-clean reviews)
+        assert isinstance(saved_artifact.is_clean, bool)
+
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_succeeds_even_if_progress_comment_fails(
@@ -199,10 +207,13 @@ class TestCodeReviewStepRun:
         assert result.success is True
         mock_context.artifact_store.write_artifact.assert_called_once()
 
-        # Check the artifact type
+        # Check the artifact fields
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "code-review"
         assert saved_artifact.review_data == sample_review_data
+        # Verify is_clean field is set based on review content
+        # Sample review has "File:" so it's not clean
+        assert saved_artifact.is_clean is False
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
