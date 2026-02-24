@@ -18,6 +18,9 @@ AGENT_PATCH_PLANNER = "patch_planner"
 AGENT_PULL_REQUEST_BUILDER = "sdlc_pull_request_builder"
 AGENT_COMMIT_COMPOSER = "commit_composer"
 
+# Step names
+IMPLEMENT_STEP_NAME = "Implementing solution"
+
 
 def get_repo_path() -> str:
     """Get repository root path from environment or current directory.
