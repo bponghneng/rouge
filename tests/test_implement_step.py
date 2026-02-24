@@ -80,6 +80,7 @@ class TestImplementStepRun:
         """Test successful implementation using plan."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.artifact_store.artifact_exists.return_value = False
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
         mock_emit_artifact.return_value = ("success", "ok")
@@ -118,6 +119,7 @@ class TestImplementStepRun:
         """Test that run fails when _implement_plan fails."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.artifact_store.artifact_exists.return_value = False
 
         mock__implement_plan.return_value = StepResult.fail("Implementation failed")
 
@@ -143,6 +145,7 @@ class TestImplementStepRun:
         """Test that implementation artifact is saved."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.artifact_store.artifact_exists.return_value = False
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
         mock_emit_artifact.return_value = ("success", "ok")
@@ -198,6 +201,7 @@ class TestImplementStepRerunBehavior:
         """Test that ImplementStep does not set rerun_from when plan is available."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.artifact_store.artifact_exists.return_value = False
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
             with patch(
