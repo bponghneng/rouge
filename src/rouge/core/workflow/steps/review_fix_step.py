@@ -12,7 +12,7 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
-from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
@@ -197,15 +197,13 @@ class ReviewFixStep(WorkflowStep):
 
         # Load review artifact early (required)
         try:
-            artifact = context.load_required_artifact(
-                "review_artifact",
-                "code-review",
-                CodeReviewArtifact,
-                lambda a: a,
-            )
-        except StepInputError as e:
+            artifact = context.artifact_store.read_artifact("code-review", CodeReviewArtifact)
+        except FileNotFoundError as e:
             logger.warning("Missing required code-review artifact: %s", e)
             return StepResult.fail("Missing required code-review artifact")
+        except ValueError as e:
+            logger.warning("Corrupted code-review artifact: %s", e)
+            return StepResult.fail("Corrupted code-review artifact")
 
         # Short-circuit: nothing to do when the review is clean
         if artifact.is_clean:
@@ -226,14 +224,14 @@ class ReviewFixStep(WorkflowStep):
         if not review_issues_result.success:
             logger.error("Failed to address review issues: %s", review_issues_result.error)
             # Save artifact even on failure
-            artifact = ReviewFixArtifact(
+            fix_artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=False,
                 message=review_issues_result.error,
             )
-            context.artifact_store.write_artifact(artifact)
+            context.artifact_store.write_artifact(fix_artifact)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
             log_artifact_comment_status(status, msg)
             return StepResult.fail(f"Failed to address review issues: {review_issues_result.error}")
 
@@ -254,16 +252,16 @@ class ReviewFixStep(WorkflowStep):
             )
 
             # Save artifact with iteration limit message
-            artifact = ReviewFixArtifact(
+            fix_artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=True,
                 message=(
                     f"Review issues addressed, max iterations " f"({MAX_REVIEW_ITERATIONS}) reached"
                 ),
             )
-            context.artifact_store.write_artifact(artifact)
+            context.artifact_store.write_artifact(fix_artifact)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
             log_artifact_comment_status(status, msg)
 
             # Insert progress comment - best-effort, non-blocking
@@ -300,7 +298,7 @@ class ReviewFixStep(WorkflowStep):
         logger.info("Requesting re-review (iteration %s/%s)", rerun_count, MAX_REVIEW_ITERATIONS)
 
         # Save artifact
-        artifact = ReviewFixArtifact(
+        fix_artifact = ReviewFixArtifact(
             workflow_id=context.adw_id,
             success=True,
             message=(
@@ -308,10 +306,10 @@ class ReviewFixStep(WorkflowStep):
                 f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})"
             ),
         )
-        context.artifact_store.write_artifact(artifact)
+        context.artifact_store.write_artifact(fix_artifact)
         logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
 
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
         log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
