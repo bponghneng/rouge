@@ -1,7 +1,10 @@
 """Shared constants and helper functions for workflow modules."""
 
+import logging
 import os
 from typing import Dict
+
+logger = logging.getLogger(__name__)
 
 # Agent names
 AGENT_CLASSIFIER = "issue_classifier"
@@ -32,6 +35,30 @@ def get_working_dir() -> str:
         Working directory path, defaults to current directory if not set
     """
     return os.getenv("WORKING_DIR", os.getcwd())
+
+
+def get_max_acceptance_iterations() -> int:
+    """Get maximum acceptance iterations from environment or use default.
+
+    Returns:
+        Maximum number of acceptance iterations, defaults to 3 if not set or invalid
+    """
+    env_value = os.getenv("MAX_ACCEPTANCE_ITERATIONS", "3")
+    try:
+        max_iterations = int(env_value)
+        if max_iterations < 1:
+            logger.warning(
+                "MAX_ACCEPTANCE_ITERATIONS must be >= 1, got %s. " "Using default value 3.",
+                max_iterations,
+            )
+            return 3
+        return max_iterations
+    except ValueError:
+        logger.warning(
+            "Failed to parse MAX_ACCEPTANCE_ITERATIONS='%s' as integer. " "Using default value 3.",
+            env_value,
+        )
+        return 3
 
 
 def derive_paths_from_plan(plan_path: str) -> Dict[str, str]:
