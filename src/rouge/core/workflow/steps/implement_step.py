@@ -16,14 +16,11 @@ from rouge.core.workflow.artifacts import (
     ImplementArtifact,
     PlanArtifact,
 )
-from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
+from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, StepResult
 
 logger = logging.getLogger(__name__)
-
-# Module-level constant for step name used in rerun_from references
-IMPLEMENT_STEP_NAME = "Implementing solution"
 
 # Required fields for implement output JSON
 IMPLEMENT_REQUIRED_FIELDS = {

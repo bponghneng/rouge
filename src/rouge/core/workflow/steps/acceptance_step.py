@@ -13,7 +13,11 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
-from rouge.core.workflow.shared import AGENT_VALIDATOR, get_max_acceptance_iterations
+from rouge.core.workflow.shared import (
+    AGENT_VALIDATOR,
+    IMPLEMENT_STEP_NAME,
+    get_max_acceptance_iterations,
+)
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -186,9 +190,6 @@ class AcceptanceStep(WorkflowStep):
             When requirements are unmet and budget remains, ``rerun_from`` is
             set to the ImplementStep name so the pipeline re-implements.
         """
-        # Import here to avoid circular dependency
-        from rouge.core.workflow.steps.implement_step import IMPLEMENT_STEP_NAME
-
         # Try to load plan content - prefer patch_plan over plan
         plan_text = self._load_plan_text(context)
 
@@ -241,25 +242,26 @@ class AcceptanceStep(WorkflowStep):
         if needs_reimplementation:
             rerun_count += 1
             context.data["acceptance_rerun_count"] = rerun_count
+            max_iters = get_max_acceptance_iterations()
 
-            logger.debug(
-                "Acceptance iteration count: %s/%s", rerun_count, get_max_acceptance_iterations()
-            )
+            logger.debug("Acceptance iteration count: %s/%s", rerun_count, max_iters)
 
             # Check if we've reached max iterations
-            if rerun_count >= get_max_acceptance_iterations():
+            if rerun_count >= max_iters:
                 logger.warning(
                     "Max acceptance iterations (%s) reached, continuing workflow",
-                    get_max_acceptance_iterations(),
+                    max_iters,
                 )
+
+                # Calculate success flag based on acceptance status
+                success = acceptance_status == "pass"
 
                 # Save artifact with iteration limit message
                 artifact = AcceptanceArtifact(
                     workflow_id=context.adw_id,
-                    success=True,
+                    success=success,
                     message=(
-                        f"Acceptance validation completed, max iterations "
-                        f"({get_max_acceptance_iterations()}) reached"
+                        f"Acceptance validation completed, max iterations " f"({max_iters}) reached"
                     ),
                     acceptance_status=acceptance_status,
                     unmet_requirements=unmet_blocking_requirements,
@@ -275,12 +277,12 @@ class AcceptanceStep(WorkflowStep):
                     adw_id=context.adw_id,
                     text=(
                         f"Acceptance validation completed. Max iterations "
-                        f"({get_max_acceptance_iterations()}) reached, continuing workflow."
+                        f"({max_iters}) reached, continuing workflow."
                     ),
                     raw={
                         "text": (
                             f"Acceptance validation completed. Max iterations "
-                            f"({get_max_acceptance_iterations()}) reached."
+                            f"({max_iters}) reached."
                         ),
                         "rerun_count": rerun_count,
                         "acceptance_status": acceptance_status,
@@ -302,16 +304,19 @@ class AcceptanceStep(WorkflowStep):
             logger.info(
                 "Requesting re-implementation (iteration %s/%s)",
                 rerun_count,
-                get_max_acceptance_iterations(),
+                max_iters,
             )
+
+            # Calculate success flag based on acceptance status
+            success = acceptance_status == "pass"
 
             # Save artifact
             artifact = AcceptanceArtifact(
                 workflow_id=context.adw_id,
-                success=True,
+                success=success,
                 message=(
                     f"Acceptance validation found unmet requirements, re-running implementation "
-                    f"(iteration {rerun_count}/{get_max_acceptance_iterations()})"
+                    f"(iteration {rerun_count}/{max_iters})"
                 ),
                 acceptance_status=acceptance_status,
                 unmet_requirements=unmet_blocking_requirements,
@@ -328,7 +333,7 @@ class AcceptanceStep(WorkflowStep):
                 adw_id=context.adw_id,
                 text=(
                     f"Acceptance validation found unmet requirements, re-running implementation "
-                    f"(iteration {rerun_count}/{get_max_acceptance_iterations()})."
+                    f"(iteration {rerun_count}/{max_iters})."
                 ),
                 raw={
                     "text": (
@@ -336,7 +341,7 @@ class AcceptanceStep(WorkflowStep):
                         "re-running implementation."
                     ),
                     "rerun_count": rerun_count,
-                    "max_iterations": get_max_acceptance_iterations(),
+                    "max_iterations": max_iters,
                     "acceptance_status": acceptance_status,
                     "unmet_requirements": unmet_blocking_requirements,
                 },
