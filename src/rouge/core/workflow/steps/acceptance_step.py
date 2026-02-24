@@ -23,6 +23,9 @@ from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
 
+# Expected acceptance status values
+EXPECTED_STATUSES = {"pass", "fail", "partial"}
+
 # Required fields for acceptance validation output JSON
 ACCEPTANCE_REQUIRED_FIELDS = {
     "output": str,
@@ -219,7 +222,7 @@ class AcceptanceStep(WorkflowStep):
             )
             context.artifact_store.write_artifact(artifact)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            status, msg = emit_artifact_comment(context.require_issue_id, context.adw_id, artifact)
             log_artifact_comment_status(status, msg)
             return StepResult.fail(f"Failed to validate plan acceptance: {acceptance_result.error}")
 
@@ -229,6 +232,15 @@ class AcceptanceStep(WorkflowStep):
         parsed_data = acceptance_result.metadata.get("parsed_data", {})
         acceptance_status = parsed_data.get("status", "")
         unmet_blocking_requirements = parsed_data.get("unmet_blocking_requirements", [])
+
+        # Validate acceptance_status is in expected set
+        if acceptance_status not in EXPECTED_STATUSES:
+            logger.warning(
+                "Unexpected acceptance_status value: %s. Expected one of %s. Forcing to 'fail'.",
+                acceptance_status,
+                EXPECTED_STATUSES,
+            )
+            acceptance_status = "fail"
 
         # Track rerun count to enforce max iterations
         raw_value = context.data.get("acceptance_rerun_count", 0)
@@ -254,7 +266,7 @@ class AcceptanceStep(WorkflowStep):
                 )
 
                 # Calculate success flag based on acceptance status
-                success = acceptance_status == "pass"
+                success = False  # Within needs_reimplementation; defensive assignment
 
                 # Save artifact with iteration limit message
                 artifact = AcceptanceArtifact(
@@ -268,7 +280,9 @@ class AcceptanceStep(WorkflowStep):
                 )
                 context.artifact_store.write_artifact(artifact)
 
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                status, msg = emit_artifact_comment(
+                    context.require_issue_id, context.adw_id, artifact
+                )
                 log_artifact_comment_status(status, msg)
 
                 # Insert progress comment - best-effort, non-blocking
@@ -308,7 +322,7 @@ class AcceptanceStep(WorkflowStep):
             )
 
             # Calculate success flag based on acceptance status
-            success = acceptance_status == "pass"
+            success = False  # Within needs_reimplementation; defensive assignment
 
             # Save artifact
             artifact = AcceptanceArtifact(
@@ -324,7 +338,7 @@ class AcceptanceStep(WorkflowStep):
             context.artifact_store.write_artifact(artifact)
             logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
 
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            status, msg = emit_artifact_comment(context.require_issue_id, context.adw_id, artifact)
             log_artifact_comment_status(status, msg)
 
             # Insert progress comment - best-effort, non-blocking
@@ -368,7 +382,7 @@ class AcceptanceStep(WorkflowStep):
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
 
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        status, msg = emit_artifact_comment(context.require_issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
