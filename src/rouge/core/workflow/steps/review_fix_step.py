@@ -195,24 +195,24 @@ class ReviewFixStep(WorkflowStep):
         # Default max iterations for review/fix cycle
         MAX_REVIEW_ITERATIONS = 5
 
-        # Short-circuit: nothing to do when the review is clean
-        if context.data.get("review_is_clean", False):
-            logger.info("Review is clean, no issues to address")
-            return StepResult.ok(None)
-
-        # Load review_data from artifact (required)
+        # Load review artifact early (required)
         try:
-            review_data = context.load_required_artifact(
-                "review_data",
+            artifact = context.load_required_artifact(
+                "review_artifact",
                 "code-review",
                 CodeReviewArtifact,
-                lambda a: a.review_data,
+                lambda a: a,
             )
         except StepInputError as e:
             logger.warning("Missing required code-review artifact: %s", e)
             return StepResult.fail("Missing required code-review artifact")
 
-        review_text = review_data.review_text.strip()
+        # Short-circuit: nothing to do when the review is clean
+        if artifact.is_clean:
+            logger.info("Review is clean, no issues to address")
+            return StepResult.ok(None)
+
+        review_text = artifact.review_data.review_text.strip()
         if not review_text:
             logger.warning("No review text available, skipping address review")
             return StepResult.ok(None)
