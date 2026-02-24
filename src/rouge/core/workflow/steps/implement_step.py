@@ -168,7 +168,7 @@ class ImplementStep(WorkflowStep):
                     # Append feedback to plan text
                     plan_text += feedback_section
                     logger.debug("Appended acceptance feedback to plan text")
-            except Exception as e:
+            except (FileNotFoundError, ValueError) as e:
                 # Non-blocking: log error but continue with original plan
                 logger.warning("Failed to read acceptance feedback, continuing without it: %s", e)
 
