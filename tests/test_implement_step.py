@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from rouge.core.workflow.artifacts import AcceptanceArtifact
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext
 from rouge.core.workflow.steps.implement_step import ImplementStep
 from rouge.core.workflow.types import (
@@ -161,6 +162,133 @@ class TestImplementStepRun:
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "implement"
         assert saved_artifact.implement_data == sample_implement_data
+
+    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch.object(ImplementStep, "_implement_plan")
+    def test_run_appends_acceptance_feedback_when_unmet_requirements_exist(
+        self,
+        mock__implement_plan,
+        mock_emit,
+        mock_emit_artifact,
+        mock_load_required_artifact,
+        sample_plan_data,
+        sample_implement_data,
+    ) -> None:
+        """Test that acceptance feedback is appended when unmet requirements exist."""
+        mock_context = mock_load_required_artifact
+        mock_context.data = {"plan_data": sample_plan_data}
+
+        # Mock acceptance artifact exists with unmet requirements
+        mock_context.artifact_store.artifact_exists.return_value = True
+        acceptance_artifact = AcceptanceArtifact(
+            workflow_id="test-adw-impl",
+            success=False,
+            acceptance_status="fail",
+            unmet_requirements=["req1", "req2"],
+        )
+        mock_context.artifact_store.read_artifact.return_value = acceptance_artifact
+
+        mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit.return_value = ("success", "Comment inserted")
+
+        step = ImplementStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+
+        # Verify _implement_plan was called
+        mock__implement_plan.assert_called_once()
+        call_args = mock__implement_plan.call_args[0]
+        plan_text_arg = call_args[0]
+
+        # Assert the plan text contains acceptance feedback
+        assert "Previous Acceptance Feedback" in plan_text_arg
+        assert "req1" in plan_text_arg
+        assert "req2" in plan_text_arg
+        assert "The following requirements were unmet:" in plan_text_arg
+
+    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch.object(ImplementStep, "_implement_plan")
+    def test_run_does_not_append_feedback_when_unmet_requirements_empty(
+        self,
+        mock__implement_plan,
+        mock_emit,
+        mock_emit_artifact,
+        mock_load_required_artifact,
+        sample_plan_data,
+        sample_implement_data,
+    ) -> None:
+        """Test that acceptance feedback is not appended when unmet requirements are empty."""
+        mock_context = mock_load_required_artifact
+        mock_context.data = {"plan_data": sample_plan_data}
+
+        # Mock acceptance artifact exists but with no unmet requirements
+        mock_context.artifact_store.artifact_exists.return_value = True
+        acceptance_artifact = AcceptanceArtifact(
+            workflow_id="test-adw-impl",
+            success=True,
+            acceptance_status="pass",
+            unmet_requirements=[],
+        )
+        mock_context.artifact_store.read_artifact.return_value = acceptance_artifact
+
+        mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit.return_value = ("success", "Comment inserted")
+
+        step = ImplementStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+
+        # Verify _implement_plan was called with original plan text (no feedback appended)
+        mock__implement_plan.assert_called_once_with(
+            sample_plan_data.plan,
+            mock_context.issue_id,
+            mock_context.adw_id,
+        )
+
+    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch.object(ImplementStep, "_implement_plan")
+    def test_run_continues_when_acceptance_artifact_not_found(
+        self,
+        mock__implement_plan,
+        mock_emit,
+        mock_emit_artifact,
+        mock_load_required_artifact,
+        sample_plan_data,
+        sample_implement_data,
+    ) -> None:
+        """Test that run continues successfully when acceptance artifact cannot be read."""
+        mock_context = mock_load_required_artifact
+        mock_context.data = {"plan_data": sample_plan_data}
+
+        # Mock acceptance artifact exists but read raises FileNotFoundError
+        mock_context.artifact_store.artifact_exists.return_value = True
+        mock_context.artifact_store.read_artifact.side_effect = FileNotFoundError(
+            "Acceptance artifact not found"
+        )
+
+        mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit.return_value = ("success", "Comment inserted")
+
+        step = ImplementStep()
+        result = step.run(mock_context)
+
+        # Assert run completes successfully despite the error
+        assert result.success is True
+
+        # Verify _implement_plan was called with original plan text (no feedback)
+        mock__implement_plan.assert_called_once_with(
+            sample_plan_data.plan,
+            mock_context.issue_id,
+            mock_context.adw_id,
+        )
 
 
 class TestImplementStepRerunBehavior:
