@@ -146,6 +146,7 @@ class CodeReviewArtifact(Artifact):
     is_clean: bool = Field(
         default=False,
         description="Whether the code passed review without requiring fixes",
+        examples=[True, False],
     )
 
 
