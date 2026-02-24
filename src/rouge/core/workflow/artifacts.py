@@ -134,6 +134,7 @@ class CodeReviewArtifact(Artifact):
 
     Attributes:
         review_data: The review content
+        is_clean: Whether the code passed review without issues
     """
 
     artifact_type: Literal["code-review"] = "code-review"
@@ -141,6 +142,10 @@ class CodeReviewArtifact(Artifact):
         ...,
         description="Structured code review payload",
         examples=[{"review_text": "Code review feedback"}],
+    )
+    is_clean: bool = Field(
+        default=False,
+        description="Whether the code passed review without requiring fixes",
     )
 
 
