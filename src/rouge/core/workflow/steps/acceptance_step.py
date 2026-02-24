@@ -19,6 +19,9 @@ from rouge.core.workflow.types import StepResult
 
 logger = logging.getLogger(__name__)
 
+# Maximum number of acceptance validation iterations
+MAX_ACCEPTANCE_ITERATIONS = 3
+
 # Required fields for acceptance validation output JSON
 ACCEPTANCE_REQUIRED_FIELDS = {
     "output": str,
@@ -182,8 +185,13 @@ class AcceptanceStep(WorkflowStep):
             context: Workflow context with plan or patch_plan artifact
 
         Returns:
-            StepResult with success status and optional error message
+            StepResult with success status and optional error message.
+            When requirements are unmet and budget remains, ``rerun_from`` is
+            set to the ImplementStep name so the pipeline re-implements.
         """
+        # Import here to avoid circular dependency
+        from rouge.core.workflow.steps.implement_step import IMPLEMENT_STEP_NAME
+
         # Try to load plan content - prefer patch_plan over plan
         plan_text = self._load_plan_text(context)
 
@@ -219,11 +227,140 @@ class AcceptanceStep(WorkflowStep):
 
         logger.info("Plan acceptance validated successfully")
 
+        # Extract status and unmet_blocking_requirements from parsed data
+        parsed_data = acceptance_result.metadata.get("parsed_data", {})
+        acceptance_status = parsed_data.get("status", "")
+        unmet_blocking_requirements = parsed_data.get("unmet_blocking_requirements", [])
+
+        # Track rerun count to enforce max iterations
+        rerun_count = context.data.get("acceptance_unmet_requirements", 0)
+
+        # Check if we need to re-implement (fail or partial with unmet blocking requirements)
+        needs_reimplementation = acceptance_status == "fail" or (
+            acceptance_status == "partial" and len(unmet_blocking_requirements) > 0
+        )
+
+        if needs_reimplementation:
+            rerun_count += 1
+            context.data["acceptance_unmet_requirements"] = rerun_count
+
+            logger.debug(
+                "Acceptance iteration count: %s/%s", rerun_count, MAX_ACCEPTANCE_ITERATIONS
+            )
+
+            # Check if we've reached max iterations
+            if rerun_count >= MAX_ACCEPTANCE_ITERATIONS:
+                logger.warning(
+                    "Max acceptance iterations (%s) reached, continuing workflow",
+                    MAX_ACCEPTANCE_ITERATIONS,
+                )
+
+                # Save artifact with iteration limit message
+                artifact = AcceptanceArtifact(
+                    workflow_id=context.adw_id,
+                    success=True,
+                    message=(
+                        f"Acceptance validation completed, max iterations "
+                        f"({MAX_ACCEPTANCE_ITERATIONS}) reached"
+                    ),
+                    acceptance_status=acceptance_status,
+                    unmet_requirements=unmet_blocking_requirements,
+                )
+                context.artifact_store.write_artifact(artifact)
+
+                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                log_artifact_comment_status(status, msg)
+
+                # Insert progress comment - best-effort, non-blocking
+                payload = CommentPayload(
+                    issue_id=context.require_issue_id,
+                    adw_id=context.adw_id,
+                    text=(
+                        f"Acceptance validation completed. Max iterations "
+                        f"({MAX_ACCEPTANCE_ITERATIONS}) reached, continuing workflow."
+                    ),
+                    raw={
+                        "text": (
+                            f"Acceptance validation completed. Max iterations "
+                            f"({MAX_ACCEPTANCE_ITERATIONS}) reached."
+                        ),
+                        "rerun_count": rerun_count,
+                        "acceptance_status": acceptance_status,
+                        "unmet_requirements": unmet_blocking_requirements,
+                    },
+                    source="system",
+                    kind="workflow",
+                )
+                status, msg = emit_comment_from_payload(payload)
+                if status == "success":
+                    logger.debug(msg)
+                else:
+                    logger.error(msg)
+
+                # Return success without rerun_from to continue workflow
+                return StepResult.ok(None)
+
+            # Budget remains, request re-implementation
+            logger.info(
+                "Requesting re-implementation (iteration %s/%s)",
+                rerun_count,
+                MAX_ACCEPTANCE_ITERATIONS,
+            )
+
+            # Save artifact
+            artifact = AcceptanceArtifact(
+                workflow_id=context.adw_id,
+                success=True,
+                message=(
+                    f"Acceptance validation found unmet requirements, re-running implementation "
+                    f"(iteration {rerun_count}/{MAX_ACCEPTANCE_ITERATIONS})"
+                ),
+                acceptance_status=acceptance_status,
+                unmet_requirements=unmet_blocking_requirements,
+            )
+            context.artifact_store.write_artifact(artifact)
+            logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
+
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
+
+            # Insert progress comment - best-effort, non-blocking
+            payload = CommentPayload(
+                issue_id=context.require_issue_id,
+                adw_id=context.adw_id,
+                text=(
+                    f"Acceptance validation found unmet requirements, re-running implementation "
+                    f"(iteration {rerun_count}/{MAX_ACCEPTANCE_ITERATIONS})."
+                ),
+                raw={
+                    "text": (
+                        "Acceptance validation found unmet requirements, "
+                        "re-running implementation."
+                    ),
+                    "rerun_count": rerun_count,
+                    "max_iterations": MAX_ACCEPTANCE_ITERATIONS,
+                    "acceptance_status": acceptance_status,
+                    "unmet_requirements": unmet_blocking_requirements,
+                },
+                source="system",
+                kind="workflow",
+            )
+            status, msg = emit_comment_from_payload(payload)
+            if status == "success":
+                logger.debug(msg)
+            else:
+                logger.error(msg)
+
+            return StepResult.ok(None, rerun_from=IMPLEMENT_STEP_NAME)
+
+        # Status is "pass" or "partial" with no unmet blocking requirements
         # Save artifact
         artifact = AcceptanceArtifact(
             workflow_id=context.adw_id,
             success=True,
             message="Plan acceptance validated successfully",
+            acceptance_status=acceptance_status,
+            unmet_requirements=unmet_blocking_requirements,
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved acceptance artifact for workflow %s", context.adw_id)
