@@ -194,12 +194,8 @@ class CodeReviewStep(WorkflowStep):
 
         logger.info("CodeRabbit review generated successfully")
 
-        # Store review data in context
-        context.data["review_data"] = review_result.data
-
         # Detect whether the review is clean (no actionable issues)
         is_clean = is_clean_review(review_result.data.review_text)
-        context.data["review_is_clean"] = is_clean
         if is_clean:
             logger.info("Review is clean — no actionable issues detected")
         else:
@@ -209,6 +205,7 @@ class CodeReviewStep(WorkflowStep):
         artifact = CodeReviewArtifact(
             workflow_id=context.adw_id,
             review_data=review_result.data,
+            is_clean=is_clean,
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved review artifact for workflow %s", context.adw_id)
