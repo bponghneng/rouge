@@ -184,11 +184,20 @@ class AcceptanceArtifact(Artifact):
     Attributes:
         success: Whether the implementation passed acceptance criteria
         message: Optional message about the validation result
+        acceptance_status: The acceptance validation status (pass, fail, or partial)
+        unmet_requirements: List of unmet blocking requirements from acceptance validation
     """
 
     artifact_type: Literal["acceptance"] = "acceptance"
     success: bool = Field(description="Whether the implementation satisfies acceptance criteria")
     message: Optional[str] = Field(default=None, description="Optional validation result details")
+    acceptance_status: str = Field(
+        default="", description="The acceptance validation status: pass, fail, or partial"
+    )
+    unmet_requirements: List[str] = Field(
+        default_factory=list,
+        description="List of unmet blocking requirements from acceptance validation",
+    )
 
 
 class ComposeRequestArtifact(Artifact):

@@ -12,6 +12,7 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.workflow.artifacts import (
+    AcceptanceArtifact,
     ImplementArtifact,
     PlanArtifact,
 )
@@ -20,6 +21,9 @@ from rouge.core.workflow.step_base import StepInputError, WorkflowContext, Workf
 from rouge.core.workflow.types import ImplementData, StepResult
 
 logger = logging.getLogger(__name__)
+
+# Module-level constant for step name used in rerun_from references
+IMPLEMENT_STEP_NAME = "Implementing solution"
 
 # Required fields for implement output JSON
 IMPLEMENT_REQUIRED_FIELDS = {
@@ -57,7 +61,7 @@ class ImplementStep(WorkflowStep):
 
     @property
     def name(self) -> str:
-        return "Implementing solution"
+        return IMPLEMENT_STEP_NAME
 
     def _implement_plan(
         self, plan_content: str, issue_id: int, adw_id: str
@@ -144,6 +148,29 @@ class ImplementStep(WorkflowStep):
                 "Cannot implement: no plan available",
                 rerun_from=self.plan_step_name,
             )
+
+        # Check for acceptance feedback from previous iteration
+        if context.artifact_store.artifact_exists("acceptance"):
+            try:
+                acceptance_artifact = context.artifact_store.read_artifact(
+                    "acceptance", AcceptanceArtifact
+                )
+                if acceptance_artifact.unmet_requirements:
+                    logger.info(
+                        "Found %d unmet requirements from previous acceptance check",
+                        len(acceptance_artifact.unmet_requirements),
+                    )
+                    # Format unmet requirements as markdown section
+                    feedback_section = "\n\n## Previous Acceptance Feedback\n\n"
+                    feedback_section += "The following requirements were unmet:\n"
+                    for req in acceptance_artifact.unmet_requirements:
+                        feedback_section += f"- {req}\n"
+                    # Append feedback to plan text
+                    plan_text += feedback_section
+                    logger.debug("Appended acceptance feedback to plan text")
+            except Exception as e:
+                # Non-blocking: log error but continue with original plan
+                logger.warning("Failed to read acceptance feedback, continuing without it: %s", e)
 
         implement_response = self._implement_plan(
             plan_text, context.require_issue_id, context.adw_id
