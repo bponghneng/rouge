@@ -100,7 +100,9 @@ class TestArtifactShowCommand:
             issue = Issue(id=1, description="Raw test")
             store.write_artifact(FetchIssueArtifact(workflow_id="adw-show-raw", issue=issue))
 
-            result = runner.invoke(app, ["artifact", "show", "adw-show-raw", "fetch-issue", "--raw"])
+            result = runner.invoke(
+                app, ["artifact", "show", "adw-show-raw", "fetch-issue", "--raw"]
+            )
             assert result.exit_code == 0
             # Raw output should not have headers
             assert "Artifact:" not in result.output

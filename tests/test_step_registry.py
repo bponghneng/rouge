@@ -786,9 +786,9 @@ class TestRegistryContractConstraints:
                 break
 
         assert classify_meta is not None, "ClassifyStep must be registered"
-        assert "fetch-issue" in classify_meta.dependencies, (
-            "ClassifyStep must declare fetch-issue as a dependency"
-        )
+        assert (
+            "fetch-issue" in classify_meta.dependencies
+        ), "ClassifyStep must declare fetch-issue as a dependency"
         # fetch-issue must NOT appear in dependency_kinds — absence means 'required'
         assert "fetch-issue" not in classify_meta.dependency_kinds, (
             "ClassifyStep's fetch-issue dependency should be implicitly required "
@@ -820,27 +820,27 @@ class TestRegistryContractConstraints:
         # gh-pull-request: compose-request is optional
         gh_meta = registry.get_step_metadata_by_slug("gh-pull-request")
         assert gh_meta is not None, "gh-pull-request step must be registered"
-        assert gh_meta.dependency_kinds.get("compose-request") == "optional", (
-            "gh-pull-request must declare compose-request as optional"
-        )
+        assert (
+            gh_meta.dependency_kinds.get("compose-request") == "optional"
+        ), "gh-pull-request must declare compose-request as optional"
 
         # glab-pull-request: compose-request is optional
         glab_meta = registry.get_step_metadata_by_slug("glab-pull-request")
         assert glab_meta is not None, "glab-pull-request step must be registered"
-        assert glab_meta.dependency_kinds.get("compose-request") == "optional", (
-            "glab-pull-request must declare compose-request as optional"
-        )
+        assert (
+            glab_meta.dependency_kinds.get("compose-request") == "optional"
+        ), "glab-pull-request must declare compose-request as optional"
 
         # code-quality: implement is ordering-only
         cq_meta = registry.get_step_metadata_by_slug("code-quality")
         assert cq_meta is not None, "code-quality step must be registered"
-        assert cq_meta.dependency_kinds.get("implement") == "ordering-only", (
-            "code-quality must declare implement as ordering-only"
-        )
+        assert (
+            cq_meta.dependency_kinds.get("implement") == "ordering-only"
+        ), "code-quality must declare implement as ordering-only"
 
         # compose-request: acceptance is ordering-only
         cr_meta = registry.get_step_metadata_by_slug("compose-request")
         assert cr_meta is not None, "compose-request step must be registered"
-        assert cr_meta.dependency_kinds.get("acceptance") == "ordering-only", (
-            "compose-request must declare acceptance as ordering-only"
-        )
+        assert (
+            cr_meta.dependency_kinds.get("acceptance") == "ordering-only"
+        ), "compose-request must declare acceptance as ordering-only"

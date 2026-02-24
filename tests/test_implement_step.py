@@ -163,7 +163,9 @@ class TestImplementStepRun:
 class TestImplementStepRerunBehavior:
     """Tests for ImplementStep rerun behavior when plan is missing."""
 
-    def test_rerun_from_building_implementation_plan_when_no_plan(self, mock_load_required_artifact) -> None:
+    def test_rerun_from_building_implementation_plan_when_no_plan(
+        self, mock_load_required_artifact
+    ) -> None:
         """Test ImplementStep requests rerun from default plan step when plan is missing."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
@@ -198,8 +200,12 @@ class TestImplementStepRerunBehavior:
         mock_context.data = {"plan_data": sample_plan_data}
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
-            with patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload") as mock_e:
-                with patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment") as mock_emit_artifact:
+            with patch(
+                "rouge.core.workflow.steps.implement_step.emit_comment_from_payload"
+            ) as mock_e:
+                with patch(
+                    "rouge.core.workflow.steps.implement_step.emit_artifact_comment"
+                ) as mock_emit_artifact:
                     mock_impl.return_value = StepResult.ok(sample_implement_data)
                     mock_e.return_value = ("success", "ok")
                     mock_emit_artifact.return_value = ("success", "ok")

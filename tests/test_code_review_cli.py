@@ -23,7 +23,9 @@ class TestResolveToSha:
 
     @patch("rouge.cli.workflow.get_repo_path")
     @patch("rouge.cli.workflow.subprocess.run")
-    def test_successful_resolution(self, mock_run: MagicMock, mock_get_repo_path: MagicMock) -> None:
+    def test_successful_resolution(
+        self, mock_run: MagicMock, mock_get_repo_path: MagicMock
+    ) -> None:
         """resolve_to_sha should return the stripped stdout from git rev-parse."""
         mock_get_repo_path.return_value = "/mock/repo/path"
         mock_run.return_value = MagicMock(

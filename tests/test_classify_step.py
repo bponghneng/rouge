@@ -57,6 +57,7 @@ class TestClassifyStepRun:
         sample_classify_data,
     ) -> None:
         """Test successful classification emits artifact comment."""
+
         # Setup: issue loaded via load_required_artifact, classification succeeds
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
             if context_key == "issue":
@@ -104,6 +105,7 @@ class TestClassifyStepRun:
         sample_classify_data,
     ) -> None:
         """Test that step succeeds even if emit_artifact_comment returns error (non-blocking)."""
+
         # Setup: issue loaded, classification succeeds
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
             if context_key == "issue":

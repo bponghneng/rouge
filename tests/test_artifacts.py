@@ -475,9 +475,7 @@ class TestArtifactStoreIntegration:
             command="/adw-feature-plan",
             classification={"type": "feature", "level": "medium"},
         )
-        store.write_artifact(
-            ClassifyArtifact(workflow_id=workflow_id, classify_data=classify_data)
-        )
+        store.write_artifact(ClassifyArtifact(workflow_id=workflow_id, classify_data=classify_data))
 
         # 3. Plan artifact
         plan_data = PlanData(

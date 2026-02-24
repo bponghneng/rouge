@@ -181,7 +181,9 @@ class TestWorkflowContextArtifacts:
         assert result.summary == "Brief summary"
         assert ctx.data["plan_data"] == result
 
-    def test_load_issue_artifact_if_missing_returns_none_when_artifact_absent(self, tmp_path: Path) -> None:
+    def test_load_issue_artifact_if_missing_returns_none_when_artifact_absent(
+        self, tmp_path: Path
+    ) -> None:
         """Test load_issue_artifact_if_missing returns None when artifact file is missing."""
         store = ArtifactStore(workflow_id="adw-no-issue", base_path=tmp_path)
         ctx = WorkflowContext(adw_id="adw-no-issue", issue_id=None, artifact_store=store)

@@ -38,9 +38,7 @@ def test_derive_base_commit_accepts_valid_ref(mock_execute_template) -> None:
 def test_derive_base_commit_fails_on_invalid_sentinel(mock_execute_template) -> None:
     """ReviewPlanStep should fail when command returns INVALID sentinel token."""
     mock_execute_template.return_value = ClaudeAgentPromptResponse(
-        output=(
-            '{"output":"plan","base_commit":"INVALID","summary":"Unsupported format."}'
-        ),
+        output=('{"output":"plan","base_commit":"INVALID","summary":"Unsupported format."}'),
         success=True,
         session_id="sess-2",
     )

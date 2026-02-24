@@ -534,7 +534,6 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_get_repo_path, 
     """Test PR creation handles timeout on gh pr create."""
     import subprocess
 
-
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -668,7 +667,6 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 ):
     """Test PR creation continues even when git push times out."""
     import subprocess
-
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
@@ -924,7 +922,6 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit, 
     """Test MR creation handles timeout on glab mr create."""
     import subprocess
 
-
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     mock_get_repo_path.return_value = "/path/to/repo"
@@ -1054,7 +1051,6 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
 ):
     """Test MR creation continues even when git push times out."""
     import subprocess
-
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
