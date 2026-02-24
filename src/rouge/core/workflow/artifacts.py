@@ -8,7 +8,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Type, TypeVar
+from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar
 
 from pydantic import BaseModel, Field
 
@@ -197,12 +197,18 @@ class AcceptanceArtifact(Artifact):
     artifact_type: Literal["acceptance"] = "acceptance"
     success: bool = Field(description="Whether the implementation satisfies acceptance criteria")
     message: Optional[str] = Field(default=None, description="Optional validation result details")
-    acceptance_status: str = Field(
-        default="", description="The acceptance validation status: pass, fail, or partial"
-    )
-    unmet_requirements: List[str] = Field(
+    acceptance_status: Annotated[
+        Literal["", "pass", "fail", "partial"],
+        Field(
+            default="",
+            description="The acceptance validation status: pass, fail, or partial",
+            examples=["pass", "fail", "partial"],
+        ),
+    ] = ""
+    unmet_requirements: List[Annotated[str, Field(min_length=1)]] = Field(
         default_factory=list,
         description="List of unmet blocking requirements from acceptance validation",
+        examples=[["Requirement 1", "Requirement 2"]],
     )
 
 
