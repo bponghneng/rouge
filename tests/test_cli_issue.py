@@ -318,7 +318,11 @@ def test_create_command_branch_short_flag(mock_create_issue) -> None:
 def test_create_patch_with_branch_succeeds(mock_create_issue: MagicMock) -> None:
     """Test patch creation with --branch succeeds."""
     mock_issue = Issue(
-        id=400, description="Patch description", status="pending", type="patch", branch="feature/test"
+        id=400,
+        description="Patch description",
+        status="pending",
+        type="patch",
+        branch="feature/test",
     )
     mock_create_issue.return_value = mock_issue
 
@@ -373,7 +377,9 @@ def test_create_patch_with_parent_issue_id_succeeds(
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_patch_with_both_branch_and_parent_issue_id_fails(mock_create_issue: MagicMock) -> None:
+def test_create_patch_with_both_branch_and_parent_issue_id_fails(
+    mock_create_issue: MagicMock,
+) -> None:
     """Test patch creation with both --branch and --parent-issue-id fails."""
     result = runner.invoke(
         app,
@@ -389,19 +395,26 @@ def test_create_patch_with_both_branch_and_parent_issue_id_fails(mock_create_iss
         ],
     )
     assert result.exit_code == 1
-    assert "Error: For patch issues, cannot use both --branch and --parent-issue-id" in result.output
+    assert (
+        "Error: For patch issues, cannot use both --branch and --parent-issue-id" in result.output
+    )
     mock_create_issue.assert_not_called()
 
 
 @patch("rouge.cli.issue.create_issue")
-def test_create_patch_with_neither_branch_nor_parent_issue_id_fails(mock_create_issue: MagicMock) -> None:
+def test_create_patch_with_neither_branch_nor_parent_issue_id_fails(
+    mock_create_issue: MagicMock,
+) -> None:
     """Test patch creation with neither --branch nor --parent-issue-id fails."""
     result = runner.invoke(
         app,
         ["create", "Patch description", "--type", "patch"],
     )
     assert result.exit_code == 1
-    assert "Error: For patch issues, either --branch or --parent-issue-id must be provided" in result.output
+    assert (
+        "Error: For patch issues, either --branch or --parent-issue-id must be provided"
+        in result.output
+    )
     mock_create_issue.assert_not_called()
 
 
@@ -446,14 +459,19 @@ def test_create_patch_with_nonexistent_parent_issue_id_fails(
 
 @pytest.mark.parametrize("type_arg", ["main", "codereview"])
 @patch("rouge.cli.issue.create_issue")
-def test_create_non_patch_with_parent_issue_id_fails(mock_create_issue: MagicMock, type_arg: str) -> None:
+def test_create_non_patch_with_parent_issue_id_fails(
+    mock_create_issue: MagicMock, type_arg: str
+) -> None:
     """Test non-patch creation with --parent-issue-id fails."""
     result = runner.invoke(
         app,
         ["create", "Main issue description", "--type", type_arg, "--parent-issue-id", "100"],
     )
     assert result.exit_code == 1
-    assert f"Error: --parent-issue-id is only allowed for patch issues, not {type_arg} issues" in result.output
+    assert (
+        f"Error: --parent-issue-id is only allowed for patch issues, not {type_arg} issues"
+        in result.output
+    )
     mock_create_issue.assert_not_called()
 
 

@@ -51,9 +51,7 @@ class TestCodeQualityOrderingOnlyDependency:
         """CodeQualityStep never calls read_artifact('implement', ...)."""
         mock_response = Mock()
         mock_response.success = True
-        mock_response.output = (
-            '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-        )
+        mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
@@ -65,9 +63,7 @@ class TestCodeQualityOrderingOnlyDependency:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
-        with patch.object(
-            base_context.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
+        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
             step = CodeQualityStep()
             step.run(base_context)
 
@@ -89,9 +85,7 @@ class TestCodeQualityOrderingOnlyDependency:
         """CodeQualityStep succeeds even when no implement artifact exists."""
         mock_response = Mock()
         mock_response.success = True
-        mock_response.output = (
-            '{"output": "code-quality", "tools": ["mypy"], "issues": []}'
-        )
+        mock_response.output = '{"output": "code-quality", "tools": ["mypy"], "issues": []}'
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")

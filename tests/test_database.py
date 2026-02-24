@@ -543,7 +543,6 @@ def test_list_comments_api_error(mock_get_client) -> None:
         list_comments()
 
 
-
 @patch("rouge.core.database.get_client")
 def test_delete_issue_success(mock_get_client) -> None:
     """Test successful issue deletion."""
@@ -613,8 +612,6 @@ def test_delete_issue_with_comments(mock_get_client) -> None:
     # Verify that delete was called on the issues table
     mock_table.delete.assert_called_once()
     # The cascade to comments is handled by the database, not in application code
-
-
 
 
 # ============================================================================
@@ -853,8 +850,6 @@ def test_create_issue_invalid_type(_mock_get_client) -> None:
 # ============================================================================
 # update_issue_branch tests
 # ============================================================================
-
-
 
 
 # ============================================================================
@@ -1102,7 +1097,9 @@ def test_update_issue_multi_field_title_and_description(mock_get_client) -> None
     assert issue.id == 1
     assert issue.title == "New Title"
     assert issue.description == "New description here"
-    mock_table.update.assert_called_once_with({"title": "New Title", "description": "New description here"})
+    mock_table.update.assert_called_once_with(
+        {"title": "New Title", "description": "New description here"}
+    )
 
 
 @patch("rouge.core.database.get_client")

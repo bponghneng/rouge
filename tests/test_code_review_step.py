@@ -6,7 +6,7 @@ from unittest.mock import ANY, Mock, patch
 import pytest
 
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+from rouge.core.workflow.steps.code_review_step import CodeReviewStep, is_clean_review
 from rouge.core.workflow.types import PlanData, ReviewData, StepResult
 
 
@@ -92,8 +92,8 @@ class TestCodeReviewStepRun:
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "code-review"
         assert saved_artifact.review_data == sample_review_data
-        # Verify is_clean field is set (default is False for non-clean reviews)
-        assert isinstance(saved_artifact.is_clean, bool)
+        # Verify is_clean field is False because review contains "File: src/app.py" indicating issues
+        assert saved_artifact.is_clean is False
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
@@ -263,7 +263,9 @@ class TestCodeReviewStepRun:
         sample_review_data,
     ) -> None:
         """Test codereview workflow falls back to plan_data.plan when base_commit is missing."""
-        plan_data = PlanData(plan="def5678", summary="Derived base commit", session_id="session-123")
+        plan_data = PlanData(
+            plan="def5678", summary="Derived base commit", session_id="session-123"
+        )
         mock_context.data = {
             "plan_data": plan_data,
             "workflow_type": "codereview",
@@ -519,9 +521,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists.return_value = True
 
         # Mock subprocess timeout
-        mock_subprocess.side_effect = subprocess.TimeoutExpired(
-            cmd=["coderabbit"], timeout=600
-        )
+        mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd=["coderabbit"], timeout=600)
 
         step = CodeReviewStep()
         result = step._generate_review(
@@ -547,3 +547,24 @@ class TestCodeReviewStepProperties:
         """Test that CodeReviewStep is not critical."""
         step = CodeReviewStep()
         assert step.is_critical is False
+
+
+class TestIsCleanReviewHeuristic:
+    """Tests for is_clean_review function."""
+
+    @pytest.mark.parametrize(
+        "review_text,expected",
+        [
+            ("Review completed", True),
+            ("Review completed\nFile: foo.py", False),
+            ("Review completed\n\nFile: foo.py", False),
+            ("File: bar.py\nSome issue", False),
+            ("Some other text", False),
+            ("  Review completed  ", True),
+            ("Review completed\nSome text but no file marker", True),
+        ],
+    )
+    def test_is_clean_review_heuristic(self, review_text: str, expected: bool) -> None:
+        """Test is_clean_review heuristic with various review texts."""
+        result = is_clean_review(review_text)
+        assert result is expected

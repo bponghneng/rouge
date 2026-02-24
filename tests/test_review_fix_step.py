@@ -3,7 +3,7 @@
 Focuses on:
 - Failing with StepResult.fail when the code-review artifact is missing
   (required dependency declared in registry)
-- Succeeding when review_is_clean flag short-circuits artifact loading
+- Succeeding when artifact's is_clean flag short-circuits processing
 """
 
 from unittest.mock import Mock, patch

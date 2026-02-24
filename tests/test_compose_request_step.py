@@ -52,8 +52,7 @@ class TestComposeRequestOrderingOnlyDependency:
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", '
-            '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
@@ -67,9 +66,7 @@ class TestComposeRequestOrderingOnlyDependency:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
-        with patch.object(
-            base_context.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
+        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
             step = ComposeRequestStep()
             result = step.run(base_context)
 
@@ -95,8 +92,7 @@ class TestComposeRequestOrderingOnlyDependency:
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", '
-            '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")

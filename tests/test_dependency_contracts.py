@@ -71,7 +71,9 @@ class TestRequiredDependencies:
         assert result.error is not None
         assert "issue not fetched" in result.error.lower()
 
-    def test_plan_step_fails_without_required_artifacts(self, base_context: WorkflowContext) -> None:
+    def test_plan_step_fails_without_required_artifacts(
+        self, base_context: WorkflowContext
+    ) -> None:
         """PlanStep requires fetch-issue and classify artifacts and fails without them."""
         from rouge.core.workflow.steps.plan_step import PlanStep
 
@@ -223,19 +225,13 @@ class TestOrderingOnlyDependencies:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
-        with patch.object(
-            base_context.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
+        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
             # Mock the agent execution to avoid actual code quality checks
-            with patch(
-                "rouge.core.workflow.steps.code_quality_step.execute_template"
-            ) as mock_exec:
+            with patch("rouge.core.workflow.steps.code_quality_step.execute_template") as mock_exec:
                 mock_response = Mock()
                 mock_response.success = True
                 # Include at least one tool to satisfy CodeQualityArtifact validation
-                mock_response.output = (
-                    '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-                )
+                mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
                 mock_exec.return_value = mock_response
 
                 step = CodeQualityStep()
@@ -271,9 +267,7 @@ class TestOrderingOnlyDependencies:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
-        with patch.object(
-            base_context.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
+        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
             # Mock the agent execution to avoid actual PR composition
             with patch(
                 "rouge.core.workflow.steps.compose_request_step.execute_template"
@@ -284,9 +278,15 @@ class TestOrderingOnlyDependencies:
                     mock_db_client = Mock()
                     mock_db_response = Mock()
                     mock_db_response.data = [{"id": 42, "status": "completed"}]
-                    mock_db_client.table.return_value.select.return_value.eq.return_value.execute.return_value = mock_db_response
-                    mock_db_client.table.return_value.update.return_value.eq.return_value.execute.return_value = mock_db_response
-                    mock_db_client.table.return_value.insert.return_value.execute.return_value = mock_db_response
+                    mock_db_client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
+                        mock_db_response
+                    )
+                    mock_db_client.table.return_value.update.return_value.eq.return_value.execute.return_value = (
+                        mock_db_response
+                    )
+                    mock_db_client.table.return_value.insert.return_value.execute.return_value = (
+                        mock_db_response
+                    )
                     mock_client.return_value = mock_db_client
 
                     mock_response = Mock()
@@ -401,9 +401,7 @@ class TestDependencySemanticsIntegration:
         with patch("rouge.core.workflow.steps.classify_step.execute_template") as mock_exec:
             mock_response = Mock()
             mock_response.success = True
-            mock_response.output = (
-                '{"output": "classify", "type": "feature", "level": "simple"}'
-            )
+            mock_response.output = '{"output": "classify", "type": "feature", "level": "simple"}'
             mock_exec.return_value = mock_response
 
             step = ClassifyStep()
@@ -415,7 +413,11 @@ class TestDependencySemanticsIntegration:
     @patch("rouge.core.database.get_client")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
     def test_optional_dependency_succeeds_with_artifact(
-        self, mock_emit: Mock, mock_get_client: Mock, base_context: WorkflowContext, temp_store: ArtifactStore
+        self,
+        mock_emit: Mock,
+        mock_get_client: Mock,
+        base_context: WorkflowContext,
+        temp_store: ArtifactStore,
     ) -> None:
         """Optional dependency succeeds when artifact is present."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
@@ -471,9 +473,7 @@ class TestDependencySemanticsIntegration:
             mock_response = Mock()
             mock_response.success = True
             # Include at least one tool to satisfy CodeQualityArtifact validation
-            mock_response.output = (
-                '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-            )
+            mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
             mock_exec.return_value = mock_response
 
             step = CodeQualityStep()
@@ -572,9 +572,7 @@ class TestDeprecatedContextDataUsage:
         with patch("rouge.core.workflow.steps.classify_step.execute_template") as mock_exec:
             mock_response = Mock()
             mock_response.success = True
-            mock_response.output = (
-                '{"output": "classify", "type": "feature", "level": "simple"}'
-            )
+            mock_response.output = '{"output": "classify", "type": "feature", "level": "simple"}'
             mock_exec.return_value = mock_response
 
             step = ClassifyStep()
