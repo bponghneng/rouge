@@ -1,6 +1,8 @@
 """Configuration management for the Rouge Worker."""
 
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -24,8 +26,22 @@ class WorkerConfig:
 
     def __post_init__(self):
         """Validate configuration values."""
-        if not self.worker_id:
-            raise ValueError("worker_id cannot be empty")
+        if not self.worker_id or not self.worker_id.strip():
+            raise ValueError("worker_id cannot be empty or whitespace-only")
+
+        # Validate worker_id to prevent path traversal
+        if "/" in self.worker_id or "\\" in self.worker_id:
+            raise ValueError("worker_id cannot contain path separators")
+
+        if os.path.pardir in self.worker_id:
+            raise ValueError("worker_id cannot contain parent directory references")
+
+        parts = Path(self.worker_id).parts
+        if len(parts) != 1:
+            raise ValueError("worker_id must be a single path component")
+
+        if parts[0] in (".", ".."):
+            raise ValueError("worker_id cannot be '.' or '..'")
 
         if self.poll_interval <= 0:
             raise ValueError("poll_interval must be positive")
