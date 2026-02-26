@@ -35,12 +35,16 @@ class WorkflowRunner:
         self,
         issue_id: int,
         adw_id: str,
+        resume_from: Optional[str] = None,
+        pipeline_type: str = "main",
     ) -> bool:
         """Execute all workflow steps in sequence.
 
         Args:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
+            resume_from: Optional step name to resume workflow execution from
+            pipeline_type: The type of pipeline being executed (default: "main")
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
@@ -53,15 +57,35 @@ class WorkflowRunner:
             issue_id=issue_id,
             adw_id=adw_id,
             artifact_store=artifact_store,
+            resume_from=resume_from,
+            pipeline_type=pipeline_type,
         )
 
         logger.info("ADW ID: %s", adw_id)
         logger.info("Processing issue ID: %s", issue_id)
 
+        # Extract resume_from and pipeline_type from context for local use
+        resume_from = context.resume_from
+        pipeline_type = context.pipeline_type
+
         # Build index for fast step-name -> position lookup
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
         step_index = 0
+
+        # Handle resume: skip all steps before the resume target
+        if resume_from is not None:
+            if resume_from in step_name_to_index:
+                step_index = step_name_to_index[resume_from]
+                logger.info("Resuming workflow from step '%s' (index %d)", resume_from, step_index)
+            else:
+                logger.warning(
+                    "Resume target step '%s' not found in pipeline, starting from beginning",
+                    resume_from,
+                )
+
+        # Track the name of the last successfully completed step
+        last_completed_step: Optional[str] = None
 
         while step_index < len(self._steps):
             step = self._steps[step_index]
@@ -76,6 +100,16 @@ class WorkflowRunner:
                     if result.error:
                         error_msg += f": {result.error}"
                     logger.error("%s, aborting workflow", error_msg)
+
+                    # Best-effort write of WorkflowStateArtifact on critical failure
+                    self._write_workflow_state(
+                        artifact_store,
+                        adw_id,
+                        last_completed_step=last_completed_step,
+                        failed_step=step.name,
+                        pipeline_type=pipeline_type,
+                    )
+
                     return False
                 else:
                     warning_msg = f"Best-effort step '{step.name}' failed"
@@ -84,6 +118,16 @@ class WorkflowRunner:
                     logger.warning("%s, continuing", warning_msg)
             else:
                 log_step_end(step.name, result.success, issue_id=issue_id)
+
+                # Update last completed step and write WorkflowStateArtifact (best-effort)
+                last_completed_step = step.name
+                self._write_workflow_state(
+                    artifact_store,
+                    adw_id,
+                    last_completed_step=last_completed_step,
+                    failed_step=None,
+                    pipeline_type=pipeline_type,
+                )
 
             # Handle rerun requests
             if result.rerun_from is not None:
@@ -116,6 +160,49 @@ class WorkflowRunner:
 
         logger.info("\n=== Workflow completed successfully ===")
         return True
+
+    def _write_workflow_state(
+        self,
+        artifact_store: ArtifactStore,
+        workflow_id: str,
+        last_completed_step: Optional[str],
+        failed_step: Optional[str],
+        pipeline_type: str,
+    ) -> None:
+        """Write WorkflowStateArtifact in a best-effort manner.
+
+        This method ensures artifact writes never halt the pipeline. Write
+        failures are logged at WARNING level but do not raise exceptions.
+
+        Args:
+            artifact_store: The artifact store to write to
+            workflow_id: The workflow ID
+            last_completed_step: Name of the last successfully completed step (or None)
+            failed_step: Name of the step that failed (or None)
+            pipeline_type: The type of pipeline being executed
+        """
+        try:
+            from rouge.core.workflow.artifacts import WorkflowStateArtifact
+
+            state_artifact = WorkflowStateArtifact(
+                workflow_id=workflow_id,
+                last_completed_step=last_completed_step,
+                failed_step=failed_step,
+                pipeline_type=pipeline_type,
+            )
+            artifact_store.write_artifact(state_artifact)
+            logger.debug(
+                "Wrote workflow state: last_completed=%s, failed=%s, type=%s",
+                last_completed_step,
+                failed_step,
+                pipeline_type,
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to write WorkflowStateArtifact (best-effort): %s",
+                e,
+                exc_info=True,
+            )
 
     def run_single_step(
         self,
