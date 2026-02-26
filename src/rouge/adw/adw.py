@@ -15,6 +15,7 @@ def execute_adw_workflow(
     adw_id: Optional[str] = None,
     *,
     workflow_type: str = "main",
+    resume_from: Optional[str] = None,
 ) -> tuple[bool, str]:
     """Execute the Agent Development Workflow for a given issue.
 
@@ -23,12 +24,20 @@ def execute_adw_workflow(
     - ``"patch"``: Patch pipeline for existing issues.
     - ``"codereview"``: Issue-based codereview workflow pipeline.
 
+    Resume behavior:
+    - When ``resume_from`` is provided, the workflow will skip all steps before
+      the specified step name and resume execution from that step forward.
+    - This is an operator-driven manual CLI operation, typically used to recover
+      from failures or retry specific workflow stages.
+
     Args:
         issue_id: The ID of the issue to process.  Required for all
             workflow types.
         adw_id: Optional workflow identifier (auto-generated if missing).
         workflow_type: The type of workflow to execute.  One of
             ``"main"``, ``"patch"``, or ``"codereview"``.
+        resume_from: Optional step name to resume workflow execution from.
+            When provided, all steps before this step will be skipped.
 
     Returns:
         Tuple of (success flag, workflow identifier).
@@ -42,5 +51,11 @@ def execute_adw_workflow(
     # Get the pipeline for the specified workflow type
     pipeline = get_pipeline_for_type(workflow_type)
 
-    success = execute_workflow(issue_id, workflow_id, pipeline=pipeline)
+    success = execute_workflow(
+        issue_id,
+        workflow_id,
+        pipeline=pipeline,
+        resume_from=resume_from,
+        pipeline_type=workflow_type,
+    )
     return success, workflow_id
