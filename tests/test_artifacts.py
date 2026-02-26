@@ -184,6 +184,7 @@ class TestArtifactModels:
             "git-checkout",
             "compose-commits",
             "glab-pull-request",
+            "workflow-state",
         }
 
         assert set(ARTIFACT_MODELS.keys()) == expected_types

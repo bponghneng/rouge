@@ -12,7 +12,7 @@ def test_execute_adw_workflow_generates_id(monkeypatch):
     monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "generated-id")
     monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", lambda wf_type: "main-pipeline")
 
-    def fake_execute(issue_id, adw_id, *, pipeline=None):
+    def fake_execute(issue_id, adw_id, *, pipeline=None, resume_from=None, pipeline_type=None):
         calls["args"] = (issue_id, adw_id)
         calls["pipeline"] = pipeline
         return True
@@ -31,7 +31,7 @@ def test_execute_adw_workflow_uses_provided_values(monkeypatch):
     """Workflow should respect caller-provided workflow ID."""
     monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", lambda wf_type: "main-pipeline")
 
-    def fake_execute(issue_id, adw_id, *, pipeline=None):
+    def fake_execute(issue_id, adw_id, *, pipeline=None, resume_from=None, pipeline_type=None):
         return False
 
     monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute)
@@ -51,7 +51,7 @@ def test_execute_adw_workflow_patch_type(monkeypatch):
         registry_calls["workflow_type"] = wf_type
         return "patch-pipeline"
 
-    def fake_execute(issue_id, adw_id, *, pipeline=None):
+    def fake_execute(issue_id, adw_id, *, pipeline=None, resume_from=None, pipeline_type=None):
         calls["args"] = (issue_id, adw_id)
         calls["pipeline"] = pipeline
         return True
@@ -79,7 +79,7 @@ def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
         registry_calls["workflow_type"] = wf_type
         return "codereview-pipeline"
 
-    def fake_execute(issue_id, adw_id, *, pipeline=None):
+    def fake_execute(issue_id, adw_id, *, pipeline=None, resume_from=None, pipeline_type=None):
         calls["args"] = (issue_id, adw_id)
         calls["pipeline"] = pipeline
         return True
