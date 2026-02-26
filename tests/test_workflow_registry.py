@@ -233,7 +233,7 @@ class TestCLIToRegistryFlow:
 
         captured: dict = {}
 
-        def fake_execute_workflow(issue_id, adw_id, pipeline=None):
+        def fake_execute_workflow(issue_id, adw_id, pipeline=None, resume_from=None, pipeline_type=None):
             captured["issue_id"] = issue_id
             captured["adw_id"] = adw_id
             captured["pipeline"] = pipeline
@@ -263,7 +263,7 @@ class TestCLIToRegistryFlow:
 
         captured: dict = {}
 
-        def fake_execute_workflow(issue_id, adw_id, pipeline=None):
+        def fake_execute_workflow(issue_id, adw_id, pipeline=None, resume_from=None, pipeline_type=None):
             captured["issue_id"] = issue_id
             captured["adw_id"] = adw_id
             captured["pipeline"] = pipeline
