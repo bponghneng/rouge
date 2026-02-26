@@ -28,6 +28,7 @@ from rouge.core.utils import _get_log_level, make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
+from .worker_artifact import WorkerArtifact, read_worker_artifact, write_worker_artifact
 
 
 class IssueWorker:
@@ -42,6 +43,7 @@ class IssueWorker:
         """
         self.config = config
         self.running = True
+        self.worker_artifact: WorkerArtifact | None = None
         self._working_dir_note = None
         if self.config.working_dir is not None:
             os.chdir(self.config.working_dir)
@@ -64,6 +66,9 @@ class IssueWorker:
             init_db_env()
 
         self.logger = self.setup_logging()
+
+        # Load or create worker artifact to track state
+        self.worker_artifact = self._load_or_create_worker_artifact()
 
         # Register signal handlers for graceful shutdown
         signal.signal(signal.SIGTERM, self._handle_shutdown)
@@ -109,6 +114,33 @@ class IssueWorker:
         logger.addHandler(console_handler)
 
         return logger
+
+    def _load_or_create_worker_artifact(self) -> WorkerArtifact:
+        """Load existing worker artifact or create a new one with state=ready.
+
+        Returns:
+            WorkerArtifact instance
+        """
+        artifact = read_worker_artifact(self.config.worker_id)
+        if artifact is None:
+            # Create new artifact in ready state
+            artifact = WorkerArtifact(
+                worker_id=self.config.worker_id,
+                state="ready",
+                current_issue_id=None,
+                current_adw_id=None,
+            )
+            # No need to refresh_timestamp here since it's a new artifact
+            write_worker_artifact(artifact)
+            self.logger.info("Created new worker artifact in state: ready")
+        else:
+            self.logger.info(
+                "Loaded existing worker artifact in state: %s (issue_id=%s, adw_id=%s)",
+                artifact.state,
+                artifact.current_issue_id,
+                artifact.current_adw_id,
+            )
+        return artifact
 
     def _handle_shutdown(self, signum: int, _frame: FrameType | None) -> None:
         """Handle shutdown signals gracefully."""
@@ -168,6 +200,14 @@ class IssueWorker:
             )
             self.logger.debug("Issue description: %s", description)
 
+            # Transition to working state before executing workflow
+            if self.worker_artifact is not None:
+                self.worker_artifact.state = "working"
+                self.worker_artifact.current_issue_id = issue_id
+                self.worker_artifact.current_adw_id = adw_id
+                self.worker_artifact.refresh_timestamp()
+                write_worker_artifact(self.worker_artifact)
+
             cmd = self._get_base_cmd() + [
                 "--adw-id",
                 adw_id,
@@ -191,6 +231,15 @@ class IssueWorker:
                     issue_id,
                 )
                 update_issue_status(issue_id, "completed", self.logger)
+
+                # Transition to ready state after successful execution
+                if self.worker_artifact is not None:
+                    self.worker_artifact.state = "ready"
+                    self.worker_artifact.current_issue_id = None
+                    self.worker_artifact.current_adw_id = None
+                    self.worker_artifact.refresh_timestamp()
+                    write_worker_artifact(self.worker_artifact)
+
                 return adw_id, True
             else:
                 self.logger.error(
@@ -201,15 +250,39 @@ class IssueWorker:
                     result.returncode,
                 )
                 update_issue_status(issue_id, "failed", self.logger)
+
+                # Transition to failed state after workflow failure
+                if self.worker_artifact is not None:
+                    self.worker_artifact.state = "failed"
+                    # Keep current_issue_id and current_adw_id set
+                    self.worker_artifact.refresh_timestamp()
+                    write_worker_artifact(self.worker_artifact)
+
                 return adw_id, False
 
         except subprocess.TimeoutExpired:
             self._handle_workflow_failure(issue_id, workflow_type, "Workflow timed out")
             update_issue_status(issue_id, "failed", self.logger)
+
+            # Transition to failed state on timeout
+            if self.worker_artifact is not None:
+                self.worker_artifact.state = "failed"
+                # Keep current_issue_id and current_adw_id set
+                self.worker_artifact.refresh_timestamp()
+                write_worker_artifact(self.worker_artifact)
+
             return adw_id, False
         except Exception:
             self._handle_workflow_failure(issue_id, workflow_type, "Unexpected error in workflow")
             update_issue_status(issue_id, "failed", self.logger)
+
+            # Transition to failed state on exception
+            if self.worker_artifact is not None:
+                self.worker_artifact.state = "failed"
+                # Keep current_issue_id and current_adw_id set
+                self.worker_artifact.refresh_timestamp()
+                write_worker_artifact(self.worker_artifact)
+
             return adw_id, False
 
     def execute_workflow(
@@ -240,11 +313,33 @@ class IssueWorker:
 
         Continuously polls for pending issues and executes workflows.
         Sleeps for the configured poll interval when no issues are available.
+        Checks worker artifact state before polling to handle failed or working states.
         """
         self.logger.info("Worker %s starting main loop", self.config.worker_id)
 
         while self.running:
             try:
+                # Check worker state before polling
+                if self.worker_artifact is not None:
+                    if self.worker_artifact.state == "failed":
+                        self.logger.info(
+                            "Worker in failed state (issue_id=%s, adw_id=%s), "
+                            "sleeping without polling. Operator intervention required.",
+                            self.worker_artifact.current_issue_id,
+                            self.worker_artifact.current_adw_id,
+                        )
+                        time.sleep(self.config.poll_interval)
+                        continue
+                    elif self.worker_artifact.state == "working":
+                        self.logger.warning(
+                            "Worker in working state without active execution "
+                            "(issue_id=%s, adw_id=%s), skipping poll",
+                            self.worker_artifact.current_issue_id,
+                            self.worker_artifact.current_adw_id,
+                        )
+                        time.sleep(self.config.poll_interval)
+                        continue
+
                 # Get next issue (returns tuple of issue_id, description, status, type)
                 issue = get_next_issue(self.config.worker_id, self.logger)
 
