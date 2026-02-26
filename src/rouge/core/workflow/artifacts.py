@@ -48,6 +48,7 @@ ArtifactType = Literal[
     "git-checkout",
     "compose-commits",
     "glab-pull-request",
+    "workflow-state",
 ]
 
 
@@ -320,6 +321,30 @@ class GlabPullRequestArtifact(Artifact):
     platform: Literal["gitlab"] = "gitlab"
 
 
+class WorkflowStateArtifact(Artifact):
+    """Artifact containing workflow pipeline state for resumption.
+
+    Attributes:
+        last_completed_step: The name of the last successfully completed step
+        failed_step: The name of the step that failed (if any)
+        pipeline_type: The type of pipeline being executed
+    """
+
+    artifact_type: Literal["workflow-state"] = "workflow-state"
+    last_completed_step: Optional[str] = Field(
+        default=None,
+        description="The name of the last successfully completed workflow step",
+    )
+    failed_step: Optional[str] = Field(
+        default=None,
+        description="The name of the step that failed, if any",
+    )
+    pipeline_type: str = Field(
+        description="The type of pipeline being executed",
+        min_length=1,
+    )
+
+
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "fetch-issue": FetchIssueArtifact,
@@ -337,6 +362,7 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "git-checkout": GitCheckoutArtifact,
     "compose-commits": ComposeCommitsArtifact,
     "glab-pull-request": GlabPullRequestArtifact,
+    "workflow-state": WorkflowStateArtifact,
 }
 
 
