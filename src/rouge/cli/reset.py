@@ -9,9 +9,9 @@ from rouge.core.database import fetch_issue, update_issue
 def reset(
     issue_id: int = typer.Argument(..., help="The issue ID to reset"),
 ) -> None:
-    """Reset a failed issue back to pending status.
+    """Reset a failed or pending issue back to pending status.
 
-    This command resets a failed issue back to pending status, clears the
+    This command resets a failed or pending issue back to pending status, clears the
     assigned_to field, and optionally clears the branch field depending on
     the issue type.
 
@@ -19,7 +19,7 @@ def reset(
     - main/codereview: Clears branch field (set to None)
     - patch: Preserves existing branch field
 
-    The issue must be in 'failed' status to be reset.
+    The issue must be in 'failed' or 'pending' status to be reset.
 
     Args:
         issue_id: The ID of the issue to reset
@@ -32,11 +32,11 @@ def reset(
         # Fetch the current issue
         issue = fetch_issue(issue_id)
 
-        # Validate issue status is 'failed'
-        if issue.status != "failed":
+        # Validate issue status is 'failed' or 'pending'
+        if issue.status not in ("failed", "pending"):
             typer.echo(
                 f"Error: Issue {issue_id} has status '{issue.status}', "
-                "can only reset 'failed' issues",
+                "can only reset 'failed' or 'pending' issues",
                 err=True,
             )
             raise typer.Exit(1)
