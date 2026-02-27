@@ -26,6 +26,14 @@ class WorkerConfig:
 
     def __post_init__(self):
         """Validate configuration values."""
+        # Check for leading/trailing whitespace
+        if self.worker_id != self.worker_id.strip():
+            raise ValueError("worker_id cannot have leading or trailing whitespace")
+
+        # Reject any whitespace characters
+        if any(c.isspace() for c in self.worker_id):
+            raise ValueError("worker_id cannot contain whitespace characters")
+
         if not self.worker_id or not self.worker_id.strip():
             raise ValueError("worker_id cannot be empty or whitespace-only")
 

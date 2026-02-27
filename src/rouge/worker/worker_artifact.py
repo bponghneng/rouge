@@ -7,6 +7,8 @@ of a worker daemon instance, including what issue it's processing.
 
 import json
 import logging
+import os
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal, Optional
@@ -65,12 +67,27 @@ def _get_worker_artifact_path(worker_id: str) -> Path:
 
     Returns:
         Path to the worker state JSON file
+
+    Raises:
+        ValueError: If worker_id is invalid or attempts path traversal
     """
     from rouge.core.paths import RougePaths
 
+    # Early rejection of invalid worker_id
+    if not worker_id or ".." in worker_id:
+        raise ValueError(f"Invalid worker_id: {worker_id}")
+
     base_dir = RougePaths.get_base_dir()
-    worker_dir = base_dir / "workers" / worker_id
-    return worker_dir / "state.json"
+    workers_root = base_dir / "workers"
+    candidate_worker_dir = (workers_root / worker_id).resolve()
+
+    # Validate that candidate_worker_dir is a descendant of workers_root
+    try:
+        candidate_worker_dir.relative_to(workers_root.resolve())
+    except ValueError:
+        raise ValueError(f"Invalid worker_id: {worker_id} attempts path traversal")
+
+    return candidate_worker_dir / "state.json"
 
 
 def read_worker_artifact(worker_id: str) -> Optional[WorkerArtifact]:
@@ -82,7 +99,11 @@ def read_worker_artifact(worker_id: str) -> Optional[WorkerArtifact]:
     Returns:
         The deserialized WorkerArtifact, or None if not found or invalid
     """
-    artifact_path = _get_worker_artifact_path(worker_id)
+    try:
+        artifact_path = _get_worker_artifact_path(worker_id)
+    except ValueError as e:
+        logger.warning("Invalid worker_id for read: %s", e)
+        return None
 
     if not artifact_path.exists():
         logger.debug("Worker artifact not found: %s", artifact_path)
@@ -110,15 +131,44 @@ def write_worker_artifact(artifact: WorkerArtifact) -> None:
     Args:
         artifact: The WorkerArtifact to persist
     """
-    artifact_path = _get_worker_artifact_path(artifact.worker_id)
+    try:
+        artifact_path = _get_worker_artifact_path(artifact.worker_id)
+    except ValueError as e:
+        logger.warning("Invalid worker_id for write: %s", e)
+        return
 
+    temp_path = None
     try:
         # Ensure the worker directory exists
         artifact_path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
 
         json_data = artifact.model_dump_json(indent=2)
-        artifact_path.write_text(json_data, encoding="utf-8")
+
+        # Create temp file in artifact_path.parent with suffix ".tmp"
+        fd, temp_path_str = tempfile.mkstemp(suffix=".tmp", dir=artifact_path.parent, text=True)
+        temp_path = Path(temp_path_str)
+
+        try:
+            # Write JSON to temp file, flush and fsync file descriptor
+            os.write(fd, json_data.encode("utf-8"))
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+
+        # Set mode to 0o600 on temp file
+        os.chmod(temp_path, 0o600)
+
+        # Use os.replace for atomic replacement
+        os.replace(temp_path, artifact_path)
+
+        # Only log success after atomic replace completes
         logger.debug("Wrote worker artifact for %s to %s", artifact.worker_id, artifact_path)
     except Exception as e:
         # Best-effort: log but don't raise
+        # Clean up temp file on failure
+        if temp_path is not None and temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass  # Ignore cleanup errors
         logger.warning("Failed to write worker artifact for %s: %s", artifact.worker_id, e)
