@@ -868,8 +868,8 @@ class TestWorkerConfig:
 
     def test_config_worker_id_special_paths(self):
         """Test configuration rejects special path components."""
-        # "." fails the path component check
-        with pytest.raises(ValueError, match="single path component"):
+        # "." fails the path component check (Path(".").parts returns empty tuple)
+        with pytest.raises(ValueError, match="worker_id must be a single path component"):
             WorkerConfig(worker_id=".", poll_interval=10)
 
         # ".." fails the parent directory check first
