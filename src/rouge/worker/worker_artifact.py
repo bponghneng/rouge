@@ -174,7 +174,7 @@ def write_worker_artifact(artifact: WorkerArtifact) -> None:
         json_data = artifact.model_dump_json(indent=2)
 
         # Create temp file in artifact_path.parent with suffix ".tmp"
-        fd, temp_path_str = tempfile.mkstemp(suffix=".tmp", dir=artifact_path.parent, text=True)
+        fd, temp_path_str = tempfile.mkstemp(suffix=".tmp", dir=artifact_path.parent)
         temp_path = Path(temp_path_str)
 
         try:
