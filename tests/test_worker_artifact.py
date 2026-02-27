@@ -6,6 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from pydantic import ValidationError
 
 from rouge.worker.worker_artifact import (
     WorkerArtifact,
@@ -64,10 +65,48 @@ class TestWorkerArtifactModel:
         artifact = WorkerArtifact(worker_id="valid-worker-id", state="ready")
         assert artifact.worker_id == "valid-worker-id"
 
-    def test_empty_worker_id_fails(self):
-        """Test that empty worker_id fails validation."""
+    def test_empty_worker_id_fails_pydantic(self):
+        """Test that empty worker_id fails Pydantic validation."""
         with pytest.raises(ValueError, match="at least 1 character"):
             WorkerArtifact(worker_id="", state="ready")
+
+    @pytest.mark.parametrize(
+        "invalid_id",
+        [
+            " ",  # single space
+            "\t",  # tab character
+            "\n",  # newline character
+        ],
+        ids=["space", "tab", "newline"],
+    )
+    def test_whitespace_worker_id_fails_path_validation(self, invalid_id):
+        """Test that whitespace-only worker_id fails path validation."""
+        from rouge.worker.worker_artifact import _get_worker_artifact_path
+
+        with pytest.raises(ValueError, match="empty or whitespace-only"):
+            _get_worker_artifact_path(invalid_id)
+
+    @pytest.mark.parametrize(
+        "invalid_id,expected_match",
+        [
+            ("/", "disallowed characters"),  # forward slash
+            ("\\", "disallowed characters"),  # backslash
+            ("a/b", "disallowed characters"),  # path separator in middle
+            ("../etc", "disallowed characters"),  # path traversal attempt
+        ],
+        ids=["forward_slash", "backslash", "path_in_middle", "path_traversal"],
+    )
+    def test_path_separator_worker_id_fails(self, invalid_id, expected_match):
+        """Test that worker_id with path separators fails validation."""
+        from rouge.worker.worker_artifact import _get_worker_artifact_path
+
+        with pytest.raises(ValueError, match=expected_match):
+            _get_worker_artifact_path(invalid_id)
+
+    def test_none_worker_id_fails(self):
+        """Test that None worker_id fails with ValidationError."""
+        with pytest.raises(ValidationError, match="Input should be a valid string"):
+            WorkerArtifact(worker_id=None, state="ready")  # type: ignore
 
     def test_state_validation(self):
         """Test state field only accepts valid literals."""
