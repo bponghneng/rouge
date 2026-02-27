@@ -94,12 +94,21 @@ def resume(
         logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
 
         # Execute workflow with resume parameters
-        success, workflow_id = execute_adw_workflow(
-            issue_id,
-            adw_id=issue.adw_id,
-            resume_from=failed_step,
-            workflow_type=pipeline_type,
-        )
+        try:
+            success, workflow_id = execute_adw_workflow(
+                issue_id,
+                adw_id=issue.adw_id,
+                resume_from=failed_step,
+                workflow_type=pipeline_type,
+            )
+        except Exception as e:
+            update_issue(issue_id, status="failed")
+            logger.error("Workflow execution failed during resume: %s", e)
+            typer.echo(
+                f"Error: Workflow execution failed during resume: {e}",
+                err=True,
+            )
+            raise typer.Exit(1)
 
         if not success:
             update_issue(issue_id, status="failed")
