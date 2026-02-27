@@ -8,6 +8,7 @@ of a worker daemon instance, including what issue it's processing.
 import json
 import logging
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -62,6 +63,13 @@ class WorkerArtifact(BaseModel):
 def _get_worker_artifact_path(worker_id: str) -> Path:
     """Get the file path for a worker's state artifact.
 
+    The worker_id must pass strict validation rules:
+    - Cannot be empty or contain only whitespace
+    - Must match allowlist pattern: [a-zA-Z0-9._-]+
+    - Cannot contain path separators (/ or \\)
+    - Cannot start or end with dots
+    - Resolved path must be contained within workers_root directory
+
     Args:
         worker_id: The worker identifier
 
@@ -73,19 +81,40 @@ def _get_worker_artifact_path(worker_id: str) -> Path:
     """
     from rouge.core.paths import RougePaths
 
-    # Early rejection of invalid worker_id
-    if not worker_id or ".." in worker_id:
-        raise ValueError(f"Invalid worker_id: {worker_id}")
+    # Early rejection of empty or whitespace-only worker_id
+    if not worker_id or not worker_id.strip():
+        raise ValueError("Invalid worker_id: empty or whitespace-only")
+
+    # Normalize whitespace
+    worker_id = worker_id.strip()
+
+    # Apply allowlist regex: only alphanumeric, dots, underscores, and hyphens
+    if not re.match(r"^[a-zA-Z0-9._-]+$", worker_id):
+        raise ValueError(
+            f"Invalid worker_id: '{worker_id}' contains disallowed characters "
+            "(only alphanumeric, '.', '_', and '-' are permitted)"
+        )
+
+    # Explicitly check for path separators
+    if "/" in worker_id or "\\" in worker_id:
+        raise ValueError(f"Invalid worker_id: '{worker_id}' contains path separators")
+
+    # Check for leading or trailing dots
+    if worker_id.startswith(".") or worker_id.endswith("."):
+        raise ValueError(f"Invalid worker_id: '{worker_id}' starts or ends with a dot")
 
     base_dir = RougePaths.get_base_dir()
     workers_root = base_dir / "workers"
+
+    # Resolve paths to validate containment
+    workers_root_resolved = workers_root.resolve()
     candidate_worker_dir = (workers_root / worker_id).resolve()
 
     # Validate that candidate_worker_dir is a descendant of workers_root
     try:
-        candidate_worker_dir.relative_to(workers_root.resolve())
+        candidate_worker_dir.relative_to(workers_root_resolved)
     except ValueError:
-        raise ValueError(f"Invalid worker_id: {worker_id} attempts path traversal")
+        raise ValueError(f"Invalid worker_id: '{worker_id}' resolves outside workers directory")
 
     return candidate_worker_dir / "state.json"
 
