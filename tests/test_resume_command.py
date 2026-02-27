@@ -173,7 +173,9 @@ class TestResumeCommandArtifactLoading:
             result = runner.invoke(app, ["resume", "333"])
 
             assert result.exit_code == 0
-            mock_store.read_artifact.assert_called_once_with("workflow-state", WorkflowStateArtifact)
+            mock_store.read_artifact.assert_called_once_with(
+                "workflow-state", WorkflowStateArtifact
+            )
 
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_fails_when_state_artifact_missing(self, mock_fetch_issue, tmp_path):
