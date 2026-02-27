@@ -64,10 +64,6 @@ class WorkflowRunner:
         logger.info("ADW ID: %s", adw_id)
         logger.info("Processing issue ID: %s", issue_id)
 
-        # Extract resume_from and pipeline_type from context for local use
-        resume_from = context.resume_from
-        pipeline_type = context.pipeline_type
-
         # Build index for fast step-name -> position lookup
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
