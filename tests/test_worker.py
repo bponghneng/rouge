@@ -811,6 +811,77 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="worker_id cannot be empty"):
             WorkerConfig(worker_id="", poll_interval=10)
 
+    def test_config_whitespace_only_worker_id(self):
+        """Test configuration with whitespace-only worker_id."""
+        # Whitespace-only strings will fail the leading/trailing check first
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="   ", poll_interval=10)
+
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="\t", poll_interval=10)
+
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="\n", poll_interval=10)
+
+    def test_config_worker_id_leading_whitespace(self):
+        """Test configuration rejects worker_id with leading whitespace."""
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id=" test-worker", poll_interval=10)
+
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="\ttest-worker", poll_interval=10)
+
+    def test_config_worker_id_trailing_whitespace(self):
+        """Test configuration rejects worker_id with trailing whitespace."""
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="test-worker ", poll_interval=10)
+
+        with pytest.raises(ValueError, match="leading or trailing whitespace"):
+            WorkerConfig(worker_id="test-worker\n", poll_interval=10)
+
+    def test_config_worker_id_internal_whitespace(self):
+        """Test configuration rejects worker_id with internal whitespace."""
+        with pytest.raises(ValueError, match="worker_id cannot contain whitespace characters"):
+            WorkerConfig(worker_id="test worker", poll_interval=10)
+
+        with pytest.raises(ValueError, match="worker_id cannot contain whitespace characters"):
+            WorkerConfig(worker_id="test\tworker", poll_interval=10)
+
+        with pytest.raises(ValueError, match="worker_id cannot contain whitespace characters"):
+            WorkerConfig(worker_id="test\nworker", poll_interval=10)
+
+    def test_config_worker_id_path_separators(self):
+        """Test configuration rejects worker_id with path separators."""
+        with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
+            WorkerConfig(worker_id="test/worker", poll_interval=10)
+
+        with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
+            WorkerConfig(worker_id="test\\worker", poll_interval=10)
+
+    def test_config_worker_id_path_traversal(self):
+        """Test configuration rejects worker_id with path traversal attempts."""
+        with pytest.raises(ValueError, match="parent directory references"):
+            WorkerConfig(worker_id="..test", poll_interval=10)
+
+        with pytest.raises(ValueError, match="parent directory references"):
+            WorkerConfig(worker_id="test..", poll_interval=10)
+
+    def test_config_worker_id_special_paths(self):
+        """Test configuration rejects special path components."""
+        # "." fails the path component check
+        with pytest.raises(ValueError, match="single path component"):
+            WorkerConfig(worker_id=".", poll_interval=10)
+
+        # ".." fails the parent directory check first
+        with pytest.raises(ValueError, match="parent directory references"):
+            WorkerConfig(worker_id="..", poll_interval=10)
+
+    def test_config_worker_id_multiple_path_components(self):
+        """Test configuration rejects worker_id with multiple path components."""
+        # This test validates that worker_id must be a single path component
+        with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
+            WorkerConfig(worker_id="parent/child", poll_interval=10)
+
     def test_config_invalid_poll_interval(self):
         """Test configuration with invalid poll_interval."""
         with pytest.raises(ValueError, match="poll_interval must be positive"):
@@ -832,7 +903,6 @@ class TestWorkerStateTransitions:
 
     def test_worker_transitions_to_working_state_on_workflow_start(self, worker):
         """Test worker artifact transitions to working state when workflow starts."""
-        from rouge.worker.worker_artifact import WorkerArtifact
 
         mock_result = Mock()
         mock_result.returncode = 0
