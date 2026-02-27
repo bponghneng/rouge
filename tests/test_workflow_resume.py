@@ -1,9 +1,12 @@
 """Unit tests for workflow resume logic in WorkflowRunner."""
 
+import os
+import shutil
 from unittest.mock import Mock, patch
 
 import pytest
 
+from rouge.core.paths import RougePaths
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
 from rouge.core.workflow.pipeline import WorkflowRunner
 from rouge.core.workflow.step_base import WorkflowStep
@@ -154,16 +157,15 @@ class TestWorkflowRunnerArtifactWrites:
         runner = WorkflowRunner([step1, step2])
 
         # Mock get_working_dir to use tmp_path so runner and test store use same base path
-        with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
-            runner.run(issue_id=1, adw_id="adw-write", pipeline_type="test-pipeline")
+        runner.run(issue_id=1, adw_id="adw-write", pipeline_type="test-pipeline")
 
-            # Check that workflow state was written with last completed step
-            store = ArtifactStore("adw-write")
-            assert store.artifact_exists("workflow-state")
-            state = store.read_artifact("workflow-state", WorkflowStateArtifact)
-            assert state.last_completed_step == "Test Step 2"
-            assert state.failed_step is None
-            assert state.pipeline_type == "test-pipeline"
+        # Check that workflow state was written with last completed step
+        store = ArtifactStore("adw-write")
+        assert store.artifact_exists("workflow-state")
+        state = store.read_artifact("workflow-state", WorkflowStateArtifact)
+        assert state.last_completed_step == "Test Step 2"
+        assert state.failed_step is None
+        assert state.pipeline_type == "test-pipeline"
 
     def test_workflow_state_written_on_critical_failure(self, tmp_path):
         """Test workflow state artifact is written when critical step fails."""
@@ -180,17 +182,16 @@ class TestWorkflowRunnerArtifactWrites:
         runner = WorkflowRunner([step1, step2])
 
         # Mock get_working_dir to use tmp_path so runner and test store use same base path
-        with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
-            result = runner.run(issue_id=1, adw_id="adw-fail", pipeline_type="test-pipeline")
+        result = runner.run(issue_id=1, adw_id="adw-fail", pipeline_type="test-pipeline")
 
-            assert result is False
+        assert result is False
 
-            # Check that workflow state was written with failed step
-            store = ArtifactStore("adw-fail")
-            assert store.artifact_exists("workflow-state")
-            state = store.read_artifact("workflow-state", WorkflowStateArtifact)
-            assert state.failed_step == "Failure Step"
-            assert state.pipeline_type == "test-pipeline"
+        # Check that workflow state was written with failed step
+        store = ArtifactStore("adw-fail")
+        assert store.artifact_exists("workflow-state")
+        state = store.read_artifact("workflow-state", WorkflowStateArtifact)
+        assert state.failed_step == "Failure Step"
+        assert state.pipeline_type == "test-pipeline"
 
     def test_workflow_state_not_written_on_best_effort_failure(self, tmp_path, monkeypatch):
         """Test workflow continues and doesn't mark failure for best-effort steps."""
@@ -400,8 +401,13 @@ class TestWorkflowRunnerArtifactStorePersistence:
         runner = WorkflowRunner([step1])
         runner.run(issue_id=1, adw_id="adw-dir-test")
 
-        # Verify directory exists (in default location)
-        # This is a basic check - actual path depends on RougePaths configuration
+        # Verify directory exists using RougePaths
+        expected_path = RougePaths.get_workflow_dir("adw-dir-test")
+        assert os.path.isdir(expected_path), f"Expected directory {expected_path} was not created"
+
+        # Clean up created directory to avoid test pollution
+        shutil.rmtree(expected_path)
+
         step1.run.assert_called_once()
 
 
