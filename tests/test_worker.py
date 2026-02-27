@@ -997,9 +997,6 @@ class TestWorkerPollLoopGating:
     working states.
     """
 
-    @pytest.mark.skip(
-        reason="Poll loop tests are flaky due to actual DB calls; state transition tests provide coverage"
-    )
     def test_poll_loop_skips_polling_when_in_failed_state(self, worker):
         """Test worker skips polling when in failed state."""
         from rouge.worker.worker_artifact import WorkerArtifact
@@ -1020,16 +1017,13 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 2:
                 worker.running = False
 
-        with patch("time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.database.get_next_issue") as mock_get_next:
+        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+            with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
                 worker.run()
 
                 # get_next_issue should NOT have been called (worker gated by failed state)
                 mock_get_next.assert_not_called()
 
-    @pytest.mark.skip(
-        reason="Poll loop tests are flaky due to actual DB calls; state transition tests provide coverage"
-    )
     def test_poll_loop_skips_polling_when_in_working_state(self, worker):
         """Test worker skips polling when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
@@ -1050,16 +1044,13 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 2:
                 worker.running = False
 
-        with patch("time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.database.get_next_issue") as mock_get_next:
+        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+            with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
                 worker.run()
 
                 # get_next_issue should NOT have been called (worker gated by working state)
                 mock_get_next.assert_not_called()
 
-    @pytest.mark.skip(
-        reason="Poll loop tests are flaky due to actual DB calls; state transition tests provide coverage"
-    )
     def test_poll_loop_continues_when_in_ready_state(self, worker):
         """Test worker polls for issues when in ready state."""
         from rouge.worker.worker_artifact import WorkerArtifact
@@ -1077,20 +1068,22 @@ class TestWorkerPollLoopGating:
 
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
-            # Stop after first poll to verify it was called
-            worker.running = False
+            if call_count[0] >= 1:
+                # Stop after first poll to verify it was called
+                worker.running = False
             return None  # No issues available
 
-        with patch("rouge.worker.database.get_next_issue", side_effect=mock_get_next_issue):
-            with patch("time.sleep"):
+        def mock_sleep(seconds):
+            # Mock sleep to do nothing
+            pass
+
+        with patch("rouge.worker.worker.get_next_issue", side_effect=mock_get_next_issue):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
                 worker.run()
 
                 # get_next_issue should have been called (worker in ready state)
                 assert call_count[0] >= 1
 
-    @pytest.mark.skip(
-        reason="Poll loop tests are flaky due to actual DB calls; state transition tests provide coverage"
-    )
     def test_poll_loop_logs_failed_state_message(self, worker):
         """Test worker logs appropriate message when in failed state."""
         from rouge.worker.worker_artifact import WorkerArtifact
@@ -1110,21 +1103,18 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 1:
                 worker.running = False
 
-        with patch("time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.database.get_next_issue"):
+        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+            with patch("rouge.worker.worker.get_next_issue"):
                 with patch.object(worker.logger, "info") as mock_log:
                     worker.run()
 
                     # Should log message about failed state
-                    logged_messages = [call.args[0] for call in mock_log.call_args_list]
+                    # Check if the failed state message was logged with the correct issue_id
                     assert any(
-                        "failed state" in msg.lower() and "789" in msg
-                        for msg in logged_messages
+                        "failed state" in call.args[0].lower() and 789 in call.args
+                        for call in mock_log.call_args_list
                     )
 
-    @pytest.mark.skip(
-        reason="Poll loop tests are flaky due to actual DB calls; state transition tests provide coverage"
-    )
     def test_poll_loop_logs_working_state_warning(self, worker):
         """Test worker logs warning when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
@@ -1144,16 +1134,16 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 1:
                 worker.running = False
 
-        with patch("time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.database.get_next_issue"):
+        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+            with patch("rouge.worker.worker.get_next_issue"):
                 with patch.object(worker.logger, "warning") as mock_log:
                     worker.run()
 
                     # Should log warning about working state
-                    logged_messages = [call.args[0] for call in mock_log.call_args_list]
+                    # Check if the working state warning was logged with the correct issue_id
                     assert any(
-                        "working state" in msg.lower() and "999" in msg
-                        for msg in logged_messages
+                        "working state" in call.args[0].lower() and 999 in call.args
+                        for call in mock_log.call_args_list
                     )
 
     def test_worker_state_gating_logic_for_failed_state(self, worker):
