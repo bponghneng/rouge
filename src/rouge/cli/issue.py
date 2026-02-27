@@ -3,7 +3,7 @@
 import json
 from enum import Enum
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import typer
 
@@ -17,6 +17,10 @@ from rouge.core.database import (
 )
 
 app = typer.Typer(help="Issue management commands")
+
+# Sentinel value to distinguish "not provided" from "provided as None"
+# Using a unique string that users would never reasonably provide
+_UNSET = "__UNSET_SENTINEL_VALUE__"
 
 
 class IssueType(str, Enum):
@@ -532,11 +536,16 @@ def update(
     description: Optional[str] = typer.Option(
         None, "--description", help="Issue description", show_default=True
     ),
+    branch: Optional[str] = typer.Option(_UNSET, "--branch", help="Branch name", show_default=True),
 ) -> None:
     """Update an existing issue.
 
     Updates one or more fields on an issue. Only provided options will be updated.
     At least one field must be specified for update.
+
+    Special behavior:
+    - When changing type to 'main', the branch is automatically cleared (set to None)
+      unless --branch is explicitly provided
 
     Args:
         issue_id: The ID of the issue to update
@@ -544,12 +553,15 @@ def update(
         issue_type: Issue type ('main' or 'patch')
         title: New title for the issue
         description: New description for the issue
+        branch: Branch name (explicit --branch takes precedence over auto-clear)
 
     Examples:
         rouge issue update 123 --title "New Title"
         rouge issue update 123 --assigned-to tydirium-1 --type main
         rouge issue update 123 --description "Updated description"
         rouge issue update 123 --title "Title" --description "Description"
+        rouge issue update 123 --type main  # Auto-clears branch
+        rouge issue update 123 --type main --branch my-branch  # Keeps branch
     """
     validate_issue_id(issue_id)
     try:
@@ -563,6 +575,9 @@ def update(
         if description is not None and description.strip() == "":
             raise ValueError("Field 'description' cannot be whitespace only")
 
+        if branch != _UNSET and branch is not None and branch.strip() == "":
+            raise ValueError("Field 'branch' cannot be whitespace only")
+
         # Normalize string fields: trim and convert empty strings to None
         if assigned_to is not None:
             assigned_to = assigned_to.strip() or None
@@ -570,6 +585,8 @@ def update(
             title = title.strip() or None
         if description is not None:
             description = description.strip() or None
+        if branch != _UNSET and branch is not None:
+            branch = branch.strip() or None
 
         # Validate and normalize issue_type
         normalized_issue_type: Optional[str] = None
@@ -588,12 +605,20 @@ def update(
                         f"Invalid issue type '{issue_type}'. Must be one of: {valid_types}"
                     )
 
-        # Check if all normalized fields are None
-        if all(field is None for field in [assigned_to, normalized_issue_type, title, description]):
+        # Auto-clear branch when changing to type 'main', unless --branch was explicitly provided
+        if normalized_issue_type == "main" and branch == _UNSET:
+            # branch was not explicitly provided, so auto-clear it
+            branch = None
+
+        # Check if all normalized fields are None or UNSET
+        if all(
+            field is None or field == _UNSET
+            for field in [assigned_to, normalized_issue_type, title, description, branch]
+        ):
             raise ValueError("No fields provided for update. At least one field must be specified.")
 
-        # Build kwargs dict with only non-None values
-        kwargs = {}
+        # Build kwargs dict with only non-None and non-UNSET values
+        kwargs: dict[str, Any] = {}
         if assigned_to is not None:
             kwargs["assigned_to"] = assigned_to
         if normalized_issue_type is not None:
@@ -602,6 +627,8 @@ def update(
             kwargs["title"] = title
         if description is not None:
             kwargs["description"] = description
+        if branch != _UNSET:
+            kwargs["branch"] = branch
 
         # Call update_issue with the constructed kwargs
         issue = update_issue(issue_id, **kwargs)
