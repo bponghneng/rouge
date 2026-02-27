@@ -1,14 +1,12 @@
 """Unit tests for workflow resume logic in WorkflowRunner."""
 
-import tempfile
-from pathlib import Path
-from unittest.mock import Mock, call, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
 from rouge.core.workflow.pipeline import WorkflowRunner
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 
@@ -26,15 +24,6 @@ def isolate_env(tmp_path, monkeypatch):
     # Monkeypatch logging functions to no-op
     monkeypatch.setattr("rouge.core.workflow.pipeline.log_step_start", lambda *args, **kwargs: None)
     monkeypatch.setattr("rouge.core.workflow.pipeline.log_step_end", lambda *args, **kwargs: None)
-
-
-def _make_context(adw_id: str = "adw-test", issue_id: int = 1, **kwargs) -> WorkflowContext:
-    """Create a WorkflowContext with a temporary artifact store for testing."""
-    tmp_dir = tempfile.TemporaryDirectory()
-    store = ArtifactStore(workflow_id=adw_id, base_path=Path(tmp_dir.name))
-    context = WorkflowContext(issue_id=issue_id, adw_id=adw_id, artifact_store=store, **kwargs)
-    context._tmp_dir = tmp_dir  # type: ignore[attr-defined]  # keeps dir alive until context is GC'd
-    return context
 
 
 class TestWorkflowRunnerStepSkipping:
