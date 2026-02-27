@@ -1141,17 +1141,20 @@ def test_update_command_no_fields_provided(mock_update_issue) -> None:
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_invalid_worker_id(mock_update_issue) -> None:
-    """Test update command with invalid worker ID."""
-    mock_update_issue.side_effect = ValueError(
-        "Invalid worker ID 'invalid-worker'. Must be one of: alleycat-1, alleycat-2, "
-        "local-1, local-2, local-3"
+def test_update_command_custom_worker_id(mock_update_issue) -> None:
+    """Test update command with custom/arbitrary worker ID (backward compatible)."""
+    mock_issue = Issue(
+        id=123,
+        description="Test description",
+        status="pending",
+        assigned_to="custom-worker-123",
     )
+    mock_update_issue.return_value = mock_issue
 
-    result = runner.invoke(app, ["update", "123", "--assigned-to", "invalid-worker"])
-    assert result.exit_code == 1
-    assert "Error: Invalid worker ID 'invalid-worker'" in result.output
-    mock_update_issue.assert_called_once_with(123, assigned_to="invalid-worker")
+    result = runner.invoke(app, ["update", "123", "--assigned-to", "custom-worker-123"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_update_issue.assert_called_once_with(123, assigned_to="custom-worker-123")
 
 
 @patch("rouge.cli.issue.update_issue")
@@ -1218,6 +1221,62 @@ def test_update_command_unexpected_error(mock_update_issue) -> None:
     assert result.exit_code == 1
     assert "Unexpected error: Database connection failed" in result.output
     mock_update_issue.assert_called_once_with(123, title="New Title")
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_type_main_auto_clears_branch(mock_update_issue) -> None:
+    """Test update command auto-clears branch when changing type to 'main' without explicit --branch."""
+    mock_issue = Issue(
+        id=123,
+        description="Test description",
+        status="pending",
+        type="main",
+        branch=None,
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "123", "--type", "main"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    # Verify that branch=None is passed to update_issue when type changes to main
+    mock_update_issue.assert_called_once_with(123, issue_type="main", branch=None)
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_type_main_explicit_branch_preserves(mock_update_issue) -> None:
+    """Test update command preserves branch when explicitly provided with --type main."""
+    mock_issue = Issue(
+        id=456,
+        description="Test description",
+        status="pending",
+        type="main",
+        branch="my-custom-branch",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "456", "--type", "main", "--branch", "my-custom-branch"])
+    assert result.exit_code == 0
+    assert "456" in result.output
+    # Verify that explicit --branch takes precedence over auto-clear
+    mock_update_issue.assert_called_once_with(456, issue_type="main", branch="my-custom-branch")
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_type_patch_no_auto_clear(mock_update_issue) -> None:
+    """Test update command does NOT auto-clear branch when changing type to 'patch'."""
+    mock_issue = Issue(
+        id=789,
+        description="Test description",
+        status="pending",
+        type="patch",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "789", "--type", "patch"])
+    assert result.exit_code == 0
+    assert "789" in result.output
+    # Verify that branch is NOT included in kwargs (no auto-clear for patch type)
+    mock_update_issue.assert_called_once_with(789, issue_type="patch")
 
 
 # Tests for delete command

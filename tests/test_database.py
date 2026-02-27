@@ -1284,13 +1284,6 @@ def test_update_issue_clear_title(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_invalid_worker_id(_mock_get_client) -> None:
-    """Test validation error for invalid worker ID."""
-    with pytest.raises(ValueError, match="Invalid worker ID 'invalid-worker'"):
-        update_issue(1, assigned_to="invalid-worker")
-
-
-@patch("rouge.core.database.get_client")
 def test_update_issue_invalid_type(_mock_get_client) -> None:
     """Test validation error for invalid issue type."""
     with pytest.raises(ValueError, match="Invalid issue_type 'invalid'"):
@@ -1499,6 +1492,61 @@ def test_update_issue_valid_worker_ids(mock_get_client) -> None:
 
         issue = update_issue(1, assigned_to=worker_id)
         assert issue.assigned_to == worker_id
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_arbitrary_worker_id(mock_get_client) -> None:
+    """Test updating with arbitrary/custom worker ID strings (backward compatible).
+
+    After migration from enum to TEXT, any non-empty string is valid for worker ID.
+    """
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_update.eq.return_value = mock_eq_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    # Test with various arbitrary worker ID formats
+    arbitrary_workers = [
+        "custom-worker-123",
+        "my-worker",
+        "worker_name_2024",
+        "CUSTOM-ID-456",
+        "a1b2c3d4",
+    ]
+
+    for worker_id in arbitrary_workers:
+        mock_execute_update.data = [
+            {
+                "id": 1,
+                "description": "Test issue",
+                "status": "pending",
+                "assigned_to": worker_id,
+            }
+        ]
+        mock_eq_update.execute.return_value = mock_execute_update
+
+        issue = update_issue(1, assigned_to=worker_id)
+        assert issue.assigned_to == worker_id
+
+    # Verify the last call used the custom worker ID
+    mock_table.update.assert_called_with({"assigned_to": "a1b2c3d4"})
 
 
 @patch("rouge.core.database.get_client")

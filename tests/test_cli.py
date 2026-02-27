@@ -191,20 +191,58 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
 
 @patch("rouge.cli.reset.update_issue")
 @patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update_issue) -> None:
+    """Test reset command with pending issue succeeds (clears assignment/branch)."""
+    # Mock a pending main issue with assignment and branch
+    mock_issue = Issue(
+        id=456,
+        description="Test pending issue",
+        status="pending",
+        type="main",
+        assigned_to="local-2",
+        branch="feature/pending-test",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue (assignment and branch cleared)
+    updated_issue = Issue(
+        id=456,
+        description="Test pending issue",
+        status="pending",
+        type="main",
+        assigned_to=None,
+        branch=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(app, ["reset", "456"])
+    assert result.exit_code == 0
+    assert "456" in result.output
+    mock_fetch_issue.assert_called_once_with(456)
+    mock_update_issue.assert_called_once_with(
+        456,
+        assigned_to=None,
+        status="pending",
+        branch=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
 def test_reset_command_with_non_failed_issue_fails(mock_fetch_issue, mock_update_issue) -> None:
-    """Test reset command with non-failed issue fails with clear error."""
-    # Mock a pending issue
+    """Test reset command with non-failed/non-pending issue fails with clear error."""
+    # Mock a started issue
     mock_issue = Issue(
         id=456,
         description="Test issue",
-        status="pending",
+        status="started",
         type="main",
     )
     mock_fetch_issue.return_value = mock_issue
 
     result = runner.invoke(app, ["reset", "456"])
     assert result.exit_code == 1
-    assert "Error: Issue 456 has status 'pending', can only reset 'failed' issues" in result.output
+    assert "Error: Issue 456 has status 'started', can only reset 'failed' or 'pending' issues" in result.output
     mock_fetch_issue.assert_called_once_with(456)
     mock_update_issue.assert_not_called()
 
@@ -224,7 +262,7 @@ def test_reset_command_with_started_issue_fails(mock_fetch_issue, mock_update_is
 
     result = runner.invoke(app, ["reset", "789"])
     assert result.exit_code == 1
-    assert "Error: Issue 789 has status 'started', can only reset 'failed' issues" in result.output
+    assert "Error: Issue 789 has status 'started', can only reset 'failed' or 'pending' issues" in result.output
     mock_fetch_issue.assert_called_once_with(789)
     mock_update_issue.assert_not_called()
 
@@ -245,7 +283,7 @@ def test_reset_command_with_completed_issue_fails(mock_fetch_issue, mock_update_
     result = runner.invoke(app, ["reset", "321"])
     assert result.exit_code == 1
     assert (
-        "Error: Issue 321 has status 'completed', can only reset 'failed' issues" in result.output
+        "Error: Issue 321 has status 'completed', can only reset 'failed' or 'pending' issues" in result.output
     )
     mock_fetch_issue.assert_called_once_with(321)
     mock_update_issue.assert_not_called()
