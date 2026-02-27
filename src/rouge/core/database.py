@@ -12,7 +12,7 @@ from dotenv import find_dotenv, load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
-from rouge.core.models import VALID_WORKER_IDS, Comment, Issue
+from rouge.core.models import Comment, Issue
 from rouge.core.utils import make_adw_id
 
 logger = logging.getLogger(__name__)
@@ -497,11 +497,6 @@ def update_issue(
             assigned_to = assigned_to.strip()
             if not assigned_to:
                 raise ValueError("Worker ID cannot be empty")
-            if assigned_to not in VALID_WORKER_IDS:
-                valid_workers_str = ", ".join(sorted(VALID_WORKER_IDS))
-                raise ValueError(
-                    f"Invalid worker ID '{assigned_to}'. Must be one of: {valid_workers_str}"
-                )
         updates["assigned_to"] = assigned_to
 
     # Validate and add issue_type to updates
