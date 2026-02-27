@@ -18,47 +18,6 @@ SlashCommand = Literal[
     "/triage:find-plan-file",
 ]
 
-# Valid worker IDs for issue assignment
-VALID_WORKER_IDS = frozenset(
-    {
-        "alleycat-1",
-        "alleycat-2",
-        "alleycat-3",
-        "executor-1",
-        "executor-2",
-        "executor-3",
-        "local-1",
-        "local-2",
-        "local-3",
-        "tydirium-1",
-        "tydirium-2",
-        "tydirium-3",
-        "xwing-1",
-        "xwing-2",
-        "xwing-3",
-    }
-)
-
-# Generate Literal type from VALID_WORKER_IDS
-# Sort to ensure consistent ordering for type checking
-WorkerIdLiteral = Literal[
-    "alleycat-1",
-    "alleycat-2",
-    "alleycat-3",
-    "executor-1",
-    "executor-2",
-    "executor-3",
-    "local-1",
-    "local-2",
-    "local-3",
-    "tydirium-1",
-    "tydirium-2",
-    "tydirium-3",
-    "xwing-1",
-    "xwing-2",
-    "xwing-3",
-]
-
 
 class Issue(BaseModel):
     """Issue model matching Supabase schema.
@@ -85,7 +44,7 @@ class Issue(BaseModel):
     type: Literal["main", "patch", "codereview"] = "main"
     adw_id: Optional[str] = None
     branch: Optional[str] = None
-    assigned_to: Optional[WorkerIdLiteral] = None
+    assigned_to: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
