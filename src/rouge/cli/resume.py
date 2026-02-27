@@ -120,30 +120,37 @@ def resume(
 
         # Scan for worker artifacts with matching current_issue_id
         # and update to state=ready
-        workers_dir = RougePaths.get_base_dir() / "workers"
-        if workers_dir.exists():
-            updated_workers = []
-            for worker_path in workers_dir.iterdir():
-                if not worker_path.is_dir():
-                    continue
+        try:
+            workers_dir = RougePaths.get_base_dir() / "workers"
+            if workers_dir.exists():
+                updated_workers = []
+                for worker_path in workers_dir.iterdir():
+                    if not worker_path.is_dir():
+                        continue
 
-                worker_id = worker_path.name
-                worker_artifact = read_worker_artifact(worker_id)
+                    worker_id = worker_path.name
+                    worker_artifact = read_worker_artifact(worker_id)
 
-                if worker_artifact and worker_artifact.current_issue_id == issue_id:
-                    # Update worker to ready state
-                    worker_artifact.state = "ready"
-                    worker_artifact.current_issue_id = None
-                    worker_artifact.current_adw_id = None
-                    worker_artifact.refresh_timestamp()
-                    write_worker_artifact(worker_artifact)
-                    updated_workers.append(worker_id)
-                    logger.info("Updated worker %s to ready state", worker_id)
+                    if worker_artifact and worker_artifact.current_issue_id == issue_id:
+                        # Update worker to ready state
+                        worker_artifact.state = "ready"
+                        worker_artifact.current_issue_id = None
+                        worker_artifact.current_adw_id = None
+                        worker_artifact.refresh_timestamp()
+                        write_worker_artifact(worker_artifact)
+                        updated_workers.append(worker_id)
+                        logger.info("Updated worker %s to ready state", worker_id)
 
-            if updated_workers:
-                logger.info("Updated %s worker(s) to ready state", len(updated_workers))
-            else:
-                logger.info("No workers found with current_issue_id=%s", issue_id)
+                if updated_workers:
+                    logger.info("Updated %s worker(s) to ready state", len(updated_workers))
+                else:
+                    logger.info("No workers found with current_issue_id=%s", issue_id)
+        except OSError as e:
+            logger.warning(
+                "Failed to scan/update worker artifacts for issue_id=%s: %s",
+                issue_id,
+                e,
+            )
 
         # Output workflow ID on success for scripting compatibility
         typer.echo(f"{workflow_id}")
