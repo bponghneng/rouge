@@ -20,6 +20,22 @@ from rouge.core.workflow.types import StepResult
 from rouge.worker.worker_artifact import WorkerArtifact, read_worker_artifact, write_worker_artifact
 
 
+@pytest.fixture(autouse=True)
+def isolate_step_logging(monkeypatch):
+    """Isolate step logging to prevent database/credentials access during tests.
+
+    This fixture automatically patches log_step_start and log_step_end with harmless
+    mocks for all tests in this module, preventing unintended database calls.
+    """
+    mock_log_start = Mock()
+    mock_log_end = Mock()
+
+    monkeypatch.setattr("rouge.core.workflow.pipeline.log_step_start", mock_log_start)
+    monkeypatch.setattr("rouge.core.workflow.pipeline.log_step_end", mock_log_end)
+
+    return {"log_step_start": mock_log_start, "log_step_end": mock_log_end}
+
+
 class TestEndToEndResumeFlow:
     """Integration tests for complete workflow failure and resume cycle."""
 
@@ -230,16 +246,13 @@ class TestArtifactReuseOnResume:
         runner = WorkflowRunner([step1, step2, step3])
         store = ArtifactStore("test-artifact-reuse", base_path=tmp_path)
 
-        # Mock log functions to avoid database calls
-        with patch("rouge.core.workflow.pipeline.log_step_start"):
-            with patch("rouge.core.workflow.pipeline.log_step_end"):
-                with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
-                    mock_store_class.return_value = store
-                    result = runner.run(
-                        issue_id=1,
-                        adw_id="test-artifact-reuse",
-                        pipeline_type="test",
-                    )
+        with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
+            mock_store_class.return_value = store
+            result = runner.run(
+                issue_id=1,
+                adw_id="test-artifact-reuse",
+                pipeline_type="test",
+            )
 
         assert result is False
         assert step1.run.call_count == 1
@@ -254,16 +267,14 @@ class TestArtifactReuseOnResume:
         assert state_after_fail.workflow_id == "test-artifact-reuse"
 
         # Second run: resume from step 2, should succeed
-        with patch("rouge.core.workflow.pipeline.log_step_start"):
-            with patch("rouge.core.workflow.pipeline.log_step_end"):
-                with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
-                    mock_store_class.return_value = store
-                    result = runner.run(
-                        issue_id=1,
-                        adw_id="test-artifact-reuse",
-                        resume_from="Step 2",
-                        pipeline_type="test",
-                    )
+        with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
+            mock_store_class.return_value = store
+            result = runner.run(
+                issue_id=1,
+                adw_id="test-artifact-reuse",
+                resume_from="Step 2",
+                pipeline_type="test",
+            )
 
         assert result is True
         # Step 1 should still only have 1 call (skipped during resume)
@@ -616,16 +627,13 @@ class TestResumeErrorRecovery:
         store = ArtifactStore("test-persistent-fail", base_path=tmp_path)
 
         # First run: fails at step 2
-        # Mock log functions to avoid database calls
-        with patch("rouge.core.workflow.pipeline.log_step_start"):
-            with patch("rouge.core.workflow.pipeline.log_step_end"):
-                with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
-                    mock_store_class.return_value = store
-                    result = runner.run(
-                        issue_id=1,
-                        adw_id="test-persistent-fail",
-                        pipeline_type="test",
-                    )
+        with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
+            mock_store_class.return_value = store
+            result = runner.run(
+                issue_id=1,
+                adw_id="test-persistent-fail",
+                pipeline_type="test",
+            )
 
         assert result is False
 
@@ -635,16 +643,14 @@ class TestResumeErrorRecovery:
         assert state1.last_completed_step == "Step 1"
 
         # Second run: resume, but fails again
-        with patch("rouge.core.workflow.pipeline.log_step_start"):
-            with patch("rouge.core.workflow.pipeline.log_step_end"):
-                with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
-                    mock_store_class.return_value = store
-                    result = runner.run(
-                        issue_id=1,
-                        adw_id="test-persistent-fail",
-                        resume_from="Step 2",
-                        pipeline_type="test",
-                    )
+        with patch("rouge.core.workflow.pipeline.ArtifactStore") as mock_store_class:
+            mock_store_class.return_value = store
+            result = runner.run(
+                issue_id=1,
+                adw_id="test-persistent-fail",
+                resume_from="Step 2",
+                pipeline_type="test",
+            )
 
         assert result is False
 

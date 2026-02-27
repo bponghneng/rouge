@@ -12,6 +12,22 @@ from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 
+@pytest.fixture(autouse=True)
+def isolate_env(tmp_path, monkeypatch):
+    """Isolate test environment to tmp_path with no external log side effects.
+
+    This fixture:
+    - Redirects get_working_dir to tmp_path for artifact isolation
+    - Mocks log_step_start and log_step_end to prevent external logging
+    """
+    # Monkeypatch get_working_dir to return tmp_path
+    monkeypatch.setattr("rouge.core.workflow.shared.get_working_dir", lambda: str(tmp_path))
+
+    # Monkeypatch logging functions to no-op
+    monkeypatch.setattr("rouge.core.workflow.workflow_io.log_step_start", lambda *args, **kwargs: None)
+    monkeypatch.setattr("rouge.core.workflow.workflow_io.log_step_end", lambda *args, **kwargs: None)
+
+
 def _make_context(adw_id: str = "adw-test", issue_id: int = 1, **kwargs) -> WorkflowContext:
     """Create a WorkflowContext with a temporary artifact store for testing."""
     tmp_dir = tempfile.TemporaryDirectory()

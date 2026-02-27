@@ -296,19 +296,18 @@ class TestWriteWorkerArtifact:
         assert content["state"] == "working"
         assert content["current_issue_id"] == 999
 
+    @patch("rouge.worker.worker_artifact.tempfile.mkstemp")
     @patch("rouge.worker.worker_artifact._get_worker_artifact_path")
     @patch("rouge.worker.worker_artifact.logger")
     def test_write_worker_artifact_handles_failure_gracefully(
-        self, mock_logger, mock_get_path, tmp_path
+        self, mock_logger, mock_get_path, mock_mkstemp, tmp_path
     ):
         """Test write_worker_artifact logs but doesn't raise on failure."""
-        # Point to a read-only location that will fail
-        artifact_path = tmp_path / "readonly" / "state.json"
+        artifact_path = tmp_path / "state.json"
         mock_get_path.return_value = artifact_path
 
-        # Make parent read-only
-        readonly_dir = tmp_path / "readonly"
-        readonly_dir.mkdir(mode=0o444)
+        # Simulate write failure by making mkstemp raise OSError
+        mock_mkstemp.side_effect = OSError("Permission denied")
 
         artifact = WorkerArtifact(
             worker_id="fail-worker",
@@ -320,9 +319,6 @@ class TestWriteWorkerArtifact:
 
         # Verify warning was logged
         mock_logger.warning.assert_called()
-
-        # Clean up
-        readonly_dir.chmod(0o755)
 
 
 class TestReadWorkerArtifact:
