@@ -87,14 +87,14 @@ def resume(
             raise typer.Exit(1)
 
         failed_step = workflow_state.failed_step
-        pipeline_type = workflow_state.pipeline_type
-
-        # Reset issue status from 'failed' to 'started'
-        update_issue(issue_id, status="started")
-        logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
+        pipeline_type = workflow_state.pipeline_type or "main"
 
         # Execute workflow with resume parameters
         try:
+            # Reset issue status from 'failed' to 'started'
+            update_issue(issue_id, status="started")
+            logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
+
             success, workflow_id = execute_adw_workflow(
                 issue_id,
                 adw_id=issue.adw_id,
