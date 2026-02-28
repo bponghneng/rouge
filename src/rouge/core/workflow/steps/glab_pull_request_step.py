@@ -146,14 +146,22 @@ class GlabPullRequestStep(WorkflowStep):
                     continue
 
                 # Determine the current branch name for this repo
-                branch_result = subprocess.run(
-                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                    cwd=repo_path,
-                )
-                branch_name = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+                try:
+                    branch_result = subprocess.run(
+                        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                        cwd=repo_path,
+                    )
+                    branch_name = (
+                        branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+                    )
+                except subprocess.TimeoutExpired:
+                    logger.warning(
+                        "git rev-parse timed out for %s, skipping branch detection", repo_name
+                    )
+                    branch_name = ""
 
                 # Layer 2: Adopt existing remote MR if one already exists for this branch
                 if branch_name:
@@ -210,7 +218,7 @@ class GlabPullRequestStep(WorkflowStep):
                                         repo_name,
                                     )
                                     continue
-                    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
+                    except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
                         logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
 
                 # Layer 3: Push + create new MR
@@ -281,12 +289,20 @@ class GlabPullRequestStep(WorkflowStep):
                     continue
 
                 # Parse MR URL from output (glab mr create outputs the URL)
-                mr_url = result.stdout.strip()
+                url_match = re.search(r"https?://\S+/merge_requests/\d+", result.stdout)
+                if not url_match:
+                    logger.error(
+                        "Could not parse MR URL from glab output for %s: %r",
+                        repo_name,
+                        result.stdout,
+                    )
+                    continue
+                mr_url = url_match.group(0)
                 logger.info("Merge request created for %s: %s", repo_name, mr_url)
 
                 # Extract MR number from URL
                 mr_number = None
-                number_match = re.search(r".*/merge_requests/(\d+)", mr_url)
+                number_match = re.search(r"/merge_requests/(\d+)", mr_url)
                 if number_match:
                     mr_number = int(number_match.group(1))
 
@@ -315,7 +331,9 @@ class GlabPullRequestStep(WorkflowStep):
                     pull_requests=pull_requests,
                     platform="gitlab",
                 )
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                status, msg = emit_artifact_comment(
+                    context.require_issue_id, context.adw_id, artifact
+                )
                 log_artifact_comment_status(status, msg)
 
                 mr_urls = [entry.url for entry in pull_requests]

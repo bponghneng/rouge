@@ -228,7 +228,7 @@ class GhPullRequestStep(WorkflowStep):
                                         repo_name,
                                     )
                                     continue
-                    except (subprocess.TimeoutExpired, json.JSONDecodeError, Exception) as e:
+                    except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
                         logger.debug("Could not check for existing PR in %s: %s", repo_path, e)
 
                 # Layer 3: Push + create new PR
