@@ -457,6 +457,44 @@ def test_create_patch_with_nonexistent_parent_issue_id_fails(
     mock_create_issue.assert_not_called()
 
 
+@patch("rouge.cli.issue.create_issue")
+def test_create_codereview_without_branch_fails(mock_create_issue: MagicMock) -> None:
+    """Test that codereview creation without --branch exits with code 1 and prints an error."""
+    result = runner.invoke(
+        app,
+        ["create", "Review this code", "--type", "codereview"],
+    )
+    assert result.exit_code == 1
+    assert "Error: For codereview issues, --branch must be provided" in result.output
+    mock_create_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_codereview_with_branch_succeeds(mock_create_issue: MagicMock) -> None:
+    """Test that codereview creation with --branch calls create_issue and succeeds."""
+    mock_issue = Issue(
+        id=500,
+        description="Review this code",
+        status="pending",
+        type="codereview",
+        branch="main",
+    )
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(
+        app,
+        ["create", "Review this code", "--type", "codereview", "--branch", "main"],
+    )
+    assert result.exit_code == 0
+    assert "500" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Review this code",
+        title="Review this code",
+        issue_type="codereview",
+        branch="main",
+    )
+
+
 @pytest.mark.parametrize("type_arg", ["main", "codereview"])
 @patch("rouge.cli.issue.create_issue")
 def test_create_non_patch_with_parent_issue_id_fails(

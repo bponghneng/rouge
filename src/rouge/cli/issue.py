@@ -164,6 +164,15 @@ def validate_new_args(
         )
         raise typer.Exit(1)
 
+    # Validation: for codereview issues, --branch must be provided
+    if issue_type == IssueType.CODEREVIEW:
+        if branch is None:
+            typer.echo(
+                "Error: For codereview issues, --branch must be provided",
+                err=True,
+            )
+            raise typer.Exit(1)
+
 
 def read_spec_file(spec_file: Path) -> str:
     """Read and validate content from a spec file.
@@ -292,7 +301,10 @@ def create(
     issue_type: IssueType = typer.Option(
         IssueType.MAIN,
         "--type",
-        help="Issue type: 'main' for primary issues, 'patch' for patch issues",
+        help=(
+            "Issue type: 'main' for primary issues, 'patch' for patch issues, "
+            "'codereview' for code review issues (requires --branch)"
+        ),
         show_default=True,
     ),
     branch: Optional[str] = typer.Option(
@@ -322,6 +334,9 @@ def create(
     - The --parent-issue-id option is only valid for patch issues
     - If --parent-issue-id is provided, the branch will be inherited from the parent issue
     - The parent issue must exist and have a branch assigned
+
+    Code review issue validation rules:
+    - For codereview issues, --branch is required
 
     Examples:
         rouge issue create "Fix authentication bug in login flow"

@@ -17,6 +17,7 @@ from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 from rouge.core.workflow.steps.code_review_step import CodeReviewStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
 from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 from rouge.core.workflow.types import StepResult
@@ -75,19 +76,20 @@ class TestCodeReviewPipeline:
     """Verify the codereview pipeline contains the correct steps in order."""
 
     def test_pipeline_contains_six_steps(self) -> None:
-        """The codereview pipeline should contain exactly 6 steps."""
+        """The codereview pipeline should contain exactly 7 steps."""
         pipeline = get_code_review_pipeline()
 
         assert (
-            len(pipeline) == 6
-        ), f"expected 6 steps in code review pipeline but got {len(pipeline)}"
+            len(pipeline) == 7
+        ), f"expected 7 steps in code review pipeline but got {len(pipeline)}"
 
     def test_pipeline_step_order(self) -> None:
-        """Steps should be: FetchIssueStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
+        """Steps should be: FetchIssueStep, GitCheckoutStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
         pipeline = get_code_review_pipeline()
 
         expected_types = [
             FetchIssueStep,
+            GitCheckoutStep,
             ReviewPlanStep,
             CodeReviewStep,
             ReviewFixStep,
@@ -112,17 +114,18 @@ class TestCodeReviewPipeline:
     def test_critical_vs_best_effort_steps(self) -> None:
         """Verify which steps are critical vs best-effort in the pipeline.
 
-        FetchIssueStep and ReviewPlanStep are critical (must succeed).
+        FetchIssueStep, GitCheckoutStep, and ReviewPlanStep are critical (must succeed).
         Review/fix/quality/commits steps are best-effort (can fail gracefully).
         """
         pipeline = get_code_review_pipeline()
 
-        # First two steps are critical
+        # First three steps are critical
         assert pipeline[0].is_critical, "FetchIssueStep should be critical"
-        assert pipeline[1].is_critical, "ReviewPlanStep should be critical"
+        assert pipeline[1].is_critical, "GitCheckoutStep should be critical"
+        assert pipeline[2].is_critical, "ReviewPlanStep should be critical"
 
         # Remaining steps are best-effort
-        for step in pipeline[2:]:
+        for step in pipeline[3:]:
             assert (
                 not step.is_critical
             ), f"Step '{step.name}' should be best-effort (is_critical=False)"
@@ -177,8 +180,8 @@ class TestGetPipelineForTypeCodeReview:
 
         assert isinstance(pipeline, list)
         assert (
-            len(pipeline) == 6
-        ), f"expected codereview pipeline to have 6 steps, got {len(pipeline)}"
+            len(pipeline) == 7
+        ), f"expected codereview pipeline to have 7 steps, got {len(pipeline)}"
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
     def test_pipeline_matches_direct_call(self) -> None:
