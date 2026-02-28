@@ -685,6 +685,138 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
+@patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which):
+    """Test successful PR creation across two repos: subprocess invoked once per repo."""
+
+    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+
+    mock_which.return_value = "/usr/bin/gh"
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    # Two repos: each needs rev-parse, pr list (empty), push, pr create — 4 calls each = 8 total
+    mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
+    mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
+    mock_push_a = Mock(returncode=0, stdout="", stderr="")
+    mock_pr_create_a = Mock(returncode=0, stdout="https://github.com/owner/repo-a/pull/1\n", stderr="")
+
+    mock_rev_parse_b = Mock(returncode=0, stdout="my-branch\n", stderr="")
+    mock_pr_list_b = Mock(returncode=0, stdout="[]", stderr="")
+    mock_push_b = Mock(returncode=0, stdout="", stderr="")
+    mock_pr_create_b = Mock(returncode=0, stdout="https://github.com/owner/repo-b/pull/2\n", stderr="")
+
+    mock_subprocess.side_effect = [
+        mock_rev_parse_a, mock_pr_list_a, mock_push_a, mock_pr_create_a,
+        mock_rev_parse_b, mock_pr_list_b, mock_push_b, mock_pr_create_b,
+    ]
+
+    context = _make_context(repo_paths=["/repo/a", "/repo/b"])
+    context.data["pr_details"] = {
+        "title": "feat: multi-repo feature",
+        "summary": "This PR spans two repos.",
+        "commits": ["abc1234"],
+    }
+
+    step = GhPullRequestStep()
+    result = step.run(context)
+
+    assert result.success is True
+    # Subprocess called 4 times per repo = 8 total
+    assert mock_subprocess.call_count == 8
+
+    # Verify each repo's push and pr-create used the correct cwd
+    push_call_a = mock_subprocess.call_args_list[2]
+    assert push_call_a[1]["cwd"] == "/repo/a"
+    assert push_call_a[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
+
+    pr_create_call_a = mock_subprocess.call_args_list[3]
+    assert pr_create_call_a[1]["cwd"] == "/repo/a"
+    assert pr_create_call_a[0][0][0:3] == ["gh", "pr", "create"]
+
+    push_call_b = mock_subprocess.call_args_list[6]
+    assert push_call_b[1]["cwd"] == "/repo/b"
+    assert push_call_b[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
+
+    pr_create_call_b = mock_subprocess.call_args_list[7]
+    assert pr_create_call_b[1]["cwd"] == "/repo/b"
+    assert pr_create_call_b[0][0][0:3] == ["gh", "pr", "create"]
+
+    # emit_comment_from_payload called once at the end (final "pull-request-created" summary)
+    mock_emit.assert_called_once()
+    payload = mock_emit.call_args[0][0]
+    assert payload.raw["output"] == "pull-request-created"
+    # Both repo URLs appear in the emitted payload
+    assert "https://github.com/owner/repo-a/pull/1" in payload.raw["urls"]
+    assert "https://github.com/owner/repo-b/pull/2" in payload.raw["urls"]
+    assert "/repo/a" in payload.text or "https://github.com/owner/repo-a/pull/1" in payload.text
+    assert "/repo/b" in payload.text or "https://github.com/owner/repo-b/pull/2" in payload.text
+
+
+@patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+@patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
+def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which):
+    """Test PR creation with both repos failing: subprocess invoked once per repo, best-effort continues."""
+
+    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+
+    mock_which.return_value = "/usr/bin/gh"
+    mock_emit.return_value = ("success", "Comment inserted")
+
+    # Two repos: each needs rev-parse, pr list (empty), push, pr create (fail) — 4 calls each = 8 total
+    mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
+    mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
+    mock_push_a = Mock(returncode=0, stdout="", stderr="")
+    mock_pr_fail_a = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-a")
+
+    mock_rev_parse_b = Mock(returncode=0, stdout="my-branch\n", stderr="")
+    mock_pr_list_b = Mock(returncode=0, stdout="[]", stderr="")
+    mock_push_b = Mock(returncode=0, stdout="", stderr="")
+    mock_pr_fail_b = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-b")
+
+    mock_subprocess.side_effect = [
+        mock_rev_parse_a, mock_pr_list_a, mock_push_a, mock_pr_fail_a,
+        mock_rev_parse_b, mock_pr_list_b, mock_push_b, mock_pr_fail_b,
+    ]
+
+    context = _make_context(repo_paths=["/repo/a", "/repo/b"])
+    context.data["pr_details"] = {
+        "title": "feat: multi-repo feature",
+        "summary": "This PR spans two repos.",
+        "commits": [],
+    }
+
+    step = GhPullRequestStep()
+    result = step.run(context)
+
+    # Step is best-effort: returns success even when all repos fail
+    assert result.success is True
+    # Subprocess called 4 times per repo = 8 total (loop continues on per-repo failure)
+    assert mock_subprocess.call_count == 8
+
+    # Verify the step attempted both repos (push cwd per repo)
+    push_call_a = mock_subprocess.call_args_list[2]
+    assert push_call_a[1]["cwd"] == "/repo/a"
+
+    push_call_b = mock_subprocess.call_args_list[6]
+    assert push_call_b[1]["cwd"] == "/repo/b"
+
+    # emit_comment_from_payload called once per failing repo = 2 total
+    assert mock_emit.call_count == 2
+    failure_outputs = [call[0][0].raw["output"] for call in mock_emit.call_args_list]
+    assert failure_outputs == ["pull-request-failed", "pull-request-failed"]
+
+    # Each failure payload references the corresponding repo
+    assert "/repo/a" in mock_emit.call_args_list[0][0][0].raw["error"] or \
+        "repo-a" in mock_emit.call_args_list[0][0][0].raw["error"]
+    assert "/repo/b" in mock_emit.call_args_list[1][0][0].raw["error"] or \
+        "repo-b" in mock_emit.call_args_list[1][0][0].raw["error"]
+
+
 def test_create_pr_step_is_not_critical():
     """Test GhPullRequestStep is not critical."""
     from rouge.core.workflow.steps.gh_pull_request_step import (

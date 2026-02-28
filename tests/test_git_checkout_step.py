@@ -704,7 +704,7 @@ def test_checkout_step_git_pull_fails(mock_subprocess, context) -> None:
     mock_pull.stdout = ""
     mock_pull.stderr = "error: could not apply abc1234... commit message"
 
-    mock_subprocess.side_effect = [mock_checkout, mock_fetch, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -837,3 +837,48 @@ def test_checkout_step_returns_step_result_fail(
     assert result.data is None
     assert result.error is not None
     assert len(result.error) > 0
+
+
+# === Multiple Repository Tests ===
+
+
+@patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
+def test_git_checkout_multiple_repos(mock_subprocess, tmp_path) -> None:
+    """Step runs fetch+checkout+pull for each repo when multiple repo_paths are provided."""
+
+    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
+    _write_fetch_patch_artifact(store, _make_issue(branch="feature-branch"))
+    ctx = WorkflowContext(
+        issue_id=1,
+        adw_id="test123",
+        artifact_store=store,
+        repo_paths=["/repo/a", "/repo/b"],
+    )
+
+    # 3 calls per repo (fetch, checkout, pull) x 2 repos = 6 total
+    mock_success = Mock(returncode=0, stdout="", stderr="")
+    mock_subprocess.side_effect = [
+        mock_success,  # /repo/a: fetch
+        mock_success,  # /repo/a: checkout
+        mock_success,  # /repo/a: pull
+        mock_success,  # /repo/b: fetch
+        mock_success,  # /repo/b: checkout
+        mock_success,  # /repo/b: pull
+    ]
+
+    step = GitCheckoutStep()
+    result = step.run(ctx)
+
+    assert result.success is True
+    assert mock_subprocess.call_count == 6
+
+    # Verify /repo/a appears as cwd in its three calls
+    assert mock_subprocess.call_args_list[0][1]["cwd"] == "/repo/a"
+    assert mock_subprocess.call_args_list[1][1]["cwd"] == "/repo/a"
+    assert mock_subprocess.call_args_list[2][1]["cwd"] == "/repo/a"
+
+    # Verify /repo/b appears as cwd in its three calls
+    assert mock_subprocess.call_args_list[3][1]["cwd"] == "/repo/b"
+    assert mock_subprocess.call_args_list[4][1]["cwd"] == "/repo/b"
+    assert mock_subprocess.call_args_list[5][1]["cwd"] == "/repo/b"
