@@ -128,6 +128,11 @@ class GitBranchStep(WorkflowStep):
         else:
             branch_name = f"adw-{context.adw_id}"
 
+        if not context.repo_paths:
+            error_msg = "No repo_paths provided; cannot create branch"
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
+
         try:
             for repo_path in context.repo_paths:
                 logger.info("Processing repo: %s", repo_path)
