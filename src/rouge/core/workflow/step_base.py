@@ -3,9 +3,10 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, TypeVar
 
 from rouge.core.models import Issue
+from rouge.core.workflow.shared import get_repo_paths
 
 if TYPE_CHECKING:
     from rouge.core.workflow.artifacts import Artifact, ArtifactStore, ArtifactType
@@ -31,6 +32,7 @@ class WorkflowContext:
         issue: The fetched Issue object (set by FetchIssueStep)
         resume_from: Optional step name to resume workflow execution from
         pipeline_type: The type of pipeline being executed (default: "main")
+        repo_paths: List of repository root paths (populated from REPO_PATH env var)
         data: Dictionary to store intermediate step data
     """
 
@@ -40,6 +42,7 @@ class WorkflowContext:
     issue: Optional[Issue] = None
     resume_from: Optional[str] = None
     pipeline_type: str = "main"
+    repo_paths: List[str] = field(default_factory=get_repo_paths)
     data: Dict[str, Any] = field(default_factory=dict)
 
     @property
