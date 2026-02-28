@@ -30,7 +30,6 @@ import subprocess
 
 from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
 from rouge.core.workflow.artifacts import FetchPatchArtifact, GitCheckoutArtifact
-from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -108,156 +107,159 @@ class GitCheckoutStep(WorkflowStep):
             logger.error(error_msg)
             return StepResult.fail(error_msg)
 
-        repo_path = get_repo_path()
-
         # Check if destructive git operations are allowed
         allow_destructive = os.environ.get("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "").lower() == "true"
 
         logger.info(
-            "Checking out git branch: branch=%s, repo_path=%s, allow_destructive=%s",
+            "Checking out git branch: branch=%s, repo_paths=%s, allow_destructive=%s",
             branch,
-            repo_path,
+            context.repo_paths,
             allow_destructive,
         )
 
         try:
-            # Step 0: Clean dirty state if allowed (before attempting checkout)
-            if allow_destructive:
-                # Reset any uncommitted changes
-                reset_result = subprocess.run(
-                    ["git", "reset", "--hard"],
-                    capture_output=True,
-                    text=True,
-                    timeout=GIT_TIMEOUT,
-                    cwd=repo_path,
-                )
-                if reset_result.returncode != 0:
-                    logger.debug(
-                        "git reset --hard failed: exit_code=%d, stderr=%s",
-                        reset_result.returncode,
-                        reset_result.stderr.strip(),
-                    )
-                    error_msg = f"git reset --hard failed (exit code {reset_result.returncode})"
-                    logger.error(error_msg)
-                    return StepResult.fail(error_msg)
-                logger.debug("Reset uncommitted changes")
+            for repo_path in context.repo_paths:
+                logger.info("Processing repo: %s", repo_path)
 
-                # Remove untracked files
-                clean_result = subprocess.run(
-                    ["git", "clean", "-fd"],
-                    capture_output=True,
-                    text=True,
-                    timeout=GIT_TIMEOUT,
-                    cwd=repo_path,
-                )
-                if clean_result.returncode != 0:
-                    logger.debug(
-                        "git clean -fd failed: exit_code=%d, stderr=%s",
-                        clean_result.returncode,
-                        clean_result.stderr.strip(),
-                    )
-                    error_msg = f"git clean -fd failed (exit code {clean_result.returncode})"
-                    logger.error(error_msg)
-                    return StepResult.fail(error_msg)
-                logger.debug("Cleaned untracked files")
-
-            # Step 1: Fetch all remote refs and prune deleted branches
-            fetch_result = subprocess.run(
-                ["git", "fetch", "--all", "--prune"],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if fetch_result.returncode != 0:
-                logger.debug(
-                    "git fetch --all --prune failed: exit_code=%d, stderr=%s",
-                    fetch_result.returncode,
-                    fetch_result.stderr.strip(),
-                )
-                error_msg = f"git fetch --all --prune failed (exit code {fetch_result.returncode})"
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Fetched latest remote refs")
-
-            # Step 2: Checkout the branch
-            checkout_result = subprocess.run(
-                ["git", "checkout", branch],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if checkout_result.returncode != 0:
-                # Log detailed diagnostics at DEBUG level
-                logger.debug(
-                    "git checkout failed: exit_code=%d, stderr=%s",
-                    checkout_result.returncode,
-                    checkout_result.stderr.strip(),
-                )
-
-                # Check if failure is due to dirty working tree
-                stderr = checkout_result.stderr.lower()
-                if "uncommitted changes" in stderr or "would be overwritten" in stderr:
-                    if not allow_destructive:
-                        error_msg = ERROR_DIRTY_TREE
-                        logger.error(error_msg)
-                        return StepResult.fail(error_msg)
-
-                # Check if failure is due to missing local branch
-                if "pathspec" in stderr and "did not match" in stderr:
-                    logger.debug("Local branch not found, trying remote fallback")
-                    # Attempt to checkout from remote with tracking
-                    fallback_result = subprocess.run(
-                        ["git", "checkout", "-t", f"origin/{branch}"],
+                # Step 0: Clean dirty state if allowed (before attempting checkout)
+                if allow_destructive:
+                    # Reset any uncommitted changes
+                    reset_result = subprocess.run(
+                        ["git", "reset", "--hard"],
                         capture_output=True,
                         text=True,
                         timeout=GIT_TIMEOUT,
                         cwd=repo_path,
                     )
-                    if fallback_result.returncode != 0:
+                    if reset_result.returncode != 0:
                         logger.debug(
-                            "Remote fallback failed: exit_code=%d, stderr=%s",
-                            fallback_result.returncode,
-                            fallback_result.stderr.strip(),
+                            "git reset --hard failed: exit_code=%d, stderr=%s",
+                            reset_result.returncode,
+                            reset_result.stderr.strip(),
                         )
-                        error_msg = ERROR_MISSING_BRANCH.format(branch=branch)
+                        error_msg = f"git reset --hard failed (exit code {reset_result.returncode})"
                         logger.error(error_msg)
                         return StepResult.fail(error_msg)
-                    logger.debug("Checked out branch %s from remote", branch)
-                else:
-                    # Other checkout failure - fail fast without fallback
-                    error_msg = f"Failed to checkout branch '{branch}'"
+                    logger.debug("Reset uncommitted changes")
+
+                    # Remove untracked files
+                    clean_result = subprocess.run(
+                        ["git", "clean", "-fd"],
+                        capture_output=True,
+                        text=True,
+                        timeout=GIT_TIMEOUT,
+                        cwd=repo_path,
+                    )
+                    if clean_result.returncode != 0:
+                        logger.debug(
+                            "git clean -fd failed: exit_code=%d, stderr=%s",
+                            clean_result.returncode,
+                            clean_result.stderr.strip(),
+                        )
+                        error_msg = f"git clean -fd failed (exit code {clean_result.returncode})"
+                        logger.error(error_msg)
+                        return StepResult.fail(error_msg)
+                    logger.debug("Cleaned untracked files")
+
+                # Step 1: Fetch all remote refs and prune deleted branches
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "--all", "--prune"],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if fetch_result.returncode != 0:
+                    logger.debug(
+                        "git fetch --all --prune failed: exit_code=%d, stderr=%s",
+                        fetch_result.returncode,
+                        fetch_result.stderr.strip(),
+                    )
+                    error_msg = (
+                        f"git fetch --all --prune failed" f" (exit code {fetch_result.returncode})"
+                    )
                     logger.error(error_msg)
                     return StepResult.fail(error_msg)
-            else:
-                logger.debug("Checked out branch %s", branch)
+                logger.debug("Fetched latest remote refs")
 
-            # Step 3: Pull with rebase to bring branch up to date
-            pull_result = subprocess.run(
-                ["git", "pull", "--rebase", "origin", branch],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if pull_result.returncode != 0:
-                logger.debug(
-                    "git pull --rebase failed: exit_code=%d, stderr=%s",
-                    pull_result.returncode,
-                    pull_result.stderr.strip(),
+                # Step 2: Checkout the branch
+                checkout_result = subprocess.run(
+                    ["git", "checkout", branch],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
                 )
-                # Check if failure is due to rebase conflict
-                stderr = pull_result.stderr.lower()
-                if "conflict" in stderr or "rebase" in stderr:
-                    error_msg = ERROR_PULL_REBASE_CONFLICT
-                else:
-                    error_msg = f"git pull --rebase failed (exit code {pull_result.returncode})"
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Pulled latest changes for branch %s", branch)
+                if checkout_result.returncode != 0:
+                    # Log detailed diagnostics at DEBUG level
+                    logger.debug(
+                        "git checkout failed: exit_code=%d, stderr=%s",
+                        checkout_result.returncode,
+                        checkout_result.stderr.strip(),
+                    )
 
-            # Save artifact if artifact store is available
+                    # Check if failure is due to dirty working tree
+                    stderr = checkout_result.stderr.lower()
+                    if "uncommitted changes" in stderr or "would be overwritten" in stderr:
+                        if not allow_destructive:
+                            error_msg = ERROR_DIRTY_TREE
+                            logger.error(error_msg)
+                            return StepResult.fail(error_msg)
+
+                    # Check if failure is due to missing local branch
+                    if "pathspec" in stderr and "did not match" in stderr:
+                        logger.debug("Local branch not found, trying remote fallback")
+                        # Attempt to checkout from remote with tracking
+                        fallback_result = subprocess.run(
+                            ["git", "checkout", "-t", f"origin/{branch}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=GIT_TIMEOUT,
+                            cwd=repo_path,
+                        )
+                        if fallback_result.returncode != 0:
+                            logger.debug(
+                                "Remote fallback failed: exit_code=%d, stderr=%s",
+                                fallback_result.returncode,
+                                fallback_result.stderr.strip(),
+                            )
+                            error_msg = ERROR_MISSING_BRANCH.format(branch=branch)
+                            logger.error(error_msg)
+                            return StepResult.fail(error_msg)
+                        logger.debug("Checked out branch %s from remote", branch)
+                    else:
+                        # Other checkout failure - fail fast without fallback
+                        error_msg = f"Failed to checkout branch '{branch}'"
+                        logger.error(error_msg)
+                        return StepResult.fail(error_msg)
+                else:
+                    logger.debug("Checked out branch %s", branch)
+
+                # Step 3: Pull with rebase to bring branch up to date
+                pull_result = subprocess.run(
+                    ["git", "pull", "--rebase", "origin", branch],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if pull_result.returncode != 0:
+                    logger.debug(
+                        "git pull --rebase failed: exit_code=%d, stderr=%s",
+                        pull_result.returncode,
+                        pull_result.stderr.strip(),
+                    )
+                    # Check if failure is due to rebase conflict
+                    stderr = pull_result.stderr.lower()
+                    if "conflict" in stderr or "rebase" in stderr:
+                        error_msg = ERROR_PULL_REBASE_CONFLICT
+                    else:
+                        error_msg = f"git pull --rebase failed (exit code {pull_result.returncode})"
+                    logger.error(error_msg)
+                    return StepResult.fail(error_msg)
+                logger.debug("Pulled latest changes for branch %s in repo %s", branch, repo_path)
+
+            # Save artifact if artifact store is available (once, after all repos succeed)
             if context.artifact_store is not None:
                 artifact = GitCheckoutArtifact(
                     workflow_id=context.adw_id,
