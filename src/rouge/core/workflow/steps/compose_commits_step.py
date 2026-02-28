@@ -18,7 +18,7 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
-from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_repo_path
+from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -227,14 +227,14 @@ class ComposeCommitsStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
-        repo_path = get_repo_path()
+        repo_path = context.repo_paths[0]
 
         # Compose conventional commits from unstaged changes
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
                 slash_command="/adw-compose-commits",
-                args=[],
+                args=context.repo_paths,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
