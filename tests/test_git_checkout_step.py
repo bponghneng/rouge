@@ -59,7 +59,7 @@ def store(tmp_path) -> ArtifactStore:
 def context(issue: Issue, store: ArtifactStore) -> WorkflowContext:
     """Create a sample workflow context with fetch-patch artifact written."""
     _write_fetch_patch_artifact(store, issue)
-    return WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
+    return WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store, repo_paths=["/path/to/repo"])
 
 
 # === Basic Step Properties ===
@@ -124,15 +124,13 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
     store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
     _write_fetch_patch_artifact(store, _make_issue(branch="artifact-branch"))
     # context.issue intentionally left as None to prove it is not used
-    ctx = WorkflowContext(issue_id=1, adw_id="test123", issue=None, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="test123", issue=None, artifact_store=store, repo_paths=["/path/to/repo"])
 
     with (
         patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run") as mock_sub,
-        patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path") as mock_repo,
         patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment") as mock_emit,
         patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status"),
     ):
-        mock_repo.return_value = "/repo"
         mock_emit.return_value = ("ok", "ok")
         mock_checkout = Mock(returncode=0, stdout="", stderr="")
         mock_fetch = Mock(returncode=0, stdout="", stderr="")
@@ -153,14 +151,12 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
 
 @patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment")
 @patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status")
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_success(
-    mock_subprocess, mock_get_repo_path, _mock_log_status, mock_emit_comment, context
+    mock_subprocess, _mock_log_status, mock_emit_comment, context
 ) -> None:
     """Happy path: all git commands succeed and GitCheckoutArtifact is written."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock()
     mock_checkout.returncode = 0
@@ -223,14 +219,12 @@ def test_checkout_step_success(
     assert written_artifact.artifact_type == "git-checkout"
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_success_no_artifact_store(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Happy path without an artifact store: no artifact write is attempted."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
@@ -252,12 +246,10 @@ def test_checkout_step_success_no_artifact_store(
 # === git checkout Failure ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_git_checkout_fails(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_git_checkout_fails(mock_subprocess, context) -> None:
     """Step fails and stops immediately when git checkout returns non-zero exit code."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock()
     mock_checkout.returncode = 1
@@ -278,14 +270,12 @@ def test_checkout_step_git_checkout_fails(mock_subprocess, mock_get_repo_path, c
 # === Dirty State Cleanup Tests ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 def test_checkout_step_dirty_state_cleanup_allowed(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """When ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true, dirty state is cleaned before checkout."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # Mock successful reset, clean, fetch, checkout, and pull
     mock_reset = Mock(returncode=0, stdout="", stderr="")
@@ -323,12 +313,10 @@ def test_checkout_step_dirty_state_cleanup_allowed(
     assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"})
-def test_checkout_step_dirty_state_denial(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_dirty_state_denial(mock_subprocess, context) -> None:
     """When destructive ops not allowed and dirty state detected, step fails with standard error."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # Simulate checkout failure due to dirty working tree (after a successful fetch)
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
@@ -351,14 +339,12 @@ def test_checkout_step_dirty_state_denial(mock_subprocess, mock_get_repo_path, c
     assert mock_subprocess.call_count == 2
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 def test_checkout_step_dirty_state_uncommitted_changes(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Dirty state with 'uncommitted changes' error is handled when destructive ops allowed."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_reset = Mock(returncode=0, stdout="", stderr="")
     mock_clean = Mock(returncode=0, stdout="", stderr="")
@@ -377,12 +363,10 @@ def test_checkout_step_dirty_state_uncommitted_changes(
     assert mock_subprocess.call_args_list[1][0][0] == ["git", "clean", "-fd"]
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-def test_checkout_step_reset_hard_fails(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_reset_hard_fails(mock_subprocess, context) -> None:
     """When git reset --hard fails, step fails immediately."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_reset = Mock()
     mock_reset.returncode = 128
@@ -400,12 +384,10 @@ def test_checkout_step_reset_hard_fails(mock_subprocess, mock_get_repo_path, con
     assert mock_subprocess.call_count == 1
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-def test_checkout_step_clean_fd_fails(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_clean_fd_fails(mock_subprocess, context) -> None:
     """When git clean -fd fails, step fails immediately."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_reset = Mock(returncode=0, stdout="", stderr="")
     mock_clean = Mock()
@@ -427,14 +409,12 @@ def test_checkout_step_clean_fd_fails(mock_subprocess, mock_get_repo_path, conte
 # === Missing Local Branch Fallback Tests ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_missing_local_branch_fallback_success(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """When local branch missing, fallback to git checkout -t origin/<branch> succeeds."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # First checkout fails with pathspec error
     mock_checkout_fail = Mock()
@@ -477,14 +457,12 @@ def test_checkout_step_missing_local_branch_fallback_success(
     assert fallback_checkout[1]["timeout"] == GIT_TIMEOUT
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_missing_local_branch_fallback_fails(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """When local branch missing and remote fallback fails, return standard error message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # First checkout fails with pathspec error
     mock_checkout_fail = Mock()
@@ -511,14 +489,12 @@ def test_checkout_step_missing_local_branch_fallback_fails(
     assert mock_subprocess.call_count == 3
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_missing_local_branch_no_fallback_for_other_errors(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """When checkout fails with non-pathspec error, no fallback is attempted."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # Checkout fails with permission denied (not pathspec error)
     mock_checkout = Mock()
@@ -541,12 +517,10 @@ def test_checkout_step_missing_local_branch_no_fallback_for_other_errors(
 # === Fetch All Prune Tests ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_fetch_all_prune_called(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_fetch_all_prune_called(mock_subprocess, context) -> None:
     """git fetch --all --prune is called before checkout and before pull."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
@@ -573,12 +547,10 @@ def test_checkout_step_fetch_all_prune_called(mock_subprocess, mock_get_repo_pat
     assert pull_call[0][0] == ["git", "pull", "--rebase", "origin", "feature-branch"]
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_fetch_all_prune_fails(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_fetch_all_prune_fails(mock_subprocess, context) -> None:
     """When git fetch --all --prune fails, step fails immediately."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_fetch = Mock()
     mock_fetch.returncode = 1
@@ -600,14 +572,12 @@ def test_checkout_step_fetch_all_prune_fails(mock_subprocess, mock_get_repo_path
 # === Standardized Error Messages Tests ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_standardized_error_missing_branch(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Missing branch error returns standardized message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     # Both local and remote checkout fail
     mock_checkout_fail = Mock()
@@ -630,14 +600,12 @@ def test_checkout_step_standardized_error_missing_branch(
     assert result.error == "Branch 'feature-branch' not found locally or on remote."
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"})
 def test_checkout_step_standardized_error_dirty_tree(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Dirty tree error returns standardized message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock()
     mock_checkout.returncode = 1
@@ -658,14 +626,12 @@ def test_checkout_step_standardized_error_dirty_tree(
     assert result.error == expected_error
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_standardized_error_pull_rebase_conflict(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Pull-rebase conflict error returns standardized message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
@@ -683,13 +649,11 @@ def test_checkout_step_standardized_error_pull_rebase_conflict(
     assert result.error == "Pull-rebase failed with conflicts."
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 def test_checkout_step_standardized_error_timeout(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Timeout error returns standardized message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = subprocess.TimeoutExpired(
         cmd=["git", "checkout", "feature-branch"], timeout=GIT_TIMEOUT
@@ -702,13 +666,11 @@ def test_checkout_step_standardized_error_timeout(
     assert result.error == f"Git operation timed out after {GIT_TIMEOUT} seconds."
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 def test_checkout_step_standardized_error_git_not_found(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Git not found error returns standardized message."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = FileNotFoundError("git not found")
 
@@ -722,12 +684,10 @@ def test_checkout_step_standardized_error_git_not_found(
 # === git pull --rebase Failure ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_git_pull_fails(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_git_pull_fails(mock_subprocess, context) -> None:
     """Step fails when git pull --rebase returns non-zero exit code."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock()
     mock_checkout.returncode = 0
@@ -757,11 +717,9 @@ def test_checkout_step_git_pull_fails(mock_subprocess, mock_get_repo_path, conte
 # === Timeout Handling ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_checkout_timeout(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_checkout_timeout(mock_subprocess, context) -> None:
     """Step handles TimeoutExpired from git checkout."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = subprocess.TimeoutExpired(
         cmd=["git", "checkout", "feature-branch"], timeout=GIT_TIMEOUT
@@ -775,11 +733,9 @@ def test_checkout_step_checkout_timeout(mock_subprocess, mock_get_repo_path, con
     assert str(GIT_TIMEOUT) in result.error
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_pull_timeout(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_pull_timeout(mock_subprocess, context) -> None:
     """Step handles TimeoutExpired from git pull --rebase."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_checkout = Mock()
     mock_checkout.returncode = 0
@@ -808,11 +764,9 @@ def test_checkout_step_pull_timeout(mock_subprocess, mock_get_repo_path, context
 # === Error Handling ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_git_not_found(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_git_not_found(mock_subprocess, context) -> None:
     """Step handles git binary not found."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = FileNotFoundError("git not found")
 
@@ -824,11 +778,9 @@ def test_checkout_step_git_not_found(mock_subprocess, mock_get_repo_path, contex
     assert "ensure git is installed" in result.error
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-def test_checkout_step_unexpected_error(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_unexpected_error(mock_subprocess, context) -> None:
     """Step handles unexpected exceptions."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_subprocess.side_effect = RuntimeError("Unexpected system error")
 
@@ -844,12 +796,10 @@ def test_checkout_step_unexpected_error(mock_subprocess, mock_get_repo_path, con
 # === StepResult Type Checks ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_returns_step_result_ok(mock_subprocess, mock_get_repo_path, context) -> None:
+def test_checkout_step_returns_step_result_ok(mock_subprocess, context) -> None:
     """Successful execution returns StepResult with success=True."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_result = Mock()
     mock_result.returncode = 0
@@ -866,14 +816,12 @@ def test_checkout_step_returns_step_result_ok(mock_subprocess, mock_get_repo_pat
     assert result.error is None
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_returns_step_result_fail(
-    mock_subprocess, mock_get_repo_path, context
+    mock_subprocess, context
 ) -> None:
     """Failed execution returns StepResult with success=False and non-empty error."""
-    mock_get_repo_path.return_value = "/path/to/repo"
 
     mock_result = Mock()
     mock_result.returncode = 128

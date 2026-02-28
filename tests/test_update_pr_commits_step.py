@@ -24,6 +24,7 @@ def mock_context():
     context.data = {}
     context.artifacts_enabled = True
     context.artifact_store = Mock()
+    context.repo_paths = ["/repo"]
     return context
 
 
@@ -163,10 +164,8 @@ class TestRunWhenPlatformMissing:
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_fails_when_env_missing(
         self,
-        _mock_get_repo_path,
         mock_request,
         mock_exec,
         mock_parse,
@@ -204,10 +203,8 @@ class TestComposeCommits:
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_called_before_push(
         self,
-        _mock_get_repo_path,
         mock_request,
         mock_exec,
         mock_parse,
@@ -276,10 +273,8 @@ class TestComposeCommits:
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_failure_stops_push(
         self,
-        _mock_get_repo_path,
         mock_request,
         mock_exec,
         mock_subprocess,
@@ -312,10 +307,8 @@ class TestComposeCommits:
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
     @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_invalid_json_stops_push(
         self,
-        _mock_get_repo_path,
         mock_request,
         mock_exec,
         mock_parse,
@@ -350,10 +343,8 @@ class TestComposeCommits:
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
-    @patch("rouge.core.workflow.steps.compose_commits_step.get_repo_path", return_value="/repo")
     def test_compose_commits_exception_stops_push(
         self,
-        _mock_get_repo_path,
         mock_request,
         mock_exec,
         mock_subprocess,

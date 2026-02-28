@@ -28,6 +28,7 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
         adw_id="test-gh-pr",
         issue_id=42,
         artifact_store=store,
+        repo_paths=["/path/to/repo"],
     )
 
 
@@ -107,12 +108,8 @@ class TestGhPullRequestStepWithArtifact:
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.get_repo_path")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
     def test_uses_compose_request_artifact_when_present(
         self,
-        mock_subprocess,
-        mock_get_repo,
         mock_which,
         _mock_log,
         mock_emit_artifact,
