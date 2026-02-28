@@ -18,8 +18,10 @@ from rouge.core.workflow.artifacts import (
     FetchIssueArtifact,
     FetchPatchArtifact,
     GhPullRequestArtifact,
+    GlabPullRequestArtifact,
     ImplementArtifact,
     PlanArtifact,
+    PullRequestEntry,
     ReviewFixArtifact,
 )
 from rouge.core.workflow.types import (
@@ -156,15 +158,123 @@ class TestArtifactModels:
 
     def test_pull_request_artifact_creation(self):
         """Test GhPullRequestArtifact can be created with valid data."""
+        entry = PullRequestEntry(
+            repo="org/repo",
+            repo_path="/path/to/repo",
+            url="https://github.com/org/repo/pull/42",
+            number=42,
+        )
         artifact = GhPullRequestArtifact(
             workflow_id="adw-123",
-            url="https://github.com/org/repo/pull/42",
+            pull_requests=[entry],
             platform="github",
         )
 
         assert artifact.artifact_type == "gh-pull-request"
-        assert artifact.url == "https://github.com/org/repo/pull/42"
+        assert len(artifact.pull_requests) == 1
+        assert artifact.pull_requests[0].url == "https://github.com/org/repo/pull/42"
+        assert artifact.pull_requests[0].number == 42
+        assert artifact.pull_requests[0].adopted is False
         assert artifact.platform == "github"
+
+    def test_gh_pull_request_artifact_empty_pull_requests(self):
+        """Test GhPullRequestArtifact can be created with zero pull requests."""
+        artifact = GhPullRequestArtifact(
+            workflow_id="adw-123",
+            pull_requests=[],
+        )
+
+        assert artifact.artifact_type == "gh-pull-request"
+        assert artifact.pull_requests == []
+        assert artifact.platform == "github"
+
+    def test_gh_pull_request_artifact_two_entries(self):
+        """Test GhPullRequestArtifact with two PullRequestEntry items."""
+        entries = [
+            PullRequestEntry(
+                repo="org/repo-a",
+                repo_path="/path/to/a",
+                url="https://github.com/org/repo-a/pull/1",
+                number=1,
+            ),
+            PullRequestEntry(
+                repo="org/repo-b",
+                repo_path="/path/to/b",
+                url="https://github.com/org/repo-b/pull/2",
+                number=2,
+                adopted=True,
+            ),
+        ]
+        artifact = GhPullRequestArtifact(
+            workflow_id="adw-123",
+            pull_requests=entries,
+        )
+
+        assert len(artifact.pull_requests) == 2
+        assert artifact.pull_requests[0].repo == "org/repo-a"
+        assert artifact.pull_requests[1].adopted is True
+
+    def test_glab_pull_request_artifact_creation(self):
+        """Test GlabPullRequestArtifact can be created with valid data."""
+        entry = PullRequestEntry(
+            repo="org/repo",
+            repo_path="/path/to/repo",
+            url="https://gitlab.com/org/repo/-/merge_requests/10",
+            number=10,
+        )
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-456",
+            pull_requests=[entry],
+        )
+
+        assert artifact.artifact_type == "glab-pull-request"
+        assert len(artifact.pull_requests) == 1
+        assert artifact.pull_requests[0].url == "https://gitlab.com/org/repo/-/merge_requests/10"
+        assert artifact.platform == "gitlab"
+
+    def test_glab_pull_request_artifact_empty(self):
+        """Test GlabPullRequestArtifact can be created with zero pull requests."""
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-456",
+            pull_requests=[],
+        )
+
+        assert artifact.artifact_type == "glab-pull-request"
+        assert artifact.pull_requests == []
+
+    def test_glab_pull_request_artifact_two_entries(self):
+        """Test GlabPullRequestArtifact with two PullRequestEntry items."""
+        entries = [
+            PullRequestEntry(
+                repo="group/project-a",
+                repo_path="/path/to/a",
+                url="https://gitlab.com/group/project-a/-/merge_requests/5",
+                number=5,
+            ),
+            PullRequestEntry(
+                repo="group/project-b",
+                repo_path="/path/to/b",
+                url="https://gitlab.com/group/project-b/-/merge_requests/6",
+                number=6,
+            ),
+        ]
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-456",
+            pull_requests=entries,
+        )
+
+        assert len(artifact.pull_requests) == 2
+
+    def test_pull_request_entry_adopted_defaults_false(self):
+        """Test PullRequestEntry.adopted defaults to False."""
+        entry = PullRequestEntry(
+            repo="org/repo",
+            repo_path="/path/to/repo",
+            url="https://github.com/org/repo/pull/1",
+        )
+
+        assert entry.adopted is False
+        assert entry.number is None
 
     def test_artifact_models_mapping_complete(self):
         """Test ARTIFACT_MODELS contains all expected types."""
@@ -225,6 +335,131 @@ class TestArtifactSerialization:
 
         assert restored.classify_data.command == "/adw-bug-plan"
         assert restored.classify_data.classification["type"] == "bug"
+
+    def test_gh_pull_request_artifact_round_trip_empty(self):
+        """Test GhPullRequestArtifact serializes/deserializes with zero entries."""
+        artifact = GhPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=[],
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GhPullRequestArtifact.model_validate_json(json_str)
+
+        assert restored.artifact_type == "gh-pull-request"
+        assert restored.pull_requests == []
+        assert restored.platform == "github"
+
+    def test_gh_pull_request_artifact_round_trip_one_entry(self):
+        """Test GhPullRequestArtifact serializes/deserializes with one entry."""
+        entry = PullRequestEntry(
+            repo="org/repo",
+            repo_path="/path/to/repo",
+            url="https://github.com/org/repo/pull/7",
+            number=7,
+        )
+        artifact = GhPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=[entry],
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GhPullRequestArtifact.model_validate_json(json_str)
+
+        assert len(restored.pull_requests) == 1
+        assert restored.pull_requests[0].url == "https://github.com/org/repo/pull/7"
+        assert restored.pull_requests[0].number == 7
+        assert restored.pull_requests[0].adopted is False
+
+    def test_gh_pull_request_artifact_round_trip_two_entries(self):
+        """Test GhPullRequestArtifact serializes/deserializes with two entries."""
+        entries = [
+            PullRequestEntry(
+                repo="org/a",
+                repo_path="/a",
+                url="https://github.com/org/a/pull/1",
+                number=1,
+            ),
+            PullRequestEntry(
+                repo="org/b",
+                repo_path="/b",
+                url="https://github.com/org/b/pull/2",
+                number=2,
+                adopted=True,
+            ),
+        ]
+        artifact = GhPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=entries,
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GhPullRequestArtifact.model_validate_json(json_str)
+
+        assert len(restored.pull_requests) == 2
+        assert restored.pull_requests[1].adopted is True
+
+    def test_glab_pull_request_artifact_round_trip_empty(self):
+        """Test GlabPullRequestArtifact serializes/deserializes with zero entries."""
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=[],
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GlabPullRequestArtifact.model_validate_json(json_str)
+
+        assert restored.artifact_type == "glab-pull-request"
+        assert restored.pull_requests == []
+        assert restored.platform == "gitlab"
+
+    def test_glab_pull_request_artifact_round_trip_one_entry(self):
+        """Test GlabPullRequestArtifact serializes/deserializes with one entry."""
+        entry = PullRequestEntry(
+            repo="group/project",
+            repo_path="/path/to/project",
+            url="https://gitlab.com/group/project/-/merge_requests/3",
+            number=3,
+        )
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=[entry],
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GlabPullRequestArtifact.model_validate_json(json_str)
+
+        assert len(restored.pull_requests) == 1
+        assert restored.pull_requests[0].number == 3
+        assert restored.pull_requests[0].adopted is False
+
+    def test_glab_pull_request_artifact_round_trip_two_entries(self):
+        """Test GlabPullRequestArtifact serializes/deserializes with two entries."""
+        entries = [
+            PullRequestEntry(
+                repo="g/p1",
+                repo_path="/p1",
+                url="https://gitlab.com/g/p1/-/merge_requests/10",
+                number=10,
+            ),
+            PullRequestEntry(
+                repo="g/p2",
+                repo_path="/p2",
+                url="https://gitlab.com/g/p2/-/merge_requests/11",
+                number=11,
+                adopted=True,
+            ),
+        ]
+        artifact = GlabPullRequestArtifact(
+            workflow_id="adw-rt",
+            pull_requests=entries,
+        )
+
+        json_str = artifact.model_dump_json()
+        restored = GlabPullRequestArtifact.model_validate_json(json_str)
+
+        assert len(restored.pull_requests) == 2
+        assert restored.pull_requests[1].adopted is True
 
     def test_artifact_json_is_valid(self):
         """Test artifact JSON is valid and human-readable."""
@@ -521,7 +756,14 @@ class TestArtifactStoreIntegration:
         store.write_artifact(
             GhPullRequestArtifact(
                 workflow_id=workflow_id,
-                url="https://github.com/org/repo/pull/1",
+                pull_requests=[
+                    PullRequestEntry(
+                        repo="org/repo",
+                        repo_path="/path/to/repo",
+                        url="https://github.com/org/repo/pull/1",
+                        number=1,
+                    )
+                ],
                 platform="github",
             )
         )

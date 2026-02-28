@@ -39,6 +39,7 @@ def base_context(temp_store: ArtifactStore) -> WorkflowContext:
         adw_id="test-workflow-123",
         issue_id=42,
         artifact_store=temp_store,
+        repo_paths=["/fake/repo"],
     )
 
 
@@ -442,19 +443,18 @@ class TestDependencySemanticsIntegration:
         with patch.dict("os.environ", {"GITHUB_PAT": "test-token"}):
             with patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which") as mock_which:
                 with patch(
-                    "rouge.core.workflow.steps.gh_pull_request_step.get_repo_path"
-                ) as mock_repo:
-                    with patch(
-                        "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run"
-                    ) as mock_run:
-                        mock_which.return_value = "/usr/bin/gh"
-                        mock_repo.return_value = "/fake/repo"
-                        mock_push = Mock(returncode=0, stdout="", stderr="")
-                        mock_pr = Mock(returncode=0, stdout="https://github.com/test/pr/1\n")
-                        mock_run.side_effect = [mock_push, mock_pr]
+                    "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run"
+                ) as mock_run:
+                    mock_which.return_value = "/usr/bin/gh"
+                    # New step makes 4 calls per repo: rev-parse, gh pr list, git push, gh pr create
+                    mock_rev_parse = Mock(returncode=0, stdout="feature-branch\n", stderr="")
+                    mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+                    mock_push = Mock(returncode=0, stdout="", stderr="")
+                    mock_pr = Mock(returncode=0, stdout="https://github.com/test/pr/1\n")
+                    mock_run.side_effect = [mock_rev_parse, mock_pr_list, mock_push, mock_pr]
 
-                        step = GhPullRequestStep()
-                        result = step.run(base_context)
+                    step = GhPullRequestStep()
+                    result = step.run(base_context)
 
         # Should succeed with artifact present
         assert result.success is True

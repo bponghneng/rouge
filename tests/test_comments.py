@@ -21,6 +21,7 @@ from rouge.core.workflow.artifacts import (
     GlabPullRequestArtifact,
     ImplementArtifact,
     PlanArtifact,
+    PullRequestEntry,
     ReviewFixArtifact,
 )
 from rouge.core.workflow.types import (
@@ -228,7 +229,14 @@ class TestEmitArtifactComment:
             (
                 GhPullRequestArtifact(
                     workflow_id="adw-type-test",
-                    url="https://github.com/org/repo/pull/1",
+                    pull_requests=[
+                        PullRequestEntry(
+                            repo="org/repo",
+                            repo_path="/path/to/repo",
+                            url="https://github.com/org/repo/pull/1",
+                            number=1,
+                        )
+                    ],
                 ),
                 "gh-pull-request",
             ),
@@ -254,7 +262,14 @@ class TestEmitArtifactComment:
             (
                 GlabPullRequestArtifact(
                     workflow_id="adw-type-test",
-                    url="https://gitlab.com/org/repo/-/merge_requests/1",
+                    pull_requests=[
+                        PullRequestEntry(
+                            repo="org/repo",
+                            repo_path="/path/to/repo",
+                            url="https://gitlab.com/org/repo/-/merge_requests/1",
+                            number=1,
+                        )
+                    ],
                 ),
                 "glab-pull-request",
             ),
