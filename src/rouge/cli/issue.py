@@ -530,13 +530,15 @@ def update(
         None, "--assigned-to", help="Worker ID to assign", show_default=True
     ),
     issue_type: Optional[str] = typer.Option(
-        None, "--type", help="Issue type: 'main' or 'patch'", show_default=True
+        None, "--type", help="Issue type: 'main', 'patch', or 'codereview'", show_default=True
     ),
     title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
     description: Optional[str] = typer.Option(
         None, "--description", help="Issue description", show_default=True
     ),
-    branch: Optional[str] = typer.Option(_UNSET, "--branch", help="Branch name", show_default=True),
+    branch: Optional[str] = typer.Option(
+        _UNSET, "--branch", help="Branch name", show_default=False
+    ),
 ) -> None:
     """Update an existing issue.
 
