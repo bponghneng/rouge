@@ -230,16 +230,37 @@ class ComposeRequestArtifact(Artifact):
     )
 
 
+class PullRequestEntry(BaseModel):
+    """A single pull request entry within a multi-repo artifact.
+
+    Attributes:
+        repo: Human-readable repository name (e.g. "org/repo")
+        repo_path: Filesystem path to the repository
+        url: The URL of the pull request or merge request
+        number: The PR/MR number, if available
+        adopted: Whether this PR was adopted from a pre-existing open PR
+    """
+
+    repo: str
+    repo_path: str
+    url: str
+    number: int | None = None
+    adopted: bool = False
+
+
 class GhPullRequestArtifact(Artifact):
     """Artifact containing the created GitHub pull request details.
 
     Attributes:
-        url: The URL of the created pull request
-        platform: The platform where the PR was created (github)
+        pull_requests: List of pull request entries (one per repository)
+        platform: The platform where the PRs were created (github)
     """
 
     artifact_type: Literal["gh-pull-request"] = "gh-pull-request"
-    url: str = Field(description="The URL of the created GitHub pull request", min_length=1)
+    pull_requests: List[PullRequestEntry] = Field(
+        default_factory=list,
+        description="List of GitHub pull request entries, one per repository",
+    )
     platform: Literal["github"] = "github"
 
 
@@ -312,12 +333,15 @@ class GlabPullRequestArtifact(Artifact):
     """Artifact containing the created GitLab pull request (merge request) details.
 
     Attributes:
-        url: The URL of the created merge request
-        platform: The platform where the MR was created (gitlab)
+        pull_requests: List of merge request entries (one per repository)
+        platform: The platform where the MRs were created (gitlab)
     """
 
     artifact_type: Literal["glab-pull-request"] = "glab-pull-request"
-    url: str = Field(description="The URL of the created GitLab merge request", min_length=1)
+    pull_requests: List[PullRequestEntry] = Field(
+        default_factory=list,
+        description="List of GitLab merge request entries, one per repository",
+    )
     platform: Literal["gitlab"] = "gitlab"
 
 
