@@ -338,11 +338,12 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
 
     Pipeline sequence:
     1. FetchIssueStep    - Fetch the issue from the database
-    2. ReviewPlanStep    - Generate a review plan from the issue
-    3. CodeReviewStep    - Generate review of the current changes
-    4. ReviewFixStep     - Address any review feedback
-    5. CodeQualityStep   - Run code quality checks
-    6. ComposeCommitsStep - Compose conventional commits from the changes
+    2. GitCheckoutStep   — Check out the branch stored on the issue
+    3. ReviewPlanStep    - Generate a review plan from the issue
+    4. CodeReviewStep    - Generate review of the current changes
+    5. ReviewFixStep     - Address any review feedback
+    6. CodeQualityStep   - Run code quality checks
+    7. ComposeCommitsStep - Compose conventional commits from the changes
 
     Returns:
         List of WorkflowStep instances in execution order
@@ -352,11 +353,13 @@ def get_code_review_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
     from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
     from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
     return [
         FetchIssueStep(),
+        GitCheckoutStep(),
         ReviewPlanStep(),
         CodeReviewStep(),
         ReviewFixStep(),
