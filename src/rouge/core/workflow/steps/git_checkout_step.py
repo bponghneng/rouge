@@ -11,6 +11,17 @@ This step switches to an already-created feature branch by:
 It is intended for workflows that resume work on an existing branch (e.g.
 patch workflows) where the branch already exists in the remote.
 
+This step is source-agnostic: it resolves the issue (and therefore the branch)
+from whichever source is available, in the following priority order:
+1. ``context.issue`` — set directly on the context (e.g. by a preceding
+   FetchIssueStep or supplied by the caller).
+2. ``FetchPatchArtifact`` — the patch pipeline artifact written by a preceding
+   fetch-patch step.
+
+This keeps full backward compatibility with the patch pipeline while allowing
+other pipelines to supply the issue via ``context.issue`` without needing a
+FetchPatchArtifact on disk.
+
 Standardized Error Messages:
 - ERROR_MISSING_BRANCH: Branch not found locally or on remote
 - ERROR_DIRTY_TREE: Working tree has uncommitted changes (requires destructive ops)
@@ -53,8 +64,11 @@ ERROR_GIT_NOT_FOUND = "git command not found - ensure git is installed and in PA
 class GitCheckoutStep(WorkflowStep):
     """Check out an existing git branch and pull latest changes.
 
-    This step switches to the branch stored on the issue and rebases it
-    against the remote so subsequent steps work on an up-to-date tree.
+    This step is source-agnostic: it resolves the issue (and therefore the
+    branch) from ``context.issue`` when available, and falls back to loading
+    it from a ``FetchPatchArtifact`` otherwise.  This makes the step usable
+    in both the patch pipeline (artifact-based) and in pipelines that supply
+    the issue directly on the context.
 
     If the local branch is missing, automatically falls back to checking out
     from the remote with tracking (git checkout -t origin/<branch>).
@@ -83,24 +97,32 @@ class GitCheckoutStep(WorkflowStep):
     def run(self, context: WorkflowContext) -> StepResult:
         """Execute git checkout and pull --rebase.
 
+        Resolves the issue from the first available source:
+        1. ``context.issue`` — supplied directly by the caller or a preceding step.
+        2. ``FetchPatchArtifact`` — patch pipeline artifact (backward-compatible path).
+
         Args:
             context: Workflow context containing the issue with branch information
 
         Returns:
             StepResult with success status and optional error message
         """
-        # Load issue from fetch-patch artifact (required)
-        try:
-            issue = context.load_required_artifact(
-                "fetch_patch_data",
-                "fetch-patch",
-                FetchPatchArtifact,
-                lambda a: a.patch,
-            )
-        except StepInputError as e:
-            error_msg = str(e)
-            logger.error(error_msg)
-            return StepResult.fail(error_msg)
+        # Prefer context.issue when available (source-agnostic path).
+        if context.issue is not None:
+            issue = context.issue
+        else:
+            # Fall back to loading the issue from the FetchPatchArtifact (patch pipeline).
+            try:
+                issue = context.load_required_artifact(
+                    "fetch_patch_data",
+                    "fetch-patch",
+                    FetchPatchArtifact,
+                    lambda a: a.patch,
+                )
+            except StepInputError as e:
+                error_msg = str(e)
+                logger.error(error_msg)
+                return StepResult.fail(error_msg)
 
         branch = issue.branch
         if not branch:
