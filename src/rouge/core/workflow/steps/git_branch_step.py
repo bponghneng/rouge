@@ -33,7 +33,6 @@ import subprocess
 from rouge.core.database import update_issue
 from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
 from rouge.core.workflow.artifacts import GitBranchArtifact
-from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -95,17 +94,16 @@ class GitBranchStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         default_branch = os.environ.get("DEFAULT_GIT_BRANCH", "main")
-        repo_path = get_repo_path()
         adw_id = context.adw_id
 
         # Check if destructive git operations are allowed
         allow_destructive = os.environ.get("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "").lower() == "true"
 
         logger.info(
-            "Setting up git environment: default_branch=%s, repo_path=%s, adw_id=%s, "
+            "Setting up git environment: default_branch=%s, repo_paths=%s, adw_id=%s, "
             "allow_destructive=%s",
             default_branch,
-            repo_path,
+            context.repo_paths,
             adw_id,
             allow_destructive,
         )
@@ -119,162 +117,167 @@ class GitBranchStep(WorkflowStep):
             logger.error(error_msg)
             return StepResult.fail(error_msg)
 
+        # Determine branch name once — all repos share the same branch
+        if context.issue and context.issue.branch:
+            branch_candidate = context.issue.branch.strip()
+            if not branch_candidate:
+                error_msg = ERROR_INVALID_BRANCH_NAME
+                logger.error(error_msg)
+                return StepResult.fail(error_msg)
+            branch_name = branch_candidate
+        else:
+            branch_name = f"adw-{context.adw_id}"
+
         try:
-            # Step 1: Checkout default branch
-            checkout_result = subprocess.run(
-                ["git", "checkout", default_branch],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if checkout_result.returncode != 0:
-                # Log detailed diagnostics at DEBUG level
-                logger.debug(
-                    "git checkout %s failed: exit_code=%d, stderr=%s",
-                    default_branch,
-                    checkout_result.returncode,
-                    checkout_result.stderr.strip(),
-                )
+            for repo_path in context.repo_paths:
+                logger.info("Processing repo: %s", repo_path)
 
-                # Check if failure is due to missing local branch
-                stderr = checkout_result.stderr.lower()
-                if "pathspec" in stderr and "did not match" in stderr:
-                    logger.debug("Local default branch not found, trying remote fallback")
-                    # Attempt to checkout from remote with tracking
-                    fallback_result = subprocess.run(
-                        ["git", "checkout", "-t", f"origin/{default_branch}"],
-                        capture_output=True,
-                        text=True,
-                        timeout=GIT_TIMEOUT,
-                        cwd=repo_path,
-                    )
-                    if fallback_result.returncode != 0:
-                        logger.debug(
-                            "Remote fallback failed: exit_code=%d, stderr=%s",
-                            fallback_result.returncode,
-                            fallback_result.stderr.strip(),
-                        )
-                        error_msg = ERROR_MISSING_DEFAULT_BRANCH.format(
-                            default_branch=default_branch
-                        )
-                        logger.error(error_msg)
-                        return StepResult.fail(error_msg)
-                    logger.debug("Checked out default branch %s from remote", default_branch)
-                else:
-                    # Other checkout failure - fail fast without fallback
-                    error_msg = ERROR_CHECKOUT_FAILED.format(default_branch=default_branch)
-                    logger.error(error_msg)
-                    return StepResult.fail(error_msg)
-            else:
-                logger.debug("Checked out %s branch", default_branch)
-
-            # Step 2: Fetch latest remote state from all remotes and prune deleted refs
-            fetch_result = subprocess.run(
-                ["git", "fetch", "--all", "--prune"],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if fetch_result.returncode != 0:
-                logger.debug(
-                    "git fetch --all --prune failed: exit_code=%d, stderr=%s",
-                    fetch_result.returncode,
-                    fetch_result.stderr.strip(),
-                )
-                error_msg = ERROR_FETCH_FAILED
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Fetched latest remote state from all remotes")
-
-            # Step 3: Reset to origin state (destructive operation)
-            reset_result = subprocess.run(
-                ["git", "reset", "--hard", f"origin/{default_branch}"],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if reset_result.returncode != 0:
-                logger.debug(
-                    "git reset --hard origin/%s failed: exit_code=%d, stderr=%s",
-                    default_branch,
-                    reset_result.returncode,
-                    reset_result.stderr.strip(),
-                )
-                error_msg = ERROR_RESET_FAILED
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Reset to origin/%s", default_branch)
-
-            # Step 4: Create and checkout new workflow branch
-            if context.issue and context.issue.branch:
-                branch_candidate = context.issue.branch.strip()
-                if not branch_candidate:
-                    error_msg = ERROR_INVALID_BRANCH_NAME
-                    logger.error(error_msg)
-                    return StepResult.fail(error_msg)
-                branch_name = branch_candidate
-            else:
-                branch_name = f"adw-{context.adw_id}"
-
-            # Check if local branch already exists
-            check_branch_result = subprocess.run(
-                ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if check_branch_result.returncode == 0:
-                # Branch exists locally - delete it to ensure fresh creation
-                logger.debug(
-                    "Local branch %s exists, deleting to ensure fresh creation",
-                    branch_name,
-                )
-                delete_branch_result = subprocess.run(
-                    ["git", "branch", "-D", branch_name],
+                # Step 1: Checkout default branch
+                checkout_result = subprocess.run(
+                    ["git", "checkout", default_branch],
                     capture_output=True,
                     text=True,
                     timeout=GIT_TIMEOUT,
                     cwd=repo_path,
                 )
-                if delete_branch_result.returncode != 0:
+                if checkout_result.returncode != 0:
+                    # Log detailed diagnostics at DEBUG level
                     logger.debug(
-                        "git branch -D %s failed: exit_code=%d, stderr=%s",
-                        branch_name,
-                        delete_branch_result.returncode,
-                        delete_branch_result.stderr.strip(),
+                        "git checkout %s failed: exit_code=%d, stderr=%s",
+                        default_branch,
+                        checkout_result.returncode,
+                        checkout_result.stderr.strip(),
                     )
-                    error_msg = ERROR_DELETE_BRANCH_FAILED.format(branch=branch_name)
+
+                    # Check if failure is due to missing local branch
+                    stderr = checkout_result.stderr.lower()
+                    if "pathspec" in stderr and "did not match" in stderr:
+                        logger.debug("Local default branch not found, trying remote fallback")
+                        # Attempt to checkout from remote with tracking
+                        fallback_result = subprocess.run(
+                            ["git", "checkout", "-t", f"origin/{default_branch}"],
+                            capture_output=True,
+                            text=True,
+                            timeout=GIT_TIMEOUT,
+                            cwd=repo_path,
+                        )
+                        if fallback_result.returncode != 0:
+                            logger.debug(
+                                "Remote fallback failed: exit_code=%d, stderr=%s",
+                                fallback_result.returncode,
+                                fallback_result.stderr.strip(),
+                            )
+                            error_msg = ERROR_MISSING_DEFAULT_BRANCH.format(
+                                default_branch=default_branch
+                            )
+                            logger.error(error_msg)
+                            return StepResult.fail(error_msg)
+                        logger.debug("Checked out default branch %s from remote", default_branch)
+                    else:
+                        # Other checkout failure - fail fast without fallback
+                        error_msg = ERROR_CHECKOUT_FAILED.format(default_branch=default_branch)
+                        logger.error(error_msg)
+                        return StepResult.fail(error_msg)
+                else:
+                    logger.debug("Checked out %s branch", default_branch)
+
+                # Step 2: Fetch latest remote state from all remotes and prune deleted refs
+                fetch_result = subprocess.run(
+                    ["git", "fetch", "--all", "--prune"],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if fetch_result.returncode != 0:
+                    logger.debug(
+                        "git fetch --all --prune failed: exit_code=%d, stderr=%s",
+                        fetch_result.returncode,
+                        fetch_result.stderr.strip(),
+                    )
+                    error_msg = ERROR_FETCH_FAILED
                     logger.error(error_msg)
                     return StepResult.fail(error_msg)
-                logger.debug("Deleted existing branch %s", branch_name)
-            else:
-                logger.debug("Local branch %s does not exist, will create fresh", branch_name)
+                logger.debug("Fetched latest remote state from all remotes")
 
-            # Create and checkout new workflow branch
-            create_branch_result = subprocess.run(
-                ["git", "checkout", "-b", branch_name],
-                capture_output=True,
-                text=True,
-                timeout=GIT_TIMEOUT,
-                cwd=repo_path,
-            )
-            if create_branch_result.returncode != 0:
-                logger.debug(
-                    "git checkout -b %s failed: exit_code=%d, stderr=%s",
-                    branch_name,
-                    create_branch_result.returncode,
-                    create_branch_result.stderr.strip(),
+                # Step 3: Reset to origin state (destructive operation)
+                reset_result = subprocess.run(
+                    ["git", "reset", "--hard", f"origin/{default_branch}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
                 )
-                error_msg = ERROR_CREATE_BRANCH_FAILED.format(branch=branch_name)
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
-            logger.debug("Created and checked out branch %s", branch_name)
+                if reset_result.returncode != 0:
+                    logger.debug(
+                        "git reset --hard origin/%s failed: exit_code=%d, stderr=%s",
+                        default_branch,
+                        reset_result.returncode,
+                        reset_result.stderr.strip(),
+                    )
+                    error_msg = ERROR_RESET_FAILED
+                    logger.error(error_msg)
+                    return StepResult.fail(error_msg)
+                logger.debug("Reset to origin/%s", default_branch)
 
-            # Step 5: Persist branch name to database
+                # Step 4: Create and checkout new workflow branch
+
+                # Check if local branch already exists
+                check_branch_result = subprocess.run(
+                    ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch_name}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if check_branch_result.returncode == 0:
+                    # Branch exists locally - delete it to ensure fresh creation
+                    logger.debug(
+                        "Local branch %s exists, deleting to ensure fresh creation",
+                        branch_name,
+                    )
+                    delete_branch_result = subprocess.run(
+                        ["git", "branch", "-D", branch_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=GIT_TIMEOUT,
+                        cwd=repo_path,
+                    )
+                    if delete_branch_result.returncode != 0:
+                        logger.debug(
+                            "git branch -D %s failed: exit_code=%d, stderr=%s",
+                            branch_name,
+                            delete_branch_result.returncode,
+                            delete_branch_result.stderr.strip(),
+                        )
+                        error_msg = ERROR_DELETE_BRANCH_FAILED.format(branch=branch_name)
+                        logger.error(error_msg)
+                        return StepResult.fail(error_msg)
+                    logger.debug("Deleted existing branch %s", branch_name)
+                else:
+                    logger.debug("Local branch %s does not exist, will create fresh", branch_name)
+
+                # Create and checkout new workflow branch
+                create_branch_result = subprocess.run(
+                    ["git", "checkout", "-b", branch_name],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if create_branch_result.returncode != 0:
+                    logger.debug(
+                        "git checkout -b %s failed: exit_code=%d, stderr=%s",
+                        branch_name,
+                        create_branch_result.returncode,
+                        create_branch_result.stderr.strip(),
+                    )
+                    error_msg = ERROR_CREATE_BRANCH_FAILED.format(branch=branch_name)
+                    logger.error(error_msg)
+                    return StepResult.fail(error_msg)
+                logger.debug("Created and checked out branch %s in repo %s", branch_name, repo_path)
+
+            # Step 5: Persist branch name to database (once, after all repos succeed)
             update_issue(context.require_issue_id, branch=branch_name)
             logger.debug(
                 "Persisted branch name %s for issue %s", branch_name, context.require_issue_id
