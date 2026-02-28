@@ -75,7 +75,7 @@ class ComposeRequestStep(WorkflowStep):
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 slash_command="/adw-pull-request",
-                args=[],
+                args=context.repo_paths,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",

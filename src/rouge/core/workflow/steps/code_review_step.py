@@ -7,7 +7,6 @@ import subprocess
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import CodeReviewArtifact, PlanArtifact
-from rouge.core.workflow.shared import get_repo_path
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
 
@@ -170,7 +169,7 @@ class CodeReviewStep(WorkflowStep):
             logger.warning("No plan data available: %s", e)
             return StepResult.fail(f"No plan data available: {e}")
 
-        repo_path = get_repo_path()
+        repo_path = context.repo_paths[0]
 
         # Only codereview workflows should pass a base commit to CodeRabbit.
         # Main/patch workflows use plan_data.plan for markdown content, not a git SHA.
