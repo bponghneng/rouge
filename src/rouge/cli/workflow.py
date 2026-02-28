@@ -7,7 +7,7 @@ import typer
 
 from rouge.adw.adw import execute_adw_workflow
 from rouge.core.utils import make_adw_id
-from rouge.core.workflow.shared import get_repo_path
+from rouge.core.workflow.shared import get_repo_paths
 
 app = typer.Typer(help="Workflow execution commands")
 
@@ -27,7 +27,7 @@ def resolve_to_sha(ref: str) -> str:
     Raises:
         typer.Exit: If the reference cannot be resolved.
     """
-    repo_path = get_repo_path()
+    repo_path = get_repo_paths()[0]
     try:
         result = subprocess.run(
             ["git", "rev-parse", ref],

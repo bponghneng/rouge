@@ -22,13 +22,20 @@ AGENT_COMMIT_COMPOSER = "commit_composer"
 IMPLEMENT_STEP_NAME = "Implementing solution"
 
 
-def get_repo_path() -> str:
-    """Get repository root path from environment or current directory.
+def get_repo_paths() -> list[str]:
+    """Get repository root paths from environment or current directory.
+
+    Reads REPO_PATH, splits on ",", strips each element, and filters empty
+    strings.  Returns ``[os.getcwd()]`` when the result is empty (i.e. the
+    variable is unset or blank).
 
     Returns:
-        Repository root path, defaults to current directory if not set
+        List of repository root paths, defaults to [os.getcwd()] if not set
     """
-    return os.getenv("REPO_PATH", os.getcwd())
+    raw = os.getenv("REPO_PATH", "")
+    paths = [p.strip() for p in raw.split(",")]
+    paths = [p for p in paths if p]
+    return paths if paths else [os.getcwd()]
 
 
 def get_working_dir() -> str:
