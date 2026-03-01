@@ -244,8 +244,9 @@ class GlabPullRequestStep(WorkflowStep):
                         )
                 except subprocess.TimeoutExpired:
                     logger.debug("git push timed out for %s, continuing to MR creation", repo_name)
-                except Exception as e:
-                    logger.debug("git push failed for %s: %s", repo_name, e)
+                except OSError as e:
+                    logger.exception("git push failed for %s: %s", repo_name, e)
+                    raise
 
                 cmd = [
                     "glab",
