@@ -147,7 +147,7 @@ class GhPullRequestStep(WorkflowStep):
                     )
                     pull_requests = list(existing_artifact.pull_requests)
                     logger.debug("Seeded %d existing PR entries from artifact", len(pull_requests))
-                except Exception as e:
+                except (FileNotFoundError, ValueError) as e:
                     logger.debug("Could not load existing gh-pull-request artifact: %s", e)
 
             for repo_path in context.repo_paths:
@@ -341,7 +341,9 @@ class GhPullRequestStep(WorkflowStep):
                     pull_requests=pull_requests,
                     platform="github",
                 )
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+                status, msg = emit_artifact_comment(
+                    context.require_issue_id, context.adw_id, artifact
+                )
                 log_artifact_comment_status(status, msg)
 
                 pr_urls = [entry.url for entry in pull_requests]
