@@ -77,6 +77,17 @@ class Issue(BaseModel):
             raise ValueError("adw_id cannot be blank or whitespace-only")
         return stripped
 
+    @field_validator("assigned_to")
+    @classmethod
+    def trim_assigned_to(cls, v: Optional[str]) -> Optional[str]:
+        """Trim whitespace from assigned_to if provided."""
+        if v is None:
+            return None
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("assigned_to cannot be blank or whitespace-only")
+        return stripped
+
     @field_validator("branch")
     @classmethod
     def trim_branch(cls, v: Optional[str]) -> Optional[str]:

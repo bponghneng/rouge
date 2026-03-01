@@ -527,7 +527,10 @@ def list_issues(
 def update(
     issue_id: int = typer.Argument(..., help="The issue ID to update"),
     assigned_to: Optional[str] = typer.Option(
-        None, "--assigned-to", help="Worker ID to assign", show_default=True
+        None,
+        "--assigned-to",
+        help="Assignee identifier (email, agent name, or custom ID)",
+        show_default=True,
     ),
     issue_type: Optional[str] = typer.Option(
         None, "--type", help="Issue type: 'main', 'patch', or 'codereview'", show_default=True
