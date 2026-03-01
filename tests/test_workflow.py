@@ -1016,12 +1016,12 @@ def test_create_gitlab_mr_step_glab_command_failure(
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit):
-    """Test MR creation handles timeout on glab mr create (propagates to outer handler)."""
+    """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
     import subprocess
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: rev-parse, mr list (empty), push, glab mr create (timeout → outer handler)
+    # Step calls: rev-parse, mr list (empty), push, glab mr create (timeout caught per-repo)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
@@ -1046,8 +1046,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit):
     step = GlabPullRequestStep()
     result = step.run(context)
 
-    assert result.success is False
-    mock_logger.exception.assert_called_with("glab mr create timed out after 120 seconds")
+    # Per-repo timeout is caught in the inner loop; step continues and returns success
+    assert result.success is True
+    mock_logger.warning.assert_called()
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
