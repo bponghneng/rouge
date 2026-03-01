@@ -144,6 +144,7 @@ class GitCheckoutStep(WorkflowStep):
             return StepResult.fail(error_msg)
 
         try:
+            checked_out_repos: list[str] = []
             for repo_path in context.repo_paths:
                 logger.info("Processing repo: %s", repo_path)
 
@@ -249,9 +250,12 @@ class GitCheckoutStep(WorkflowStep):
                                 fallback_result.returncode,
                                 fallback_result.stderr.strip(),
                             )
-                            error_msg = ERROR_MISSING_BRANCH.format(branch=branch)
-                            logger.error(error_msg)
-                            return StepResult.fail(error_msg)
+                            logger.warning(
+                                "Branch '%s' not found in repo %s, skipping",
+                                branch,
+                                repo_path,
+                            )
+                            continue
                         logger.debug("Checked out branch %s from remote", branch)
                     else:
                         # Other checkout failure - fail fast without fallback
@@ -284,6 +288,13 @@ class GitCheckoutStep(WorkflowStep):
                     logger.error(error_msg)
                     return StepResult.fail(error_msg)
                 logger.debug("Pulled latest changes for branch %s in repo %s", branch, repo_path)
+                checked_out_repos.append(repo_path)
+
+            # Fail if the branch was not found in any repo
+            if not checked_out_repos:
+                error_msg = ERROR_MISSING_BRANCH.format(branch=branch)
+                logger.error(error_msg)
+                return StepResult.fail(error_msg)
 
             # Save artifact if artifact store is available (once, after all repos succeed)
             if context.artifact_store is not None:
