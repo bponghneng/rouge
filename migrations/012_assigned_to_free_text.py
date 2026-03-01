@@ -16,6 +16,7 @@ __depends__ = {"011_add_codereview_issue_type"}
 # Update get_and_lock_next_issue function to accept TEXT parameter before column conversion
 step(
     """
+    DROP FUNCTION IF EXISTS get_and_lock_next_issue(worker_id);
     CREATE OR REPLACE FUNCTION get_and_lock_next_issue(p_worker_id TEXT)
     RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
     LANGUAGE plpgsql
@@ -25,7 +26,7 @@ step(
         WITH next_issue AS (
             SELECT i.id
             FROM issues i
-            WHERE i.type IN ('main', 'patch')
+            WHERE i.type IN ('main', 'patch', 'codereview')
               AND i.status = 'pending'
               AND i.assigned_to::TEXT = p_worker_id
             ORDER BY i.id
