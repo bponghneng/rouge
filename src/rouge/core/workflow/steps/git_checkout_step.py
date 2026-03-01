@@ -73,7 +73,6 @@ class GitCheckoutStep(WorkflowStep):
     from the remote with tracking (git checkout -t origin/<branch>).
 
     Environment Variables:
-        REPO_PATH: The repository path (defaults to current directory)
         ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS: Set to "true" to allow destructive git
             operations (git reset --hard, git clean -fd) for cleaning dirty
             working trees. Required for non-worker environments to prevent
