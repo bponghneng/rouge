@@ -20,6 +20,7 @@ def mock_context():
     context.data = {}
     context.artifact_store = Mock()
     context.repo_paths = ["/path/to/repo"]
+    context.load_optional_artifact.return_value = None
     return context
 
 
