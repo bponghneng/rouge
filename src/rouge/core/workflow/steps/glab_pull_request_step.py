@@ -133,7 +133,7 @@ class GlabPullRequestStep(WorkflowStep):
                     logger.debug("Could not load existing glab-pull-request artifact: %s", e)
 
             for repo_path in context.repo_paths:
-                repo_name = os.path.basename(repo_path)
+                repo_name = os.path.basename(os.path.normpath(repo_path))
 
                 # Layer 1: Already done check — skip if this repo_path is already recorded
                 already_done = any(entry.repo_path == repo_path for entry in pull_requests)
@@ -260,14 +260,25 @@ class GlabPullRequestStep(WorkflowStep):
 
                 logger.debug("Executing: %s (cwd=%s)", " ".join(cmd), repo_path)
 
-                result = subprocess.run(
-                    cmd,
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=120,
-                    cwd=repo_path,
-                )
+                try:
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        env=env,
+                        timeout=120,
+                        cwd=repo_path,
+                    )
+                except subprocess.TimeoutExpired:
+                    error_msg = f"glab mr create timed out for {repo_name} after 120 seconds"
+                    logger.warning(error_msg)
+                    _emit_and_log(
+                        context.require_issue_id,
+                        context.adw_id,
+                        error_msg,
+                        {"output": "merge-request-failed", "error": error_msg},
+                    )
+                    continue
 
                 if result.returncode != 0:
                     error_msg = (
