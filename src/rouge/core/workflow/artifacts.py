@@ -299,12 +299,17 @@ class GitCheckoutArtifact(Artifact):
 
     Attributes:
         branch: The name of the branch that was checked out
+        checked_out_repos: List of repo paths where the branch was successfully checked out
     """
 
     artifact_type: Literal["git-checkout"] = "git-checkout"
     branch: str = Field(
         description=("The name of the git branch that was checked out for the workflow"),
         min_length=1,
+    )
+    checked_out_repos: List[str] = Field(
+        default_factory=list,
+        description="Repo paths where the branch was successfully checked out",
     )
 
 

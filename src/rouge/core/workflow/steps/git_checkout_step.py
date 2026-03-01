@@ -301,6 +301,7 @@ class GitCheckoutStep(WorkflowStep):
                 artifact = GitCheckoutArtifact(
                     workflow_id=context.adw_id,
                     branch=branch,
+                    checked_out_repos=checked_out_repos,
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved git_checkout artifact for workflow %s", context.adw_id)

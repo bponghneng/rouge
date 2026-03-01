@@ -6,7 +6,7 @@ import subprocess
 
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow.artifacts import CodeReviewArtifact, PlanArtifact
+from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
 
@@ -170,6 +170,19 @@ class CodeReviewStep(WorkflowStep):
             return StepResult.fail(f"No plan data available: {e}")
 
         repo_path = context.repo_paths[0]
+
+        # For codereview/patch workflows, prefer repos where the branch was
+        # actually checked out (stored in GitCheckoutArtifact). Fall back to
+        # repo_paths[0] when the artifact is absent (e.g. main workflow).
+        checkout_artifact = context.load_optional_artifact(
+            "git_checkout",
+            "git-checkout",
+            GitCheckoutArtifact,
+            lambda a: a,
+        )
+        if checkout_artifact is not None and checkout_artifact.checked_out_repos:
+            repo_path = checkout_artifact.checked_out_repos[0]
+            logger.debug("Using checked-out repo from GitCheckoutArtifact: %s", repo_path)
 
         # Only codereview workflows should pass a base commit to CodeRabbit.
         # Main/patch workflows use plan_data.plan for markdown content, not a git SHA.
