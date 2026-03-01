@@ -149,11 +149,10 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
 # === context.issue path (source-agnostic) ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.get_repo_path")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
 def test_checkout_step_uses_context_issue_when_no_artifact(
-    mock_subprocess, mock_get_repo_path, tmp_path
+    mock_subprocess, tmp_path
 ) -> None:
     """Step uses context.issue directly when no FetchPatchArtifact is present.
 
@@ -161,8 +160,6 @@ def test_checkout_step_uses_context_issue_when_no_artifact(
     without requiring a FetchPatchArtifact on disk, and that the branch
     from context.issue is passed to git checkout.
     """
-    mock_get_repo_path.return_value = "/repo"
-
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
@@ -172,7 +169,7 @@ def test_checkout_step_uses_context_issue_when_no_artifact(
     issue = _make_issue(branch="context-issue-branch")
     store = ArtifactStore(workflow_id="test-ctx", base_path=tmp_path)
     # Intentionally do NOT write a FetchPatchArtifact to the store.
-    ctx = WorkflowContext(issue_id=1, adw_id="test-ctx", issue=issue, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="test-ctx", issue=issue, artifact_store=store, repo_paths=["/repo"])
 
     step = GitCheckoutStep()
     result = step.run(ctx)
