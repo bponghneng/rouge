@@ -4,9 +4,12 @@ import logging
 import os
 import subprocess
 
+from rouge.core.agent import execute_template
+from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
+from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
 
@@ -221,6 +224,78 @@ class CodeReviewStep(WorkflowStep):
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved review artifact for workflow %s", context.adw_id)
+
+        # Post review summary to PR/MR if pr_number is available
+        pr_number = context.data.get("pr_number")
+        platform = os.environ.get("DEV_SEC_OPS_PLATFORM")
+
+        if pr_number and platform:
+            try:
+                # Call Claude to summarise the review
+                request = ClaudeAgentTemplateRequest(
+                    agent_name=AGENT_PLANNER,
+                    slash_command="/adw-code-review-summary",
+                    args=[review_result.data.review_text],
+                    adw_id=context.adw_id,
+                    issue_id=context.issue_id,
+                    model="sonnet",
+                )
+                summary_response = execute_template(request, require_json=False)
+
+                if not summary_response.success or not summary_response.output:
+                    logger.warning("Failed to generate review summary, skipping PR comment")
+                else:
+                    summary = summary_response.output.strip()
+                    body = (
+                        f"{summary}\n\n<details><summary>Full review</summary>"
+                        f"\n\n{review_result.data.review_text}\n</details>"
+                    )
+
+                    # Post comment via CLI
+                    if platform == "github":
+                        result = subprocess.run(
+                            ["gh", "pr", "comment", str(pr_number), "--body", body],
+                            cwd=repo_path,
+                            timeout=30,
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        if result.returncode != 0:
+                            logger.error(
+                                "Failed to post review summary to PR #%s (repo=%s): "
+                                "%s\nstdout: %s\nstderr: %s",
+                                pr_number,
+                                repo_path,
+                                result.returncode,
+                                result.stdout,
+                                result.stderr,
+                            )
+                        else:
+                            logger.info("Posted review summary to PR #%s", pr_number)
+                    elif platform == "gitlab":
+                        result = subprocess.run(
+                            ["glab", "mr", "comment", str(pr_number), "--message", body],
+                            cwd=repo_path,
+                            timeout=30,
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        if result.returncode != 0:
+                            logger.error(
+                                "Failed to post review summary to MR #%s (repo=%s): "
+                                "%s\nstdout: %s\nstderr: %s",
+                                pr_number,
+                                repo_path,
+                                result.returncode,
+                                result.stdout,
+                                result.stderr,
+                            )
+                        else:
+                            logger.info("Posted review summary to MR #%s", pr_number)
+            except Exception as e:
+                logger.warning("Failed to post PR comment: %s", e)
 
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:

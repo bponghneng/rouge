@@ -16,6 +16,7 @@ SlashCommand = Literal[
     "/adw-chore-plan",
     "/adw-classify",
     "/adw-code-quality",
+    "/adw-code-review-summary",
     "/adw-compose-commits",
     "/adw-feature-plan",
     "/adw-find-plan-file",
