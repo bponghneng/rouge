@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 
 # Required fields for review plan output JSON
 # Review plan output must have output="plan", base_commit, and summary
+# pr_number is optional and handled separately after validation
 REVIEW_PLAN_REQUIRED_FIELDS = {
     "output": str,
     "base_commit": str,
@@ -36,7 +37,8 @@ REVIEW_PLAN_JSON_SCHEMA = """{
   "properties": {
     "output": { "type": "string", "const": "plan" },
     "base_commit": { "type": "string", "minLength": 1 },
-    "summary": { "type": "string", "minLength": 1 }
+    "summary": { "type": "string", "minLength": 1 },
+    "pr_number": { "type": ["integer", "null"] }
   },
   "required": ["output", "base_commit", "summary"]
 }"""
@@ -126,12 +128,23 @@ class ReviewPlanStep(WorkflowStep):
             )
         summary = parsed_data.get("summary", "")
 
+        # Extract optional pr_number field (best-effort, null allowed for branch-only workflows)
+        pr_number = parsed_data.get("pr_number")
+        if pr_number is not None and not isinstance(pr_number, int):
+            # Invalid type for pr_number - log warning and treat as None (best-effort)
+            logger.warning(
+                "pr_number has invalid type %s (expected int or null), treating as null",
+                type(pr_number).__name__,
+            )
+            pr_number = None
+
         # Store base_commit as the plan field and summary as rationale
         return StepResult.ok(
             PlanData(
                 plan=base_commit,
                 summary=summary,
                 session_id=response.session_id,
+                pr_number=pr_number,
             ),
             parsed_data=parsed_data,
         )
@@ -173,6 +186,7 @@ class ReviewPlanStep(WorkflowStep):
         # Also store codereview metadata directly in context for downstream steps.
         context.data["workflow_type"] = "codereview"
         context.data["base_commit"] = derive_response.data.plan
+        context.data["pr_number"] = derive_response.data.pr_number
 
         # Save artifact
         artifact = PlanArtifact(

@@ -155,11 +155,13 @@ class PlanData(BaseModel):
         plan: The parsed plan content (markdown)
         summary: Summary of the plan
         session_id: Optional session ID for continuation
+        pr_number: Optional PR number if plan was created from PR context
     """
 
     plan: str
     summary: str
     session_id: Optional[str] = None
+    pr_number: Optional[int] = None
 
 
 class ImplementData(BaseModel):
