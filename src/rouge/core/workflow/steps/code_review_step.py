@@ -151,6 +151,103 @@ class CodeReviewStep(WorkflowStep):
             logger.exception("Failed to generate review")
             return StepResult.fail(f"Failed to generate review: {e}")
 
+    def _post_review_summary_to_pr(
+        self,
+        review_text: str,
+        pr_number: int,
+        platform: str,
+        repo_path: str,
+        adw_id: str | None,
+        issue_id: int | None,
+    ) -> None:
+        """Summarise the review with Claude and post it as a PR/MR comment.
+
+        Best-effort: all failures are logged and suppressed so the step does not halt.
+        PAT tokens are forwarded following the project convention (GITHUB_PAT → GH_TOKEN,
+        GITLAB_PAT → GITLAB_TOKEN).
+
+        Args:
+            review_text: Full CodeRabbit review text to summarise.
+            pr_number: PR or MR number to comment on.
+            platform: ``"github"`` or ``"gitlab"`` (from DEV_SEC_OPS_PLATFORM).
+            repo_path: Repository root path for CLI invocations.
+            adw_id: Optional ADW ID for the Claude request.
+            issue_id: Optional Rouge issue ID for the Claude request.
+        """
+        platform_lower = platform.strip().lower()
+        if platform_lower not in {"github", "gitlab"}:
+            logger.warning(
+                "Unsupported DEV_SEC_OPS_PLATFORM value: %s, skipping PR comment", platform
+            )
+            return
+
+        try:
+            request = ClaudeAgentTemplateRequest(
+                agent_name=AGENT_PLANNER,
+                slash_command="/adw-code-review-summary",
+                args=[review_text],
+                adw_id=adw_id or "",
+                issue_id=issue_id,
+                model="sonnet",
+            )
+            summary_response = execute_template(request, require_json=False)
+
+            if not summary_response.success or not summary_response.output:
+                logger.warning("Failed to generate review summary, skipping PR comment")
+                return
+
+            summary = summary_response.output.strip()
+            body = (
+                f"{summary}\n\n<details><summary>Full review</summary>"
+                f"\n\n{review_text}\n</details>"
+            )
+
+            env = os.environ.copy()
+            if platform_lower == "github":
+                github_pat = os.environ.get("GITHUB_PAT")
+                if github_pat:
+                    env["GH_TOKEN"] = github_pat
+                cmd = ["gh", "pr", "comment", str(pr_number), "--body", body]
+                label = f"PR #{pr_number}"
+            else:
+                gitlab_pat = os.environ.get("GITLAB_PAT")
+                if gitlab_pat:
+                    env["GITLAB_TOKEN"] = gitlab_pat
+                cmd = ["glab", "mr", "comment", str(pr_number), "--message", body]
+                label = f"MR #{pr_number}"
+
+            result = subprocess.run(
+                cmd,
+                cwd=repo_path,
+                timeout=30,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+            if result.returncode != 0:
+                logger.error(
+                    "Failed to post review summary to %s (repo=%s): "
+                    "exit=%s\nstdout: %s\nstderr: %s",
+                    label,
+                    repo_path,
+                    result.returncode,
+                    result.stdout,
+                    result.stderr,
+                )
+            else:
+                logger.info("Posted review summary to %s", label)
+
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            OSError,
+            subprocess.SubprocessError,
+        ) as e:
+            logger.error("Failed to post PR comment: %s", e, exc_info=True)
+        except Exception as e:
+            logger.error("Unexpected error posting PR comment: %s", e, exc_info=True)
+
     def run(self, context: WorkflowContext) -> StepResult:
         """Generate review and store result in context.
 
@@ -230,72 +327,14 @@ class CodeReviewStep(WorkflowStep):
         platform = os.environ.get("DEV_SEC_OPS_PLATFORM")
 
         if pr_number and platform:
-            try:
-                # Call Claude to summarise the review
-                request = ClaudeAgentTemplateRequest(
-                    agent_name=AGENT_PLANNER,
-                    slash_command="/adw-code-review-summary",
-                    args=[review_result.data.review_text],
-                    adw_id=context.adw_id,
-                    issue_id=context.issue_id,
-                    model="sonnet",
-                )
-                summary_response = execute_template(request, require_json=False)
-
-                if not summary_response.success or not summary_response.output:
-                    logger.warning("Failed to generate review summary, skipping PR comment")
-                else:
-                    summary = summary_response.output.strip()
-                    body = (
-                        f"{summary}\n\n<details><summary>Full review</summary>"
-                        f"\n\n{review_result.data.review_text}\n</details>"
-                    )
-
-                    # Post comment via CLI
-                    if platform == "github":
-                        result = subprocess.run(
-                            ["gh", "pr", "comment", str(pr_number), "--body", body],
-                            cwd=repo_path,
-                            timeout=30,
-                            capture_output=True,
-                            text=True,
-                            check=False,
-                        )
-                        if result.returncode != 0:
-                            logger.error(
-                                "Failed to post review summary to PR #%s (repo=%s): "
-                                "%s\nstdout: %s\nstderr: %s",
-                                pr_number,
-                                repo_path,
-                                result.returncode,
-                                result.stdout,
-                                result.stderr,
-                            )
-                        else:
-                            logger.info("Posted review summary to PR #%s", pr_number)
-                    elif platform == "gitlab":
-                        result = subprocess.run(
-                            ["glab", "mr", "comment", str(pr_number), "--message", body],
-                            cwd=repo_path,
-                            timeout=30,
-                            capture_output=True,
-                            text=True,
-                            check=False,
-                        )
-                        if result.returncode != 0:
-                            logger.error(
-                                "Failed to post review summary to MR #%s (repo=%s): "
-                                "%s\nstdout: %s\nstderr: %s",
-                                pr_number,
-                                repo_path,
-                                result.returncode,
-                                result.stdout,
-                                result.stderr,
-                            )
-                        else:
-                            logger.info("Posted review summary to MR #%s", pr_number)
-            except Exception as e:
-                logger.warning("Failed to post PR comment: %s", e)
+            self._post_review_summary_to_pr(
+                review_text=review_result.data.review_text,
+                pr_number=pr_number,
+                platform=platform,
+                repo_path=repo_path,
+                adw_id=context.adw_id,
+                issue_id=context.issue_id,
+            )
 
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:
