@@ -161,7 +161,7 @@ class PlanData(BaseModel):
     plan: str
     summary: str
     session_id: Optional[str] = None
-    pr_number: Optional[int] = Field(default=None, gt=0)
+    pr_number: Optional[int] = None
 
 
 class ImplementData(BaseModel):
