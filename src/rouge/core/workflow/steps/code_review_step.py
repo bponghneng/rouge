@@ -8,7 +8,6 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.utils import post_comment_to_pr
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
@@ -207,7 +206,81 @@ class CodeReviewStep(WorkflowStep):
         body = (
             f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
         )
-        post_comment_to_pr(body, pr_number, platform_lower, repo_path)
+        self._post_comment_to_pr(
+            body=body, pr_number=pr_number, platform_lower=platform_lower, repo_path=repo_path
+        )
+
+    def _post_comment_to_pr(
+        self,
+        body: str,
+        pr_number: int,
+        platform_lower: str,
+        repo_path: str,
+    ) -> None:
+        """Post a pre-formatted comment to a GitHub PR or GitLab MR via CLI.
+
+        Best-effort: failures are logged and suppressed. PAT tokens are forwarded
+        following the project convention (GITHUB_PAT → GH_TOKEN, GITLAB_PAT → GITLAB_TOKEN).
+        The caller is responsible for validating that ``platform_lower`` is a supported value.
+
+        Args:
+            body: Comment body text to post.
+            pr_number: PR or MR number to comment on (caller has already validated > 0).
+            platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
+            repo_path: Repository root path for CLI invocation.
+        """
+        if not repo_path.strip():
+            logger.warning("Empty repo_path, skipping PR comment")
+            return
+
+        if not body.strip():
+            logger.warning("Empty body, skipping PR comment")
+            return
+
+        env = os.environ.copy()
+        if platform_lower == "github":
+            github_pat = os.environ.get("GITHUB_PAT")
+            if github_pat:
+                env["GH_TOKEN"] = github_pat
+            cmd = ["gh", "pr", "comment", str(pr_number), "--body", body]
+            label = f"PR #{pr_number}"
+        else:
+            gitlab_pat = os.environ.get("GITLAB_PAT")
+            if gitlab_pat:
+                env["GITLAB_TOKEN"] = gitlab_pat
+            cmd = ["glab", "mr", "comment", str(pr_number), "--message", body]
+            label = f"MR #{pr_number}"
+
+        try:
+            result = subprocess.run(
+                cmd,
+                cwd=repo_path,
+                timeout=30,
+                capture_output=True,
+                text=True,
+                check=False,
+                env=env,
+            )
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            OSError,
+            subprocess.SubprocessError,
+        ) as e:
+            logger.error("Failed to post PR comment via CLI: %s", e, exc_info=True)
+            return
+
+        if result.returncode != 0:
+            logger.error(
+                "Failed to post review summary to %s (repo=%s): exit=%s\nstdout: %s\nstderr: %s",
+                label,
+                repo_path,
+                result.returncode,
+                result.stdout,
+                result.stderr,
+            )
+        else:
+            logger.info("Posted review summary to %s", label)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Generate review and store result in context.
