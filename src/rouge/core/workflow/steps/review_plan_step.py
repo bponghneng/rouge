@@ -128,7 +128,9 @@ class ReviewPlanStep(WorkflowStep):
             )
         summary = parsed_data.get("summary", "")
 
-        # Extract optional pr_number field (best-effort, null allowed for branch-only workflows)
+        # Extract optional pr_number field (best-effort, null allowed for branch-only workflows).
+        # The /adw-review-plan slash command is responsible for recognising PR/MR patterns
+        # (e.g. "PR #42", "MR !7") from the issue description; we only validate the value here.
         pr_number = parsed_data.get("pr_number")
         if pr_number is not None and not isinstance(pr_number, int):
             # Invalid type for pr_number - log warning and treat as None (best-effort)
