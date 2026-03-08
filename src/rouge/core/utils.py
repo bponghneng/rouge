@@ -152,6 +152,14 @@ def post_comment_to_pr(body: str, pr_number: int, platform_lower: str, repo_path
         logger.warning("Unsupported platform: %s, skipping PR comment", platform_lower)
         return
 
+    if pr_number <= 0:
+        logger.warning("Invalid pr_number %s, skipping PR comment", pr_number)
+        return
+
+    if not body.strip():
+        logger.warning("Empty body, skipping PR comment")
+        return
+
     env = os.environ.copy()
     if platform_lower == "github":
         github_pat = os.environ.get("GITHUB_PAT")
