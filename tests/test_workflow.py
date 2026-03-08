@@ -308,7 +308,9 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which):
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
-    mock_pr_result = Mock(returncode=0, stdout="https://github.com/owner/repo/pull/123\n", stderr="")
+    mock_pr_result = Mock(
+        returncode=0, stdout="https://github.com/owner/repo/pull/123\n", stderr=""
+    )
 
     mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
 
@@ -428,9 +430,7 @@ def test_create_pr_step_empty_title(mock_emit):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_already_exists_is_success(
-    mock_subprocess, mock_emit, mock_which
-):
+def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which):
     """Test PR creation is idempotent when gh pr list returns an existing PR (Layer 2 adopt)."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -473,9 +473,7 @@ def test_create_pr_step_already_exists_is_success(
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_command_failure(
-    mock_subprocess, mock_emit, mock_which
-):
+def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which):
     """Test PR creation handles gh command failure."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -596,9 +594,7 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_push_failure_continues_to_pr(
-    mock_subprocess, mock_emit, mock_which
-):
+def test_create_pr_step_push_failure_continues_to_pr(mock_subprocess, mock_emit, mock_which):
     """Test PR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -640,9 +636,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_push_timeout_continues_to_pr(
-    mock_subprocess, mock_emit, mock_which
-):
+def test_create_pr_step_push_timeout_continues_to_pr(mock_subprocess, mock_emit, mock_which):
     """Test PR creation continues even when git push times out."""
     import subprocess
 
@@ -701,16 +695,26 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
     mock_push_a = Mock(returncode=0, stdout="", stderr="")
-    mock_pr_create_a = Mock(returncode=0, stdout="https://github.com/owner/repo-a/pull/1\n", stderr="")
+    mock_pr_create_a = Mock(
+        returncode=0, stdout="https://github.com/owner/repo-a/pull/1\n", stderr=""
+    )
 
     mock_rev_parse_b = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_b = Mock(returncode=0, stdout="[]", stderr="")
     mock_push_b = Mock(returncode=0, stdout="", stderr="")
-    mock_pr_create_b = Mock(returncode=0, stdout="https://github.com/owner/repo-b/pull/2\n", stderr="")
+    mock_pr_create_b = Mock(
+        returncode=0, stdout="https://github.com/owner/repo-b/pull/2\n", stderr=""
+    )
 
     mock_subprocess.side_effect = [
-        mock_rev_parse_a, mock_pr_list_a, mock_push_a, mock_pr_create_a,
-        mock_rev_parse_b, mock_pr_list_b, mock_push_b, mock_pr_create_b,
+        mock_rev_parse_a,
+        mock_pr_list_a,
+        mock_push_a,
+        mock_pr_create_a,
+        mock_rev_parse_b,
+        mock_pr_list_b,
+        mock_push_b,
+        mock_pr_create_b,
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
@@ -779,8 +783,14 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     mock_pr_fail_b = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-b")
 
     mock_subprocess.side_effect = [
-        mock_rev_parse_a, mock_pr_list_a, mock_push_a, mock_pr_fail_a,
-        mock_rev_parse_b, mock_pr_list_b, mock_push_b, mock_pr_fail_b,
+        mock_rev_parse_a,
+        mock_pr_list_a,
+        mock_push_a,
+        mock_pr_fail_a,
+        mock_rev_parse_b,
+        mock_pr_list_b,
+        mock_push_b,
+        mock_pr_fail_b,
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
@@ -811,10 +821,14 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     assert failure_outputs == ["pull-request-failed", "pull-request-failed"]
 
     # Each failure payload references the corresponding repo
-    assert "/repo/a" in mock_emit.call_args_list[0][0][0].raw["error"] or \
-        "repo-a" in mock_emit.call_args_list[0][0][0].raw["error"]
-    assert "/repo/b" in mock_emit.call_args_list[1][0][0].raw["error"] or \
-        "repo-b" in mock_emit.call_args_list[1][0][0].raw["error"]
+    assert (
+        "/repo/a" in mock_emit.call_args_list[0][0][0].raw["error"]
+        or "repo-a" in mock_emit.call_args_list[0][0][0].raw["error"]
+    )
+    assert (
+        "/repo/b" in mock_emit.call_args_list[1][0][0].raw["error"]
+        or "repo-b" in mock_emit.call_args_list[1][0][0].raw["error"]
+    )
 
 
 def test_create_pr_step_is_not_critical():
@@ -976,9 +990,7 @@ def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
 @patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_command_failure(
-    mock_subprocess, mock_logger, mock_emit
-):
+def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_logger, mock_emit):
     """Test MR creation handles glab command failure (best-effort: returns success)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1057,9 +1069,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit):
 @patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(
-    mock_subprocess, mock_logger, mock_emit
-):
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_logger, mock_emit):
     """Test MR creation handles glab CLI not found (propagates to outer FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1098,9 +1108,7 @@ def test_create_gitlab_mr_step_glab_not_found(
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_failure_continues_to_mr(
-    mock_subprocess, mock_emit
-):
+def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit):
     """Test MR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1138,9 +1146,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
-    mock_subprocess, mock_emit
-):
+def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit):
     """Test MR creation continues even when git push times out."""
     import subprocess
 
