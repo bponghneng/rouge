@@ -181,6 +181,9 @@ class CodeReviewStep(WorkflowStep):
             )
             return
 
+        # Phase 1: generate summary via Claude (execute_template calls into
+        # Claude CLI and Supabase; its exception surface is unbounded, so this
+        # is treated as an external boundary and caught broadly).
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PLANNER,
@@ -191,31 +194,35 @@ class CodeReviewStep(WorkflowStep):
                 model="sonnet",
             )
             summary_response = execute_template(request, require_json=False)
+        except Exception as e:
+            logger.error("Failed to call /adw-code-review-summary: %s", e, exc_info=True)
+            return
 
-            if not summary_response.success or not summary_response.output:
-                logger.warning("Failed to generate review summary, skipping PR comment")
-                return
+        if not summary_response.success or not summary_response.output:
+            logger.warning("Failed to generate review summary, skipping PR comment")
+            return
 
-            summary = summary_response.output.strip()
-            body = (
-                f"{summary}\n\n<details><summary>Full review</summary>"
-                f"\n\n{review_text}\n</details>"
-            )
+        summary = summary_response.output.strip()
+        body = (
+            f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
+        )
 
-            env = os.environ.copy()
-            if platform_lower == "github":
-                github_pat = os.environ.get("GITHUB_PAT")
-                if github_pat:
-                    env["GH_TOKEN"] = github_pat
-                cmd = ["gh", "pr", "comment", str(pr_number), "--body", body]
-                label = f"PR #{pr_number}"
-            else:
-                gitlab_pat = os.environ.get("GITLAB_PAT")
-                if gitlab_pat:
-                    env["GITLAB_TOKEN"] = gitlab_pat
-                cmd = ["glab", "mr", "comment", str(pr_number), "--message", body]
-                label = f"MR #{pr_number}"
+        # Phase 2: post the comment via platform CLI.
+        env = os.environ.copy()
+        if platform_lower == "github":
+            github_pat = os.environ.get("GITHUB_PAT")
+            if github_pat:
+                env["GH_TOKEN"] = github_pat
+            cmd = ["gh", "pr", "comment", str(pr_number), "--body", body]
+            label = f"PR #{pr_number}"
+        else:
+            gitlab_pat = os.environ.get("GITLAB_PAT")
+            if gitlab_pat:
+                env["GITLAB_TOKEN"] = gitlab_pat
+            cmd = ["glab", "mr", "comment", str(pr_number), "--message", body]
+            label = f"MR #{pr_number}"
 
+        try:
             result = subprocess.run(
                 cmd,
                 cwd=repo_path,
@@ -225,28 +232,26 @@ class CodeReviewStep(WorkflowStep):
                 check=False,
                 env=env,
             )
-            if result.returncode != 0:
-                logger.error(
-                    "Failed to post review summary to %s (repo=%s): "
-                    "exit=%s\nstdout: %s\nstderr: %s",
-                    label,
-                    repo_path,
-                    result.returncode,
-                    result.stdout,
-                    result.stderr,
-                )
-            else:
-                logger.info("Posted review summary to %s", label)
-
         except (
             subprocess.TimeoutExpired,
             FileNotFoundError,
             OSError,
             subprocess.SubprocessError,
         ) as e:
-            logger.error("Failed to post PR comment: %s", e, exc_info=True)
-        except Exception as e:
-            logger.error("Unexpected error posting PR comment: %s", e, exc_info=True)
+            logger.error("Failed to post PR comment via CLI: %s", e, exc_info=True)
+            return
+
+        if result.returncode != 0:
+            logger.error(
+                "Failed to post review summary to %s (repo=%s): " "exit=%s\nstdout: %s\nstderr: %s",
+                label,
+                repo_path,
+                result.returncode,
+                result.stdout,
+                result.stderr,
+            )
+        else:
+            logger.info("Posted review summary to %s", label)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Generate review and store result in context.
