@@ -7,6 +7,8 @@ and rationale, storing the result as a PlanArtifact.
 
 import logging
 
+from pydantic import ValidationError
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -128,35 +130,36 @@ class ReviewPlanStep(WorkflowStep):
             )
         summary = parsed_data.get("summary", "")
 
-        # Extract optional pr_number field (best-effort, null allowed for branch-only workflows).
-        # The /adw-review-plan slash command is responsible for recognising PR/MR patterns
-        # (e.g. "PR #42", "MR !7") from the issue description; we only validate the value here.
         pr_number = parsed_data.get("pr_number")
-        if pr_number is not None and not isinstance(pr_number, int):
-            # Invalid type for pr_number - log warning and treat as None (best-effort)
-            logger.warning(
-                "pr_number has invalid type %s (expected int or null), treating as null",
-                type(pr_number).__name__,
-            )
-            pr_number = None
-        elif isinstance(pr_number, int) and pr_number <= 0:
-            # PR/MR numbers are always positive integers
-            logger.warning(
-                "pr_number must be positive (got %s), treating as null",
-                pr_number,
-            )
-            pr_number = None
 
-        # Store base_commit as the plan field and summary as rationale
-        return StepResult.ok(
-            PlanData(
-                plan=base_commit,
-                summary=summary,
-                session_id=response.session_id,
-                pr_number=pr_number,
-            ),
-            parsed_data=parsed_data,
-        )
+        # Store base_commit as the plan field and summary as rationale.
+        # Pydantic's Field(gt=0) on PlanData.pr_number is the single source of validation;
+        # fall back to None on invalid input to preserve best-effort semantics.
+        try:
+            return StepResult.ok(
+                PlanData(
+                    plan=base_commit,
+                    summary=summary,
+                    session_id=response.session_id,
+                    pr_number=pr_number,
+                ),
+                parsed_data=parsed_data,
+            )
+        except ValidationError as e:
+            logger.warning(
+                "pr_number validation failed (got %r), treating as null: %s",
+                pr_number,
+                e,
+            )
+            return StepResult.ok(
+                PlanData(
+                    plan=base_commit,
+                    summary=summary,
+                    session_id=response.session_id,
+                    pr_number=None,
+                ),
+                parsed_data=parsed_data,
+            )
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Derive base commit and store in context.
