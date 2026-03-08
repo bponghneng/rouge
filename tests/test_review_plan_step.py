@@ -55,7 +55,10 @@ def test_derive_base_commit_fails_on_invalid_sentinel(mock_execute_template) -> 
 def test_derive_base_commit_extracts_pr_number(mock_execute_template) -> None:
     """ReviewPlanStep should extract pr_number from JSON output when present."""
     mock_execute_template.return_value = ClaudeAgentPromptResponse(
-        output='{"output":"plan","base_commit":"HEAD~3","summary":"Using explicit base commit.","pr_number":42}',
+        output=(
+            '{"output":"plan","base_commit":"HEAD~3",'
+            '"summary":"Using explicit base commit.","pr_number":42}'
+        ),
         success=True,
         session_id="sess-3",
     )
@@ -89,7 +92,10 @@ def test_derive_base_commit_treats_missing_pr_number_as_none(mock_execute_templa
 def test_derive_base_commit_treats_invalid_pr_number_type_as_none(mock_execute_template) -> None:
     """ReviewPlanStep should warn and treat non-int pr_number as None."""
     mock_execute_template.return_value = ClaudeAgentPromptResponse(
-        output='{"output":"plan","base_commit":"HEAD~3","summary":"Using explicit base commit.","pr_number":"not-a-number"}',
+        output=(
+            '{"output":"plan","base_commit":"HEAD~3",'
+            '"summary":"Using explicit base commit.","pr_number":"not-a-number"}'
+        ),
         success=True,
         session_id="sess-5",
     )
@@ -106,7 +112,10 @@ def test_derive_base_commit_treats_invalid_pr_number_type_as_none(mock_execute_t
 def test_derive_base_commit_treats_non_positive_pr_number_as_none(mock_execute_template) -> None:
     """ReviewPlanStep should warn and treat pr_number <= 0 as None."""
     mock_execute_template.return_value = ClaudeAgentPromptResponse(
-        output='{"output":"plan","base_commit":"HEAD~3","summary":"Using explicit base commit.","pr_number":0}',
+        output=(
+            '{"output":"plan","base_commit":"HEAD~3",'
+            '"summary":"Using explicit base commit.","pr_number":0}'
+        ),
         success=True,
         session_id="sess-6",
     )
