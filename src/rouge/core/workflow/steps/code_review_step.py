@@ -206,8 +206,26 @@ class CodeReviewStep(WorkflowStep):
         body = (
             f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
         )
+        self._post_comment_to_platform(body, pr_number, platform_lower, repo_path)
 
-        # Phase 2: post the comment via platform CLI.
+    def _post_comment_to_platform(
+        self,
+        body: str,
+        pr_number: int,
+        platform_lower: str,
+        repo_path: str,
+    ) -> None:
+        """Post a pre-formatted comment to a GitHub PR or GitLab MR via CLI.
+
+        PAT tokens are forwarded following the project convention (GITHUB_PAT → GH_TOKEN,
+        GITLAB_PAT → GITLAB_TOKEN). Failures are logged at ERROR level and suppressed.
+
+        Args:
+            body: Comment body text to post.
+            pr_number: PR or MR number to comment on.
+            platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
+            repo_path: Repository root path for CLI invocation.
+        """
         env = os.environ.copy()
         if platform_lower == "github":
             github_pat = os.environ.get("GITHUB_PAT")
