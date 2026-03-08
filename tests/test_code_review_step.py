@@ -427,7 +427,9 @@ class TestCodeReviewStepRun:
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
-        env_without_platform = {k: v for k, v in __import__("os").environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
+        import os
+
+        env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
         with patch.dict("os.environ", env_without_platform, clear=True):
             step = CodeReviewStep()
             result = step.run(mock_context)
