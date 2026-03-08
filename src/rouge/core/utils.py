@@ -2,15 +2,12 @@
 
 import logging
 import os
-import subprocess
 import sys
 import uuid
 from logging import Handler
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Optional
-
-logger = logging.getLogger(__name__)
 
 
 def make_adw_id() -> str:
@@ -134,76 +131,6 @@ def get_logger(adw_id: str) -> logging.Logger:
         Logger instance
     """
     return logging.getLogger(f"rouge_{adw_id}")
-
-
-def post_comment_to_pr(body: str, pr_number: int, platform_lower: str, repo_path: str) -> None:
-    """Post a pre-formatted comment to a GitHub PR or GitLab MR via CLI.
-
-    PAT tokens are forwarded following the project convention (GITHUB_PAT → GH_TOKEN,
-    GITLAB_PAT → GITLAB_TOKEN). Failures are logged at ERROR level and suppressed.
-
-    Args:
-        body: Comment body text to post.
-        pr_number: PR or MR number to comment on.
-        platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
-        repo_path: Repository root path for CLI invocation.
-    """
-    if platform_lower not in {"github", "gitlab"}:
-        logger.warning("Unsupported platform: %s, skipping PR comment", platform_lower)
-        return
-
-    if pr_number <= 0:
-        logger.warning("Invalid pr_number %s, skipping PR comment", pr_number)
-        return
-
-    if not body.strip():
-        logger.warning("Empty body, skipping PR comment")
-        return
-
-    env = os.environ.copy()
-    if platform_lower == "github":
-        github_pat = os.environ.get("GITHUB_PAT")
-        if github_pat:
-            env["GH_TOKEN"] = github_pat
-        cmd = ["gh", "pr", "comment", str(pr_number), "--body", body]
-        label = f"PR #{pr_number}"
-    else:
-        gitlab_pat = os.environ.get("GITLAB_PAT")
-        if gitlab_pat:
-            env["GITLAB_TOKEN"] = gitlab_pat
-        cmd = ["glab", "mr", "comment", str(pr_number), "--message", body]
-        label = f"MR #{pr_number}"
-
-    try:
-        result = subprocess.run(
-            cmd,
-            cwd=repo_path,
-            timeout=30,
-            capture_output=True,
-            text=True,
-            check=False,
-            env=env,
-        )
-    except (
-        subprocess.TimeoutExpired,
-        FileNotFoundError,
-        OSError,
-        subprocess.SubprocessError,
-    ) as e:
-        logger.error("Failed to post PR comment via CLI: %s", e, exc_info=True)
-        return
-
-    if result.returncode != 0:
-        logger.error(
-            "Failed to post review summary to %s (repo=%s): " "exit=%s\nstdout: %s\nstderr: %s",
-            label,
-            repo_path,
-            result.returncode,
-            result.stdout,
-            result.stderr,
-        )
-    else:
-        logger.info("Posted review summary to %s", label)
 
 
 def log_workflow_event(
