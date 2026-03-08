@@ -331,6 +331,110 @@ class TestCodeReviewStepRun:
             base_commit=None,
         )
 
+    @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_posts_review_summary_when_pr_number_set(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_post_review_summary,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ) -> None:
+        """Test run calls _post_review_summary_to_pr when pr_number and platform are set."""
+        mock_context.data = {"plan_data": sample_plan_data, "pr_number": 99}
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        with patch.dict("os.environ", {"DEV_SEC_OPS_PLATFORM": "github"}):
+            step = CodeReviewStep()
+            result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_review_summary.assert_called_once_with(
+            review_text=sample_review_data.review_text,
+            pr_number=99,
+            platform="github",
+            repo_path="/path/to/repo",
+            adw_id=mock_context.adw_id,
+            issue_id=mock_context.issue_id,
+        )
+
+    @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_skips_review_summary_when_pr_number_absent(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_post_review_summary,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ) -> None:
+        """Test run skips _post_review_summary_to_pr when pr_number is absent."""
+        mock_context.data = {"plan_data": sample_plan_data}
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        with patch.dict("os.environ", {"DEV_SEC_OPS_PLATFORM": "github"}):
+            step = CodeReviewStep()
+            result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_review_summary.assert_not_called()
+
+    @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_run_skips_review_summary_when_platform_absent(
+        self,
+        mock__generate_review,
+        mock_emit_comment,
+        mock_post_review_summary,
+        mock_context,
+        sample_plan_data,
+        sample_review_data,
+    ) -> None:
+        """Test run skips _post_review_summary_to_pr when DEV_SEC_OPS_PLATFORM is not set."""
+        mock_context.data = {"plan_data": sample_plan_data, "pr_number": 99}
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_comment.return_value = ("success", "Comment inserted")
+
+        env_without_platform = {k: v for k, v in __import__("os").environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
+        with patch.dict("os.environ", env_without_platform, clear=True):
+            step = CodeReviewStep()
+            result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_review_summary.assert_not_called()
+
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_standalone_workflow_without_issue_id(
@@ -368,6 +472,70 @@ class TestCodeReviewStepRun:
         # For standalone workflow (issue_id=None), no progress comment is emitted from run
         # The artifact comment would be emitted inside _generate_review (tested separately)
         mock_emit_comment.assert_not_called()
+
+
+class TestCodeReviewStepPostReviewSummary:
+    """Tests for CodeReviewStep._post_review_summary_to_pr method."""
+
+    @patch("rouge.core.workflow.steps.code_review_step.post_comment_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.execute_template")
+    def test_post_review_summary_calls_post_comment_to_pr(
+        self, mock_execute_template, mock_post_comment
+    ) -> None:
+        """Test _post_review_summary_to_pr calls post_comment_to_pr on success."""
+        from rouge.core.agents.claude import ClaudeAgentPromptResponse
+
+        mock_execute_template.return_value = ClaudeAgentPromptResponse(
+            output="Two critical issues found.",
+            success=True,
+            session_id="sess-summary",
+        )
+
+        step = CodeReviewStep()
+        step._post_review_summary_to_pr(
+            review_text="File: src/app.py\nLine 10: Issue.",
+            pr_number=42,
+            platform="github",
+            repo_path="/repo",
+            adw_id="adw-1",
+            issue_id=10,
+        )
+
+        mock_post_comment.assert_called_once()
+        call_args = mock_post_comment.call_args
+        assert call_args[0][1] == 42
+        assert call_args[0][2] == "github"
+
+    def test_post_review_summary_skips_unsupported_platform(self) -> None:
+        """Test _post_review_summary_to_pr returns early for unsupported platform."""
+        step = CodeReviewStep()
+        # Should not raise; just logs a warning and returns
+        step._post_review_summary_to_pr(
+            review_text="File: src/app.py\nLine 10: Issue.",
+            pr_number=42,
+            platform="bitbucket",
+            repo_path="/repo",
+            adw_id="adw-1",
+            issue_id=10,
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.execute_template")
+    def test_post_review_summary_suppresses_execute_template_failure(
+        self, mock_execute_template
+    ) -> None:
+        """Test _post_review_summary_to_pr suppresses exceptions from execute_template."""
+        mock_execute_template.side_effect = RuntimeError("Claude unavailable")
+
+        step = CodeReviewStep()
+        # Should not raise; failure is suppressed (best-effort)
+        step._post_review_summary_to_pr(
+            review_text="File: src/app.py\nLine 10: Issue.",
+            pr_number=42,
+            platform="github",
+            repo_path="/repo",
+            adw_id="adw-1",
+            issue_id=10,
+        )
 
 
 class TestCodeReviewStepGenerateReview:
