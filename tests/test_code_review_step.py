@@ -11,7 +11,7 @@ from rouge.core.workflow.types import PlanData, ReviewData, StepResult
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> Mock:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
@@ -25,7 +25,7 @@ def mock_context():
 
 
 @pytest.fixture
-def sample_plan_data():
+def sample_plan_data() -> PlanData:
     """Create a sample PlanData."""
     return PlanData(
         plan="## Plan\n\n### Step 1\nImplement feature X",
@@ -35,7 +35,7 @@ def sample_plan_data():
 
 
 @pytest.fixture
-def sample_review_data():
+def sample_review_data() -> ReviewData:
     """Create sample review data."""
     return ReviewData(
         review_text="File: src/app.py\nLine 10: Consider using list comprehension for better performance.\n\nFile: tests/test_app.py\nLine 5: Add test coverage for edge cases."
@@ -710,12 +710,12 @@ class TestCodeReviewStepGenerateReview:
 class TestCodeReviewStepProperties:
     """Tests for CodeReviewStep properties."""
 
-    def test_step_name(self):
+    def test_step_name(self) -> None:
         """Test that CodeReviewStep has correct name."""
         step = CodeReviewStep()
         assert step.name == "Generating CodeRabbit review"
 
-    def test_step_is_not_critical(self):
+    def test_step_is_not_critical(self) -> None:
         """Test that CodeReviewStep is not critical."""
         step = CodeReviewStep()
         assert step.is_critical is False
