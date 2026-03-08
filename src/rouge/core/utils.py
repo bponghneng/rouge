@@ -148,6 +148,10 @@ def post_comment_to_pr(body: str, pr_number: int, platform_lower: str, repo_path
         platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
         repo_path: Repository root path for CLI invocation.
     """
+    if platform_lower not in {"github", "gitlab"}:
+        logger.warning("Unsupported platform: %s, skipping PR comment", platform_lower)
+        return
+
     env = os.environ.copy()
     if platform_lower == "github":
         github_pat = os.environ.get("GITHUB_PAT")
