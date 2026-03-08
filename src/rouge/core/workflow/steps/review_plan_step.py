@@ -137,6 +137,13 @@ class ReviewPlanStep(WorkflowStep):
                 type(pr_number).__name__,
             )
             pr_number = None
+        elif isinstance(pr_number, int) and pr_number <= 0:
+            # PR/MR numbers are always positive integers
+            logger.warning(
+                "pr_number must be positive (got %s), treating as null",
+                pr_number,
+            )
+            pr_number = None
 
         # Store base_commit as the plan field and summary as rationale
         return StepResult.ok(
