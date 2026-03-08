@@ -1,5 +1,6 @@
 """Tests for CodeReviewStep workflow step."""
 
+import os
 import subprocess
 from unittest.mock import ANY, Mock, patch
 
@@ -427,8 +428,6 @@ class TestCodeReviewStepRun:
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
-        import os
-
         env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
         with patch.dict("os.environ", env_without_platform, clear=True):
             step = CodeReviewStep()
@@ -479,12 +478,12 @@ class TestCodeReviewStepRun:
 class TestCodeReviewStepPostReviewSummary:
     """Tests for CodeReviewStep._post_review_summary_to_pr method."""
 
-    @patch("rouge.core.workflow.steps.code_review_step.post_comment_to_pr")
+    @patch.object(CodeReviewStep, "_post_comment_to_pr")
     @patch("rouge.core.workflow.steps.code_review_step.execute_template")
     def test_post_review_summary_calls_post_comment_to_pr(
         self, mock_execute_template, mock_post_comment
     ) -> None:
-        """Test _post_review_summary_to_pr calls post_comment_to_pr on success."""
+        """Test _post_review_summary_to_pr calls _post_comment_to_pr on success."""
         from rouge.core.agents.claude import ClaudeAgentPromptResponse
 
         mock_execute_template.return_value = ClaudeAgentPromptResponse(
@@ -504,9 +503,9 @@ class TestCodeReviewStepPostReviewSummary:
         )
 
         mock_post_comment.assert_called_once()
-        call_args = mock_post_comment.call_args
-        assert call_args[0][1] == 42
-        assert call_args[0][2] == "github"
+        call_kwargs = mock_post_comment.call_args.kwargs
+        assert call_kwargs["pr_number"] == 42
+        assert call_kwargs["platform_lower"] == "github"
 
     def test_post_review_summary_skips_unsupported_platform(self) -> None:
         """Test _post_review_summary_to_pr returns early for unsupported platform."""
@@ -538,6 +537,113 @@ class TestCodeReviewStepPostReviewSummary:
             adw_id="adw-1",
             issue_id=10,
         )
+
+
+class TestCodeReviewStepPostCommentToPr:
+    """Tests for CodeReviewStep._post_comment_to_pr method."""
+
+    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
+    def test_github_comment_posted_successfully(self, mock_run) -> None:
+        """Test _post_comment_to_pr posts a GitHub PR comment on success."""
+        mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
+
+        step = CodeReviewStep()
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="/repo",
+        )
+
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "gh"
+        assert "42" in cmd
+
+    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
+    def test_gitlab_comment_posted_successfully(self, mock_run) -> None:
+        """Test _post_comment_to_pr posts a GitLab MR comment on success."""
+        mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
+
+        step = CodeReviewStep()
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=7,
+            platform_lower="gitlab",
+            repo_path="/repo",
+        )
+
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "glab"
+        assert "7" in cmd
+
+    def test_empty_repo_path_returns_early(self) -> None:
+        """Test _post_comment_to_pr returns early for empty repo_path."""
+        step = CodeReviewStep()
+        # Should not raise; logs a warning and returns
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="",
+        )
+
+    def test_empty_body_returns_early(self) -> None:
+        """Test _post_comment_to_pr returns early for whitespace-only body."""
+        step = CodeReviewStep()
+        step._post_comment_to_pr(
+            body="   ",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="/repo",
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
+    def test_subprocess_failure_is_logged(self, mock_run) -> None:
+        """Test _post_comment_to_pr logs error on non-zero exit code."""
+        mock_run.return_value = Mock(returncode=1, stdout="", stderr="CLI error")
+
+        step = CodeReviewStep()
+        # Should not raise; failure is logged
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="/repo",
+        )
+
+    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
+    def test_subprocess_exception_is_suppressed(self, mock_run) -> None:
+        """Test _post_comment_to_pr suppresses subprocess exceptions."""
+        mock_run.side_effect = FileNotFoundError("gh not found")
+
+        step = CodeReviewStep()
+        # Should not raise; exception is suppressed
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="/repo",
+        )
+
+    @patch.dict("os.environ", {"GITHUB_PAT": "test-pat"})
+    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
+    def test_github_pat_forwarded_as_gh_token(self, mock_run) -> None:
+        """Test _post_comment_to_pr forwards GITHUB_PAT as GH_TOKEN."""
+        mock_run.return_value = Mock(returncode=0, stdout="", stderr="")
+
+        step = CodeReviewStep()
+        step._post_comment_to_pr(
+            body="Summary text.",
+            pr_number=42,
+            platform_lower="github",
+            repo_path="/repo",
+        )
+
+        _, kwargs = mock_run.call_args
+        env = kwargs.get("env", {})
+        assert env.get("GH_TOKEN") == "test-pat"
 
 
 class TestCodeReviewStepGenerateReview:
