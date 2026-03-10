@@ -486,8 +486,10 @@ class TestCodeReviewStepPostReviewSummary:
         """Test _post_review_summary_to_pr calls _post_comment_to_pr on success."""
         from rouge.core.agents.claude import ClaudeAgentPromptResponse
 
+        # Return JSON output with summary field (Phase 3 updated code to parse JSON)
+        json_output = '{"output": "code-review-summary", "summary": "Two critical issues found."}'
         mock_execute_template.return_value = ClaudeAgentPromptResponse(
-            output="Two critical issues found.",
+            output=json_output,
             success=True,
             session_id="sess-summary",
         )
@@ -537,6 +539,78 @@ class TestCodeReviewStepPostReviewSummary:
             adw_id="adw-1",
             issue_id=10,
         )
+
+    @patch.object(CodeReviewStep, "_post_comment_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.execute_template")
+    def test_post_review_summary_to_pr_with_structured_output(
+        self, mock_execute_template, mock_post_comment
+    ) -> None:
+        """Test _post_review_summary_to_pr uses JSON schema and parses structured output."""
+        from rouge.core.agents.claude import ClaudeAgentPromptResponse
+        from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_SUMMARY_JSON_SCHEMA
+
+        # Mock execute_template to return JSON output with summary field
+        json_output = '{"output": "code-review-summary", "summary": "Two critical issues found."}'
+        mock_execute_template.return_value = ClaudeAgentPromptResponse(
+            output=json_output,
+            success=True,
+            session_id="sess-summary",
+        )
+
+        step = CodeReviewStep()
+        step._post_review_summary_to_pr(
+            review_text="File: src/app.py\nLine 10: Issue.",
+            pr_number=42,
+            platform="github",
+            repo_path="/repo",
+            adw_id="adw-1",
+            issue_id=10,
+        )
+
+        # Verify execute_template was called with json_schema and require_json=True
+        mock_execute_template.assert_called_once()
+        request = mock_execute_template.call_args[0][0]
+        assert request.json_schema == CODE_REVIEW_SUMMARY_JSON_SCHEMA
+        assert mock_execute_template.call_args[1]["require_json"] is True
+
+        # Verify _post_comment_to_pr was called with the correctly extracted summary
+        mock_post_comment.assert_called_once()
+        call_kwargs = mock_post_comment.call_args.kwargs
+        assert "Two critical issues found." in call_kwargs["body"]
+        assert call_kwargs["pr_number"] == 42
+        assert call_kwargs["platform_lower"] == "github"
+
+    @patch.object(CodeReviewStep, "_post_comment_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.execute_template")
+    def test_post_review_summary_to_pr_handles_json_parse_error(
+        self, mock_execute_template, mock_post_comment
+    ) -> None:
+        """Test _post_review_summary_to_pr handles malformed JSON and returns early."""
+        from rouge.core.agents.claude import ClaudeAgentPromptResponse
+
+        # Mock execute_template to return malformed JSON
+        mock_execute_template.return_value = ClaudeAgentPromptResponse(
+            output='{invalid json syntax',
+            success=True,
+            session_id="sess-summary",
+        )
+
+        step = CodeReviewStep()
+        # Should not raise; error is logged and method returns early
+        step._post_review_summary_to_pr(
+            review_text="File: src/app.py\nLine 10: Issue.",
+            pr_number=42,
+            platform="github",
+            repo_path="/repo",
+            adw_id="adw-1",
+            issue_id=10,
+        )
+
+        # Verify execute_template was called
+        mock_execute_template.assert_called_once()
+
+        # Verify _post_comment_to_pr was NOT called due to JSON parse error
+        mock_post_comment.assert_not_called()
 
 
 class TestCodeReviewStepPostCommentToPr:
