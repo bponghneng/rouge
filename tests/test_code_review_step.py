@@ -46,12 +46,14 @@ def sample_review_data() -> ReviewData:
 class TestCodeReviewStepRun:
     """Tests for CodeReviewStep.run method."""
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_success_emits_artifact_comment_during_generation(
         self,
         mock__generate_review,
-        mock_emit_comment,
+        mock_emit_comment_from_payload,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -69,8 +71,10 @@ class TestCodeReviewStepRun:
         mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        # Mock for artifact comment
+        mock_emit_artifact_comment.return_value = ("success", "Artifact comment inserted")
         # Mock for progress comment from run
-        mock_emit_comment.return_value = ("success", "Comment inserted")
+        mock_emit_comment_from_payload.return_value = ("success", "Progress comment inserted")
 
         step = CodeReviewStep()
         result = step.run(mock_context)
@@ -81,15 +85,6 @@ class TestCodeReviewStepRun:
         # Verify _generate_review was called
         mock__generate_review.assert_called_once()
 
-        # Since we mocked _generate_review, only the run method's progress comment is emitted
-        # The artifact comment would be emitted inside _generate_review (tested separately)
-        assert mock_emit_comment.call_count == 1
-
-        # Verify the progress comment
-        call_payload = mock_emit_comment.call_args[0][0]
-        assert call_payload.kind == "workflow"
-        assert "CodeRabbit review complete" in call_payload.text
-
         # Verify artifact was written with correct fields
         mock_context.artifact_store.write_artifact.assert_called_once()
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
@@ -97,6 +92,17 @@ class TestCodeReviewStepRun:
         assert saved_artifact.review_data == sample_review_data
         # Verify is_clean field is False because review contains "File: src/app.py" indicating issues
         assert saved_artifact.is_clean is False
+
+        # Verify emit_artifact_comment was called with correct arguments
+        mock_emit_artifact_comment.assert_called_once_with(
+            mock_context.issue_id, mock_context.adw_id, saved_artifact
+        )
+
+        # Verify the progress comment from run() was emitted
+        assert mock_emit_comment_from_payload.call_count == 1
+        call_payload = mock_emit_comment_from_payload.call_args[0][0]
+        assert call_payload.kind == "workflow"
+        assert "CodeRabbit review complete" in call_payload.text
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
@@ -649,16 +655,14 @@ class TestCodeReviewStepPostCommentToPr:
 class TestCodeReviewStepGenerateReview:
     """Tests for CodeReviewStep._generate_review method."""
 
-    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
     @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")
-    def test_generate_review_emits_artifact_comment_with_full_review(
+    def test_generate_review_returns_correct_data(
         self,
         mock_exists,
         mock_subprocess,
-        mock_emit_comment,
     ) -> None:
-        """Test _generate_review emits artifact comment with type='artifact' and full review data in raw."""
+        """Test _generate_review succeeds and returns correct review data."""
         mock_exists.return_value = True
 
         # Mock successful CodeRabbit execution
@@ -669,71 +673,17 @@ class TestCodeReviewStepGenerateReview:
             stderr="",
         )
 
-        mock_emit_comment.return_value = ("success", "Artifact comment inserted")
-
         step = CodeReviewStep()
         result = step._generate_review(
             repo_path="/test/repo",
-            issue_id=10,
-            adw_id="test-adw",
+            _issue_id=10,
+            _adw_id="test-adw",
         )
 
         # Verify review generation succeeded
         assert result.success is True
         assert result.data is not None
         assert result.data.review_text == review_text
-
-        # Verify emit_comment_from_payload was called with artifact comment
-        mock_emit_comment.assert_called_once()
-        payload = mock_emit_comment.call_args[0][0]
-
-        # Verify payload structure
-        assert payload.issue_id == 10
-        assert payload.adw_id == "test-adw"
-        assert payload.kind == "artifact"
-        assert payload.source == "system"
-        assert payload.text == "CodeRabbit review generated"
-
-        # Verify raw field contains full review text
-        assert "review_text" in payload.raw
-        assert payload.raw["review_text"] == review_text
-
-    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
-    @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")
-    def test_generate_review_succeeds_even_if_emit_comment_fails(
-        self,
-        mock_exists,
-        mock_subprocess,
-        mock_emit_comment,
-    ) -> None:
-        """Test _generate_review succeeds even if emit_comment_from_payload fails."""
-        mock_exists.return_value = True
-
-        review_text = "Review completed."
-        mock_subprocess.return_value = Mock(
-            returncode=0,
-            stdout=review_text,
-            stderr="",
-        )
-
-        # Mock emit_comment to fail
-        mock_emit_comment.return_value = ("error", "DB unavailable")
-
-        step = CodeReviewStep()
-        result = step._generate_review(
-            repo_path="/test/repo",
-            issue_id=10,
-            adw_id="test-adw",
-        )
-
-        # Verify review generation still succeeded (comment failure is non-blocking)
-        assert result.success is True
-        assert result.data is not None
-        assert result.data.review_text == review_text
-
-        # Verify emit_comment was called (and logged the error)
-        mock_emit_comment.assert_called_once()
 
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
     @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")
@@ -748,8 +698,8 @@ class TestCodeReviewStepGenerateReview:
         step = CodeReviewStep()
         result = step._generate_review(
             repo_path="/test/repo",
-            issue_id=10,
-            adw_id="test-adw",
+            _issue_id=10,
+            _adw_id="test-adw",
         )
 
         # Verify review generation failed
@@ -778,8 +728,8 @@ class TestCodeReviewStepGenerateReview:
         step = CodeReviewStep()
         result = step._generate_review(
             repo_path="/test/repo",
-            issue_id=10,
-            adw_id="test-adw",
+            _issue_id=10,
+            _adw_id="test-adw",
         )
 
         # Verify review generation failed
@@ -804,8 +754,8 @@ class TestCodeReviewStepGenerateReview:
         step = CodeReviewStep()
         result = step._generate_review(
             repo_path="/test/repo",
-            issue_id=10,
-            adw_id="test-adw",
+            _issue_id=10,
+            _adw_id="test-adw",
         )
 
         # Verify review generation failed

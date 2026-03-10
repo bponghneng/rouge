@@ -7,7 +7,11 @@ import subprocess
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.notifications.comments import (
+    emit_artifact_comment,
+    emit_comment_from_payload,
+    log_artifact_comment_status,
+)
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
@@ -64,16 +68,16 @@ class CodeReviewStep(WorkflowStep):
     def _generate_review(
         self,
         repo_path: str,
-        issue_id: int | None,
-        adw_id: str | None = None,
+        _issue_id: int | None,
+        _adw_id: str | None = None,
         base_commit: str | None = None,
     ) -> StepResult[ReviewData]:
         """Generate CodeRabbit review output.
 
         Args:
             repo_path: Repository root path where .coderabbit.yaml config is located
-            issue_id: Optional Rouge issue ID for tracking (None for standalone review)
-            adw_id: Optional ADW ID for associating comment with workflow
+            _issue_id: Optional Rouge issue ID for tracking (None for standalone review)
+            _adw_id: Optional ADW ID for associating comment with workflow
             base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
         Returns:
@@ -121,25 +125,6 @@ class CodeReviewStep(WorkflowStep):
 
             review_text = result.stdout
             logger.info("CodeRabbit review generated (%s chars)", len(review_text))
-
-            # Emit comment with full review text (logs to console for standalone workflows)
-            payload = CommentPayload(
-                issue_id=issue_id,
-                adw_id=adw_id,
-                text="CodeRabbit review generated",
-                raw={
-                    "review_text": review_text,
-                },
-                source="system",
-                kind="artifact",
-            )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug("Review artifact comment inserted: %s", msg)
-            elif status == "skipped":
-                logger.debug(msg)
-            else:
-                logger.error("Failed to insert review artifact comment: %s", msg)
 
             return StepResult.ok(ReviewData(review_text=review_text))
 
@@ -355,6 +340,9 @@ class CodeReviewStep(WorkflowStep):
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved review artifact for workflow %s", context.adw_id)
+
+        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
+        log_artifact_comment_status(status, msg)
 
         # Post review summary to PR/MR if pr_number is available
         pr_number = context.data.get("pr_number")
