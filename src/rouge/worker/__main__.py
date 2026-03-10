@@ -4,7 +4,7 @@ This allows the worker to be executed using:
     python -m rouge.worker --worker-id <worker-id>
 """
 
-from .cli import main
+from .cli import main_entry
 
 if __name__ == "__main__":
-    main()
+    main_entry()
