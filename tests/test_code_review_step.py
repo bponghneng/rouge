@@ -39,7 +39,11 @@ def sample_plan_data() -> PlanData:
 def sample_review_data() -> ReviewData:
     """Create sample review data."""
     return ReviewData(
-        review_text="File: src/app.py\nLine 10: Consider using list comprehension for better performance.\n\nFile: tests/test_app.py\nLine 5: Add test coverage for edge cases."
+        review_text=(
+            "File: src/app.py\n"
+            "Line 10: Consider using list comprehension for better performance.\n\n"
+            "File: tests/test_app.py\nLine 5: Add test coverage for edge cases."
+        )
     )
 
 
@@ -90,7 +94,8 @@ class TestCodeReviewStepRun:
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "code-review"
         assert saved_artifact.review_data == sample_review_data
-        # Verify is_clean field is False because review contains "File: src/app.py" indicating issues
+        # Verify is_clean field is False because review contains "File: src/app.py"
+        # indicating issues
         assert saved_artifact.is_clean is False
 
         # Verify emit_artifact_comment was called with correct arguments
@@ -160,12 +165,10 @@ class TestCodeReviewStepRun:
         assert result.success is False
         assert "No plan data available" in result.error
 
-    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_fails_when__generate_review_fails(
         self,
         mock__generate_review,
-        _mock_emit_comment,
         mock_context,
         sample_plan_data,
     ) -> None:
@@ -489,7 +492,8 @@ class TestCodeReviewStepRun:
         mock__generate_review.assert_called_once()
 
         # For standalone workflow (issue_id=None), no progress comment is emitted from run
-        # emit_artifact_comment is called in run() but skipped when issue_id is None (returns "skipped")
+        # emit_artifact_comment is called in run() but skipped when issue_id is None
+        # (returns "skipped")
         mock_emit_comment.assert_not_called()
 
 
