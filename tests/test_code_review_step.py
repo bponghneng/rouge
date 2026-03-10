@@ -189,12 +189,14 @@ class TestCodeReviewStepRun:
         assert "Failed to generate CodeRabbit review" in result.error
         assert "CodeRabbit review failed" in result.error
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_saves_artifact(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -211,6 +213,7 @@ class TestCodeReviewStepRun:
         mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         step = CodeReviewStep()
@@ -227,12 +230,14 @@ class TestCodeReviewStepRun:
         # Sample review has "File:" so it's not clean
         assert saved_artifact.is_clean is False
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_uses_base_commit_for_codereview_workflow(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -252,6 +257,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         step = CodeReviewStep()
@@ -260,12 +266,14 @@ class TestCodeReviewStepRun:
         assert result.success is True
         mock__generate_review.assert_called_once_with(ANY, base_commit="abc1234")
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_falls_back_to_plan_data_for_codereview_workflow(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_review_data,
     ) -> None:
@@ -286,6 +294,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         step = CodeReviewStep()
@@ -294,12 +303,14 @@ class TestCodeReviewStepRun:
         assert result.success is True
         mock__generate_review.assert_called_once_with(ANY, base_commit="def5678")
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_does_not_use_plan_as_base_commit_for_non_codereview_workflow(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -318,6 +329,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         step = CodeReviewStep()
@@ -327,12 +339,14 @@ class TestCodeReviewStepRun:
         mock__generate_review.assert_called_once_with(ANY, base_commit=None)
 
     @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_posts_review_summary_when_pr_number_set(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
@@ -349,6 +363,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         with patch.dict("os.environ", {"DEV_SEC_OPS_PLATFORM": "github"}):
@@ -366,12 +381,14 @@ class TestCodeReviewStepRun:
         )
 
     @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_skips_review_summary_when_pr_number_absent(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
@@ -388,6 +405,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         with patch.dict("os.environ", {"DEV_SEC_OPS_PLATFORM": "github"}):
@@ -398,12 +416,14 @@ class TestCodeReviewStepRun:
         mock_post_review_summary.assert_not_called()
 
     @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_skips_review_summary_when_platform_absent(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
@@ -420,6 +440,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
         env_without_platform = {k: v for k, v in os.environ.items() if k != "DEV_SEC_OPS_PLATFORM"}
@@ -430,12 +451,14 @@ class TestCodeReviewStepRun:
         assert result.success is True
         mock_post_review_summary.assert_not_called()
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_standalone_workflow_without_issue_id(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -454,6 +477,7 @@ class TestCodeReviewStepRun:
         mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
 
         step = CodeReviewStep()
         result = step.run(mock_context)
@@ -465,7 +489,7 @@ class TestCodeReviewStepRun:
         mock__generate_review.assert_called_once()
 
         # For standalone workflow (issue_id=None), no progress comment is emitted from run
-        # The artifact comment would be emitted inside _generate_review (tested separately)
+        # emit_artifact_comment is called in run() but skipped when issue_id is None (returns "skipped")
         mock_emit_comment.assert_not_called()
 
 
