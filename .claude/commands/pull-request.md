@@ -4,7 +4,7 @@ description: Compose conventional commits from repo changes and prepare a pull r
 
 # Compose Commits & PR Summary
 
-Follow the `Instructions` and `Commit Process` to create conventional commits for the repository `~/git/rouge/rouge/`, then respond with the exact `Output Format`.
+Follow the `Instructions` and `Commit Process` to create conventional commits for the repositories described in `Repository`, then respond with the exact `Output Format`.
 
 ## Instructions
 
@@ -19,18 +19,14 @@ Follow the `Instructions` and `Commit Process` to create conventional commits fo
 ## Commit Process
 
 ### 1. Group Changes
-
 Logically group related changes into commit units. Consider:
-
 - Functional boundaries (each commit is a complete logical change)
 - File relationships (related files usually go together)
 - Change types (avoid mixing unrelated features, fixes, or chores)
 - Include both staged and unstaged changes; re-stage files as needed to match logical commit groups
 
 ### 2. Compose Commit Messages
-
 For each group, create a conventional commit message:
-
 - Format: `type(scope): description`
 - Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build
 - Keep the first line under 72 characters
@@ -39,9 +35,7 @@ For each group, create a conventional commit message:
 - Add `BREAKING CHANGE:` footer if applicable
 
 ### 3. Execute Commits
-
 For each group:
-
 - Stage the relevant files using `git add`
 - Commit with the composed message using `git commit -m`
 
@@ -54,20 +48,19 @@ For each group:
 Return ONLY valid JSON with zero additional text, formatting, markdown, or explanation.
 
 {
-"output":"pull-request",
-"title":"<clear pull request title summarizing the overall change>",
-"summary":"<markdown in the exact `Summary Format`>",
-"commits":[
-{
-"message":"<full conventional commit message>",
-"sha":"<commit SHA identifier>",
-"files":["repo/relative/path1","repo/relative/path2"]
-}
-]
+  "output":"pull-request",
+  "title":"<clear pull request title summarizing the overall change>",
+  "summary":"<markdown in the exact `Summary Format`>",
+  "commits":[
+    {
+      "message":"<full conventional commit message>",
+      "sha":"<commit SHA identifier>",
+      "files":["repo/relative/path1","repo/relative/path2"]
+    }
+  ]
 }
 
 **CRITICAL:** Your entire response must be the raw JSON object, and nothing else.
-
 - No code fences (no ```).
 - No markdown.
 - No commentary or prose.
@@ -82,7 +75,7 @@ Replace <placeholders> with appropriate details. Select appropriate values for `
 ```markdown
 ## Description
 
-<describe the change and any issue fixed. include relevant motivation and context. list any dependencies required for the change.>
+<describe the change and any issue fixed. include relevant motivation and context. list and dependencies required for the change.>
 
 ## Type of Change
 
@@ -104,3 +97,7 @@ Replace <placeholders> with appropriate details. Select appropriate values for `
 - [ ] <concise description of test no. 2>
 - [ ] ...
 ```
+
+## Repository
+
+$ARGUMENTS
