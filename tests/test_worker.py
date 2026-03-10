@@ -347,82 +347,92 @@ class TestCommandLineInterface:
 
     def test_main_with_required_args(self, mock_env, monkeypatch):
         """Test main function with required arguments."""
+        from typer.testing import CliRunner as TyperRunner
+
+        from rouge.worker.cli import app as worker_app
+
         monkeypatch.delenv("ROUGE_LOG_LEVEL", raising=False)
-        test_args = ["rouge-worker", "--worker-id", "test-worker"]
+        runner = TyperRunner()
 
-        with patch("sys.argv", test_args):
-            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
-                mock_worker = Mock()
-                mock_worker_class.return_value = mock_worker
+        with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+            mock_worker = Mock()
+            mock_worker_class.return_value = mock_worker
 
-                from rouge.worker.cli import main
+            result = runner.invoke(worker_app, ["--worker-id", "test-worker"])
 
-                main()
-
-                # Verify WorkerConfig was created and passed
-                assert mock_worker_class.call_count == 1
-                config = mock_worker_class.call_args[0][0]
-                assert isinstance(config, WorkerConfig)
-                assert config.worker_id == "test-worker"
-                assert config.poll_interval == 10
-                assert config.log_level == "INFO"
-                mock_worker.run.assert_called_once()
+            assert result.exit_code == 0, result.output
+            # Verify WorkerConfig was created and passed
+            assert mock_worker_class.call_count == 1
+            config = mock_worker_class.call_args[0][0]
+            assert isinstance(config, WorkerConfig)
+            assert config.worker_id == "test-worker"
+            assert config.poll_interval == 10
+            assert config.log_level == "INFO"
+            mock_worker.run.assert_called_once()
 
     def test_main_with_all_args(self, mock_env):
         """Test main function with all arguments."""
-        test_args = [
-            "rouge-worker",
-            "--worker-id",
-            "custom-worker",
-            "--poll-interval",
-            "15",
-            "--log-level",
-            "DEBUG",
-        ]
+        from typer.testing import CliRunner as TyperRunner
 
-        with patch("sys.argv", test_args):
-            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
-                mock_worker = Mock()
-                mock_worker_class.return_value = mock_worker
+        from rouge.worker.cli import app as worker_app
 
-                from rouge.worker.cli import main
+        runner = TyperRunner()
 
-                main()
+        with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+            mock_worker = Mock()
+            mock_worker_class.return_value = mock_worker
 
-                # Verify WorkerConfig was created and passed
-                assert mock_worker_class.call_count == 1
-                config = mock_worker_class.call_args[0][0]
-                assert isinstance(config, WorkerConfig)
-                assert config.worker_id == "custom-worker"
-                assert config.poll_interval == 15
-                assert config.log_level == "DEBUG"
-                mock_worker.run.assert_called_once()
+            result = runner.invoke(
+                worker_app,
+                [
+                    "--worker-id",
+                    "custom-worker",
+                    "--poll-interval",
+                    "15",
+                    "--log-level",
+                    "DEBUG",
+                ],
+            )
+
+            assert result.exit_code == 0, result.output
+            # Verify WorkerConfig was created and passed
+            assert mock_worker_class.call_count == 1
+            config = mock_worker_class.call_args[0][0]
+            assert isinstance(config, WorkerConfig)
+            assert config.worker_id == "custom-worker"
+            assert config.poll_interval == 15
+            assert config.log_level == "DEBUG"
+            mock_worker.run.assert_called_once()
 
     def test_workflow_timeout_from_cli(self, mock_env):
         """Test workflow-timeout flag is parsed and passed to WorkerConfig."""
-        test_args = [
-            "rouge-worker",
-            "--worker-id",
-            "test-worker",
-            "--workflow-timeout",
-            "7200",
-        ]
+        from typer.testing import CliRunner as TyperRunner
 
-        with patch("sys.argv", test_args):
-            with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
-                mock_worker = Mock()
-                mock_worker_class.return_value = mock_worker
+        from rouge.worker.cli import app as worker_app
 
-                from rouge.worker.cli import main
+        runner = TyperRunner()
 
-                main()
+        with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+            mock_worker = Mock()
+            mock_worker_class.return_value = mock_worker
 
-                # Verify WorkerConfig was created with the specified workflow_timeout
-                assert mock_worker_class.call_count == 1
-                config = mock_worker_class.call_args[0][0]
-                assert isinstance(config, WorkerConfig)
-                assert config.workflow_timeout == 7200
-                mock_worker.run.assert_called_once()
+            result = runner.invoke(
+                worker_app,
+                [
+                    "--worker-id",
+                    "test-worker",
+                    "--workflow-timeout",
+                    "7200",
+                ],
+            )
+
+            assert result.exit_code == 0, result.output
+            # Verify WorkerConfig was created with the specified workflow_timeout
+            assert mock_worker_class.call_count == 1
+            config = mock_worker_class.call_args[0][0]
+            assert isinstance(config, WorkerConfig)
+            assert config.workflow_timeout == 7200
+            mock_worker.run.assert_called_once()
 
     def test_workflow_timeout_from_env_var(self, mock_env, monkeypatch):
         """Test ROUGE_WORKFLOW_TIMEOUT_SECONDS env var is used as default.
@@ -432,34 +442,25 @@ class TestCommandLineInterface:
         provided on the command line. We use subprocess to get a clean process
         where the environment variable is evaluated fresh.
         """
-        # Run a subprocess that imports the CLI and prints the parsed timeout
+        # Run a subprocess that imports the CLI and prints the WorkerConfig timeout
         test_script = """
 import os
 import sys
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
-sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
 
 # Import after setting env var so the default is evaluated with our value
-from rouge.worker.cli import main
-import argparse
-
-# Patch argparse to capture the parsed args instead of running the worker
-original_parse = argparse.ArgumentParser.parse_args
-parsed = None
-def capture_parse(self, *args, **kwargs):
-    global parsed
-    parsed = original_parse(self, *args, **kwargs)
-    return parsed
-
-argparse.ArgumentParser.parse_args = capture_parse
-
-# Mock IssueWorker to prevent actual execution
+from rouge.worker.cli import app as worker_app
+from typer.testing import CliRunner
 from unittest.mock import Mock, patch
-with patch("rouge.worker.cli.IssueWorker") as mock_worker:
-    mock_worker.return_value = Mock()
-    main()
-    print(parsed.workflow_timeout)
+
+runner = CliRunner()
+with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+    mock_worker = Mock()
+    mock_worker_class.return_value = mock_worker
+    result = runner.invoke(worker_app, ["--worker-id", "test-worker"])
+    config = mock_worker_class.call_args[0][0]
+    print(config.workflow_timeout)
 """
         result = subprocess.run(
             ["python", "-c", test_script],
@@ -486,25 +487,18 @@ import os
 import sys
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
-sys.argv = ["rouge-worker", "--worker-id", "test-worker", "--workflow-timeout", "5400"]
 
-from rouge.worker.cli import main
-import argparse
-
-original_parse = argparse.ArgumentParser.parse_args
-parsed = None
-def capture_parse(self, *args, **kwargs):
-    global parsed
-    parsed = original_parse(self, *args, **kwargs)
-    return parsed
-
-argparse.ArgumentParser.parse_args = capture_parse
-
+from rouge.worker.cli import app as worker_app
+from typer.testing import CliRunner
 from unittest.mock import Mock, patch
-with patch("rouge.worker.cli.IssueWorker") as mock_worker:
-    mock_worker.return_value = Mock()
-    main()
-    print(parsed.workflow_timeout)
+
+runner = CliRunner()
+with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+    mock_worker = Mock()
+    mock_worker_class.return_value = mock_worker
+    result = runner.invoke(worker_app, ["--worker-id", "test-worker", "--workflow-timeout", "5400"])
+    config = mock_worker_class.call_args[0][0]
+    print(config.workflow_timeout)
 """
         result = subprocess.run(
             ["python", "-c", test_script],
@@ -534,25 +528,21 @@ import os
 import sys
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
-sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
 
-from rouge.worker.cli import main
-import argparse
-
-original_parse = argparse.ArgumentParser.parse_args
-parsed = None
-def capture_parse(self, *args, **kwargs):
-    global parsed
-    parsed = original_parse(self, *args, **kwargs)
-    return parsed
-
-argparse.ArgumentParser.parse_args = capture_parse
-
+from rouge.worker.cli import app as worker_app
+from typer.testing import CliRunner
 from unittest.mock import Mock, patch
-with patch("rouge.worker.cli.IssueWorker") as mock_worker:
-    mock_worker.return_value = Mock()
-    main()
-    print(parsed.workflow_timeout)
+
+runner = CliRunner()
+with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+    mock_worker = Mock()
+    mock_worker_class.return_value = mock_worker
+    result = runner.invoke(worker_app, ["--worker-id", "test-worker"])
+    config = mock_worker_class.call_args[0][0]
+    print(config.workflow_timeout)
+    # Print captured output to real stderr so subprocess can check it
+    import sys as _sys
+    print(result.output, file=_sys.stderr)
 """
         result = subprocess.run(
             ["python", "-c", test_script_non_numeric],
@@ -568,7 +558,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker:
         assert result.returncode == 0, f"Script failed: {result.stderr}"
         # Should fall back to default 3600
         assert result.stdout.strip() == "3600"
-        # Should have warning in stderr
+        # Should have warning in stderr (forwarded from Typer's captured output)
         assert "Warning: Invalid value for ROUGE_WORKFLOW_TIMEOUT_SECONDS" in result.stderr
 
         # Test negative value
@@ -577,25 +567,21 @@ import os
 import sys
 os.environ["SUPABASE_URL"] = "https://test.supabase.co"
 os.environ["SUPABASE_SERVICE_ROLE_KEY"] = "test_key"
-sys.argv = ["rouge-worker", "--worker-id", "test-worker"]
 
-from rouge.worker.cli import main
-import argparse
-
-original_parse = argparse.ArgumentParser.parse_args
-parsed = None
-def capture_parse(self, *args, **kwargs):
-    global parsed
-    parsed = original_parse(self, *args, **kwargs)
-    return parsed
-
-argparse.ArgumentParser.parse_args = capture_parse
-
+from rouge.worker.cli import app as worker_app
+from typer.testing import CliRunner
 from unittest.mock import Mock, patch
-with patch("rouge.worker.cli.IssueWorker") as mock_worker:
-    mock_worker.return_value = Mock()
-    main()
-    print(parsed.workflow_timeout)
+
+runner = CliRunner()
+with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
+    mock_worker = Mock()
+    mock_worker_class.return_value = mock_worker
+    result = runner.invoke(worker_app, ["--worker-id", "test-worker"])
+    config = mock_worker_class.call_args[0][0]
+    print(config.workflow_timeout)
+    # Print captured output to real stderr so subprocess can check it
+    import sys as _sys
+    print(result.output, file=_sys.stderr)
 """
         result = subprocess.run(
             ["python", "-c", test_script_negative],
@@ -611,7 +597,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker:
         assert result.returncode == 0, f"Script failed: {result.stderr}"
         # Should fall back to default 3600
         assert result.stdout.strip() == "3600"
-        # Should have warning in stderr
+        # Should have warning in stderr (forwarded from Typer's captured output)
         assert "Warning: ROUGE_WORKFLOW_TIMEOUT_SECONDS must be positive" in result.stderr
 
 
@@ -1072,12 +1058,13 @@ class TestWorkerPollLoopGating:
         from rouge.worker.worker_artifact import WorkerArtifact
 
         # Set worker to failed state
-        worker.worker_artifact = WorkerArtifact(
+        failed_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="failed",
             current_issue_id=123,
             current_adw_id="adw-failed",
         )
+        worker.worker_artifact = failed_artifact
 
         worker.running = True
         call_count = [0]
@@ -1087,24 +1074,26 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 2:
                 worker.running = False
 
-        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
-                worker.run()
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=failed_artifact):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
+                    worker.run()
 
-                # get_next_issue should NOT have been called (worker gated by failed state)
-                mock_get_next.assert_not_called()
+                    # get_next_issue should NOT have been called (worker gated by failed state)
+                    mock_get_next.assert_not_called()
 
     def test_poll_loop_skips_polling_when_in_working_state(self, worker):
         """Test worker skips polling when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
         # Set worker to working state (simulating restart after crash during workflow)
-        worker.worker_artifact = WorkerArtifact(
+        working_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="working",
             current_issue_id=456,
             current_adw_id="adw-working",
         )
+        worker.worker_artifact = working_artifact
 
         worker.running = True
         call_count = [0]
@@ -1114,24 +1103,26 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 2:
                 worker.running = False
 
-        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
-                worker.run()
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=working_artifact):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
+                    worker.run()
 
-                # get_next_issue should NOT have been called (worker gated by working state)
-                mock_get_next.assert_not_called()
+                    # get_next_issue should NOT have been called (worker gated by working state)
+                    mock_get_next.assert_not_called()
 
     def test_poll_loop_continues_when_in_ready_state(self, worker):
         """Test worker polls for issues when in ready state."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
         # Set worker to ready state
-        worker.worker_artifact = WorkerArtifact(
+        ready_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="ready",
             current_issue_id=None,
             current_adw_id=None,
         )
+        worker.worker_artifact = ready_artifact
 
         worker.running = True
         call_count = [0]
@@ -1147,23 +1138,25 @@ class TestWorkerPollLoopGating:
             # Mock sleep to do nothing
             pass
 
-        with patch("rouge.worker.worker.get_next_issue", side_effect=mock_get_next_issue):
-            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
-                worker.run()
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=ready_artifact):
+            with patch("rouge.worker.worker.get_next_issue", side_effect=mock_get_next_issue):
+                with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                    worker.run()
 
-                # get_next_issue should have been called (worker in ready state)
-                assert call_count[0] >= 1
+                    # get_next_issue should have been called (worker in ready state)
+                    assert call_count[0] >= 1
 
     def test_poll_loop_logs_failed_state_message(self, worker):
         """Test worker logs appropriate message when in failed state."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
-        worker.worker_artifact = WorkerArtifact(
+        failed_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="failed",
             current_issue_id=789,
             current_adw_id="adw-fail",
         )
+        worker.worker_artifact = failed_artifact
 
         worker.running = True
         call_count = [0]
@@ -1173,28 +1166,30 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 1:
                 worker.running = False
 
-        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.worker.get_next_issue"):
-                with patch.object(worker.logger, "info") as mock_log:
-                    worker.run()
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=failed_artifact):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                with patch("rouge.worker.worker.get_next_issue"):
+                    with patch.object(worker.logger, "info") as mock_log:
+                        worker.run()
 
-                    # Should log message about failed state
-                    # Check if the failed state message was logged with the correct issue_id
-                    assert any(
-                        "failed state" in call.args[0].lower() and 789 in call.args
-                        for call in mock_log.call_args_list
-                    )
+                        # Should log message about failed state
+                        # Check if the failed state message was logged with the correct issue_id
+                        assert any(
+                            "failed state" in call.args[0].lower() and 789 in call.args
+                            for call in mock_log.call_args_list
+                        )
 
     def test_poll_loop_logs_working_state_warning(self, worker):
         """Test worker logs warning when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
-        worker.worker_artifact = WorkerArtifact(
+        working_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="working",
             current_issue_id=999,
             current_adw_id="adw-stuck",
         )
+        worker.worker_artifact = working_artifact
 
         worker.running = True
         call_count = [0]
@@ -1204,14 +1199,125 @@ class TestWorkerPollLoopGating:
             if call_count[0] >= 1:
                 worker.running = False
 
-        with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
-            with patch("rouge.worker.worker.get_next_issue"):
-                with patch.object(worker.logger, "warning") as mock_log:
-                    worker.run()
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=working_artifact):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                with patch("rouge.worker.worker.get_next_issue"):
+                    with patch.object(worker.logger, "warning") as mock_log:
+                        worker.run()
 
-                    # Should log warning about working state
-                    # Check if the working state warning was logged with the correct issue_id
-                    assert any(
-                        "working state" in call.args[0].lower() and 999 in call.args
-                        for call in mock_log.call_args_list
-                    )
+                        # Should log warning about working state
+                        # Check if the working state warning was logged with the correct issue_id
+                        assert any(
+                            "working state" in call.args[0].lower() and 999 in call.args
+                            for call in mock_log.call_args_list
+                        )
+
+    def test_worker_rereads_artifact_from_disk_each_iteration(self, worker):
+        """Test that the worker re-reads the artifact from disk on each poll iteration."""
+        from rouge.worker.worker_artifact import WorkerArtifact
+
+        # Set up: worker artifact starts as failed, then gets reset to ready externally
+        failed_artifact = WorkerArtifact(
+            worker_id="test-worker",
+            state="failed",
+            current_issue_id=42,
+            current_adw_id="adw-123",
+        )
+        ready_artifact = WorkerArtifact(
+            worker_id="test-worker",
+            state="ready",
+            current_issue_id=None,
+            current_adw_id=None,
+        )
+
+        call_count = 0
+
+        def side_effect(worker_id):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return failed_artifact
+            else:
+                worker.running = False  # Stop after second iteration
+                return ready_artifact
+
+        with patch("rouge.worker.worker.read_worker_artifact", side_effect=side_effect), \
+             patch("rouge.worker.worker.get_next_issue", return_value=None), \
+             patch("rouge.worker.worker.time") as mock_time:
+            worker.run()
+
+        assert call_count >= 2
+
+
+class TestWorkerResetCLI:
+    """Tests for the rouge-worker reset CLI subcommand."""
+
+    def test_worker_reset_fails_when_no_artifact(self):
+        """Test rouge-worker reset exits 1 when no artifact found."""
+        from typer.testing import CliRunner
+
+        from rouge.worker.cli import app as worker_app
+
+        runner = CliRunner()
+        with patch("rouge.worker.cli.read_worker_artifact", return_value=None):
+            result = runner.invoke(worker_app, ["reset", "test-worker"])
+        assert result.exit_code == 1
+        assert "No artifact found" in result.output
+
+    def test_worker_reset_fails_when_not_failed_state(self):
+        """Test rouge-worker reset exits 1 when worker is not in failed state."""
+        from typer.testing import CliRunner
+
+        from rouge.worker.cli import app as worker_app
+        from rouge.worker.worker_artifact import WorkerArtifact
+
+        runner = CliRunner()
+        ready_artifact = WorkerArtifact(worker_id="test-worker", state="ready")
+        with patch("rouge.worker.cli.read_worker_artifact", return_value=ready_artifact):
+            result = runner.invoke(worker_app, ["reset", "test-worker"])
+        assert result.exit_code == 1
+        assert "can only reset 'failed' workers" in result.output
+
+    def test_worker_reset_succeeds_when_failed(self):
+        """Test rouge-worker reset exits 0 and resets artifact when worker is in failed state."""
+        from typer.testing import CliRunner
+
+        from rouge.worker.cli import app as worker_app
+        from rouge.worker.worker_artifact import WorkerArtifact
+
+        runner = CliRunner()
+        failed_artifact = WorkerArtifact(
+            worker_id="test-worker",
+            state="failed",
+            current_issue_id=42,
+            current_adw_id="adw-123",
+        )
+        with patch("rouge.worker.cli.read_worker_artifact", return_value=failed_artifact), \
+             patch("rouge.worker.cli.write_worker_artifact") as mock_write:
+            result = runner.invoke(worker_app, ["reset", "test-worker"])
+        assert result.exit_code == 0
+        assert "reset to ready" in result.output
+        mock_write.assert_called_once()
+        written = mock_write.call_args[0][0]
+        assert written.state == "ready"
+        assert written.current_issue_id is None
+        assert written.current_adw_id is None
+
+    def test_worker_reset_fails_when_working(self):
+        """Test rouge-worker reset exits 1 when worker is in working state."""
+        from typer.testing import CliRunner
+
+        from rouge.worker.cli import app as worker_app
+        from rouge.worker.worker_artifact import WorkerArtifact
+
+        runner = CliRunner()
+        working_artifact = WorkerArtifact(
+            worker_id="test-worker",
+            state="working",
+            current_issue_id=5,
+            current_adw_id="adw-456",
+        )
+        with patch("rouge.worker.cli.read_worker_artifact", return_value=working_artifact):
+            result = runner.invoke(worker_app, ["reset", "test-worker"])
+        assert result.exit_code == 1
+        assert "can only reset 'failed' workers" in result.output
