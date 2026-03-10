@@ -1,6 +1,7 @@
 """CLI commands for issue management."""
 
 import json
+import logging
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -386,6 +387,7 @@ def create(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error in create command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -431,6 +433,7 @@ def read(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error in read command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -512,7 +515,7 @@ def list_issues(
             # Print header
             typer.echo(
                 f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} "
-                f"{'Br':<4} {'Assigned To':<12}"
+                f"{'Br':<3} {'Assigned To':<12}"
             )
             typer.echo("-" * 79)
 
@@ -525,7 +528,7 @@ def list_issues(
                 # Format the row with proper spacing
                 row = (
                     f"{issue.id:<6} {truncated_title:<32} "
-                    f"{issue.type:<10} {issue.status:<10} {branch_indicator:<4} {assigned_to:<12}"
+                    f"{issue.type:<10} {issue.status:<10} {branch_indicator:<3} {assigned_to:<12}"
                 )
                 typer.echo(row)
 
@@ -535,6 +538,7 @@ def list_issues(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error in list command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -666,6 +670,7 @@ def update(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error in update command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -709,6 +714,7 @@ def delete(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error in delete command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
