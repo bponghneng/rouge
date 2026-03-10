@@ -104,12 +104,14 @@ class TestCodeReviewStepRun:
         assert call_payload.kind == "workflow"
         assert "CodeRabbit review complete" in call_payload.text
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
     def test_run_succeeds_even_if_progress_comment_fails(
         self,
         mock__generate_review,
         mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
         sample_review_data,
@@ -127,6 +129,7 @@ class TestCodeReviewStepRun:
         mock_context.load_required_artifact = load_required_artifact
 
         mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock_emit_artifact_comment.return_value = ("success", "ok")
 
         # Mock progress comment emission to fail (e.g., DB unavailable)
         mock_emit_comment.return_value = ("error", "DB unavailable")
@@ -255,12 +258,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(
-            ANY,
-            mock_context.issue_id,
-            mock_context.adw_id,
-            base_commit="abc1234",
-        )
+        mock__generate_review.assert_called_once_with(ANY, base_commit="abc1234")
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
@@ -294,12 +292,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(
-            ANY,
-            mock_context.issue_id,
-            mock_context.adw_id,
-            base_commit="def5678",
-        )
+        mock__generate_review.assert_called_once_with(ANY, base_commit="def5678")
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
@@ -331,12 +324,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(
-            ANY,
-            mock_context.issue_id,
-            mock_context.adw_id,
-            base_commit=None,
-        )
+        mock__generate_review.assert_called_once_with(ANY, base_commit=None)
 
     @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
@@ -674,11 +662,7 @@ class TestCodeReviewStepGenerateReview:
         )
 
         step = CodeReviewStep()
-        result = step._generate_review(
-            repo_path="/test/repo",
-            _issue_id=10,
-            _adw_id="test-adw",
-        )
+        result = step._generate_review(repo_path="/test/repo")
 
         # Verify review generation succeeded
         assert result.success is True
@@ -696,24 +680,18 @@ class TestCodeReviewStepGenerateReview:
         mock_exists.return_value = False
 
         step = CodeReviewStep()
-        result = step._generate_review(
-            repo_path="/test/repo",
-            _issue_id=10,
-            _adw_id="test-adw",
-        )
+        result = step._generate_review(repo_path="/test/repo")
 
         # Verify review generation failed
         assert result.success is False
         assert "CodeRabbit config not found" in result.error
 
-    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
     @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")
     def test_generate_review_fails_when_subprocess_fails(
         self,
         mock_exists,
         mock_subprocess,
-        _mock_emit_comment,
     ) -> None:
         """Test _generate_review fails when CodeRabbit subprocess fails."""
         mock_exists.return_value = True
@@ -726,24 +704,18 @@ class TestCodeReviewStepGenerateReview:
         )
 
         step = CodeReviewStep()
-        result = step._generate_review(
-            repo_path="/test/repo",
-            _issue_id=10,
-            _adw_id="test-adw",
-        )
+        result = step._generate_review(repo_path="/test/repo")
 
         # Verify review generation failed
         assert result.success is False
         assert "CodeRabbit review failed with code 1" in result.error
 
-    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
     @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")
     def test_generate_review_handles_timeout(
         self,
         mock_exists,
         mock_subprocess,
-        _mock_emit_comment,
     ) -> None:
         """Test _generate_review handles subprocess timeout."""
         mock_exists.return_value = True
@@ -752,11 +724,7 @@ class TestCodeReviewStepGenerateReview:
         mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd=["coderabbit"], timeout=600)
 
         step = CodeReviewStep()
-        result = step._generate_review(
-            repo_path="/test/repo",
-            _issue_id=10,
-            _adw_id="test-adw",
-        )
+        result = step._generate_review(repo_path="/test/repo")
 
         # Verify review generation failed
         assert result.success is False
