@@ -1,5 +1,7 @@
 """CLI command for resetting failed issues."""
 
+import logging
+
 import typer
 
 from rouge.cli.utils import validate_issue_id
@@ -59,5 +61,6 @@ def reset(
     except typer.Exit:
         raise
     except Exception as e:
+        logging.exception("Unexpected error resetting issue %s", issue_id)
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
