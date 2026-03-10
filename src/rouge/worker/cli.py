@@ -57,6 +57,7 @@ def main(
         10,
         "--poll-interval",
         help="Number of seconds to wait between polls (default: 10)",
+        show_default=True,
     ),
     log_level: Optional[str] = typer.Option(
         None,
@@ -72,10 +73,20 @@ def main(
     """Rouge Issue Worker Daemon."""
     if ctx.invoked_subcommand is not None:
         return
+    worker_id = worker_id.strip() if worker_id else worker_id
     if not worker_id:
         typer.echo("Error: --worker-id is required", err=True)
         raise typer.Exit(1)
-    resolved_log_level = log_level if log_level is not None else _get_default_log_level()
+    resolved_log_level = (
+        log_level.strip().upper() if log_level is not None else _get_default_log_level()
+    )
+    valid_log_levels = ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL")
+    if resolved_log_level not in valid_log_levels:
+        typer.echo(
+            f"Error: --log-level must be one of {list(valid_log_levels)}, got '{log_level}'",
+            err=True,
+        )
+        raise typer.Exit(1)
     resolved_timeout = workflow_timeout if workflow_timeout is not None else _get_default_timeout()
     config = WorkerConfig(
         worker_id=worker_id,
@@ -91,6 +102,10 @@ def reset_worker(
     worker_id: str = typer.Argument(..., help="Worker ID to reset"),
 ) -> None:
     """Reset a failed worker back to ready state."""
+    worker_id = worker_id.strip()
+    if not worker_id:
+        typer.echo("Error: worker-id cannot be empty", err=True)
+        raise typer.Exit(1)
     artifact = read_worker_artifact(worker_id)
     if artifact is None:
         typer.echo(f"Error: No artifact found for worker '{worker_id}'", err=True)
