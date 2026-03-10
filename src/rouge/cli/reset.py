@@ -16,7 +16,8 @@ def reset(
     the issue type.
 
     Issue type behavior:
-    - main/codereview: Clears branch field (set to None)
+    - main: Clears branch field (set to None)
+    - codereview: Preserves existing branch field
     - patch: Preserves existing branch field
 
     The issue must be in 'failed' or 'pending' status to be reset.
@@ -25,7 +26,7 @@ def reset(
         issue_id: The ID of the issue to reset
 
     Examples:
-        rouge reset 123
+        rouge issue reset 123
     """
     validate_issue_id(issue_id)
     try:
@@ -42,11 +43,11 @@ def reset(
             raise typer.Exit(1)
 
         # Call update_issue with explicit parameters
-        # For main and codereview types, clear branch
-        if issue.type in ("main", "codereview"):
+        # For main type, clear branch; for codereview and patch types, preserve existing branch
+        if issue.type == "main":
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending", branch=None)
         else:
-            # For patch type, preserve existing branch
+            # For codereview and patch types, preserve existing branch
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending")
 
         # Output issue ID on success for scripting compatibility
