@@ -5,10 +5,13 @@ import subprocess
 from unittest.mock import Mock, patch
 
 import pytest
+from typer.testing import CliRunner
 
 from rouge.worker import database
+from rouge.worker.cli import app as worker_app
 from rouge.worker.config import WorkerConfig
 from rouge.worker.worker import IssueWorker
+from rouge.worker.worker_artifact import WorkerArtifact
 
 
 @pytest.fixture
@@ -347,12 +350,8 @@ class TestCommandLineInterface:
 
     def test_main_with_required_args(self, mock_env, monkeypatch) -> None:
         """Test main function with required arguments."""
-        from typer.testing import CliRunner as TyperRunner
-
-        from rouge.worker.cli import app as worker_app
-
         monkeypatch.delenv("ROUGE_LOG_LEVEL", raising=False)
-        runner = TyperRunner()
+        runner = CliRunner()
 
         with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
             mock_worker = Mock()
@@ -372,11 +371,7 @@ class TestCommandLineInterface:
 
     def test_main_with_all_args(self, mock_env) -> None:
         """Test main function with all arguments."""
-        from typer.testing import CliRunner as TyperRunner
-
-        from rouge.worker.cli import app as worker_app
-
-        runner = TyperRunner()
+        runner = CliRunner()
 
         with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
             mock_worker = Mock()
@@ -406,11 +401,7 @@ class TestCommandLineInterface:
 
     def test_workflow_timeout_from_cli(self, mock_env) -> None:
         """Test workflow-timeout flag is parsed and passed to WorkerConfig."""
-        from typer.testing import CliRunner as TyperRunner
-
-        from rouge.worker.cli import app as worker_app
-
-        runner = TyperRunner()
+        runner = CliRunner()
 
         with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
             mock_worker = Mock()
@@ -903,7 +894,7 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         worker.execute_workflow(100, "Test issue", "pending", "main")
 
@@ -930,7 +921,7 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         worker.execute_workflow(200, "Success issue", "pending", "main")
 
@@ -954,7 +945,7 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         worker.execute_workflow(300, "Fail issue", "pending", "main")
 
@@ -976,7 +967,7 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         worker.execute_workflow(400, "Timeout issue", "pending", "main")
 
@@ -997,7 +988,7 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         worker.execute_workflow(500, "Error issue", "pending", "main")
 
@@ -1021,7 +1012,7 @@ class TestWorkerStateTransitions:
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", side_effect=["adw-1", "adw-2"]):
                     with patch(
-                        "rouge.worker.worker.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
                     ):
                         # Execute first workflow
                         worker.execute_workflow(100, "First issue", "pending", "main")
@@ -1256,10 +1247,6 @@ class TestWorkerResetCLI:
 
     def test_worker_reset_fails_when_no_artifact(self) -> None:
         """Test rouge-worker reset exits 1 when no artifact found."""
-        from typer.testing import CliRunner
-
-        from rouge.worker.cli import app as worker_app
-
         runner = CliRunner()
         with patch("rouge.worker.cli.read_worker_artifact", return_value=None):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
@@ -1268,11 +1255,6 @@ class TestWorkerResetCLI:
 
     def test_worker_reset_fails_when_not_failed_state(self) -> None:
         """Test rouge-worker reset exits 1 when worker is not in failed state."""
-        from typer.testing import CliRunner
-
-        from rouge.worker.cli import app as worker_app
-        from rouge.worker.worker_artifact import WorkerArtifact
-
         runner = CliRunner()
         ready_artifact = WorkerArtifact(worker_id="test-worker", state="ready")
         with patch("rouge.worker.cli.read_worker_artifact", return_value=ready_artifact):
@@ -1282,11 +1264,6 @@ class TestWorkerResetCLI:
 
     def test_worker_reset_succeeds_when_failed(self) -> None:
         """Test rouge-worker reset exits 0 and resets artifact when worker is in failed state."""
-        from typer.testing import CliRunner
-
-        from rouge.worker.cli import app as worker_app
-        from rouge.worker.worker_artifact import WorkerArtifact
-
         runner = CliRunner()
         failed_artifact = WorkerArtifact(
             worker_id="test-worker",
@@ -1294,26 +1271,29 @@ class TestWorkerResetCLI:
             current_issue_id=42,
             current_adw_id="adw-123",
         )
+
+        def fake_transition(artifact, state, clear_issue=False):
+            artifact.state = state
+            if clear_issue:
+                artifact.current_issue_id = None
+                artifact.current_adw_id = None
+
         with (
             patch("rouge.worker.cli.read_worker_artifact", return_value=failed_artifact),
-            patch("rouge.worker.cli.write_worker_artifact") as mock_write,
+            patch(
+                "rouge.worker.cli.transition_worker_artifact", side_effect=fake_transition
+            ) as mock_transition,
         ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 0
         assert "reset to ready" in result.output
-        mock_write.assert_called_once()
-        written = mock_write.call_args[0][0]
-        assert written.state == "ready"
-        assert written.current_issue_id is None
-        assert written.current_adw_id is None
+        mock_transition.assert_called_once_with(failed_artifact, "ready", clear_issue=True)
+        assert failed_artifact.state == "ready"
+        assert failed_artifact.current_issue_id is None
+        assert failed_artifact.current_adw_id is None
 
     def test_worker_reset_fails_when_working(self) -> None:
         """Test rouge-worker reset exits 1 when worker is in working state."""
-        from typer.testing import CliRunner
-
-        from rouge.worker.cli import app as worker_app
-        from rouge.worker.worker_artifact import WorkerArtifact
-
         runner = CliRunner()
         working_artifact = WorkerArtifact(
             worker_id="test-worker",
