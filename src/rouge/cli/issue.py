@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import typer
 
+from rouge.cli.reset import reset
 from rouge.cli.utils import validate_issue_id
 from rouge.core.database import (
     create_issue,
@@ -511,20 +512,20 @@ def list_issues(
             # Print header
             typer.echo(
                 f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} "
-                f"{'Branch':<18} {'Assigned To':<12}"
+                f"{'Br':<4} {'Assigned To':<12}"
             )
-            typer.echo("-" * 93)
+            typer.echo("-" * 79)
 
             # Print each issue
             for issue in issues:
                 truncated_title = truncate_string(issue.title, 30)
                 assigned_to = issue.assigned_to or "(none)"
-                branch = issue.branch or "(none)"
+                branch_indicator = "✅" if issue.branch else "❌"
 
                 # Format the row with proper spacing
                 row = (
                     f"{issue.id:<6} {truncated_title:<32} "
-                    f"{issue.type:<10} {issue.status:<10} {branch:<18} {assigned_to:<12}"
+                    f"{issue.type:<10} {issue.status:<10} {branch_indicator:<4} {assigned_to:<12}"
                 )
                 typer.echo(row)
 
@@ -710,3 +711,6 @@ def delete(
     except Exception as e:
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
+
+
+app.command("reset")(reset)
