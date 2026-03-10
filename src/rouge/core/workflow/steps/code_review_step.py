@@ -79,16 +79,12 @@ class CodeReviewStep(WorkflowStep):
     def _generate_review(
         self,
         repo_path: str,
-        _issue_id: int | None,
-        _adw_id: str | None = None,
         base_commit: str | None = None,
     ) -> StepResult[ReviewData]:
         """Generate CodeRabbit review output.
 
         Args:
             repo_path: Repository root path where .coderabbit.yaml config is located
-            _issue_id: Optional Rouge issue ID for tracking (None for standalone review)
-            _adw_id: Optional ADW ID for associating comment with workflow
             base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
         Returns:
@@ -332,9 +328,7 @@ class CodeReviewStep(WorkflowStep):
             if not base_commit and plan_data.plan:
                 base_commit = plan_data.plan
 
-        review_result = self._generate_review(
-            repo_path, context.issue_id, context.adw_id, base_commit=base_commit
-        )
+        review_result = self._generate_review(repo_path, base_commit=base_commit)
 
         if not review_result.success:
             logger.error("Failed to generate CodeRabbit review: %s", review_result.error)
