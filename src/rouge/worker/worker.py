@@ -22,6 +22,7 @@ import subprocess
 import time
 from pathlib import Path
 from types import FrameType
+from typing import Literal
 
 from rouge.core.database import init_db_env
 from rouge.core.utils import _get_log_level, make_adw_id
@@ -171,6 +172,23 @@ class IssueWorker:
             "%s workflow failed for issue %s: %s", workflow_type.capitalize(), issue_id, reason
         )
 
+    def _transition_artifact(
+        self, state: Literal["ready", "working", "failed"], clear_issue: bool = False
+    ) -> None:
+        """Update worker artifact state and persist to disk.
+
+        Args:
+            state: New state to set (e.g., "working", "ready", "failed")
+            clear_issue: If True, clears current_issue_id and current_adw_id
+        """
+        if self.worker_artifact is not None:
+            self.worker_artifact.state = state
+            if clear_issue:
+                self.worker_artifact.current_issue_id = None
+                self.worker_artifact.current_adw_id = None
+            self.worker_artifact.refresh_timestamp()
+            write_worker_artifact(self.worker_artifact)
+
     def _execute_workflow(
         self, issue_id: int, workflow_type: str, description: str = ""
     ) -> tuple[str | None, bool]:
@@ -202,11 +220,9 @@ class IssueWorker:
 
             # Transition to working state before executing workflow
             if self.worker_artifact is not None:
-                self.worker_artifact.state = "working"
                 self.worker_artifact.current_issue_id = issue_id
                 self.worker_artifact.current_adw_id = adw_id
-                self.worker_artifact.refresh_timestamp()
-                write_worker_artifact(self.worker_artifact)
+            self._transition_artifact("working")
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
@@ -233,12 +249,7 @@ class IssueWorker:
                 update_issue_status(issue_id, "completed", self.logger)
 
                 # Transition to ready state after successful execution
-                if self.worker_artifact is not None:
-                    self.worker_artifact.state = "ready"
-                    self.worker_artifact.current_issue_id = None
-                    self.worker_artifact.current_adw_id = None
-                    self.worker_artifact.refresh_timestamp()
-                    write_worker_artifact(self.worker_artifact)
+                self._transition_artifact("ready", clear_issue=True)
 
                 return adw_id, True
             else:
@@ -252,11 +263,7 @@ class IssueWorker:
                 update_issue_status(issue_id, "failed", self.logger)
 
                 # Transition to failed state after workflow failure
-                if self.worker_artifact is not None:
-                    self.worker_artifact.state = "failed"
-                    # Keep current_issue_id and current_adw_id set
-                    self.worker_artifact.refresh_timestamp()
-                    write_worker_artifact(self.worker_artifact)
+                self._transition_artifact("failed")
 
                 return adw_id, False
 
@@ -265,11 +272,7 @@ class IssueWorker:
             update_issue_status(issue_id, "failed", self.logger)
 
             # Transition to failed state on timeout
-            if self.worker_artifact is not None:
-                self.worker_artifact.state = "failed"
-                # Keep current_issue_id and current_adw_id set
-                self.worker_artifact.refresh_timestamp()
-                write_worker_artifact(self.worker_artifact)
+            self._transition_artifact("failed")
 
             return adw_id, False
         except Exception:
@@ -277,11 +280,7 @@ class IssueWorker:
             update_issue_status(issue_id, "failed", self.logger)
 
             # Transition to failed state on exception
-            if self.worker_artifact is not None:
-                self.worker_artifact.state = "failed"
-                # Keep current_issue_id and current_adw_id set
-                self.worker_artifact.refresh_timestamp()
-                write_worker_artifact(self.worker_artifact)
+            self._transition_artifact("failed")
 
             return adw_id, False
 
@@ -359,7 +358,7 @@ class IssueWorker:
                 self.running = False
 
             except Exception as e:
-                self.logger.error("Unexpected error in main loop: %s", e)
+                self.logger.exception("Unexpected error in main loop: %s", e)
                 time.sleep(self.config.poll_interval)
 
         self.logger.info("Worker %s stopped", self.config.worker_id)
