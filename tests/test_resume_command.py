@@ -580,6 +580,121 @@ class TestResumeCommandWorkerArtifactUpdate:
             assert result.exit_code == 0
 
 
+class TestResumeCommandResumeFromOverride:
+    """Tests for --resume-from CLI option override behavior."""
+
+    @patch("rouge.cli.resume.execute_adw_workflow")
+    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.fetch_issue")
+    def test_resume_from_with_no_failed_step_succeeds(
+        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+    ):
+        """Test --resume-from provided with failed_step=None succeeds and uses supplied step."""
+        mock_issue = Issue(
+            id=2001,
+            description="Test issue",
+            status="failed",
+            adw_id="adw-2001",
+        )
+        mock_fetch_issue.return_value = mock_issue
+        mock_execute_adw.return_value = (True, "adw-2001")
+
+        with patch("rouge.cli.resume.ArtifactStore") as mock_store_class:
+            mock_store = Mock()
+            mock_store_class.return_value = mock_store
+            mock_store.artifact_exists.return_value = True
+            mock_store.workflow_dir = tmp_path / "adw-2001"
+
+            # State artifact with no failed_step
+            state_artifact = WorkflowStateArtifact(
+                workflow_id="adw-2001",
+                pipeline_type="adw",
+                failed_step=None,
+            )
+            mock_store.read_artifact.return_value = state_artifact
+
+            result = runner.invoke(app, ["resume", "2001", "--resume-from", "implement"])
+
+            assert result.exit_code == 0
+            mock_execute_adw.assert_called_once_with(
+                2001,
+                adw_id="adw-2001",
+                resume_from="implement",
+                workflow_type="adw",
+            )
+
+    @patch("rouge.cli.resume.execute_adw_workflow")
+    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.fetch_issue")
+    def test_resume_from_overrides_failed_step(
+        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+    ):
+        """Test --resume-from wins over failed_step when both are set."""
+        mock_issue = Issue(
+            id=2002,
+            description="Test issue",
+            status="failed",
+            adw_id="adw-2002",
+        )
+        mock_fetch_issue.return_value = mock_issue
+        mock_execute_adw.return_value = (True, "adw-2002")
+
+        with patch("rouge.cli.resume.ArtifactStore") as mock_store_class:
+            mock_store = Mock()
+            mock_store_class.return_value = mock_store
+            mock_store.artifact_exists.return_value = True
+            mock_store.workflow_dir = tmp_path / "adw-2002"
+
+            # State artifact with a failed_step set
+            state_artifact = WorkflowStateArtifact(
+                workflow_id="adw-2002",
+                pipeline_type="adw",
+                failed_step="code-review",
+            )
+            mock_store.read_artifact.return_value = state_artifact
+
+            result = runner.invoke(app, ["resume", "2002", "--resume-from", "plan"])
+
+            assert result.exit_code == 0
+            # "plan" (from --resume-from) must be used, not "code-review" (failed_step)
+            mock_execute_adw.assert_called_once_with(
+                2002,
+                adw_id="adw-2002",
+                resume_from="plan",
+                workflow_type="adw",
+            )
+
+    @patch("rouge.cli.resume.fetch_issue")
+    def test_no_resume_from_and_no_failed_step_errors(self, mock_fetch_issue, tmp_path):
+        """Test --resume-from not provided with failed_step=None gives existing error."""
+        mock_issue = Issue(
+            id=2003,
+            description="Test issue",
+            status="failed",
+            adw_id="adw-2003",
+        )
+        mock_fetch_issue.return_value = mock_issue
+
+        with patch("rouge.cli.resume.ArtifactStore") as mock_store_class:
+            mock_store = Mock()
+            mock_store_class.return_value = mock_store
+            mock_store.artifact_exists.return_value = True
+            mock_store.workflow_dir = tmp_path / "adw-2003"
+
+            state_artifact = WorkflowStateArtifact(
+                workflow_id="adw-2003",
+                pipeline_type="adw",
+                failed_step=None,
+            )
+            mock_store.read_artifact.return_value = state_artifact
+
+            result = runner.invoke(app, ["resume", "2003"])
+
+            assert result.exit_code == 1
+            assert "Error: Workflow state artifact has no failed_step set" in result.output
+            assert "cannot determine resume point" in result.output
+
+
 class TestResumeCommandErrorHandling:
     """Tests for error handling in resume command."""
 

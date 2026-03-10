@@ -1,6 +1,7 @@
 """CLI command for resuming failed workflows."""
 
 import logging
+from typing import Optional
 
 import typer
 
@@ -19,6 +20,11 @@ logger = logging.getLogger(__name__)
 
 def resume(
     issue_id: int = typer.Argument(..., help="The issue ID to resume"),
+    resume_from: Optional[str] = typer.Option(
+        None,
+        "--resume-from",
+        help="Step name to resume from, overrides failed_step in workflow-state artifact",
+    ),
 ) -> None:
     """Resume a failed workflow from the last completed step.
 
@@ -80,16 +86,19 @@ def resume(
             )
             raise typer.Exit(1)
 
-        # Extract failed_step and pipeline_type from artifact
-        if not workflow_state.failed_step:
-            typer.echo(
-                "Error: Workflow state artifact has no failed_step set, "
-                "cannot determine resume point",
-                err=True,
-            )
-            raise typer.Exit(1)
+        # Extract resume_from_step and pipeline_type from artifact
+        if resume_from is not None:
+            resume_from_step = resume_from
+        else:
+            if not workflow_state.failed_step:
+                typer.echo(
+                    "Error: Workflow state artifact has no failed_step set, "
+                    "cannot determine resume point",
+                    err=True,
+                )
+                raise typer.Exit(1)
+            resume_from_step = workflow_state.failed_step
 
-        failed_step = workflow_state.failed_step
         pipeline_type = workflow_state.pipeline_type or "main"
 
         # Execute workflow with resume parameters
@@ -101,7 +110,7 @@ def resume(
             success, workflow_id = execute_adw_workflow(
                 issue_id,
                 adw_id=issue.adw_id,
-                resume_from=failed_step,
+                resume_from=resume_from_step,
                 workflow_type=pipeline_type,
             )
         except Exception as e:
