@@ -1,5 +1,6 @@
 """Review generation step implementation."""
 
+import json
 import logging
 import os
 import subprocess
@@ -17,6 +18,16 @@ logger = logging.getLogger(__name__)
 
 # Module-level constant for step name used in rerun_from references
 CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
+
+# JSON schema for code review summary structured output
+CODE_REVIEW_SUMMARY_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "output": { "type": "string", "const": "code-review-summary" },
+    "summary": { "type": "string", "minLength": 1 }
+  },
+  "required": ["output", "summary"]
+}"""
 
 
 def is_clean_review(review_text: str) -> bool:
@@ -192,8 +203,9 @@ class CodeReviewStep(WorkflowStep):
                 adw_id=adw_id or "",
                 issue_id=issue_id,
                 model="sonnet",
+                json_schema=CODE_REVIEW_SUMMARY_JSON_SCHEMA,
             )
-            summary_response = execute_template(request, require_json=False)
+            summary_response = execute_template(request, require_json=True)
         except Exception as e:
             logger.error("Failed to call /adw-code-review-summary: %s", e, exc_info=True)
             return
@@ -202,7 +214,16 @@ class CodeReviewStep(WorkflowStep):
             logger.warning("Failed to generate review summary, skipping PR comment")
             return
 
-        summary = summary_response.output.strip()
+        # Parse JSON output to extract summary field
+        try:
+            parsed_output = json.loads(summary_response.output)
+            summary = parsed_output.get("summary", "").strip()
+            if not summary:
+                logger.warning("Empty summary field in JSON response, skipping PR comment")
+                return
+        except (json.JSONDecodeError, TypeError, AttributeError) as e:
+            logger.error("Failed to parse summary JSON response: %s", e, exc_info=True)
+            return
         body = (
             f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
         )
