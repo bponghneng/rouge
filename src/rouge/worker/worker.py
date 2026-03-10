@@ -319,6 +319,7 @@ class IssueWorker:
 
         while self.running:
             try:
+                self.worker_artifact = read_worker_artifact(self.config.worker_id)
                 # Check worker state before polling
                 if self.worker_artifact is not None:
                     if self.worker_artifact.state == "failed":

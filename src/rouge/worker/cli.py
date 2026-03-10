@@ -1,87 +1,115 @@
 """Command-line interface for the Rouge Worker."""
 
-import argparse
 import os
 import sys
+from typing import Optional
+
+import typer
 
 from .config import WorkerConfig
 from .worker import IssueWorker
+from .worker_artifact import read_worker_artifact, write_worker_artifact
 
 
-def main():
-    """Parse command line arguments and start the worker."""
-    # Safely parse ROUGE_WORKFLOW_TIMEOUT_SECONDS env var
+# Compute defaults from environment
+def _get_default_timeout() -> int:
     default_timeout = 3600
     timeout_env = os.environ.get("ROUGE_WORKFLOW_TIMEOUT_SECONDS")
     if timeout_env:
         try:
-            parsed_timeout = int(timeout_env)
-            if parsed_timeout <= 0:
+            parsed = int(timeout_env)
+            if parsed > 0:
+                return parsed
+            else:
                 print(
                     f"Warning: ROUGE_WORKFLOW_TIMEOUT_SECONDS must be positive, "
                     f"got '{timeout_env}', using default {default_timeout} seconds",
                     file=sys.stderr,
                 )
-            else:
-                default_timeout = parsed_timeout
         except ValueError:
             print(
                 f"Warning: Invalid value for ROUGE_WORKFLOW_TIMEOUT_SECONDS "
                 f"'{timeout_env}', using default {default_timeout} seconds",
                 file=sys.stderr,
             )
+    return default_timeout
 
-    parser = argparse.ArgumentParser(
-        description="Rouge Issue Worker Daemon",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python -m rouge-worker --worker-id alleycat-1
-  python -m rouge-worker --worker-id tydirium-1 --poll-interval 5 --log-level DEBUG
-        """,
-    )
 
-    parser.add_argument(
+def _get_default_log_level() -> str:
+    level = os.environ.get("ROUGE_LOG_LEVEL", "INFO").upper()
+    if level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+        return "INFO"
+    return level
+
+
+app = typer.Typer(invoke_without_command=True)
+
+
+@app.callback()
+def main(
+    ctx: typer.Context,
+    worker_id: Optional[str] = typer.Option(
+        None,
         "--worker-id",
-        required=True,
         help="Unique identifier for this worker instance (e.g., 'alleycat-1')",
-    )
-
-    parser.add_argument(
+    ),
+    poll_interval: int = typer.Option(
+        10,
         "--poll-interval",
-        type=int,
-        default=10,
         help="Number of seconds to wait between polls (default: 10)",
-    )
-
-    default_log_level = os.environ.get("ROUGE_LOG_LEVEL", "INFO").upper()
-    if default_log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
-        default_log_level = "INFO"
-
-    parser.add_argument(
+    ),
+    log_level: Optional[str] = typer.Option(
+        None,
         "--log-level",
-        default=default_log_level,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
-        help=f"Logging level (default: {default_log_level})",
-    )
-
-    parser.add_argument(
+        help="Logging level",
+    ),
+    workflow_timeout: Optional[int] = typer.Option(
+        None,
         "--workflow-timeout",
-        type=int,
-        default=default_timeout,
-        help="Timeout in seconds for workflow execution (default: 3600)",
-    )
-
-    args = parser.parse_args()
-
-    # Create configuration
+        help="Timeout in seconds for workflow execution",
+    ),
+) -> None:
+    """Rouge Issue Worker Daemon."""
+    if ctx.invoked_subcommand is not None:
+        return
+    if not worker_id:
+        typer.echo("Error: --worker-id is required", err=True)
+        raise typer.Exit(1)
+    resolved_log_level = log_level if log_level is not None else _get_default_log_level()
+    resolved_timeout = workflow_timeout if workflow_timeout is not None else _get_default_timeout()
     config = WorkerConfig(
-        worker_id=args.worker_id,
-        poll_interval=args.poll_interval,
-        log_level=args.log_level,
-        workflow_timeout=args.workflow_timeout,
+        worker_id=worker_id,
+        poll_interval=poll_interval,
+        log_level=resolved_log_level,
+        workflow_timeout=resolved_timeout,
     )
+    IssueWorker(config).run()
 
-    # Create and start the worker
-    worker = IssueWorker(config)
-    worker.run()
+
+@app.command("reset")
+def reset_worker(
+    worker_id: str = typer.Argument(..., help="Worker ID to reset"),
+) -> None:
+    """Reset a failed worker back to ready state."""
+    artifact = read_worker_artifact(worker_id)
+    if artifact is None:
+        typer.echo(f"Error: No artifact found for worker '{worker_id}'", err=True)
+        raise typer.Exit(1)
+    if artifact.state != "failed":
+        typer.echo(
+            f"Error: Worker '{worker_id}' is in state '{artifact.state}', "
+            f"can only reset 'failed' workers",
+            err=True,
+        )
+        raise typer.Exit(1)
+    artifact.state = "ready"
+    artifact.current_issue_id = None
+    artifact.current_adw_id = None
+    artifact.refresh_timestamp()
+    write_worker_artifact(artifact)
+    typer.echo(f"Worker '{worker_id}' reset to ready.")
+
+
+def main_entry() -> None:
+    """Entry point for the rouge-worker CLI."""
+    app()
