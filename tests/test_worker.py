@@ -12,20 +12,20 @@ from rouge.worker.worker import IssueWorker
 
 
 @pytest.fixture
-def mock_env(monkeypatch):
+def mock_env(monkeypatch) -> None:
     """Mock environment variables for Supabase."""
     monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test_key")
 
 
 @pytest.fixture
-def worker_config():
+def worker_config() -> WorkerConfig:
     """Create a worker configuration for testing."""
     return WorkerConfig(worker_id="test-worker", poll_interval=5, log_level="DEBUG")
 
 
 @pytest.fixture
-def worker(mock_env, worker_config):
+def worker(mock_env, worker_config) -> IssueWorker:
     """Create a worker instance for testing."""
     with patch("rouge.worker.database.get_client"):
         worker = IssueWorker(worker_config)
@@ -1212,7 +1212,7 @@ class TestWorkerPollLoopGating:
                             for call in mock_log.call_args_list
                         )
 
-    def test_worker_rereads_artifact_from_disk_each_iteration(self, worker):
+    def test_worker_rereads_artifact_from_disk_each_iteration(self, worker) -> None:
         """Test that the worker re-reads the artifact from disk on each poll iteration."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -1241,9 +1241,11 @@ class TestWorkerPollLoopGating:
                 worker.running = False  # Stop after second iteration
                 return ready_artifact
 
-        with patch("rouge.worker.worker.read_worker_artifact", side_effect=side_effect), \
-             patch("rouge.worker.worker.get_next_issue", return_value=None), \
-             patch("rouge.worker.worker.time") as mock_time:
+        with (
+            patch("rouge.worker.worker.read_worker_artifact", side_effect=side_effect),
+            patch("rouge.worker.worker.get_next_issue", return_value=None),
+            patch("rouge.worker.worker.time"),
+        ):
             worker.run()
 
         assert call_count >= 2
@@ -1252,7 +1254,7 @@ class TestWorkerPollLoopGating:
 class TestWorkerResetCLI:
     """Tests for the rouge-worker reset CLI subcommand."""
 
-    def test_worker_reset_fails_when_no_artifact(self):
+    def test_worker_reset_fails_when_no_artifact(self) -> None:
         """Test rouge-worker reset exits 1 when no artifact found."""
         from typer.testing import CliRunner
 
@@ -1264,7 +1266,7 @@ class TestWorkerResetCLI:
         assert result.exit_code == 1
         assert "No artifact found" in result.output
 
-    def test_worker_reset_fails_when_not_failed_state(self):
+    def test_worker_reset_fails_when_not_failed_state(self) -> None:
         """Test rouge-worker reset exits 1 when worker is not in failed state."""
         from typer.testing import CliRunner
 
@@ -1278,7 +1280,7 @@ class TestWorkerResetCLI:
         assert result.exit_code == 1
         assert "can only reset 'failed' workers" in result.output
 
-    def test_worker_reset_succeeds_when_failed(self):
+    def test_worker_reset_succeeds_when_failed(self) -> None:
         """Test rouge-worker reset exits 0 and resets artifact when worker is in failed state."""
         from typer.testing import CliRunner
 
@@ -1292,8 +1294,10 @@ class TestWorkerResetCLI:
             current_issue_id=42,
             current_adw_id="adw-123",
         )
-        with patch("rouge.worker.cli.read_worker_artifact", return_value=failed_artifact), \
-             patch("rouge.worker.cli.write_worker_artifact") as mock_write:
+        with (
+            patch("rouge.worker.cli.read_worker_artifact", return_value=failed_artifact),
+            patch("rouge.worker.cli.write_worker_artifact") as mock_write,
+        ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 0
         assert "reset to ready" in result.output
@@ -1303,7 +1307,7 @@ class TestWorkerResetCLI:
         assert written.current_issue_id is None
         assert written.current_adw_id is None
 
-    def test_worker_reset_fails_when_working(self):
+    def test_worker_reset_fails_when_working(self) -> None:
         """Test rouge-worker reset exits 1 when worker is in working state."""
         from typer.testing import CliRunner
 
