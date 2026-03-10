@@ -29,7 +29,12 @@ from rouge.core.utils import _get_log_level, make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
-from .worker_artifact import WorkerArtifact, read_worker_artifact, write_worker_artifact
+from .worker_artifact import (
+    WorkerArtifact,
+    read_worker_artifact,
+    transition_worker_artifact,
+    write_worker_artifact,
+)
 
 
 class IssueWorker:
@@ -182,12 +187,7 @@ class IssueWorker:
             clear_issue: If True, clears current_issue_id and current_adw_id
         """
         if self.worker_artifact is not None:
-            self.worker_artifact.state = state
-            if clear_issue:
-                self.worker_artifact.current_issue_id = None
-                self.worker_artifact.current_adw_id = None
-            self.worker_artifact.refresh_timestamp()
-            write_worker_artifact(self.worker_artifact)
+            transition_worker_artifact(self.worker_artifact, state, clear_issue)
 
     def _execute_workflow(
         self, issue_id: int, workflow_type: str, description: str = ""
@@ -222,7 +222,7 @@ class IssueWorker:
             if self.worker_artifact is not None:
                 self.worker_artifact.current_issue_id = issue_id
                 self.worker_artifact.current_adw_id = adw_id
-            self._transition_artifact("working")
+                self._transition_artifact("working")
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",

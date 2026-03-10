@@ -8,7 +8,7 @@ import typer
 
 from .config import WorkerConfig
 from .worker import IssueWorker
-from .worker_artifact import read_worker_artifact, write_worker_artifact
+from .worker_artifact import read_worker_artifact, transition_worker_artifact
 
 
 # Compute defaults from environment
@@ -117,11 +117,7 @@ def reset_worker(
             err=True,
         )
         raise typer.Exit(1)
-    artifact.state = "ready"
-    artifact.current_issue_id = None
-    artifact.current_adw_id = None
-    artifact.refresh_timestamp()
-    write_worker_artifact(artifact)
+    transition_worker_artifact(artifact, "ready", clear_issue=True)
     # Verify write succeeded by re-reading and confirming state
     verified = read_worker_artifact(worker_id)
     if verified is None or verified.state != "ready":

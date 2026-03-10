@@ -151,6 +151,26 @@ def read_worker_artifact(worker_id: str) -> Optional[WorkerArtifact]:
         return None
 
 
+def transition_worker_artifact(
+    artifact: WorkerArtifact,
+    state: Literal["ready", "working", "failed"],
+    clear_issue: bool = False,
+) -> None:
+    """Apply a state transition to a WorkerArtifact and persist it to disk.
+
+    Args:
+        artifact: The WorkerArtifact to transition
+        state: New state to set
+        clear_issue: If True, clears current_issue_id and current_adw_id
+    """
+    artifact.state = state
+    if clear_issue:
+        artifact.current_issue_id = None
+        artifact.current_adw_id = None
+    artifact.refresh_timestamp()
+    write_worker_artifact(artifact)
+
+
 def write_worker_artifact(artifact: WorkerArtifact) -> None:
     """Write a worker artifact to disk.
 
