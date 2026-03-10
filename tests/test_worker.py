@@ -35,7 +35,7 @@ def worker(mock_env, worker_config) -> IssueWorker:
 class TestIssueWorkerInit:
     """Tests for IssueWorker initialization."""
 
-    def test_worker_initialization(self, mock_env, worker_config):
+    def test_worker_initialization(self, mock_env, worker_config) -> None:
         """Test worker initializes with correct parameters."""
         with patch("rouge.worker.database.get_client"):
             worker = IssueWorker(worker_config)
@@ -45,7 +45,7 @@ class TestIssueWorkerInit:
             assert worker.config.log_level == "DEBUG"
             assert worker.running is True
 
-    def test_worker_logging_setup(self, mock_env, worker_config):
+    def test_worker_logging_setup(self, mock_env, worker_config) -> None:
         """Test worker sets up logging correctly."""
         with patch("rouge.worker.database.get_client"):
             worker = IssueWorker(worker_config)
@@ -57,7 +57,7 @@ class TestIssueWorkerInit:
 class TestGetNextIssue:
     """Tests for get_next_issue function."""
 
-    def test_get_next_issue_success(self, mock_env):
+    def test_get_next_issue_success(self, mock_env) -> None:
         """Test successfully retrieving next issue."""
         mock_client = Mock()
         mock_response = Mock()
@@ -79,7 +79,7 @@ class TestGetNextIssue:
                 "get_and_lock_next_issue", {"p_worker_id": "test-worker"}
             )
 
-    def test_get_next_issue_no_issues(self, mock_env):
+    def test_get_next_issue_no_issues(self, mock_env) -> None:
         """Test when no issues are available."""
         mock_client = Mock()
         mock_response = Mock()
@@ -91,7 +91,7 @@ class TestGetNextIssue:
 
             assert result is None
 
-    def test_get_next_issue_database_error(self, mock_env):
+    def test_get_next_issue_database_error(self, mock_env) -> None:
         """Test handling database errors."""
         mock_client = Mock()
         mock_client.rpc.side_effect = Exception("Database connection failed")
@@ -105,7 +105,7 @@ class TestGetNextIssue:
 class TestExecuteWorkflow:
     """Tests for execute_workflow method."""
 
-    def test_execute_workflow_success(self, worker):
+    def test_execute_workflow_success(self, worker) -> None:
         """Test successful workflow execution."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -119,7 +119,7 @@ class TestExecuteWorkflow:
                 assert result is True
                 mock_update.assert_called_once_with(123, "completed", worker.logger)
 
-    def test_execute_workflow_failure(self, worker):
+    def test_execute_workflow_failure(self, worker) -> None:
         """Test workflow execution failure."""
         mock_result = Mock()
         mock_result.returncode = 1
@@ -133,7 +133,7 @@ class TestExecuteWorkflow:
                 assert result is False
                 mock_update.assert_called_once_with(123, "failed", worker.logger)
 
-    def test_execute_workflow_timeout(self, worker):
+    def test_execute_workflow_timeout(self, worker) -> None:
         """Test workflow execution timeout."""
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
@@ -142,7 +142,7 @@ class TestExecuteWorkflow:
                 assert result is False
                 mock_update.assert_called_once_with(123, "failed", worker.logger)
 
-    def test_execute_workflow_exception(self, worker):
+    def test_execute_workflow_exception(self, worker) -> None:
         """Test workflow execution with unexpected exception."""
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
@@ -151,7 +151,7 @@ class TestExecuteWorkflow:
                 assert result is False
                 mock_update.assert_called_once_with(123, "failed", worker.logger)
 
-    def test_execute_workflow_command_format(self, worker):
+    def test_execute_workflow_command_format(self, worker) -> None:
         """Test workflow command is formatted correctly."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -178,7 +178,7 @@ class TestExecuteWorkflow:
                     assert cmd[6] == "main"
                     assert cmd[7] == "456"
 
-    def test_execute_workflow_command_from_path(self, worker):
+    def test_execute_workflow_command_from_path(self, worker) -> None:
         """Test workflow command uses rouge-adw from PATH when available."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -201,7 +201,7 @@ class TestExecuteWorkflow:
                     assert cmd[4] == "main"
                     assert cmd[5] == "456"
 
-    def test_execute_workflow_command_from_env_var(self, worker, monkeypatch):
+    def test_execute_workflow_command_from_env_var(self, worker, monkeypatch) -> None:
         """Test workflow command uses ROUGE_ADW_COMMAND when set."""
         monkeypatch.setenv("ROUGE_ADW_COMMAND", "/custom/path/rouge-adw --verbose")
         mock_result = Mock()
@@ -238,7 +238,7 @@ class TestExecuteWorkflow:
 class TestUpdateIssueStatus:
     """Tests for update_issue_status function."""
 
-    def test_update_issue_status_success(self, mock_env):
+    def test_update_issue_status_success(self, mock_env) -> None:
         """Test successfully updating issue status."""
         mock_issue = Mock()
         mock_issue.id = 123
@@ -248,7 +248,7 @@ class TestUpdateIssueStatus:
             database.update_issue_status(123, "completed")
             mock_update.assert_called_once_with(123, status="completed")
 
-    def test_update_issue_status_database_error(self, mock_env):
+    def test_update_issue_status_database_error(self, mock_env) -> None:
         """Test handling database errors during status update."""
         with patch("rouge.worker.database._update_issue", side_effect=Exception("Database error")):
             # Should not raise exception
@@ -259,7 +259,7 @@ class TestWorkerRun:
     """Tests for the main worker run loop."""
 
     @pytest.mark.skip(reason="Hangs intermittently on Windows runners; tracked for later fix.")
-    def test_run_processes_issue(self, worker):
+    def test_run_processes_issue(self, worker) -> None:
         """Test worker processes an issue and then stops."""
         worker.running = True
         call_count = [0]
@@ -278,7 +278,7 @@ class TestWorkerRun:
                 mock_execute.assert_called_once_with(123, "Test issue", "pending", "main")
 
     @pytest.mark.skip(reason="Flaky sleep timing on CI runners; revisit later.")
-    def test_run_sleeps_when_no_issues(self, worker):
+    def test_run_sleeps_when_no_issues(self, worker) -> None:
         """Test worker sleeps when no issues are available."""
         worker.running = True
         call_count = [0]
@@ -298,7 +298,7 @@ class TestWorkerRun:
                 mock_sleep.assert_called_with(5)  # poll_interval is 5 for test worker
 
     @pytest.mark.skip(reason="Intermittent signal propagation issues on Windows runners.")
-    def test_run_handles_keyboard_interrupt(self, worker):
+    def test_run_handles_keyboard_interrupt(self, worker) -> None:
         """Test worker handles keyboard interrupt gracefully."""
 
         def mock_get_next_issue(worker_id, logger):
@@ -310,7 +310,7 @@ class TestWorkerRun:
             assert worker.running is False
 
     @pytest.mark.skip(reason="Flaky on Windows due to patching/time.sleep interactions.")
-    def test_run_handles_unexpected_error(self, worker):
+    def test_run_handles_unexpected_error(self, worker) -> None:
         """Test worker handles unexpected errors and continues."""
         worker.running = True
         call_count = [0]
@@ -333,7 +333,7 @@ class TestWorkerRun:
 class TestSignalHandling:
     """Tests for signal handling."""
 
-    def test_handle_shutdown_signal(self, worker):
+    def test_handle_shutdown_signal(self, worker) -> None:
         """Test worker handles shutdown signals."""
         assert worker.running is True
 
@@ -345,7 +345,7 @@ class TestSignalHandling:
 class TestCommandLineInterface:
     """Tests for command line argument parsing."""
 
-    def test_main_with_required_args(self, mock_env, monkeypatch):
+    def test_main_with_required_args(self, mock_env, monkeypatch) -> None:
         """Test main function with required arguments."""
         from typer.testing import CliRunner as TyperRunner
 
@@ -370,7 +370,7 @@ class TestCommandLineInterface:
             assert config.log_level == "INFO"
             mock_worker.run.assert_called_once()
 
-    def test_main_with_all_args(self, mock_env):
+    def test_main_with_all_args(self, mock_env) -> None:
         """Test main function with all arguments."""
         from typer.testing import CliRunner as TyperRunner
 
@@ -404,7 +404,7 @@ class TestCommandLineInterface:
             assert config.log_level == "DEBUG"
             mock_worker.run.assert_called_once()
 
-    def test_workflow_timeout_from_cli(self, mock_env):
+    def test_workflow_timeout_from_cli(self, mock_env) -> None:
         """Test workflow-timeout flag is parsed and passed to WorkerConfig."""
         from typer.testing import CliRunner as TyperRunner
 
@@ -434,7 +434,7 @@ class TestCommandLineInterface:
             assert config.workflow_timeout == 7200
             mock_worker.run.assert_called_once()
 
-    def test_workflow_timeout_from_env_var(self, mock_env, monkeypatch):
+    def test_workflow_timeout_from_env_var(self, mock_env, monkeypatch) -> None:
         """Test ROUGE_WORKFLOW_TIMEOUT_SECONDS env var is used as default.
 
         This test verifies that the CLI correctly reads the environment variable
@@ -476,7 +476,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
         assert result.returncode == 0, f"Script failed: {result.stderr}"
         assert result.stdout.strip() == "1800"
 
-    def test_workflow_timeout_cli_overrides_env(self, mock_env, monkeypatch):
+    def test_workflow_timeout_cli_overrides_env(self, mock_env, monkeypatch) -> None:
         """Test CLI flag takes precedence over environment variable.
 
         We use subprocess to ensure the environment variable is evaluated
@@ -515,7 +515,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
         # CLI value (5400) should take precedence over env var (1800)
         assert result.stdout.strip() == "5400"
 
-    def test_workflow_timeout_invalid_env_var(self, mock_env):
+    def test_workflow_timeout_invalid_env_var(self, mock_env) -> None:
         """Test invalid environment variable values are handled gracefully.
 
         This test verifies that non-numeric and non-positive values in
@@ -604,7 +604,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
 class TestWorkflowRouting:
     """Tests for workflow routing based on issue type."""
 
-    def test_execute_workflow_routes_to_main_for_main_type(self, worker):
+    def test_execute_workflow_routes_to_main_for_main_type(self, worker) -> None:
         """Test that execute_workflow calls _execute_workflow for type='main'."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-123", True)
@@ -614,7 +614,7 @@ class TestWorkflowRouting:
             assert result is True
             mock_workflow.assert_called_once_with(123, "main", "Test issue")
 
-    def test_execute_workflow_routes_to_patch_for_patch_type(self, worker):
+    def test_execute_workflow_routes_to_patch_for_patch_type(self, worker) -> None:
         """Test that execute_workflow calls _execute_workflow for type='patch'."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("patch-adw-test-123", True)
@@ -624,7 +624,7 @@ class TestWorkflowRouting:
             assert result is True
             mock_workflow.assert_called_once_with(456, "patch", "Patch issue")
 
-    def test_execute_workflow_defaults_to_main_for_unknown_type(self, worker):
+    def test_execute_workflow_defaults_to_main_for_unknown_type(self, worker) -> None:
         """Test execute_workflow passes unknown type to _execute_workflow (registry)."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-789", True)
@@ -635,7 +635,7 @@ class TestWorkflowRouting:
             mock_workflow.assert_called_once_with(789, "unknown", "Unknown type issue")
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
-    def test_run_loop_routes_patch_issue_to_patch_workflow(self, worker):
+    def test_run_loop_routes_patch_issue_to_patch_workflow(self, worker) -> None:
         """Test worker run loop routes patch type issues to patch workflow."""
         worker.running = True
         call_count = [0]
@@ -657,7 +657,7 @@ class TestWorkflowRouting:
                 )
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
-    def test_run_loop_routes_main_issue_to_main_workflow(self, worker):
+    def test_run_loop_routes_main_issue_to_main_workflow(self, worker) -> None:
         """Test worker run loop routes main type issues to main workflow."""
         worker.running = True
         call_count = [0]
@@ -678,7 +678,7 @@ class TestWorkflowRouting:
                     456, "Main issue description", "pending", "main"
                 )
 
-    def test_execute_workflow_handles_patch_failure(self, worker):
+    def test_execute_workflow_handles_patch_failure(self, worker) -> None:
         """Test execute_workflow handles patch workflow failure correctly."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("patch-adw-test-fail", False)
@@ -688,7 +688,7 @@ class TestWorkflowRouting:
             assert result is False
             mock_workflow.assert_called_once_with(123, "patch", "Patch issue")
 
-    def test_execute_workflow_handles_main_failure(self, worker):
+    def test_execute_workflow_handles_main_failure(self, worker) -> None:
         """Test execute_workflow handles main workflow failure correctly."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-fail", False)
@@ -702,7 +702,7 @@ class TestWorkflowRouting:
 class TestPatchWorkflowAdwId:
     """Tests verifying patch workflows generate unique ADW IDs."""
 
-    def test_patch_workflow_generates_unique_adw_id(self, worker):
+    def test_patch_workflow_generates_unique_adw_id(self, worker) -> None:
         """Test that patch workflows generate unique ADW IDs via make_adw_id()."""
         generated_ids = []
 
@@ -723,7 +723,7 @@ class TestPatchWorkflowAdwId:
         assert len(generated_ids) == 2
         assert generated_ids[0] != generated_ids[1]
 
-    def test_patch_workflow_does_not_reuse_parent_adw_id(self, worker):
+    def test_patch_workflow_does_not_reuse_parent_adw_id(self, worker) -> None:
         """Test that patch workflows do not reuse any parent ADW ID.
 
         After decoupling, all workflow types use make_adw_id() to generate
@@ -758,7 +758,7 @@ class TestPatchWorkflowAdwId:
         assert adw_ids_used[1] == "main-xyz"
         assert adw_ids_used[0] != adw_ids_used[1]
 
-    def test_make_adw_id_called_for_every_workflow_type(self, worker):
+    def test_make_adw_id_called_for_every_workflow_type(self, worker) -> None:
         """Test that make_adw_id is called once per workflow execution."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -776,7 +776,7 @@ class TestPatchWorkflowAdwId:
 class TestWorkerConfig:
     """Tests for WorkerConfig."""
 
-    def test_config_invalid_workflow_timeout(self):
+    def test_config_invalid_workflow_timeout(self) -> None:
         """Test configuration with invalid workflow_timeout."""
         with pytest.raises(ValueError, match="workflow_timeout must be positive"):
             WorkerConfig(worker_id="test", poll_interval=10, workflow_timeout=0)
@@ -784,7 +784,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="workflow_timeout must be positive"):
             WorkerConfig(worker_id="test", poll_interval=10, workflow_timeout=-1)
 
-    def test_config_validation_success(self):
+    def test_config_validation_success(self) -> None:
         """Test valid configuration."""
         config = WorkerConfig(worker_id="test-worker", poll_interval=10, log_level="INFO")
 
@@ -792,12 +792,12 @@ class TestWorkerConfig:
         assert config.poll_interval == 10
         assert config.log_level == "INFO"
 
-    def test_config_empty_worker_id(self):
+    def test_config_empty_worker_id(self) -> None:
         """Test configuration with empty worker_id."""
         with pytest.raises(ValueError, match="worker_id cannot be empty"):
             WorkerConfig(worker_id="", poll_interval=10)
 
-    def test_config_whitespace_only_worker_id(self):
+    def test_config_whitespace_only_worker_id(self) -> None:
         """Test configuration with whitespace-only worker_id."""
         # Whitespace-only strings will fail the leading/trailing check first
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
@@ -809,7 +809,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
             WorkerConfig(worker_id="\n", poll_interval=10)
 
-    def test_config_worker_id_leading_whitespace(self):
+    def test_config_worker_id_leading_whitespace(self) -> None:
         """Test configuration rejects worker_id with leading whitespace."""
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
             WorkerConfig(worker_id=" test-worker", poll_interval=10)
@@ -817,7 +817,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
             WorkerConfig(worker_id="\ttest-worker", poll_interval=10)
 
-    def test_config_worker_id_trailing_whitespace(self):
+    def test_config_worker_id_trailing_whitespace(self) -> None:
         """Test configuration rejects worker_id with trailing whitespace."""
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
             WorkerConfig(worker_id="test-worker ", poll_interval=10)
@@ -825,7 +825,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="leading or trailing whitespace"):
             WorkerConfig(worker_id="test-worker\n", poll_interval=10)
 
-    def test_config_worker_id_internal_whitespace(self):
+    def test_config_worker_id_internal_whitespace(self) -> None:
         """Test configuration rejects worker_id with internal whitespace."""
         with pytest.raises(ValueError, match="worker_id cannot contain whitespace characters"):
             WorkerConfig(worker_id="test worker", poll_interval=10)
@@ -836,7 +836,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="worker_id cannot contain whitespace characters"):
             WorkerConfig(worker_id="test\nworker", poll_interval=10)
 
-    def test_config_worker_id_path_separators(self):
+    def test_config_worker_id_path_separators(self) -> None:
         """Test configuration rejects worker_id with path separators."""
         with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
             WorkerConfig(worker_id="test/worker", poll_interval=10)
@@ -844,7 +844,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
             WorkerConfig(worker_id="test\\worker", poll_interval=10)
 
-    def test_config_worker_id_path_traversal(self):
+    def test_config_worker_id_path_traversal(self) -> None:
         """Test configuration rejects worker_id with path traversal attempts."""
         with pytest.raises(ValueError, match="parent directory references"):
             WorkerConfig(worker_id="..test", poll_interval=10)
@@ -852,7 +852,7 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="parent directory references"):
             WorkerConfig(worker_id="test..", poll_interval=10)
 
-    def test_config_worker_id_special_paths(self):
+    def test_config_worker_id_special_paths(self) -> None:
         """Test configuration rejects special path components."""
         # "." fails the path component check (Path(".").parts returns empty tuple)
         with pytest.raises(ValueError, match="worker_id must be a single path component"):
@@ -862,23 +862,23 @@ class TestWorkerConfig:
         with pytest.raises(ValueError, match="parent directory references"):
             WorkerConfig(worker_id="..", poll_interval=10)
 
-    def test_config_worker_id_multiple_path_components(self):
+    def test_config_worker_id_multiple_path_components(self) -> None:
         """Test configuration rejects worker_id with multiple path components."""
         # This test validates that worker_id must be a single path component
         with pytest.raises(ValueError, match="worker_id cannot contain path separators"):
             WorkerConfig(worker_id="parent/child", poll_interval=10)
 
-    def test_config_invalid_poll_interval(self):
+    def test_config_invalid_poll_interval(self) -> None:
         """Test configuration with invalid poll_interval."""
         with pytest.raises(ValueError, match="poll_interval must be positive"):
             WorkerConfig(worker_id="test", poll_interval=0)
 
-    def test_config_invalid_log_level(self):
+    def test_config_invalid_log_level(self) -> None:
         """Test configuration with invalid log_level."""
         with pytest.raises(ValueError, match="log_level must be one of"):
             WorkerConfig(worker_id="test", log_level="INVALID")
 
-    def test_config_log_level_normalization(self):
+    def test_config_log_level_normalization(self) -> None:
         """Test log level is normalized to uppercase."""
         config = WorkerConfig(worker_id="test", log_level="debug")
         assert config.log_level == "DEBUG"
@@ -887,7 +887,7 @@ class TestWorkerConfig:
 class TestWorkerStateTransitions:
     """Tests for worker state transitions during workflow execution."""
 
-    def test_worker_transitions_to_working_state_on_workflow_start(self, worker):
+    def test_worker_transitions_to_working_state_on_workflow_start(self, worker) -> None:
         """Test worker artifact transitions to working state when workflow starts."""
 
         mock_result = Mock()
@@ -916,7 +916,7 @@ class TestWorkerStateTransitions:
                     assert first_write.current_issue_id == 100
                     assert first_write.current_adw_id == "test-adw-123"
 
-    def test_worker_transitions_to_ready_state_on_workflow_success(self, worker):
+    def test_worker_transitions_to_ready_state_on_workflow_success(self, worker) -> None:
         """Test worker artifact transitions to ready state when workflow succeeds."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -940,7 +940,7 @@ class TestWorkerStateTransitions:
                     assert last_write.current_issue_id is None
                     assert last_write.current_adw_id is None
 
-    def test_worker_transitions_to_failed_state_on_workflow_failure(self, worker):
+    def test_worker_transitions_to_failed_state_on_workflow_failure(self, worker) -> None:
         """Test worker artifact transitions to failed state when workflow fails."""
         mock_result = Mock()
         mock_result.returncode = 1
@@ -965,7 +965,7 @@ class TestWorkerStateTransitions:
                     assert last_write.current_issue_id == 300
                     assert last_write.current_adw_id == "test-adw-789"
 
-    def test_worker_transitions_to_failed_state_on_timeout(self, worker):
+    def test_worker_transitions_to_failed_state_on_timeout(self, worker) -> None:
         """Test worker artifact transitions to failed state when workflow times out."""
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
             with patch("rouge.worker.worker.update_issue_status"):
@@ -986,7 +986,7 @@ class TestWorkerStateTransitions:
                     assert last_write.current_issue_id == 400
                     assert last_write.current_adw_id == "test-adw-timeout"
 
-    def test_worker_transitions_to_failed_state_on_exception(self, worker):
+    def test_worker_transitions_to_failed_state_on_exception(self, worker) -> None:
         """Test worker artifact transitions to failed state on unexpected exception."""
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
             with patch("rouge.worker.worker.update_issue_status"):
@@ -1007,7 +1007,7 @@ class TestWorkerStateTransitions:
                     assert last_write.current_issue_id == 500
                     assert last_write.current_adw_id == "test-adw-error"
 
-    def test_worker_state_persists_across_multiple_workflows(self, worker):
+    def test_worker_state_persists_across_multiple_workflows(self, worker) -> None:
         """Test worker state correctly transitions across multiple workflow executions."""
         mock_result = Mock()
         mock_result.returncode = 0
@@ -1053,7 +1053,7 @@ class TestWorkerPollLoopGating:
     working states.
     """
 
-    def test_poll_loop_skips_polling_when_in_failed_state(self, worker):
+    def test_poll_loop_skips_polling_when_in_failed_state(self, worker) -> None:
         """Test worker skips polling when in failed state."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -1082,7 +1082,7 @@ class TestWorkerPollLoopGating:
                     # get_next_issue should NOT have been called (worker gated by failed state)
                     mock_get_next.assert_not_called()
 
-    def test_poll_loop_skips_polling_when_in_working_state(self, worker):
+    def test_poll_loop_skips_polling_when_in_working_state(self, worker) -> None:
         """Test worker skips polling when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -1111,7 +1111,7 @@ class TestWorkerPollLoopGating:
                     # get_next_issue should NOT have been called (worker gated by working state)
                     mock_get_next.assert_not_called()
 
-    def test_poll_loop_continues_when_in_ready_state(self, worker):
+    def test_poll_loop_continues_when_in_ready_state(self, worker) -> None:
         """Test worker polls for issues when in ready state."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -1146,7 +1146,7 @@ class TestWorkerPollLoopGating:
                     # get_next_issue should have been called (worker in ready state)
                     assert call_count[0] >= 1
 
-    def test_poll_loop_logs_failed_state_message(self, worker):
+    def test_poll_loop_logs_failed_state_message(self, worker) -> None:
         """Test worker logs appropriate message when in failed state."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -1179,7 +1179,7 @@ class TestWorkerPollLoopGating:
                             for call in mock_log.call_args_list
                         )
 
-    def test_poll_loop_logs_working_state_warning(self, worker):
+    def test_poll_loop_logs_working_state_warning(self, worker) -> None:
         """Test worker logs warning when in working state without active execution."""
         from rouge.worker.worker_artifact import WorkerArtifact
 
