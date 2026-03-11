@@ -1,6 +1,6 @@
 ---
 name: consensus-review
-description: Runs a multi-agent consensus code review. Use when reviewing code changes, before pushing a PR, or as the review step in a development workflow. Spawns three independent reviewers (adw-standards-reviewer, adw-correctness-reviewer, adw-architecture-reviewer) in parallel, then passes their outputs to adw-review-synthesizer for a tiered consensus report with a 1-100 quality score. Accepts an optional plan file; when provided, reviewers also check for plan divergences. Scope defaults to all local changes (staged, unstaged, and untracked); also accepts a base commit SHA, branch diff, or explicit file list.
+description: Runs a multi-agent consensus code review. Use when reviewing code changes, before pushing a PR, or as the review step in a development workflow. Spawns three independent reviewers (standards-reviewer, correctness-reviewer, architecture-reviewer) in parallel, then passes their outputs to review-synthesizer for a tiered consensus report with a 1-100 quality score. Accepts an optional plan file; when provided, reviewers also check for plan divergences. Scope defaults to all local changes (staged, unstaged, and untracked); also accepts a base commit SHA, branch diff, or explicit file list.
 ---
 
 # Consensus Review
@@ -9,7 +9,13 @@ Orchestrates three independent reviewer agents and one synthesis agent to produc
 
 ## Prerequisites
 
-The three reviewer agents (`adw-standards-reviewer`, `adw-correctness-reviewer`, `adw-architecture-reviewer`) and the synthesizer (`adw-review-synthesizer`) must be present in `.claude/agents/`. If they are not present, generate them using the `/meta-consensus-review-agents` command.
+All six agents must be present in `.claude/agents/`:
+- `standards-reviewer`, `correctness-reviewer`, `architecture-reviewer` — workspace-specific reviewers
+- `review-synthesizer` — workspace-agnostic synthesizer
+- `consensus-review-poster` — workspace-agnostic PR comment poster
+- `consensus-review-fixer` — workspace-agnostic fix agent
+
+If any are missing, generate them using the `/meta-consensus-review-agents` command.
 
 ## Inputs Required
 
@@ -108,9 +114,9 @@ Spawn all three reviewer agents simultaneously using the Agent tool. Run all thr
 Each agent receives a prompt containing the code diff, and the plan document when one was provided.
 
 Agents to invoke (by subagent_type):
-- `adw-standards-reviewer`
-- `adw-correctness-reviewer`
-- `adw-architecture-reviewer`
+- `standards-reviewer`
+- `correctness-reviewer`
+- `architecture-reviewer`
 
 When a plan file is provided, construct each prompt as:
 
@@ -136,24 +142,24 @@ When no plan file is provided, construct each prompt as:
 
 ### Step 3 — Synthesize
 
-Once all three reviewer outputs are returned, invoke `adw-review-synthesizer` with a prompt containing all three reviewer outputs in full, clearly labeled, plus the log directory and cycle number when available:
+Once all three reviewer outputs are returned, invoke `review-synthesizer` with a prompt containing all three reviewer outputs in full, clearly labeled, plus the log directory and cycle number when available:
 
 ```
-## adw-standards-reviewer Output
+## standards-reviewer Output
 
-[Full adw-standards-reviewer output]
-
----
-
-## adw-correctness-reviewer Output
-
-[Full adw-correctness-reviewer output]
+[Full standards-reviewer output]
 
 ---
 
-## adw-architecture-reviewer Output
+## correctness-reviewer Output
 
-[Full adw-architecture-reviewer output]
+[Full correctness-reviewer output]
+
+---
+
+## architecture-reviewer Output
+
+[Full architecture-reviewer output]
 
 ---
 
@@ -185,7 +191,9 @@ Report the outcome returned by the `consensus-review-poster` agent (success or f
 
 ### Step 6 — Fix issues (optional)
 
-If the user asks to fix the review issues after the comment is posted (e.g. "fix the issues", "run the fixer"):
+If the user asks to fix the review issues after the comment is posted (e.g. "fix the issues", "run the fixer", "fix all findings"):
+
+**Always use the `consensus-review-fixer` agent for all fixes — do not apply fixes manually in this session.**
 
 Invoke the `consensus-review-fixer` agent with a prompt containing:
 - The review file path: `{LOG_DIR}/review-{CYCLE:02d}.md`

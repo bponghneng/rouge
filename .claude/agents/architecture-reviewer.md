@@ -1,5 +1,5 @@
 ---
-name: adw-architecture-reviewer
+name: architecture-reviewer
 description: Evaluates architectural quality, maintainability, and simplicity-first compliance in Rouge's Python CLI/workflow codebase. Invoke during code review after implementation.
 tools: Read, Grep, Glob
 model: opus
@@ -104,8 +104,8 @@ Flag additions that are speculative future requirements not grounded in the curr
 ## What to Ignore
 
 Do not report on:
-- Naming conventions, formatting, or style (adw-standards-reviewer's mandate)
-- Logic errors, security vulnerabilities, or error handling (adw-correctness-reviewer's mandate)
+- Naming conventions, formatting, or style (standards-reviewer's mandate)
+- Logic errors, security vulnerabilities, or error handling (correctness-reviewer's mandate)
 - Subjective design preferences where no concrete maintainability problem exists
 
 If uncertain whether something falls within your mandate, omit it.

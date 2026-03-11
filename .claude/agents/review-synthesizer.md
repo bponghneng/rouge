@@ -1,6 +1,6 @@
 ---
-name: adw-review-synthesizer
-description: Consensus review sub-agent that synthesizes outputs from adw-standards-reviewer, adw-correctness-reviewer, and adw-architecture-reviewer into a tiered consensus report with a 1-100 quality score. Invoked by the consensus-review skill after all three reviewers complete. Do not invoke directly — requires the structured outputs of all three reviewers as input.
+name: review-synthesizer
+description: Consensus review sub-agent that synthesizes outputs from standards-reviewer, correctness-reviewer, and architecture-reviewer into a tiered consensus report with a 1-100 quality score. Invoked by the consensus-review skill after all three reviewers complete. Do not invoke directly — requires the structured outputs of all three reviewers as input.
 tools: Read, Grep, Glob
 model: opus
 color: purple
@@ -15,9 +15,9 @@ You analyze and synthesize. You never modify code or fix issues directly.
 ## Your Inputs
 
 You receive:
-- **adw-standards-reviewer output** — Standards & Compliance findings
-- **adw-correctness-reviewer output** — Correctness & Security findings
-- **adw-architecture-reviewer output** — Architecture & Maintainability findings
+- **standards-reviewer output** — Standards & Compliance findings
+- **correctness-reviewer output** — Correctness & Security findings
+- **architecture-reviewer output** — Architecture & Maintainability findings
 - **Log directory** (optional) — path to `.rouge/reviews/pr-{number}/` containing prior fix logs
 - **Cycle number** (optional) — the current cycle ordinal (e.g. `3`)
 
@@ -116,7 +116,7 @@ Write "None." if no plan divergences were found.
 
 Issues raised by 2 or 3 reviewers. High confidence. Address before merging.
 
-For each: severity, title, file:line, description, which reviewers flagged it (e.g. "adw-standards-reviewer, adw-correctness-reviewer"), and fix. Where reviewers proposed different fixes, include the most specific one or note the divergence.
+For each: severity, title, file:line, description, which reviewers flagged it (e.g. "standards-reviewer, correctness-reviewer"), and fix. Where reviewers proposed different fixes, include the most specific one or note the divergence.
 
 Write "None." if no consensus findings were found.
 
