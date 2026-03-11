@@ -90,12 +90,16 @@ def main(
         )
         raise typer.Exit(1)
     resolved_timeout = workflow_timeout if workflow_timeout is not None else _get_default_timeout()
-    config = WorkerConfig(
-        worker_id=worker_id,
-        poll_interval=poll_interval,
-        log_level=resolved_log_level,
-        workflow_timeout=resolved_timeout,
-    )
+    try:
+        config = WorkerConfig(
+            worker_id=worker_id,
+            poll_interval=poll_interval,
+            log_level=resolved_log_level,
+            workflow_timeout=resolved_timeout,
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
     IssueWorker(config).run()
 
 

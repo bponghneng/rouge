@@ -219,10 +219,10 @@ class IssueWorker:
             self.logger.debug("Issue description: %s", description)
 
             # Transition to working state before executing workflow
-            if self.worker_artifact is not None:
-                self.worker_artifact.current_issue_id = issue_id
-                self.worker_artifact.current_adw_id = adw_id
-                self._transition_artifact("working")
+            assert self.worker_artifact is not None  # guaranteed by run() loop guard
+            self.worker_artifact.current_issue_id = issue_id
+            self.worker_artifact.current_adw_id = adw_id
+            self._transition_artifact("working")
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
