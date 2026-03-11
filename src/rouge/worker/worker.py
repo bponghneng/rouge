@@ -186,8 +186,8 @@ class IssueWorker:
             state: New state to set (e.g., "working", "ready", "failed")
             clear_issue: If True, clears current_issue_id and current_adw_id
         """
-        if self.worker_artifact is not None:
-            transition_worker_artifact(self.worker_artifact, state, clear_issue)
+        assert self.worker_artifact is not None  # guaranteed by run() loop guard
+        transition_worker_artifact(self.worker_artifact, state, clear_issue)
 
     def _execute_workflow(
         self, issue_id: int, workflow_type: str, description: str = ""
@@ -219,7 +219,8 @@ class IssueWorker:
             self.logger.debug("Issue description: %s", description)
 
             # Transition to working state before executing workflow
-            assert self.worker_artifact is not None  # guaranteed by run() loop guard
+            if self.worker_artifact is None:
+                raise RuntimeError("worker_artifact must not be None in _execute_workflow")
             self.worker_artifact.current_issue_id = issue_id
             self.worker_artifact.current_adw_id = adw_id
             self._transition_artifact("working")
