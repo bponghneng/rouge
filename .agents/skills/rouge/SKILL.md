@@ -1,6 +1,6 @@
 ---
 name: rouge
-description: Use the Rouge CLI to manage issues, run workflows, and inspect step/artifact state. Trigger this skill when the user asks to run or explain `rouge` commands such as `rouge issue create`, `rouge workflow run`, `rouge workflow patch`, `rouge workflow codereview`, `rouge step ...`, `rouge artifact ...`, or `rouge reset`.
+description: Use the Rouge CLI to manage issues, run workflows, and inspect step/artifact state. Trigger this skill when the user asks to run or explain `rouge` commands such as `rouge issue create`, `rouge workflow run`, `rouge workflow patch`, `rouge workflow codereview`, `rouge step ...`, `rouge artifact ...`, or `rouge reset`. Also trigger when the user asks to extract, read, or save a plan from a Rouge issue (e.g. "extract the plan from rouge issue 211", "read rouge issue 211 and extract the plan").
 ---
 
 # Rouge CLI Skill
@@ -69,6 +69,24 @@ rouge issue create \
   --branch "<branch>" \
   --type codereview
 ```
+
+## Extracting a plan from a Rouge issue
+
+To extract the plan artifact from a completed workflow and save it to a file:
+
+1. List plan artifact comments for the issue:
+   ```bash
+   rouge comment list --issue-id <issue-id> --source artifact --type plan
+   ```
+
+2. Read the most recent comment (use the ID from step 1):
+   ```bash
+   rouge comment read <comment-id>
+   ```
+
+3. Extract the plan markdown from the comment body and save it to `.rouge/plans/<issue-id>.md`.
+
+The plan markdown begins after the `Plan:` label and the separator line in the comment output.
 
 ## Command reference
 
