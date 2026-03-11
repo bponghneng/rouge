@@ -588,7 +588,7 @@ class TestResumeCommandResumeFromOverride:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_from_with_no_failed_step_succeeds(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test --resume-from provided with failed_step=None succeeds and uses supplied step."""
         mock_issue = Issue(
             id=2001,
@@ -628,7 +628,7 @@ class TestResumeCommandResumeFromOverride:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_from_overrides_failed_step(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test --resume-from wins over failed_step when both are set."""
         mock_issue = Issue(
             id=2002,
@@ -665,7 +665,7 @@ class TestResumeCommandResumeFromOverride:
             )
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_no_resume_from_and_no_failed_step_errors(self, mock_fetch_issue, tmp_path):
+    def test_no_resume_from_and_no_failed_step_errors(self, mock_fetch_issue, tmp_path) -> None:
         """Test --resume-from not provided with failed_step=None gives existing error."""
         mock_issue = Issue(
             id=2003,
@@ -693,6 +693,13 @@ class TestResumeCommandResumeFromOverride:
             assert result.exit_code == 1
             assert "Error: Workflow state artifact has no failed_step set" in result.output
             assert "cannot determine resume point" in result.output
+
+    def test_resume_from_whitespace_only_errors(self) -> None:
+        """Test --resume-from with whitespace-only value is rejected."""
+        result = runner.invoke(app, ["resume", "2004", "--resume-from", "   "])
+
+        assert result.exit_code == 1
+        assert "Error: --resume-from value must not be empty" in result.output
 
 
 class TestResumeCommandErrorHandling:
