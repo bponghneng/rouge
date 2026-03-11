@@ -41,11 +41,19 @@ def resume(
 
     Args:
         issue_id: The ID of the issue to resume
+        resume_from: Optional step name to resume from, overriding the failed_step
+            in the workflow-state artifact
 
     Examples:
         rouge resume 123
+        rouge resume 123 --resume-from "implement"
     """
     validate_issue_id(issue_id)
+    if resume_from is not None:
+        resume_from = resume_from.strip()
+        if not resume_from:
+            typer.echo("Error: --resume-from value must not be empty", err=True)
+            raise typer.Exit(1)
     try:
         # Fetch the current issue
         issue = fetch_issue(issue_id)
@@ -115,7 +123,7 @@ def resume(
             )
         except Exception as e:
             update_issue(issue_id, status="failed")
-            logger.error("Workflow execution failed during resume: %s", e)
+            logger.error("Workflow execution failed during resume: %s", e, exc_info=True)
             typer.echo(
                 f"Error: Workflow execution failed during resume: {e}",
                 err=True,
@@ -169,5 +177,6 @@ def resume(
     except typer.Exit:
         raise
     except Exception as e:
+        logger.error("Unexpected error in resume command: %s", e, exc_info=True)
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
