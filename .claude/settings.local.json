@@ -90,7 +90,9 @@
       "Skill(local-env-reset)",
       "Skill(merge-request-review)",
       "Skill(plane-work-items)",
-      "Skill(qa-e2e-spec)"
+      "Skill(qa-e2e-spec)",
+      "Bash(gh pr:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

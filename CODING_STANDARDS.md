@@ -13,3 +13,8 @@
 - **No Duplicate Utility Functions**: A utility function used by two or more modules must live in a single shared location (e.g., `rouge.core.utils`) and be imported from there. Duplicate definitions are not permitted regardless of how small the function is.
 - **Workflow Dependency Declarations**: Keep step registry comments and `dependencies=[...]` declarations aligned so dependency requirements are explicit and accurate.
 - **Test Isolation**: When a test path can emit comments or trigger external integrations, patch those external helpers in the step module to avoid network/database side effects.
+
+## Workflow Step Conventions
+
+- **File naming**: Step class files use snake_case with a `_step` suffix. Class name maps directly to filename: `FetchIssueStep` → `fetch_issue_step.py`, `ClassifyIssueStep` → `classify_issue_step.py`.
+- **Step registry**: Every step must declare its `dependencies=[...]` explicitly and keep those declarations in sync with the step registry comments.
