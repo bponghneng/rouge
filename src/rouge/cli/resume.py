@@ -24,6 +24,7 @@ def resume(
         None,
         "--resume-from",
         help="Step name to resume from, overrides failed_step in workflow-state artifact",
+        show_default=True,
     ),
 ) -> None:
     """Resume a failed workflow from the last completed step.
