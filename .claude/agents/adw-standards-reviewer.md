@@ -32,6 +32,16 @@ Do not review files matching any of these patterns — skip them silently:
 **Plan conformance**
 Does the implementation match what the plan specified? Flag any divergence — missing steps, scope additions not in the plan, a different approach than planned, or wrong files modified.
 
+Before flagging, judge whether the divergence is **material** or **incidental**:
+
+- **Material**: the implementation fails to achieve what the plan required, omits a required step, modifies the wrong files, or adds scope the plan did not sanction.
+- **Incidental**: a minor implementation detail differs (e.g. a slightly different variable name, extra helper, or reordered step) but the outcome is equivalent to what the plan intended.
+
+Assign severity to reflect this distinction:
+- **CRITICAL/HIGH**: material divergences that affect required steps, scope, or file changes
+- **MEDIUM**: notable divergences worth reconciling but not blocking — the core plan outcome is met
+- **LOW**: incidental divergences only — a different path to the same result
+
 ### Linting and Formatting (ruff + black)
 
 Run the linters and report violations rather than evaluating by reading code:
