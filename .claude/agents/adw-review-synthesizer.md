@@ -18,12 +18,29 @@ You receive:
 - **adw-standards-reviewer output** — Standards & Compliance findings
 - **adw-correctness-reviewer output** — Correctness & Security findings
 - **adw-architecture-reviewer output** — Architecture & Maintainability findings
+- **Log directory** (optional) — path to `.rouge/reviews/pr-{number}/` containing prior fix logs
+- **Cycle number** (optional) — the current cycle ordinal (e.g. `3`)
 
 Each reviewer produces two sections: Plan Divergences and Quality Findings, each with severity-tagged entries.
 
+## Step 0 — Load prior fix history (when log directory is provided)
+
+If a log directory and cycle number were provided, read all prior fix logs before processing reviewer outputs.
+
+For each `fix-{N}.md` file that exists in the log directory (all cycles before the current one):
+1. Read the file in full
+2. Extract every entry from the **Accepted / Skipped** section
+3. Record the finding title and reason
+
+Build an **accepted set** — the union of all accepted/skipped findings across all prior cycles. A finding in the current review whose title closely matches an entry in the accepted set is a **previously accepted finding** and must not be scored or listed as a new defect. It is reported separately in the output (see Step 5).
+
+If no log directory was provided, or no prior fix logs exist, the accepted set is empty — proceed normally.
+
 ## Step 1 — Normalize findings
 
-Read all three reviewer outputs. For each finding, note which reviewer raised it (adw-standards-reviewer, adw-correctness-reviewer, or adw-architecture-reviewer), the file and line reference, the severity, and whether it is a Plan Divergence or Quality Finding.
+Read all three reviewer outputs. For each finding, note which reviewer raised it, the file and line reference, the severity, whether it is a Plan Divergence or Quality Finding, and the finding title.
+
+Cross-reference each finding against the accepted set from Step 0. Tag any match as **previously-accepted** and set it aside — do not include it in Steps 2–4.
 
 ## Step 2 — Identify consensus
 
@@ -41,7 +58,7 @@ For each finding raised by only one reviewer, determine its category:
 
 ## Step 4 — Compute the score
 
-Start at 100. Apply deductions:
+Start at 100. Apply deductions for non-accepted findings only:
 
 **Plan divergences** (any reviewer):
 - CRITICAL: −15 each
@@ -63,6 +80,8 @@ Start at 100. Apply deductions:
 
 **Low-confidence findings**: no score impact.
 
+**Previously-accepted findings**: no score impact.
+
 Floor at 1. Do not exceed 100.
 
 ## Step 5 — Produce the report
@@ -81,9 +100,13 @@ Use the output format below exactly.
 
 ### Plan Divergences
 
-Issues where the implementation does not match the plan. All plan divergences are must-fix regardless of which reviewers flagged them.
+Issues where the implementation does not match the plan. Tier by severity:
 
-For each: severity, title, file:line, description, which reviewer(s) flagged it, and fix.
+- **CRITICAL/HIGH** — must-fix before merging (material divergence: required behavior, step, or structure was missed or contradicted)
+- **MEDIUM** — should-fix (notable divergence, but the plan's core intent is met)
+- **LOW** — informational (incidental divergence only; a different path to the same outcome)
+
+For each: severity, tier label (must-fix / should-fix / informational), title, file:line, description, which reviewer(s) flagged it, and fix.
 
 Write "None." if no plan divergences were found.
 
@@ -119,6 +142,16 @@ Write "None." if no low-confidence findings were found.
 
 ---
 
+### Previously Accepted Findings
+
+Findings that match an entry in the accepted/skipped set from prior fix cycles. Not scored. Listed for transparency.
+
+For each: title, which prior cycle accepted it (e.g. "accepted in fix-02"), and the recorded reason.
+
+Write "None." if no previously accepted findings were identified, or if no fix history was available.
+
+---
+
 ### Score Breakdown
 
 | Category | Count | Score Impact |
@@ -127,4 +160,5 @@ Write "None." if no low-confidence findings were found.
 | Consensus findings | N | −X |
 | Mandate-gap findings | N | −X |
 | Low-confidence findings | N | 0 |
+| Previously accepted findings | N | 0 |
 | **Final score** | | **N/100** |
