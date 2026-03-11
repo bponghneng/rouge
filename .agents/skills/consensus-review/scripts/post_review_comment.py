@@ -11,10 +11,13 @@ Post Consensus Review Comment
 
 This script:
 1. Reads DEV_SEC_OPS_PLATFORM from .env at the workspace root
-2. Reads synthesizer output from a temp file
-3. Determines if the review is clean
-4. Reads pre-generated bullet summary from --summary-file (required when review has issues)
+2. Reads synthesizer output from --review-file
+3. Reads the pre-generated summary from --summary-file (required)
+4. Builds the comment body using --is-clean to select the icon
 5. Posts the comment to GitHub (gh) or GitLab (glab)
+
+All intelligence (clean/not-clean determination, summary generation) lives in the
+calling agent. This script is a formatter and poster only.
 """
 
 import shutil
@@ -46,30 +49,6 @@ def read_platform_from_env() -> str:
     return "github"
 
 
-def check_if_clean(text: str) -> bool:
-    """Determine if the review is clean (no actionable issues found).
-
-    Heuristic: generous interpretation — if any issue markers are present,
-    treat as having issues. If unsure, treat as has issues.
-    """
-    issue_markers = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "nitpick"]
-    text_lower = text.lower()
-    for marker in issue_markers:
-        if marker.lower() in text_lower:
-            return False
-
-    # Also check for score indicators suggesting problems (e.g. "score: 3/10")
-    import re
-
-    score_pattern = re.compile(r"score[:\s]+(\d+)\s*/\s*10", re.IGNORECASE)
-    for match in score_pattern.finditer(text):
-        score = int(match.group(1))
-        if score < 8:
-            return False
-
-    return True
-
-
 def build_summary_lines(summary_file: str) -> list[str]:
     """Read pre-generated bullet summary lines from a file."""
     content = Path(summary_file).read_text(encoding="utf-8").strip()
@@ -77,31 +56,24 @@ def build_summary_lines(summary_file: str) -> list[str]:
 
 
 def build_comment_body(
-    synthesizer_output: str, *, is_clean: bool, summary_file: str | None = None
+    synthesizer_output: str, *, is_clean: bool, summary_file: str
 ) -> str:
     """Build the full comment body."""
+    icon = "\u2705" if is_clean else "\u26a0\ufe0f"
+    summary_lines = build_summary_lines(summary_file)
+    summary_text = "\n".join(summary_lines)
     full_output_block = (
         "<details>\n"
         "<summary>Full review output</summary>\n\n"
         f"{synthesizer_output}\n\n"
         "</details>"
     )
-
-    if is_clean:
-        return (
-            "## \u2705 Consensus Review\n\n"
-            "No issues found. The review passed with no actionable findings.\n\n"
-            f"{full_output_block}"
-        )
-    else:
-        bullet_lines = build_summary_lines(summary_file) if summary_file else []
-        summary_text = "\n".join(bullet_lines)
-        return (
-            "## \u26a0\ufe0f Consensus Review\n\n"
-            "### Summary\n"
-            f"{summary_text}\n\n"
-            f"{full_output_block}"
-        )
+    return (
+        f"## {icon} Consensus Review\n\n"
+        "### Summary\n"
+        f"{summary_text}\n\n"
+        f"{full_output_block}"
+    )
 
 
 def post_comment_github(pr_number: int, body: str, repo_dir: str = ".") -> None:
@@ -142,11 +114,19 @@ def post_comment_gitlab(pr_number: int, body: str, repo_dir: str = ".") -> None:
 )
 @click.option(
     "--summary-file",
-    default=None,
+    required=True,
     type=click.Path(exists=True, readable=True),
-    help="Path to file containing pre-generated bullet summary lines (skips claude -p call)",
+    help="Path to file containing pre-generated bullet summary lines (always required)",
 )
-def main(pr_number: int, review_file: str, repo_dir: str, summary_file: str | None) -> None:
+@click.option(
+    "--is-clean",
+    is_flag=True,
+    default=False,
+    help="Pass this flag when the review is clean; selects the ✅ icon instead of ⚠️",
+)
+def main(
+    pr_number: int, review_file: str, repo_dir: str, summary_file: str, is_clean: bool
+) -> None:
     """Post a consensus review comment to a GitHub PR or GitLab MR."""
 
     # 1. Read platform from .env
@@ -164,13 +144,12 @@ def main(pr_number: int, review_file: str, repo_dir: str, summary_file: str | No
         click.echo("Error: Review file is empty.", err=True)
         sys.exit(1)
 
-    # 3. Determine if review is clean
-    is_clean = check_if_clean(synthesizer_output)
+    # 3. Build comment body
+    comment_body = build_comment_body(
+        synthesizer_output, is_clean=is_clean, summary_file=summary_file
+    )
 
-    # 4. Build comment body (uses pre-generated summary from --summary-file when provided)
-    comment_body = build_comment_body(synthesizer_output, is_clean=is_clean, summary_file=summary_file)
-
-    # 5. Post the comment
+    # 4. Post the comment
     try:
         if platform == "gitlab":
             post_comment_gitlab(pr_number, comment_body, repo_dir=repo_dir)
