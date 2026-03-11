@@ -1241,6 +1241,22 @@ class TestWorkerPollLoopGating:
 
         assert call_count >= 2
 
+    def test_poll_loop_skips_polling_when_artifact_is_none(self, worker) -> None:
+        """Test worker skips polling and logs error when artifact cannot be read."""
+        call_count = [0]
+
+        def mock_sleep(seconds):
+            call_count[0] += 1
+            if call_count[0] >= 2:
+                worker.running = False
+
+        with patch("rouge.worker.worker.read_worker_artifact", return_value=None):
+            with patch("rouge.worker.worker.time.sleep", side_effect=mock_sleep):
+                with patch("rouge.worker.worker.get_next_issue") as mock_get_next:
+                    worker.run()
+
+                    mock_get_next.assert_not_called()
+
 
 class TestWorkerResetCLI:
     """Tests for the rouge-worker reset CLI subcommand."""
@@ -1272,25 +1288,14 @@ class TestWorkerResetCLI:
             current_adw_id="adw-123",
         )
 
-        def fake_transition(artifact, state, clear_issue=False):
-            artifact.state = state
-            if clear_issue:
-                artifact.current_issue_id = None
-                artifact.current_adw_id = None
-
         with (
             patch("rouge.worker.cli.read_worker_artifact", return_value=failed_artifact),
-            patch(
-                "rouge.worker.cli.transition_worker_artifact", side_effect=fake_transition
-            ) as mock_transition,
+            patch("rouge.worker.cli.transition_worker_artifact") as mock_transition,
         ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 0
         assert "reset to ready" in result.output
         mock_transition.assert_called_once_with(failed_artifact, "ready", clear_issue=True)
-        assert failed_artifact.state == "ready"
-        assert failed_artifact.current_issue_id is None
-        assert failed_artifact.current_adw_id is None
 
     def test_worker_reset_fails_when_working(self) -> None:
         """Test rouge-worker reset exits 1 when worker is in working state."""
