@@ -15,7 +15,7 @@ from rouge.worker.worker_artifact import WorkerArtifact
 
 
 @pytest.fixture
-def mock_env(monkeypatch) -> None:
+def mock_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Mock environment variables for Supabase."""
     monkeypatch.setenv("SUPABASE_URL", "https://test.supabase.co")
     monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "test_key")
@@ -894,7 +894,8 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         worker.execute_workflow(100, "Test issue", "pending", "main")
 
@@ -921,7 +922,8 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         worker.execute_workflow(200, "Success issue", "pending", "main")
 
@@ -945,7 +947,8 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         worker.execute_workflow(300, "Fail issue", "pending", "main")
 
@@ -967,7 +970,8 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         worker.execute_workflow(400, "Timeout issue", "pending", "main")
 
@@ -988,7 +992,8 @@ class TestWorkerStateTransitions:
                         write_calls.append(artifact.model_copy(deep=True))
 
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         worker.execute_workflow(500, "Error issue", "pending", "main")
 
@@ -1012,7 +1017,8 @@ class TestWorkerStateTransitions:
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", side_effect=["adw-1", "adw-2"]):
                     with patch(
-                        "rouge.worker.worker_artifact.write_worker_artifact", side_effect=capture_write
+                        "rouge.worker.worker_artifact.write_worker_artifact",
+                        side_effect=capture_write,
                     ):
                         # Execute first workflow
                         worker.execute_workflow(100, "First issue", "pending", "main")

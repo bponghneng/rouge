@@ -153,7 +153,7 @@ class IssueWorker:
         self.logger.info("Received signal %s, shutting down gracefully...", signum)
         self.running = False
 
-    def _get_base_cmd(self) -> list:
+    def _get_base_cmd(self) -> list[str]:
         """Get the base command for running rouge-adw.
 
         Returns:
@@ -186,7 +186,8 @@ class IssueWorker:
             state: New state to set (e.g., "working", "ready", "failed")
             clear_issue: If True, clears current_issue_id and current_adw_id
         """
-        assert self.worker_artifact is not None  # guaranteed by run() loop guard
+        if self.worker_artifact is None:
+            raise RuntimeError("worker_artifact must not be None in _transition_artifact")
         transition_worker_artifact(self.worker_artifact, state, clear_issue)
 
     def _execute_workflow(
@@ -205,9 +206,6 @@ class IssueWorker:
         Returns:
             Tuple of (adw_id, success) where success is True if workflow completed
 
-        Raises:
-            subprocess.TimeoutExpired: If workflow times out
-            Exception: If workflow execution fails
         """
         adw_id = None
         try:
