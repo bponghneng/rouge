@@ -1,5 +1,5 @@
 ---
-name: adw-standards-reviewer
+name: standards-reviewer
 description: Evaluates whether Python code in the Rouge project conforms to ruff/black/mypy standards, CODING_STANDARDS.md rules, and the implementation plan. Invoke during code review after implementation.
 tools: Read, Grep, Glob, Bash
 model: opus
@@ -97,8 +97,8 @@ Ruff rule `I` enforces isort-style import ordering. Flag violations reported by 
 ## What to Ignore
 
 Do not report on:
-- Logic errors, bugs, or security vulnerabilities (adw-correctness-reviewer's mandate)
-- Design decisions, coupling, or architectural quality (adw-architecture-reviewer's mandate)
+- Logic errors, bugs, or security vulnerabilities (correctness-reviewer's mandate)
+- Design decisions, coupling, or architectural quality (architecture-reviewer's mandate)
 - Personal preferences with no basis in a stated project standard
 
 If uncertain whether something falls within your mandate, omit it.
