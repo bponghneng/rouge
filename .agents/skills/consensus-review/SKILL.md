@@ -13,7 +13,7 @@ The three reviewer agents (`adw-standards-reviewer`, `adw-correctness-reviewer`,
 
 ## Inputs Required
 
-1. **PR/MR number** (optional) — if provided, the diff is fetched from the platform rather than from local git. Triggers comment posting after review.
+1. **PR/MR number** (optional) — if provided, the diff is fetched from the platform rather than from local git. Triggers comment posting and audit trail persistence after review.
 2. **Plan file** (optional) — path to the implementation plan the code was built against. If not provided, reviewers evaluate intrinsic code quality only; plan conformance checks are skipped.
 3. **Code changes** — specify the scope as one of:
    - *(default)* All local changes: staged, unstaged, and untracked files
@@ -72,6 +72,35 @@ If a plan file path was provided, read it in full. If no plan file was provided,
 
 > **Note:** No plan file provided. Reviewing changes for intrinsic quality only — plan conformance checks will be skipped.
 
+---
+
+**Log directory setup (PR/MR number only)**
+
+If a PR/MR number was given, set up the audit trail directory now:
+
+```bash
+LOG_DIR=".rouge/reviews/pr-<number>"
+mkdir -p "$LOG_DIR"
+```
+
+Determine the current cycle number by counting existing review files:
+
+```bash
+ls "$LOG_DIR"/review-*.md 2>/dev/null | wc -l
+```
+
+`CYCLE = count + 1`. Zero-pad to two digits (e.g. `01`, `02`).
+
+If `CYCLE > 1`, check whether the prior cycle's fix log exists (`fix-{CYCLE-1:02d}.md`). If it is missing, note this to the user as informational — the fixer was not run for that cycle. Do not block.
+
+If `CYCLE == 1` and a plan file was provided, copy it to the log directory:
+
+```bash
+cp <plan-file-path> "$LOG_DIR/plan.md"
+```
+
+If no PR/MR number was given, skip log directory setup entirely — local reviews are not persisted.
+
 ### Step 2 — Run three reviewers in parallel
 
 Spawn all three reviewer agents simultaneously using the Agent tool. Run all three calls in a single response — do not wait for one to complete before starting the others.
@@ -107,7 +136,7 @@ When no plan file is provided, construct each prompt as:
 
 ### Step 3 — Synthesize
 
-Once all three reviewer outputs are returned, invoke `adw-review-synthesizer` with a prompt containing all three reviewer outputs in full, clearly labeled:
+Once all three reviewer outputs are returned, invoke `adw-review-synthesizer` with a prompt containing all three reviewer outputs in full, clearly labeled, plus the log directory and cycle number when available:
 
 ```
 ## adw-standards-reviewer Output
@@ -125,46 +154,42 @@ Once all three reviewer outputs are returned, invoke `adw-review-synthesizer` wi
 ## adw-architecture-reviewer Output
 
 [Full adw-architecture-reviewer output]
+
+---
+
+## Review History
+
+Log directory: [LOG_DIR or "none"]
+Current cycle: [CYCLE or "none"]
 ```
 
-### Step 4 — Output (no PR/MR number)
+### Step 4 — Persist review and output
 
-If no PR/MR number was given in the trigger, present the synthesizer's output directly to the user without summarizing or modifying it.
+**If a PR/MR number was given:** write the synthesizer output to `{LOG_DIR}/review-{CYCLE:02d}.md`.
+
+**If no PR/MR number was given:** present the synthesizer's output directly to the user without summarizing or modifying it. Stop here.
 
 ### Step 5 — Post comment (PR/MR number given)
 
-If a PR/MR number was given in the trigger:
+Invoke the `consensus-review-poster` agent with a prompt containing:
+- The review file path: `{LOG_DIR}/review-{CYCLE:02d}.md`
+- The PR/MR number
+- The log directory: `{LOG_DIR}`
+- The cycle number: `{CYCLE}`
+- The repo dir (the git repo root where `gh`/`glab` commands should run — defaults to `.`, but must be set to the repo's root directory whenever the skill is invoked from a workspace folder that is not itself a git repo, e.g. the workspace root contains `rouge/` as a subdirectory)
+- The skill dir: the path to this skill's directory containing `scripts/post_review_comment.py`
 
-1. Write the synthesizer output to a temporary file at `/tmp/consensus-review-output.txt`.
+The `consensus-review-poster` agent owns clean/not-clean determination, summary authorship, and script invocation. Do NOT perform any of those steps in this session.
 
-2. If the review is **not clean** (i.e. the synthesizer output contains any of: CRITICAL, HIGH, MEDIUM, LOW, nitpick, or a score below 8/10), generate a bullet summary now, inline in this session:
+Report the outcome returned by the `consensus-review-poster` agent (success or failure, and the PR/MR comment URL if available).
 
-   - Write 3–6 short markdown bullet lines summarizing the major themes, affected areas, and what needs follow-up.
-   - Start every line with `- `.
-   - Do not include headings, code blocks, or long quotes.
-   - Write the bullet lines to `/tmp/consensus-review-summary.txt`.
+### Step 6 — Fix issues (optional)
 
-3. Run the post-comment script, passing the repo directory where `gh`/`glab` should run:
+If the user asks to fix the review issues after the comment is posted (e.g. "fix the issues", "run the fixer"):
 
-   **When the review has issues (summary file was generated in step 2):**
-   ```bash
-   uv run .claude/skills/consensus-review/scripts/post_review_comment.py \
-     --pr-number <number> \
-     --review-file /tmp/consensus-review-output.txt \
-     --repo-dir <path-to-git-repo> \
-     --summary-file /tmp/consensus-review-summary.txt
-   ```
+Invoke the `consensus-review-fixer` agent with a prompt containing:
+- The review file path: `{LOG_DIR}/review-{CYCLE:02d}.md`
+- The log directory: `{LOG_DIR}`
+- The cycle number: `{CYCLE}`
 
-   **When the review is clean (no issues found):**
-   ```bash
-   uv run .claude/skills/consensus-review/scripts/post_review_comment.py \
-     --pr-number <number> \
-     --review-file /tmp/consensus-review-output.txt \
-     --repo-dir <path-to-git-repo>
-   ```
-
-`--repo-dir` defaults to `.` if omitted, but must be set to the repo's root directory whenever the skill is invoked from a workspace folder that is not itself a git repo (e.g. the workspace root contains `rouge/` as a subdirectory).
-
-**Important:** The script owns all comment body construction — the summary bullets and the collapsible `<details>` accordion around the full review output. Do NOT construct a comment body manually or post output directly via `gh`/`glab`. If the script exits non-zero, report the error message to the user and stop.
-
-4. Do NOT print the synthesizer output to the user. Instead, report whether the comment was posted successfully or failed, and include the PR/MR comment URL if available.
+Report the outcome returned by the `consensus-review-fixer` agent (how many findings were addressed, accepted/skipped, and any uncertainties).
