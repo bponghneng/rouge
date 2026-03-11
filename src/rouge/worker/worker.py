@@ -327,25 +327,24 @@ class IssueWorker:
                     time.sleep(self.config.poll_interval)
                     continue
                 # Check worker state before polling
-                if self.worker_artifact is not None:
-                    if self.worker_artifact.state == "failed":
-                        self.logger.info(
-                            "Worker in failed state (issue_id=%s, adw_id=%s), "
-                            "sleeping without polling. Operator intervention required.",
-                            self.worker_artifact.current_issue_id,
-                            self.worker_artifact.current_adw_id,
-                        )
-                        time.sleep(self.config.poll_interval)
-                        continue
-                    elif self.worker_artifact.state == "working":
-                        self.logger.warning(
-                            "Worker in working state without active execution "
-                            "(issue_id=%s, adw_id=%s), skipping poll",
-                            self.worker_artifact.current_issue_id,
-                            self.worker_artifact.current_adw_id,
-                        )
-                        time.sleep(self.config.poll_interval)
-                        continue
+                if self.worker_artifact.state == "failed":
+                    self.logger.info(
+                        "Worker in failed state (issue_id=%s, adw_id=%s), "
+                        "sleeping without polling. Operator intervention required.",
+                        self.worker_artifact.current_issue_id,
+                        self.worker_artifact.current_adw_id,
+                    )
+                    time.sleep(self.config.poll_interval)
+                    continue
+                elif self.worker_artifact.state == "working":
+                    self.logger.warning(
+                        "Worker in working state without active execution "
+                        "(issue_id=%s, adw_id=%s), skipping poll",
+                        self.worker_artifact.current_issue_id,
+                        self.worker_artifact.current_adw_id,
+                    )
+                    time.sleep(self.config.poll_interval)
+                    continue
 
                 # Get next issue (returns tuple of issue_id, description, status, type)
                 issue = get_next_issue(self.config.worker_id, self.logger)
