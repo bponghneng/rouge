@@ -402,7 +402,7 @@ class TestResumeCommandWorkflowInvocation:
 class TestResumeCommandWorkerArtifactUpdate:
     """Tests for worker artifact updates during resume."""
 
-    @patch("rouge.cli.resume.write_worker_artifact")
+    @patch("rouge.cli.resume.transition_worker_artifact")
     @patch("rouge.cli.resume.read_worker_artifact")
     @patch("rouge.cli.resume.execute_adw_workflow")
     @patch("rouge.cli.resume.update_issue")
@@ -415,7 +415,7 @@ class TestResumeCommandWorkerArtifactUpdate:
         mock_update_issue,
         mock_execute_adw,
         mock_read_worker,
-        mock_write_worker,
+        mock_transition_worker,
         tmp_path,
     ):
         """Test resume updates worker artifact with matching current_issue_id."""
@@ -471,17 +471,16 @@ class TestResumeCommandWorkerArtifactUpdate:
 
             assert result.exit_code == 0
 
-            # Verify worker 1 was updated to ready state
-            write_calls = mock_write_worker.call_args_list
-            assert len(write_calls) == 1
+            # Verify worker 1 was transitioned to ready state
+            transition_calls = mock_transition_worker.call_args_list
+            assert len(transition_calls) == 1
 
-            updated_worker = write_calls[0][0][0]
-            assert updated_worker.worker_id == "worker-1"
-            assert updated_worker.state == "ready"
-            assert updated_worker.current_issue_id is None
-            assert updated_worker.current_adw_id is None
+            call_args = transition_calls[0]
+            assert call_args[0][0].worker_id == "worker-1"
+            assert call_args[0][1] == "ready"
+            assert call_args[1].get("clear_issue") is True
 
-    @patch("rouge.cli.resume.write_worker_artifact")
+    @patch("rouge.cli.resume.transition_worker_artifact")
     @patch("rouge.cli.resume.read_worker_artifact")
     @patch("rouge.cli.resume.execute_adw_workflow")
     @patch("rouge.cli.resume.update_issue")
@@ -494,7 +493,7 @@ class TestResumeCommandWorkerArtifactUpdate:
         mock_update_issue,
         mock_execute_adw,
         mock_read_worker,
-        mock_write_worker,
+        mock_transition_worker,
         tmp_path,
     ):
         """Test resume doesn't update workers not working on the issue."""
@@ -540,7 +539,7 @@ class TestResumeCommandWorkerArtifactUpdate:
             assert result.exit_code == 0
 
             # Verify no workers were updated
-            mock_write_worker.assert_not_called()
+            mock_transition_worker.assert_not_called()
 
     @patch("rouge.cli.resume.execute_adw_workflow")
     @patch("rouge.cli.resume.update_issue")

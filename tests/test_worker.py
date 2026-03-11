@@ -28,7 +28,7 @@ def worker_config() -> WorkerConfig:
 
 
 @pytest.fixture
-def worker(mock_env, worker_config) -> IssueWorker:
+def worker(mock_env: None, worker_config: WorkerConfig) -> IssueWorker:
     """Create a worker instance for testing."""
     with patch("rouge.worker.database.get_client"):
         worker = IssueWorker(worker_config)

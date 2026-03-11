@@ -9,7 +9,10 @@ from rouge.cli.utils import validate_issue_id
 from rouge.core.database import fetch_issue, update_issue
 from rouge.core.paths import RougePaths
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
-from rouge.worker.worker_artifact import read_worker_artifact, write_worker_artifact
+from rouge.worker.worker_artifact import (
+    read_worker_artifact,
+    transition_worker_artifact,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,11 +136,7 @@ def resume(
 
                     if worker_artifact and worker_artifact.current_issue_id == issue_id:
                         # Update worker to ready state
-                        worker_artifact.state = "ready"
-                        worker_artifact.current_issue_id = None
-                        worker_artifact.current_adw_id = None
-                        worker_artifact.refresh_timestamp()
-                        write_worker_artifact(worker_artifact)
+                        transition_worker_artifact(worker_artifact, "ready", clear_issue=True)
                         updated_workers.append(worker_id)
                         logger.info("Updated worker %s to ready state", worker_id)
 
