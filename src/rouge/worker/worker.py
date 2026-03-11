@@ -319,6 +319,13 @@ class IssueWorker:
         while self.running:
             try:
                 self.worker_artifact = read_worker_artifact(self.config.worker_id)
+                if self.worker_artifact is None:
+                    self.logger.error(
+                        "Worker artifact not found or unreadable for %s, skipping poll",
+                        self.config.worker_id,
+                    )
+                    time.sleep(self.config.poll_interval)
+                    continue
                 # Check worker state before polling
                 if self.worker_artifact is not None:
                     if self.worker_artifact.state == "failed":

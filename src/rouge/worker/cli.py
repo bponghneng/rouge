@@ -63,11 +63,13 @@ def main(
         None,
         "--log-level",
         help="Logging level (default: INFO, or ROUGE_LOG_LEVEL env var)",
+        show_default=False,
     ),
     workflow_timeout: Optional[int] = typer.Option(
         None,
         "--workflow-timeout",
         help="Timeout in seconds for workflow execution (default: 3600)",
+        show_default=False,
     ),
 ) -> None:
     """Rouge Issue Worker Daemon."""
@@ -118,11 +120,6 @@ def reset_worker(
         )
         raise typer.Exit(1)
     transition_worker_artifact(artifact, "ready", clear_issue=True)
-    # Verify write succeeded by re-reading and confirming state
-    verified = read_worker_artifact(worker_id)
-    if verified is None or verified.state != "ready":
-        typer.echo(f"Error: Failed to persist reset for worker '{worker_id}'", err=True)
-        raise typer.Exit(1)
     typer.echo(f"Worker '{worker_id}' reset to ready.")
 
 
