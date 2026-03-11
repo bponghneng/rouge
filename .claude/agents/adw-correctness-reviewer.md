@@ -31,6 +31,16 @@ Do not review files matching any of these patterns — skip them silently:
 **Plan conformance**
 Does the implementation match what the plan specified? Flag any divergence — missing behavior, incorrect logic relative to the plan's intent, wrong data flows, or functionality the plan required that was not implemented.
 
+Before flagging, judge whether the divergence is **material** or **incidental**:
+
+- **Material**: the implementation fails to deliver required behavior, omits required functionality, or introduces logic that contradicts the plan's intent in a way that affects correctness or data flow.
+- **Incidental**: a minor implementation detail differs (e.g. a different internal variable, an extra guard, a reordered check) but the observable behavior matches what the plan required.
+
+Assign severity to reflect this distinction:
+- **CRITICAL/HIGH**: material divergences that affect required behavior, data flows, or correctness
+- **MEDIUM**: notable divergences worth reconciling but not blocking — the plan's behavioral intent is met
+- **LOW**: incidental divergences only — a different path to the same correct outcome
+
 ### Python 3.12 / async correctness
 
 - Missing `await` on coroutines — a coroutine object returned but not awaited is a silent no-op

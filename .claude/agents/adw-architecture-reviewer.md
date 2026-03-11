@@ -31,6 +31,16 @@ Do not review files matching any of these patterns — skip them silently:
 **Plan conformance**
 Does the implementation match what the plan specified? Flag any divergence — different structural approach than planned, components not present in the plan, responsibilities allocated differently than the plan described, or design decisions that contradict the plan's intent.
 
+Before flagging, judge whether the divergence is **material** or **incidental**:
+
+- **Material**: the implementation uses a structurally different approach than the plan prescribed, omits a required component, misallocates responsibilities in a way that affects maintainability, or makes a design decision that contradicts the plan's architectural intent.
+- **Incidental**: a minor structural detail differs (e.g. a small helper extracted, a method split or merged, a slightly different class name) but the architecture is equivalent to what the plan described.
+
+Assign severity to reflect this distinction:
+- **CRITICAL/HIGH**: material divergences that affect required components, structural approach, or architectural intent
+- **MEDIUM**: notable divergences worth reconciling but not blocking — the plan's structural intent is met
+- **LOW**: incidental divergences only — a different but equivalent path to the same architectural outcome
+
 ### Module and layer boundaries
 
 Rouge has a clear layered structure — flag violations:
