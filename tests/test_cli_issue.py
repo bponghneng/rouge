@@ -75,6 +75,7 @@ def test_create_command_description_only(mock_create_issue) -> None:
         title="Fix the login bug",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -94,6 +95,7 @@ def test_create_command_description_with_explicit_title(mock_create_issue) -> No
         title="Login fix",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -114,6 +116,7 @@ def test_create_command_spec_file_with_title(mock_create_issue, tmp_path) -> Non
         title="Feature X",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -227,6 +230,7 @@ def test_create_command_long_description_auto_title(mock_create_issue) -> None:
         title="One two three four five six seven eight nine ten...",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -254,6 +258,7 @@ def test_create_command_short_title_flag(mock_create_issue) -> None:
         title="Short Title",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -274,6 +279,7 @@ def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path) -> Non
         title="Title from Short Flags",
         issue_type="main",
         branch=None,
+        assigned_to=None,
     )
 
 
@@ -291,6 +297,7 @@ def test_create_command_branch_long_flag(mock_create_issue) -> None:
         title="Some description",
         issue_type="main",
         branch="feature/new-flag",
+        assigned_to=None,
     )
 
 
@@ -308,7 +315,37 @@ def test_create_command_branch_short_flag(mock_create_issue) -> None:
         title="Some description",
         issue_type="main",
         branch="feature/short-flag",
+        assigned_to=None,
     )
+
+
+@patch("rouge.cli.issue.create_issue")
+def test_create_command_with_assigned_to(mock_create_issue) -> None:
+    """Test create command with --assigned-to parameter."""
+    mock_issue = Issue(
+        id=555, description="Task description", status="pending", assigned_to="agent-1"
+    )
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(
+        app, ["create", "Task description", "--assigned-to", "agent-1"]
+    )
+    assert result.exit_code == 0
+    assert "555" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Task description",
+        title="Task description",
+        issue_type="main",
+        branch=None,
+        assigned_to="agent-1",
+    )
+
+
+def test_create_command_assigned_to_whitespace_only() -> None:
+    """Test create command with whitespace-only assigned_to value."""
+    result = runner.invoke(app, ["create", "Some description", "--assigned-to", "  "])
+    assert result.exit_code == 1
+    assert "Error: Assigned to cannot be whitespace only" in result.output
 
 
 # Tests for patch creation with branch and parent_issue_id
@@ -337,6 +374,7 @@ def test_create_patch_with_branch_succeeds(mock_create_issue: MagicMock) -> None
         title="Patch description",
         issue_type="patch",
         branch="feature/test",
+        assigned_to=None,
     )
 
 
@@ -373,6 +411,7 @@ def test_create_patch_with_parent_issue_id_succeeds(
         title="Patch description",
         issue_type="patch",
         branch="feature/parent",
+        assigned_to=None,
     )
 
 
@@ -492,6 +531,7 @@ def test_create_codereview_with_branch_succeeds(mock_create_issue: MagicMock) ->
         title="Review this code",
         issue_type="codereview",
         branch="main",
+        assigned_to=None,
     )
 
 

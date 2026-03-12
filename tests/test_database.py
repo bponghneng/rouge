@@ -847,6 +847,39 @@ def test_create_issue_invalid_type(_mock_get_client) -> None:
         create_issue("Test issue", issue_type="invalid")
 
 
+@patch("rouge.core.database.get_client")
+def test_create_issue_with_assigned_to(mock_get_client) -> None:
+    """Test creating issue with assigned_to parameter."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 7,
+            "description": "Issue with assignee",
+            "status": "pending",
+            "type": "main",
+            "adw_id": "test1234",
+            "assigned_to": "tydirium-1",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Issue with assignee", assigned_to="tydirium-1")
+    assert issue.id == 7
+    assert issue.description == "Issue with assignee"
+    assert issue.assigned_to == "tydirium-1"
+
+    # Verify the insert data included the assigned_to field
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["assigned_to"] == "tydirium-1"
+
+
 # ============================================================================
 # update_issue_branch tests
 # ============================================================================

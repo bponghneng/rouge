@@ -67,6 +67,7 @@ def validate_new_args(
     spec_file: Optional[Path],
     title: Optional[str],
     branch: Optional[str] = None,
+    assigned_to: Optional[str] = None,
     parent_issue_id: Optional[int] = None,
     issue_type: IssueType = IssueType.MAIN,
 ) -> None:
@@ -80,6 +81,7 @@ def validate_new_args(
         spec_file: Path to file containing issue description (or None)
         title: Explicit title for the issue (or None)
         branch: Pre-set branch name for the issue (or None)
+        assigned_to: Assignee identifier (or None)
         parent_issue_id: Parent issue ID for patch issues (or None)
         issue_type: Issue type (main, patch, or codereview)
 
@@ -90,6 +92,14 @@ def validate_new_args(
     if branch is not None and branch.strip() == "":
         typer.echo(
             "Error: Branch name cannot be whitespace only",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+    # Validation: assigned_to cannot be whitespace only
+    if assigned_to is not None and assigned_to.strip() == "":
+        typer.echo(
+            "Error: Assigned to cannot be whitespace only",
             err=True,
         )
         raise typer.Exit(1)
@@ -316,6 +326,12 @@ def create(
     branch: Optional[str] = typer.Option(
         None, "--branch", "-b", help="Pre-set branch name for the issue.", show_default=True
     ),
+    assigned_to: Optional[str] = typer.Option(
+        None,
+        "--assigned-to",
+        help="Assignee identifier (email, agent name, or custom ID)",
+        show_default=True,
+    ),
     parent_issue_id: Optional[int] = typer.Option(
         None,
         "--parent-issue-id",
@@ -352,10 +368,13 @@ def create(
             --type patch --branch my-branch
         rouge issue create "Fix typo" --type patch --parent-issue-id 123
     """
-    validate_new_args(description, spec_file, title, branch, parent_issue_id, issue_type)
+    validate_new_args(
+        description, spec_file, title, branch, assigned_to, parent_issue_id, issue_type
+    )
     issue_title, issue_description = prepare_issue(description, spec_file, title)
 
     normalized_branch = branch.strip() if branch is not None else None
+    normalized_assigned_to = assigned_to.strip() if assigned_to is not None else None
 
     # If parent_issue_id is provided, fetch parent and extract branch
     if parent_issue_id is not None:
@@ -378,6 +397,7 @@ def create(
             title=issue_title,
             issue_type=issue_type.value,
             branch=normalized_branch,
+            assigned_to=normalized_assigned_to,
         )
         typer.echo(f"{issue.id}")  # Output only the ID for scripting
 
@@ -514,8 +534,7 @@ def list_issues(
 
             # Print header
             typer.echo(
-                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} "
-                f"{'Br':<3} {'Assigned To':<12}"
+                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} {'Br':<3} {'Assigned To':<12}"
             )
             typer.echo("-" * 79)
 
