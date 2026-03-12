@@ -167,7 +167,7 @@ class ComposeRequestStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
         # Update status to "completed" - best-effort, non-blocking
-        update_status(context.require_issue_id, "completed")
+        update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(

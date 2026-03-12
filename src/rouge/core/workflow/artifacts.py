@@ -499,7 +499,7 @@ class ArtifactStore:
             raise FileNotFoundError(f"Artifact not found: {artifact_type}")
 
         if model_class is None:
-            model_class = ARTIFACT_MODELS.get(artifact_type)  # type: ignore
+            model_class = ARTIFACT_MODELS.get(artifact_type)
             if model_class is None:
                 raise ValueError(f"Unknown artifact type: {artifact_type}")
 
