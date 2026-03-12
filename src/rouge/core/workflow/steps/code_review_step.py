@@ -1,6 +1,7 @@
 """Review generation step implementation."""
 
 import json
+import logging
 import os
 import subprocess
 
@@ -17,6 +18,9 @@ from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifac
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
+
+# Fallback logger for methods that may be called without adw_id
+_fallback_logger = logging.getLogger(__name__)
 
 # Module-level constant for step name used in rerun_from references
 CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
@@ -171,7 +175,7 @@ class CodeReviewStep(WorkflowStep):
             adw_id: Optional ADW ID for the Claude request.
             issue_id: Optional Rouge issue ID for the Claude request.
         """
-        logger = get_logger(adw_id or "")
+        logger = get_logger(adw_id) if adw_id else _fallback_logger
         platform_lower = platform.strip().lower()
         if platform_lower not in {"github", "gitlab"}:
             logger.warning(
@@ -243,7 +247,7 @@ class CodeReviewStep(WorkflowStep):
             repo_path: Repository root path for CLI invocation.
             adw_id: Optional ADW ID for logger retrieval.
         """
-        logger = get_logger(adw_id or "")
+        logger = get_logger(adw_id) if adw_id else _fallback_logger
         if not repo_path.strip():
             logger.warning("Empty repo_path, skipping PR comment")
             return
