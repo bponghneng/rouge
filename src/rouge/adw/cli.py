@@ -46,14 +46,25 @@ def main(
         typer.echo("Error: issue_id must be a positive integer", err=True)
         raise typer.Exit(1)
 
-    # Validate adw_id format if provided
-    if adw_id and not re.match(r"^[a-z0-9-]+$", adw_id):
-        typer.echo(
-            "Error: adw_id must contain only lowercase letters, numbers, and hyphens", err=True
-        )
+    # Strip and validate adw_id format if provided
+    if adw_id:
+        adw_id = adw_id.strip()
+        if not adw_id:
+            typer.echo("Error: adw_id cannot be empty", err=True)
+            raise typer.Exit(1)
+        if not re.match(r"^[a-z0-9-]+$", adw_id):
+            typer.echo(
+                "Error: adw_id must contain only lowercase letters, numbers, and hyphens",
+                err=True,
+            )
+            raise typer.Exit(1)
+
+    # Strip and validate workflow_type is a known type
+    workflow_type = workflow_type.strip()
+    if not workflow_type:
+        typer.echo("Error: workflow_type cannot be empty", err=True)
         raise typer.Exit(1)
 
-    # Validate workflow_type is a known type
     valid_workflow_types = {"main", "patch", "codereview"}
     if workflow_type not in valid_workflow_types:
         typer.echo(

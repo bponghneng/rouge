@@ -54,8 +54,10 @@ def get_max_acceptance_iterations(adw_id: str | None = None) -> int:
     """Get maximum acceptance iterations from environment or use default.
 
     Args:
-        adw_id: Optional workflow ID for logger retrieval. Uses module-level
-            logger if not provided.
+        adw_id: Optional workflow ID for logger retrieval. When called during
+            workflow execution, callers MUST provide adw_id to ensure logs
+            route through the workflow-scoped logger. The None path is only
+            for non-workflow contexts (e.g., standalone utility usage).
 
     Returns:
         Maximum number of acceptance iterations, defaults to 3 if not set or invalid

@@ -108,6 +108,7 @@ class WorkflowRunner:
 
                     return False
                 else:
+                    log_step_end(step.name, result.success, adw_id, issue_id=issue_id)
                     warning_msg = f"Best-effort step '{step.name}' failed"
                     if result.error:
                         warning_msg += f": {result.error}"

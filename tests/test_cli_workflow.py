@@ -12,8 +12,9 @@ runner = CliRunner()
 # Tests for run command
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_run_command_success(mock_execute) -> None:
+def test_run_command_success(mock_execute, mock_setup_logger) -> None:
     """Test successful workflow execution.
 
     Expected call: execute_adw_workflow(issue_id, adw_id)
@@ -25,8 +26,9 @@ def test_run_command_success(mock_execute) -> None:
     mock_execute.assert_called_once()
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_run_command_failure(mock_execute) -> None:
+def test_run_command_failure(mock_execute, mock_setup_logger) -> None:
     """Test workflow execution failure.
 
     Expected call: execute_adw_workflow(issue_id, adw_id)
@@ -37,9 +39,10 @@ def test_run_command_failure(mock_execute) -> None:
     assert result.exit_code == 1
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
 @patch("rouge.cli.workflow.make_adw_id")
-def test_run_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
+def test_run_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test run command with custom ADW ID.
 
     Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123)
@@ -63,8 +66,9 @@ def test_run_command_invalid_issue_id() -> None:
 # Tests for patch command
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_patch_command_success(mock_execute) -> None:
+def test_patch_command_success(mock_execute, mock_setup_logger) -> None:
     """Test successful patch workflow execution.
 
     Expected call: execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
@@ -79,8 +83,9 @@ def test_patch_command_success(mock_execute) -> None:
     assert call_args.kwargs.get("workflow_type") == "patch"
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_patch_command_failure(mock_execute) -> None:
+def test_patch_command_failure(mock_execute, mock_setup_logger) -> None:
     """Test patch workflow execution failure.
 
     Expected call: execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
@@ -91,9 +96,10 @@ def test_patch_command_failure(mock_execute) -> None:
     assert result.exit_code == 1
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
 @patch("rouge.cli.workflow.make_adw_id")
-def test_patch_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
+def test_patch_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test patch command with custom ADW ID.
 
     Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123, workflow_type="patch")
@@ -117,8 +123,9 @@ def test_patch_command_invalid_issue_id() -> None:
 # Tests for codereview command
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_codereview_command_success(mock_execute) -> None:
+def test_codereview_command_success(mock_execute, mock_setup_logger) -> None:
     """Test successful codereview workflow execution.
 
     Expected call: execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
@@ -133,8 +140,9 @@ def test_codereview_command_success(mock_execute) -> None:
     assert call_args.kwargs.get("workflow_type") == "codereview"
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-def test_codereview_command_failure(mock_execute) -> None:
+def test_codereview_command_failure(mock_execute, mock_setup_logger) -> None:
     """Test codereview workflow execution failure.
 
     Expected call: execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
@@ -145,9 +153,10 @@ def test_codereview_command_failure(mock_execute) -> None:
     assert result.exit_code == 1
 
 
+@patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
 @patch("rouge.cli.workflow.make_adw_id")
-def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
+def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test codereview command with custom ADW ID.
 
     Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123, workflow_type="codereview")

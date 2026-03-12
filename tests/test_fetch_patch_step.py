@@ -24,7 +24,7 @@ def mock_context() -> WorkflowContext:
 
 
 @pytest.fixture
-def sample_patch_issue():
+def sample_patch_issue() -> Issue:
     """Create a sample patch issue."""
     return Issue(
         id=10,
@@ -36,7 +36,7 @@ def sample_patch_issue():
 
 
 @pytest.fixture
-def sample_main_issue():
+def sample_main_issue() -> Issue:
     """Create a sample main issue (not a patch)."""
     return Issue(
         id=10,
@@ -56,7 +56,7 @@ def test_fetch_patch_step_success(
     mock_update_status,
     mock_context,
     sample_patch_issue,
-):
+) -> None:
     """Test successful patch fetch."""
     mock_fetch_issue.return_value = sample_patch_issue
     mock_emit.return_value = ("success", "Comment inserted")
@@ -91,7 +91,7 @@ def test_fetch_patch_step_no_pending_patch(
     mock_emit,
     mock_context,
     sample_main_issue,
-):
+) -> None:
     """Test fetch patch step fails when issue is not type='patch'."""
     mock_fetch_issue.return_value = sample_main_issue
 
@@ -108,7 +108,7 @@ def test_fetch_patch_step_issue_not_found(
     mock_fetch_issue,
     mock_emit,
     mock_context,
-):
+) -> None:
     """Test fetch patch step fails when issue not found."""
     mock_fetch_issue.side_effect = ValueError("Issue not found")
 
@@ -143,13 +143,13 @@ def test_fetch_patch_step_writes_artifact(
     mock_context.artifact_store.write_artifact.assert_called_once()
 
 
-def test_fetch_patch_step_is_critical():
+def test_fetch_patch_step_is_critical() -> None:
     """Test that FetchPatchStep is marked as critical."""
     step = FetchPatchStep()
     assert step.is_critical is True
 
 
-def test_fetch_patch_step_name():
+def test_fetch_patch_step_name() -> None:
     """Test FetchPatchStep has correct name."""
     step = FetchPatchStep()
     assert step.name == "Fetching pending patch"
@@ -161,7 +161,7 @@ def test_fetch_patch_step_unexpected_error(
     mock_fetch_issue,
     mock_emit_comment_from_payload,
     mock_context,
-):
+) -> None:
     """Test FetchPatchStep handles unexpected errors gracefully."""
     # Setup: fetch_issue raises RuntimeError
     mock_fetch_issue.side_effect = RuntimeError("Unexpected DB error")
