@@ -8,7 +8,7 @@ import json
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar
+from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar, cast
 
 from pydantic import BaseModel, Field
 
@@ -502,7 +502,7 @@ class ArtifactStore:
             raise FileNotFoundError(f"Artifact not found: {artifact_type}")
 
         if model_class is None:
-            model_class = ARTIFACT_MODELS.get(artifact_type)
+            model_class = cast(Optional[Type[T]], ARTIFACT_MODELS.get(artifact_type))
             if model_class is None:
                 raise ValueError(f"Unknown artifact type: {artifact_type}")
 
