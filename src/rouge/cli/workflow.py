@@ -6,7 +6,7 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
-from rouge.core.utils import make_adw_id
+from rouge.core.utils import make_adw_id, setup_logger
 from rouge.core.workflow.shared import get_repo_paths
 
 app = typer.Typer(help="Workflow execution commands")
@@ -80,8 +80,11 @@ def run(
         if not adw_id:
             adw_id = make_adw_id()
 
+        # Setup logger before workflow execution
+        setup_logger(adw_id)
+
         # Execute workflow
-        success, _workflow_id = execute_adw_workflow(issue_id, adw_id)
+        success, _workflow_id = execute_adw_workflow(adw_id, issue_id)
 
         if not success:
             raise typer.Exit(1)
@@ -130,8 +133,11 @@ def patch(
         if not adw_id:
             adw_id = make_adw_id()
 
+        # Setup logger before workflow execution
+        setup_logger(adw_id)
+
         # Execute workflow
-        success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="patch")
+        success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type="patch")
 
         if not success:
             raise typer.Exit(1)
@@ -182,8 +188,11 @@ def codereview(
         if not adw_id:
             adw_id = make_adw_id()
 
+        # Setup logger before workflow execution
+        setup_logger(adw_id)
+
         # Execute workflow
-        success, _workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type="codereview")
+        success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type="codereview")
 
         if not success:
             raise typer.Exit(1)

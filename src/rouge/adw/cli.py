@@ -6,6 +6,7 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
+from rouge.core.utils import make_adw_id, setup_logger
 
 app = typer.Typer(
     help="Rouge ADW - Agent Development Workflow",
@@ -39,8 +40,16 @@ def main(
         typer.echo("Use 'rouge-adw --help' for more information")
         raise typer.Exit()
 
+    # Generate adw_id if not provided
+    workflow_id = adw_id or make_adw_id()
+
+    # Setup logger before workflow execution
+    setup_logger(workflow_id)
+
     try:
-        success, workflow_id = execute_adw_workflow(issue_id, adw_id, workflow_type=workflow_type)
+        success, workflow_id = execute_adw_workflow(
+            workflow_id, issue_id, workflow_type=workflow_type
+        )
         if success:
             typer.echo(f"Workflow {workflow_id} completed successfully")
         else:

@@ -3,7 +3,6 @@
 import logging
 from typing import Optional
 
-from rouge.core.utils import make_adw_id
 from rouge.core.workflow import execute_workflow
 from rouge.core.workflow.workflow_registry import get_pipeline_for_type
 
@@ -11,8 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def execute_adw_workflow(
+    adw_id: str,
     issue_id: Optional[int] = None,
-    adw_id: Optional[str] = None,
     *,
     workflow_type: str = "main",
     resume_from: Optional[str] = None,
@@ -31,9 +30,9 @@ def execute_adw_workflow(
       from failures or retry specific workflow stages.
 
     Args:
+        adw_id: Workflow identifier (required string parameter).
         issue_id: The ID of the issue to process.  Required for all
             workflow types.
-        adw_id: Optional workflow identifier (auto-generated if missing).
         workflow_type: The type of workflow to execute.  One of
             ``"main"``, ``"patch"``, or ``"codereview"``.
         resume_from: Optional step name to resume workflow execution from.
@@ -42,7 +41,7 @@ def execute_adw_workflow(
     Returns:
         Tuple of (success flag, workflow identifier).
     """
-    workflow_id = adw_id or make_adw_id()
+    workflow_id = adw_id
 
     # Issue-based workflows require a valid issue_id
     if issue_id is None:
