@@ -5,7 +5,7 @@ import pytest
 from rouge.adw.adw import execute_adw_workflow
 
 
-def test_execute_adw_workflow_generates_id(monkeypatch):
+def test_execute_adw_workflow_generates_id(monkeypatch) -> None:
     """Workflow should accept an ADW ID and return execution status."""
     calls = {}
 
@@ -30,7 +30,7 @@ def test_execute_adw_workflow_generates_id(monkeypatch):
     assert calls["pipeline_type"] == "main"
 
 
-def test_execute_adw_workflow_uses_provided_values(monkeypatch):
+def test_execute_adw_workflow_uses_provided_values(monkeypatch) -> None:
     """Workflow should respect caller-provided workflow ID."""
     calls = {}
 
@@ -51,7 +51,7 @@ def test_execute_adw_workflow_uses_provided_values(monkeypatch):
     assert calls["pipeline_type"] == "main"
 
 
-def test_execute_adw_workflow_patch_type(monkeypatch):
+def test_execute_adw_workflow_patch_type(monkeypatch) -> None:
     """Patch workflow should use patch pipeline via workflow registry."""
     calls = {}
     registry_calls = {}
@@ -115,13 +115,13 @@ def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
     assert calls["pipeline_type"] == "codereview"
 
 
-def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
+def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch) -> None:
     """workflow_type='main' with issue_id=None should raise ValueError."""
     with pytest.raises(ValueError, match="issue_id is required"):
         execute_adw_workflow("test-adw-id", issue_id=None, workflow_type="main")
 
 
-def test_execute_adw_workflow_unknown_type_raises(monkeypatch):
+def test_execute_adw_workflow_unknown_type_raises(monkeypatch) -> None:
     """Unknown workflow type should raise ValueError with available types."""
 
     def fake_get_pipeline(wf_type):

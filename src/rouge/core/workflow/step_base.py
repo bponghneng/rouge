@@ -43,6 +43,10 @@ class WorkflowContext:
     repo_paths: List[str] = field(default_factory=get_repo_paths)
     data: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        """Initialize cached logger after dataclass initialization."""
+        self._logger = get_logger(self.adw_id)
+
     @property
     def require_issue_id(self) -> int:
         """Return issue_id, raising if it is None.
@@ -89,7 +93,7 @@ class WorkflowContext:
         Raises:
             StepInputError: If the artifact file does not exist
         """
-        logger = get_logger(self.adw_id)
+        logger = self._logger
 
         # Check cache first
         existing = self.data.get(context_key)
@@ -132,7 +136,7 @@ class WorkflowContext:
         Returns:
             The loaded and extracted value, or None if the artifact does not exist
         """
-        logger = get_logger(self.adw_id)
+        logger = self._logger
 
         # Check cache first
         existing = self.data.get(context_key)
@@ -189,7 +193,7 @@ class WorkflowContext:
         Returns:
             The loaded value (from context or artifact), or None if not available
         """
-        logger = get_logger(self.adw_id)
+        logger = self._logger
 
         # Check if already in context
         existing = self.data.get(context_key)
@@ -231,7 +235,7 @@ class WorkflowContext:
         Returns:
             The loaded Issue (from context or artifact), or None if not available
         """
-        logger = get_logger(self.adw_id)
+        logger = self._logger
 
         # Check if already set
         if self.issue is not None:

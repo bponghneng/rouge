@@ -19,8 +19,8 @@ from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
 
-# Fallback logger for methods that may be called without adw_id
-_fallback_logger = logging.getLogger(__name__)
+# Module-level logger for methods that may be called without adw_id
+logger = logging.getLogger(__name__)
 
 # Module-level constant for step name used in rerun_from references
 CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
@@ -175,10 +175,10 @@ class CodeReviewStep(WorkflowStep):
             adw_id: Optional ADW ID for the Claude request.
             issue_id: Optional Rouge issue ID for the Claude request.
         """
-        logger = get_logger(adw_id) if adw_id else _fallback_logger
+        func_logger = get_logger(adw_id) if adw_id else logger
         platform_lower = platform.strip().lower()
         if platform_lower not in {"github", "gitlab"}:
-            logger.warning(
+            func_logger.warning(
                 "Unsupported DEV_SEC_OPS_PLATFORM value: %s, skipping PR comment", platform
             )
             return
@@ -198,11 +198,11 @@ class CodeReviewStep(WorkflowStep):
             )
             summary_response = execute_template(request, require_json=True)
         except Exception as e:
-            logger.error("Failed to call /adw-code-review-summary: %s", e, exc_info=True)
+            func_logger.error("Failed to call /adw-code-review-summary: %s", e, exc_info=True)
             return
 
         if not summary_response.success or not summary_response.output:
-            logger.warning("Failed to generate review summary, skipping PR comment")
+            func_logger.warning("Failed to generate review summary, skipping PR comment")
             return
 
         # Parse JSON output to extract summary field
@@ -210,10 +210,10 @@ class CodeReviewStep(WorkflowStep):
             parsed_output = json.loads(summary_response.output)
             summary = parsed_output.get("summary", "").strip()
             if not summary:
-                logger.warning("Empty summary field in JSON response, skipping PR comment")
+                func_logger.warning("Empty summary field in JSON response, skipping PR comment")
                 return
         except (json.JSONDecodeError, TypeError, AttributeError) as e:
-            logger.error("Failed to parse summary JSON response: %s", e, exc_info=True)
+            func_logger.error("Failed to parse summary JSON response: %s", e, exc_info=True)
             return
         body = (
             f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
@@ -247,13 +247,13 @@ class CodeReviewStep(WorkflowStep):
             repo_path: Repository root path for CLI invocation.
             adw_id: Optional ADW ID for logger retrieval.
         """
-        logger = get_logger(adw_id) if adw_id else _fallback_logger
+        func_logger = get_logger(adw_id) if adw_id else logger
         if not repo_path.strip():
-            logger.warning("Empty repo_path, skipping PR comment")
+            func_logger.warning("Empty repo_path, skipping PR comment")
             return
 
         if not body.strip():
-            logger.warning("Empty body, skipping PR comment")
+            func_logger.warning("Empty body, skipping PR comment")
             return
 
         env = os.environ.copy()
@@ -286,11 +286,11 @@ class CodeReviewStep(WorkflowStep):
             OSError,
             subprocess.SubprocessError,
         ) as e:
-            logger.error("Failed to post PR comment via CLI: %s", e, exc_info=True)
+            func_logger.error("Failed to post PR comment via CLI: %s", e, exc_info=True)
             return
 
         if result.returncode != 0:
-            logger.error(
+            func_logger.error(
                 "Failed to post review summary to %s (repo=%s): exit=%s\nstdout: %s\nstderr: %s",
                 label,
                 repo_path,
@@ -299,7 +299,7 @@ class CodeReviewStep(WorkflowStep):
                 result.stderr,
             )
         else:
-            logger.info("Posted review summary to %s", label)
+            func_logger.info("Posted review summary to %s", label)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Generate review and store result in context.
