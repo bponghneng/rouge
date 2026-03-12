@@ -77,6 +77,7 @@ Thumbs.db
 *.log
 
 # AI Coder Files
+.claude/settings.local.json
 .rouge/
 plans/
 specs/
