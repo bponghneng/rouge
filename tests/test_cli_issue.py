@@ -576,7 +576,7 @@ def test_read_command_success(mock_fetch_issue) -> None:
     assert "Issue #123" in result.output
     assert "Title: Test Issue" in result.output
     assert "Type: main" in result.output
-    assert "Status: pending" in result.output
+    assert "Status: ⏳ pending" in result.output
     assert "Assigned to: local-1" in result.output
     assert "Branch: feature/test" in result.output
     assert "ADW ID: test-adw-123" in result.output
@@ -600,7 +600,7 @@ def test_read_command_minimal_issue(mock_fetch_issue) -> None:
     assert "Issue #456" in result.output
     assert "Title: (none)" in result.output
     assert "Type: main" in result.output
-    assert "Status: pending" in result.output
+    assert "Status: ⏳ pending" in result.output
     assert "Assigned to: (none)" in result.output
     assert "Minimal issue description" in result.output
     # Branch and ADW ID should not appear when not set
@@ -646,7 +646,7 @@ def test_read_command_completed_issue(mock_fetch_issue) -> None:
     result = runner.invoke(app, ["read", "789"])
     assert result.exit_code == 0
     assert "Issue #789" in result.output
-    assert "Status: completed" in result.output
+    assert "Status: ✅ completed" in result.output
     assert "Type: patch" in result.output
 
 
@@ -686,7 +686,7 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     assert "Assigned To" in result.output
     assert "1" in result.output
     assert "Single Issue" in result.output
-    assert "pending" in result.output
+    assert "⏳ pending" in result.output
     assert "main" in result.output
     assert "❌" in result.output  # No branch
     assert "(none)" in result.output  # No assignment
@@ -732,13 +732,16 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
     # Check all issues are present
     assert "1" in result.output
     assert "First Issue" in result.output
+    assert "⏳ pending" in result.output
     assert "local-1" in result.output
     assert "2" in result.output
     assert "Second Issue" in result.output
+    assert "🔄 started" in result.output
     assert "✅" in result.output  # Second issue has a branch
     assert "local-2" in result.output
     assert "3" in result.output
     assert "Third Issue" in result.output
+    assert "✅ completed" in result.output
     assert "❌" in result.output  # First/Third issues have no branch
     assert "(none)" in result.output  # Third issue has no assignment
     mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
@@ -787,6 +790,65 @@ def test_list_command_json_format_empty(mock_fetch_all_issues) -> None:
     issues_data = json.loads(result.output)
     assert isinstance(issues_data, list)
     assert len(issues_data) == 0
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_json_format_no_emoji(mock_fetch_all_issues) -> None:
+    """Test list command with JSON format outputs plain status without emoji (regression guard)."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Pending Issue",
+            description="Test pending",
+            status="pending",
+            type="main",
+        ),
+        Issue(
+            id=2,
+            title="Started Issue",
+            description="Test started",
+            status="started",
+            type="patch",
+        ),
+        Issue(
+            id=3,
+            title="Completed Issue",
+            description="Test completed",
+            status="completed",
+            type="main",
+        ),
+        Issue(
+            id=4,
+            title="Failed Issue",
+            description="Test failed",
+            status="failed",
+            type="patch",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--format", "json"])
+    assert result.exit_code == 0
+    # Verify JSON output has plain status values without emoji
+    import json
+
+    issues_data = json.loads(result.output)
+    assert isinstance(issues_data, list)
+    assert len(issues_data) == 4
+
+    # Verify all status values are plain text without emoji
+    assert issues_data[0]["status"] == "pending"
+    assert issues_data[1]["status"] == "started"
+    assert issues_data[2]["status"] == "completed"
+    assert issues_data[3]["status"] == "failed"
+
+    # Verify no emoji characters in the JSON output
+    assert "⏳" not in result.output
+    assert "🔄" not in result.output
+    assert "✅" not in result.output
+    assert "❌" not in result.output
+
     mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
@@ -1015,7 +1077,7 @@ def test_list_command_filter_by_status_failed(mock_fetch_all_issues) -> None:
     # Verify failed issues are in output
     assert "Failed Issue 1" in result.output
     assert "Failed Issue 2" in result.output
-    assert "failed" in result.output
+    assert "❌ failed" in result.output
 
 
 @patch("rouge.cli.issue.fetch_all_issues")

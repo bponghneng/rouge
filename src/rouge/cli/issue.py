@@ -24,6 +24,30 @@ app = typer.Typer(help="Issue management commands")
 # Using a unique string that users would never reasonably provide
 _UNSET = "__UNSET_SENTINEL_VALUE__"
 
+# Status emoji mapping for visual status indicators
+STATUS_EMOJI = {
+    "pending": "⏳",
+    "started": "🔄",
+    "completed": "✅",
+    "failed": "❌",
+}
+
+
+def format_status(status: str) -> str:
+    """Format a status string with an emoji prefix if known.
+
+    Args:
+        status: The status value to format
+
+    Returns:
+        Formatted status string with emoji prefix if status is known,
+        otherwise returns the plain status string
+    """
+    emoji = STATUS_EMOJI.get(status, "")
+    if emoji:
+        return f"{emoji} {status}"
+    return status
+
 
 class IssueType(str, Enum):
     """Issue types supported by Rouge."""
@@ -434,7 +458,7 @@ def read(
         typer.echo(f"Issue #{issue.id}")
         typer.echo(f"Title: {issue.title or '(none)'}")
         typer.echo(f"Type: {issue.type}")
-        typer.echo(f"Status: {issue.status}")
+        typer.echo(f"Status: {format_status(issue.status)}")
         typer.echo(f"Assigned to: {issue.assigned_to or '(none)'}")
         if issue.branch:
             typer.echo(f"Branch: {issue.branch}")
@@ -534,7 +558,8 @@ def list_issues(
 
             # Print header
             typer.echo(
-                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<10} {'Br':<3} {'Assigned To':<12}"
+                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<12} "
+                f"{'Br':<3} {'Assigned To':<12}"
             )
             typer.echo("-" * 79)
 
@@ -547,7 +572,8 @@ def list_issues(
                 # Format the row with proper spacing
                 row = (
                     f"{issue.id:<6} {truncated_title:<32} "
-                    f"{issue.type:<10} {issue.status:<10} {branch_indicator:<3} {assigned_to:<12}"
+                    f"{issue.type:<10} {format_status(issue.status):<12} "
+                    f"{branch_indicator:<3} {assigned_to:<12}"
                 )
                 typer.echo(row)
 
