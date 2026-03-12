@@ -1,7 +1,5 @@
 """Fetch patch step implementation."""
 
-import logging
-
 from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
@@ -9,12 +7,11 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 
 class FetchPatchStep(WorkflowStep):
@@ -42,6 +39,8 @@ class FetchPatchStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         issue_id = context.require_issue_id
 
         try:

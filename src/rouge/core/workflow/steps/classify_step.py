@@ -1,6 +1,5 @@
 """Classify issue step implementation."""
 
-import logging
 from typing import cast
 
 from rouge.core.agent import execute_template
@@ -12,12 +11,11 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ClassifyArtifact, FetchIssueArtifact
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for classification output JSON
 CLASSIFY_REQUIRED_FIELDS = {
@@ -61,6 +59,7 @@ class ClassifyStep(WorkflowStep):
         Returns:
             StepResult with ClassifyData containing command and classification
         """
+        logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_CLASSIFIER,
             slash_command="/adw-classify",
@@ -135,6 +134,8 @@ class ClassifyStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load issue from artifact (required)
         try:
             issue = context.load_required_artifact(

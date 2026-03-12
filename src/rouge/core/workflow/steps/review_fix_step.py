@@ -1,7 +1,5 @@
 """Review addressing step implementation."""
 
-import logging
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -11,11 +9,10 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for address review output JSON
 ADDRESS_REVIEW_REQUIRED_FIELDS = {
@@ -79,6 +76,7 @@ class ReviewFixStep(WorkflowStep):
         Returns:
             StepResult indicating success or failure
         """
+        logger = get_logger(adw_id)
         logger.info("Addressing review issues for issue %s (adw_id=%s)", issue_id, adw_id)
 
         if not review_text or not review_text.strip():
@@ -189,6 +187,8 @@ class ReviewFixStep(WorkflowStep):
             When issues are addressed and budget remains, ``rerun_from`` is
             set to the CodeReviewStep name so the pipeline re-reviews.
         """
+        logger = get_logger(context.adw_id)
+
         # Import here to avoid circular dependency
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 

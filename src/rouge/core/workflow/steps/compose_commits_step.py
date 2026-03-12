@@ -1,7 +1,6 @@
 """Update PR/MR with new commits step implementation."""
 
 import json
-import logging
 import os
 import re
 import subprocess
@@ -17,12 +16,11 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for compose-commits output JSON
 COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
@@ -99,6 +97,7 @@ def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) ->
         text: Comment text
         raw: Raw payload data
     """
+    logger = get_logger(adw_id)
     payload = CommentPayload(
         issue_id=issue_id,
         adw_id=adw_id,
@@ -135,7 +134,9 @@ class ComposeCommitsStep(WorkflowStep):
         # PR update is best-effort - workflow continues on failure
         return False
 
-    def _detect_pr_platform(self, repo_path: str) -> Tuple[Optional[str], Optional[str]]:
+    def _detect_pr_platform(
+        self, repo_path: str, adw_id: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Detect the existing PR/MR platform and URL using git CLI tools.
 
         Uses DEV_SEC_OPS_PLATFORM to select either GitHub or GitLab and
@@ -144,11 +145,13 @@ class ComposeCommitsStep(WorkflowStep):
 
         Args:
             repo_path: Path to the repository root
+            adw_id: Workflow ID for logger retrieval
 
         Returns:
             Tuple of (platform, url) where platform is "github" or "gitlab",
             or (None, None) if no PR/MR is detected or no CLI tool is available.
         """
+        logger = get_logger(adw_id)
         platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
         if platform not in {"github", "gitlab"}:
             logger.warning(
@@ -227,6 +230,8 @@ class ComposeCommitsStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         repo_path = context.repo_paths[0]
 
         # Compose conventional commits from unstaged changes
@@ -318,7 +323,7 @@ class ComposeCommitsStep(WorkflowStep):
             return StepResult.fail(error_msg)
 
         # Detect platform and PR/MR URL
-        platform, pr_url = self._detect_pr_platform(repo_path)
+        platform, pr_url = self._detect_pr_platform(repo_path, context.adw_id)
 
         if not platform or not pr_url:
             error_msg = "No existing PR/MR found for patch update"

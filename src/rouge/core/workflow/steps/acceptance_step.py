@@ -1,6 +1,5 @@
 """Acceptance validation step implementation."""
 
-import logging
 from typing import Optional
 
 from rouge.core.agent import execute_template
@@ -12,6 +11,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
 from rouge.core.workflow.shared import (
     AGENT_VALIDATOR,
@@ -20,8 +20,6 @@ from rouge.core.workflow.shared import (
 )
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 # Expected acceptance status values
 EXPECTED_STATUSES = {"pass", "fail", "partial"}
@@ -104,6 +102,7 @@ class AcceptanceStep(WorkflowStep):
         Returns:
             StepResult with None data (success/failure only)
         """
+        logger = get_logger(adw_id)
         try:
             if not plan_content:
                 logger.error("Plan content is empty")
@@ -166,6 +165,7 @@ class AcceptanceStep(WorkflowStep):
         Returns:
             Plan text string, or None if no plan artifact is available
         """
+        logger = get_logger(context.adw_id)
         try:
             plan_data = context.load_required_artifact(
                 "plan_data",
@@ -193,6 +193,8 @@ class AcceptanceStep(WorkflowStep):
             When requirements are unmet and budget remains, ``rerun_from`` is
             set to the ImplementStep name so the pipeline re-implements.
         """
+        logger = get_logger(context.adw_id)
+
         # Try to load plan content - prefer patch_plan over plan
         plan_text = self._load_plan_text(context)
 

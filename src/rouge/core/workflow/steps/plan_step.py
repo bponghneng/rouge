@@ -1,7 +1,5 @@
 """Plan building step implementation."""
 
-import logging
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -11,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ClassifyArtifact,
     FetchIssueArtifact,
@@ -19,8 +18,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ClassifyData, PlanData, PlanSlashCommand, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for plan output JSON
 # Plan output must have output, plan (inline content), summary
@@ -66,6 +63,7 @@ class PlanStep(WorkflowStep):
         Returns:
             StepResult with PlanData containing output and optional session_id
         """
+        logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
             slash_command=command,
@@ -114,6 +112,8 @@ class PlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load issue from artifact (required)
         try:
             issue = context.load_required_artifact(
