@@ -11,6 +11,8 @@ from typing import Dict, List, Optional, Set, Type, TypeVar
 from rouge.core.workflow.artifacts import ArtifactType
 from rouge.core.workflow.step_base import WorkflowStep
 
+# Module-level logger is appropriate here: step registration occurs at initialization
+# time before workflows exist, so workflow-scoped logging is not applicable.
 logger = logging.getLogger(__name__)
 
 # Type variable for step classes

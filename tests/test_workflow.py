@@ -40,7 +40,7 @@ def test_update_status_success(mock_update_issue):
     mock_issue.id = 1
     mock_update_issue.return_value = mock_issue
 
-    update_status(1, "started")
+    update_status(1, "started", adw_id="test-adw-id")
     mock_update_issue.assert_called_once_with(1, status="started")
 
 
@@ -50,7 +50,7 @@ def test_update_status_failure(mock_update_issue):
     mock_update_issue.side_effect = ValueError("Database error")
 
     # Should not raise - best-effort
-    update_status(1, "started")
+    update_status(1, "started", adw_id="test-adw-id")
 
 
 @patch("rouge.core.notifications.comments.create_comment")

@@ -4,6 +4,9 @@ import logging
 import os
 from typing import Dict
 
+from rouge.core.utils import get_logger
+
+# Module-level logger for non-workflow utility functions
 logger = logging.getLogger(__name__)
 
 # Agent names
@@ -47,24 +50,29 @@ def get_working_dir() -> str:
     return os.getenv("WORKING_DIR", os.getcwd())
 
 
-def get_max_acceptance_iterations() -> int:
+def get_max_acceptance_iterations(adw_id: str | None = None) -> int:
     """Get maximum acceptance iterations from environment or use default.
+
+    Args:
+        adw_id: Optional workflow ID for logger retrieval. Uses module-level
+            logger if not provided.
 
     Returns:
         Maximum number of acceptance iterations, defaults to 3 if not set or invalid
     """
+    func_logger = get_logger(adw_id) if adw_id else logger
     env_value = os.getenv("MAX_ACCEPTANCE_ITERATIONS", "3")
     try:
         max_iterations = int(env_value)
         if max_iterations < 1:
-            logger.warning(
+            func_logger.warning(
                 "MAX_ACCEPTANCE_ITERATIONS must be >= 1, got %s. " "Using default value 3.",
                 max_iterations,
             )
             return 3
         return max_iterations
     except ValueError:
-        logger.warning(
+        func_logger.warning(
             "Failed to parse MAX_ACCEPTANCE_ITERATIONS='%s' as integer. " "Using default value 3.",
             env_value,
         )
