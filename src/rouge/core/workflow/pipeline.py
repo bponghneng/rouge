@@ -85,13 +85,13 @@ class WorkflowRunner:
 
         while step_index < len(self._steps):
             step = self._steps[step_index]
-            log_step_start(step.name, issue_id=issue_id)
+            log_step_start(step.name, issue_id=issue_id, adw_id=adw_id)
 
             result = step.run(context)
 
             if not result.success:
                 if step.is_critical:
-                    log_step_end(step.name, result.success, issue_id=issue_id)
+                    log_step_end(step.name, result.success, issue_id=issue_id, adw_id=adw_id)
                     error_msg = f"Critical step '{step.name}' failed"
                     if result.error:
                         error_msg += f": {result.error}"
@@ -113,7 +113,7 @@ class WorkflowRunner:
                         warning_msg += f": {result.error}"
                     logger.warning("%s, continuing", warning_msg)
             else:
-                log_step_end(step.name, result.success, issue_id=issue_id)
+                log_step_end(step.name, result.success, issue_id=issue_id, adw_id=adw_id)
 
                 # Update last completed step and write WorkflowStateArtifact (best-effort)
                 last_completed_step = step.name
@@ -264,9 +264,9 @@ class WorkflowRunner:
         logger.info("ADW ID: %s", adw_id)
         logger.info("Running single step '%s' for issue ID: %s", step_name, issue_id)
 
-        log_step_start(target_step.name, issue_id=issue_id)
+        log_step_start(target_step.name, issue_id=issue_id, adw_id=adw_id)
         result = target_step.run(context)
-        log_step_end(target_step.name, result.success, issue_id=issue_id)
+        log_step_end(target_step.name, result.success, issue_id=issue_id, adw_id=adw_id)
 
         if not result.success:
             error_msg = f"Step '{step_name}' failed"

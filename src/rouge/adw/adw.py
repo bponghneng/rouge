@@ -1,12 +1,9 @@
 """ADW workflow implementation."""
 
-import logging
 from typing import Optional
 
 from rouge.core.workflow import execute_workflow
 from rouge.core.workflow.workflow_registry import get_pipeline_for_type
-
-logger = logging.getLogger(__name__)
 
 
 def execute_adw_workflow(

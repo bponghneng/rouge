@@ -72,7 +72,7 @@ class FetchPatchStep(WorkflowStep):
             log_artifact_comment_status(status, msg)
 
             # Update status to "started" - best-effort, non-blocking
-            update_status(issue_id, "started")
+            update_status(issue_id, "started", adw_id=context.adw_id)
 
             # Emit progress comment
             payload = CommentPayload(
