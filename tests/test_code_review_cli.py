@@ -85,8 +85,8 @@ class TestCodeReviewCommand:
 
         assert result.exit_code == 0
         mock_execute.assert_called_once_with(
-            123,
             ANY,
+            123,
             workflow_type="codereview",
         )
 
@@ -133,8 +133,8 @@ class TestCodeReviewCommand:
         result = runner.invoke(app, ["workflow", "codereview", "555"])
 
         assert result.exit_code == 0
-        # Verify issue_id is passed as first positional argument
+        # Verify issue_id is passed as second positional argument
         call_args = mock_execute.call_args
-        assert call_args[0][0] == 555
+        assert call_args[0][1] == 555
         # Verify workflow_type is passed as keyword argument
         assert call_args[1]["workflow_type"] == "codereview"

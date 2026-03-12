@@ -189,8 +189,8 @@ class TestEndToEndResumeFlow:
 
                 # Verify execute_adw_workflow was called with correct params
                 mock_execute.assert_called_once_with(
+                    "adw-resume-123",
                     123,
-                    adw_id="adw-resume-123",
                     resume_from="implement",
                     workflow_type="adw",
                 )

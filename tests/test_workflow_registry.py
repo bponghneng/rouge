@@ -242,9 +242,8 @@ class TestCLIToRegistryFlow:
             return True
 
         monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute_workflow)
-        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
 
-        success, wf_id = execute_adw_workflow(42, workflow_type="main")
+        success, wf_id = execute_adw_workflow("fixed-adw-id", 42, workflow_type="main")
 
         assert success is True
         assert wf_id == "fixed-adw-id"
@@ -274,9 +273,8 @@ class TestCLIToRegistryFlow:
             return True
 
         monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute_workflow)
-        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
 
-        success, wf_id = execute_adw_workflow(99, workflow_type="patch")
+        success, wf_id = execute_adw_workflow("fixed-adw-id", 99, workflow_type="patch")
 
         assert success is True
         assert wf_id == "fixed-adw-id"
@@ -293,7 +291,6 @@ class TestCLIToRegistryFlow:
         from rouge.adw.adw import execute_adw_workflow
 
         monkeypatch.setattr("rouge.adw.adw.execute_workflow", lambda *a, **kw: True)
-        monkeypatch.setattr("rouge.adw.adw.make_adw_id", lambda: "fixed-adw-id")
 
         with pytest.raises(ValueError, match="Unknown workflow type"):
-            execute_adw_workflow(1, workflow_type="custom")
+            execute_adw_workflow("fixed-adw-id", 1, workflow_type="custom")

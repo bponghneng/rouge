@@ -2,7 +2,7 @@
 
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from postgrest.exceptions import APIError
@@ -910,11 +910,15 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess):
 
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
-def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
+def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit):
     """Test MR creation skipped when GITLAB_PAT is missing."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -938,11 +942,15 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_logger, mock_emit):
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
-def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
+def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit):
     """Test MR creation skipped when pr_details is missing."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -960,12 +968,16 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_logger, mock_emit):
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
+def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit):
     """Test MR creation skipped when title is empty."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -987,13 +999,17 @@ def test_create_gitlab_mr_step_empty_title(mock_logger, mock_emit):
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_logger, mock_emit):
+def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_get_logger, mock_emit):
     """Test MR creation handles glab command failure (best-effort: returns success)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Step calls: rev-parse, mr list (empty), push (success), glab mr create (failure)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
@@ -1024,14 +1040,18 @@ def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_logger
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit):
+def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit):
     """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
     import subprocess
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Step calls: rev-parse, mr list (empty), push, glab mr create (timeout caught per-repo)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
@@ -1066,13 +1086,17 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_logger, mock_emit):
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.logger")
+@patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_logger, mock_emit):
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit):
     """Test MR creation handles glab CLI not found (propagates to outer FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    # Mock the logger instance returned by get_logger
+    mock_logger = MagicMock()
+    mock_get_logger.return_value = mock_logger
 
     # Step calls: git rev-parse, glab mr list (FileNotFoundError caught by inner loop),
     # git push (success), glab mr create (FileNotFoundError propagates to outer handler)
