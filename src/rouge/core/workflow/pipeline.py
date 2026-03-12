@@ -1,14 +1,12 @@
 """Pipeline orchestrator for workflow execution."""
 
-import logging
 import os
 from typing import Dict, List, Optional
 
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
-
-logger = logging.getLogger(__name__)
 
 
 class WorkflowRunner:
@@ -49,6 +47,8 @@ class WorkflowRunner:
         Returns:
             True if workflow completed successfully, False if a critical step failed
         """
+        logger = get_logger(adw_id)
+
         # Create artifact store unconditionally
         artifact_store = ArtifactStore(adw_id)
         logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
@@ -177,6 +177,7 @@ class WorkflowRunner:
             failed_step: Name of the step that failed (or None)
             pipeline_type: The type of pipeline being executed
         """
+        logger = get_logger(workflow_id)
         try:
             from rouge.core.workflow.artifacts import WorkflowStateArtifact
 
@@ -224,6 +225,8 @@ class WorkflowRunner:
         Raises:
             ValueError: If step_name is not found in the pipeline
         """
+        logger = get_logger(adw_id)
+
         # Find the step by name
         target_step: Optional[WorkflowStep] = None
         for step in self._steps:

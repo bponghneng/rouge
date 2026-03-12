@@ -26,17 +26,15 @@ ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS environment variable in development environments
 to prevent accidental data loss.
 """
 
-import logging
 import os
 import subprocess
 
 from rouge.core.database import update_issue
 from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import GitBranchArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 # Default timeout for git operations (60 seconds)
 GIT_TIMEOUT = 60
@@ -93,6 +91,8 @@ class GitBranchStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         default_branch = os.environ.get("DEFAULT_GIT_BRANCH", "main")
         adw_id = context.adw_id
 

@@ -1,6 +1,5 @@
 """Pull request preparation step implementation."""
 
-import logging
 from typing import Any, Dict
 
 from rouge.core.agent import execute_template
@@ -12,13 +11,12 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for pull request output JSON
 PR_REQUIRED_FIELDS = {
@@ -71,6 +69,8 @@ class ComposeRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
@@ -165,6 +165,7 @@ class ComposeRequestStep(WorkflowStep):
         Args:
             context: Workflow context
         """
+        logger = get_logger(context.adw_id)
         # Update status to "completed" - best-effort, non-blocking
         update_status(context.require_issue_id, "completed")
 
@@ -190,6 +191,7 @@ class ComposeRequestStep(WorkflowStep):
             pr_data: The validated parsed PR data dict
             context: Workflow context
         """
+        logger = get_logger(context.adw_id)
         # Store PR details for CreatePullRequestStep
         pr_details = {
             "title": pr_data.get("title", ""),

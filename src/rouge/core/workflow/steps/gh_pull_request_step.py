@@ -1,7 +1,6 @@
 """Create GitHub pull request step implementation."""
 
 import json
-import logging
 import os
 import re
 import shutil
@@ -13,6 +12,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ComposeRequestArtifact,
     GhPullRequestArtifact,
@@ -20,8 +20,6 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 
 class GhPullRequestStep(WorkflowStep):
@@ -45,6 +43,8 @@ class GhPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Try to load pr_details from artifact if not in context (optional)
         pr_details = context.load_optional_artifact(
             "pr_details",

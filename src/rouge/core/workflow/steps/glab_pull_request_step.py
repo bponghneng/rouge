@@ -1,7 +1,6 @@
 """Create GitLab merge request step implementation."""
 
 import json
-import logging
 import os
 import re
 import subprocess
@@ -12,6 +11,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ComposeRequestArtifact,
     GlabPullRequestArtifact,
@@ -19,8 +19,6 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
@@ -32,6 +30,7 @@ def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
         text: Comment text
         raw: Raw payload data
     """
+    logger = get_logger(adw_id)
     payload = CommentPayload(
         issue_id=issue_id,
         adw_id=adw_id,
@@ -68,6 +67,8 @@ class GlabPullRequestStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Try to load pr_details from artifact if not in context (optional)
         pr_details = context.load_optional_artifact(
             "pr_details",

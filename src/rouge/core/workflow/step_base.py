@@ -1,18 +1,16 @@
 """Abstract base class for workflow steps and context management."""
 
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, TypeVar
 
 from rouge.core.models import Issue
+from rouge.core.utils import get_logger
 from rouge.core.workflow.shared import get_repo_paths
 
 if TYPE_CHECKING:
     from rouge.core.workflow.artifacts import Artifact, ArtifactStore, ArtifactType
     from rouge.core.workflow.types import StepResult
-
-logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="Artifact")
 
@@ -91,6 +89,8 @@ class WorkflowContext:
         Raises:
             StepInputError: If the artifact file does not exist
         """
+        logger = get_logger(self.adw_id)
+
         # Check cache first
         existing = self.data.get(context_key)
         if existing is not None:
@@ -132,6 +132,8 @@ class WorkflowContext:
         Returns:
             The loaded and extracted value, or None if the artifact does not exist
         """
+        logger = get_logger(self.adw_id)
+
         # Check cache first
         existing = self.data.get(context_key)
         if existing is not None:
@@ -187,6 +189,8 @@ class WorkflowContext:
         Returns:
             The loaded value (from context or artifact), or None if not available
         """
+        logger = get_logger(self.adw_id)
+
         # Check if already in context
         existing = self.data.get(context_key)
         if existing is not None:
@@ -227,6 +231,8 @@ class WorkflowContext:
         Returns:
             The loaded Issue (from context or artifact), or None if not available
         """
+        logger = get_logger(self.adw_id)
+
         # Check if already set
         if self.issue is not None:
             return self.issue

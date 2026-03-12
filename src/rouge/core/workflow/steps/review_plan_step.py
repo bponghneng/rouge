@@ -5,8 +5,6 @@ the issue description. It invokes an AI agent to extract the base commit ref/SHA
 and rationale, storing the result as a PlanArtifact.
 """
 
-import logging
-
 from pydantic import ValidationError
 
 from rouge.core.agent import execute_template
@@ -18,12 +16,11 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for review plan output JSON
 # Review plan output must have output="plan", base_commit, and summary
@@ -78,6 +75,7 @@ class ReviewPlanStep(WorkflowStep):
             StepResult with PlanData containing base_commit as plan field
             and rationale as summary field
         """
+        logger = get_logger(adw_id)
         # Validate issue description is present
         desc = (issue.description or "").strip()
         if not desc:
@@ -170,6 +168,8 @@ class ReviewPlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load issue from artifact (required)
         try:
             issue = context.load_required_artifact(

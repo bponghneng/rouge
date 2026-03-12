@@ -1,7 +1,6 @@
 """Review generation step implementation."""
 
 import json
-import logging
 import os
 import subprocess
 
@@ -13,12 +12,11 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Module-level constant for step name used in rerun_from references
 CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
@@ -63,13 +61,17 @@ class CodeReviewStep(WorkflowStep):
         # Review generation is not critical - workflow continues if it fails
         return False
 
-    def _parse_timeout_seconds(self) -> int:
+    def _parse_timeout_seconds(self, adw_id: str) -> int:
         """Parse CODERABBIT_TIMEOUT_SECONDS from environment with safe fallback.
+
+        Args:
+            adw_id: Workflow ID for logger retrieval
 
         Returns:
             Timeout in seconds, defaulting to 600 (10 minutes) if env var is
             missing or malformed.
         """
+        logger = get_logger(adw_id)
         try:
             return int(os.getenv("CODERABBIT_TIMEOUT_SECONDS", "600"))
         except (ValueError, TypeError):
@@ -79,20 +81,23 @@ class CodeReviewStep(WorkflowStep):
     def _generate_review(
         self,
         repo_path: str,
+        adw_id: str,
         base_commit: str | None = None,
     ) -> StepResult[ReviewData]:
         """Generate CodeRabbit review output.
 
         Args:
             repo_path: Repository root path where .coderabbit.yaml config is located
+            adw_id: Workflow ID for logger retrieval
             base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
         Returns:
             StepResult with ReviewData containing review text
         """
+        logger = get_logger(adw_id)
         try:
             # Read timeout from environment variable with default of 600 seconds (10 minutes)
-            timeout_seconds = self._parse_timeout_seconds()
+            timeout_seconds = self._parse_timeout_seconds(adw_id)
 
             # Build absolute config path and validate it exists (config must be in repo root)
             config_path = os.path.join(repo_path, ".coderabbit.yaml")
@@ -136,7 +141,7 @@ class CodeReviewStep(WorkflowStep):
             return StepResult.ok(ReviewData(review_text=review_text))
 
         except subprocess.TimeoutExpired:
-            timeout_seconds = self._parse_timeout_seconds()
+            timeout_seconds = self._parse_timeout_seconds(adw_id)
             logger.exception("CodeRabbit review timed out after %s seconds", timeout_seconds)
             return StepResult.fail(f"CodeRabbit review timed out after {timeout_seconds} seconds")
         except Exception as e:
@@ -166,6 +171,7 @@ class CodeReviewStep(WorkflowStep):
             adw_id: Optional ADW ID for the Claude request.
             issue_id: Optional Rouge issue ID for the Claude request.
         """
+        logger = get_logger(adw_id or "")
         platform_lower = platform.strip().lower()
         if platform_lower not in {"github", "gitlab"}:
             logger.warning(
@@ -209,7 +215,11 @@ class CodeReviewStep(WorkflowStep):
             f"{summary}\n\n<details><summary>Full review</summary>" f"\n\n{review_text}\n</details>"
         )
         self._post_comment_to_pr(
-            body=body, pr_number=pr_number, platform_lower=platform_lower, repo_path=repo_path
+            body=body,
+            pr_number=pr_number,
+            platform_lower=platform_lower,
+            repo_path=repo_path,
+            adw_id=adw_id,
         )
 
     def _post_comment_to_pr(
@@ -218,6 +228,7 @@ class CodeReviewStep(WorkflowStep):
         pr_number: int,
         platform_lower: str,
         repo_path: str,
+        adw_id: str | None,
     ) -> None:
         """Post a pre-formatted comment to a GitHub PR or GitLab MR via CLI.
 
@@ -230,7 +241,9 @@ class CodeReviewStep(WorkflowStep):
             pr_number: PR or MR number to comment on (caller has already validated > 0).
             platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
             repo_path: Repository root path for CLI invocation.
+            adw_id: Optional ADW ID for logger retrieval.
         """
+        logger = get_logger(adw_id or "")
         if not repo_path.strip():
             logger.warning("Empty repo_path, skipping PR comment")
             return
@@ -293,6 +306,8 @@ class CodeReviewStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load plan data from PlanArtifact (codereview now always has an issue)
         try:
             plan_data = context.load_required_artifact(
@@ -328,7 +343,7 @@ class CodeReviewStep(WorkflowStep):
             if not base_commit and plan_data.plan:
                 base_commit = plan_data.plan
 
-        review_result = self._generate_review(repo_path, base_commit=base_commit)
+        review_result = self._generate_review(repo_path, context.adw_id, base_commit=base_commit)
 
         if not review_result.success:
             logger.error("Failed to generate CodeRabbit review: %s", review_result.error)

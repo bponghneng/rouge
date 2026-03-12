@@ -1,7 +1,5 @@
 """Implementation step."""
 
-import logging
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -11,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     AcceptanceArtifact,
     ImplementArtifact,
@@ -19,8 +18,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for implement output JSON
 IMPLEMENT_REQUIRED_FIELDS = {
@@ -75,6 +72,7 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with ImplementData containing output and optional session_id
         """
+        logger = get_logger(adw_id)
         # Create template request with /adw-implement-plan slash command
         request = ClaudeAgentTemplateRequest(
             slash_command="/adw-implement-plan",
@@ -123,6 +121,8 @@ class ImplementStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load plan from artifact (required)
         try:
             plan_data = context.load_required_artifact(
