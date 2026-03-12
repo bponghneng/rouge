@@ -13,6 +13,7 @@ from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar
 from pydantic import BaseModel, Field
 
 from rouge.core.models import Issue
+from rouge.core.utils import get_logger
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
@@ -20,6 +21,7 @@ from rouge.core.workflow.types import (
     ReviewData,
 )
 
+# Module-level logger for non-ArtifactStore utility code
 logger = logging.getLogger(__name__)
 
 
@@ -414,6 +416,7 @@ class ArtifactStore:
             base_path: Optional base path override (defaults to RougePaths.get_workflows_dir())
         """
         self._workflow_id = workflow_id
+        self._logger = get_logger(workflow_id)
 
         if base_path is None:
             from rouge.core.paths import RougePaths
@@ -464,13 +467,13 @@ class ArtifactStore:
         try:
             json_data = artifact.model_dump_json(indent=2)
             artifact_path.write_text(json_data, encoding="utf-8")
-            logger.debug(
+            self._logger.debug(
                 "Wrote artifact %s to %s",
                 artifact.artifact_type,
                 artifact_path,
             )
         except Exception as e:
-            logger.exception(
+            self._logger.exception(
                 "Failed to write artifact %s: %s",
                 artifact.artifact_type,
                 e,
@@ -506,13 +509,13 @@ class ArtifactStore:
         try:
             json_data = artifact_path.read_text(encoding="utf-8")
             artifact = model_class.model_validate_json(json_data)
-            logger.debug("Read artifact %s from %s", artifact_type, artifact_path)
+            self._logger.debug("Read artifact %s from %s", artifact_type, artifact_path)
             return artifact
         except json.JSONDecodeError as e:
-            logger.exception("Failed to parse artifact %s: %s", artifact_type, e)
+            self._logger.exception("Failed to parse artifact %s: %s", artifact_type, e)
             raise ValueError(f"Corrupted artifact JSON for {artifact_type}: {e}") from e
         except Exception as e:
-            logger.exception("Failed to read artifact %s: %s", artifact_type, e)
+            self._logger.exception("Failed to read artifact %s: %s", artifact_type, e)
             raise ValueError(f"Failed to validate artifact {artifact_type}: {e}") from e
 
     def artifact_exists(self, artifact_type: ArtifactType) -> bool:
@@ -578,8 +581,8 @@ class ArtifactStore:
 
         try:
             artifact_path.unlink()
-            logger.debug("Deleted artifact %s", artifact_type)
+            self._logger.debug("Deleted artifact %s", artifact_type)
             return True
         except Exception as e:
-            logger.exception("Failed to delete artifact %s: %s", artifact_type, e)
+            self._logger.exception("Failed to delete artifact %s: %s", artifact_type, e)
             return False

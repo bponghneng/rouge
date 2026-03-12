@@ -68,7 +68,7 @@ def test_fetch_patch_step_success(
     assert mock_context.issue == sample_patch_issue
 
     # Verify status was updated to "started"
-    mock_update_status.assert_called_once_with(10, "started")
+    mock_update_status.assert_called_once_with(10, "started", adw_id="test-adw-patch")
 
     # Verify patch artifact was saved
     assert mock_context.artifact_store.write_artifact.call_count == 1

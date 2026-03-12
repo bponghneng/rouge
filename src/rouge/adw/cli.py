@@ -1,5 +1,6 @@
 """CLI interface for Rouge ADW."""
 
+import re
 import sys
 from typing import Optional
 
@@ -39,6 +40,27 @@ def main(
         typer.echo("Usage: rouge-adw <issue_id> [--adw-id <workflow-id>] [--workflow-type <type>]")
         typer.echo("Use 'rouge-adw --help' for more information")
         raise typer.Exit()
+
+    # Validate issue_id is a positive integer
+    if issue_id <= 0:
+        typer.echo("Error: issue_id must be a positive integer", err=True)
+        raise typer.Exit(1)
+
+    # Validate adw_id format if provided
+    if adw_id and not re.match(r"^[a-z0-9-]+$", adw_id):
+        typer.echo(
+            "Error: adw_id must contain only lowercase letters, numbers, and hyphens", err=True
+        )
+        raise typer.Exit(1)
+
+    # Validate workflow_type is a known type
+    valid_workflow_types = {"main", "patch", "codereview"}
+    if workflow_type not in valid_workflow_types:
+        typer.echo(
+            f"Error: workflow_type must be one of {', '.join(sorted(valid_workflow_types))}",
+            err=True,
+        )
+        raise typer.Exit(1)
 
     # Generate adw_id if not provided
     workflow_id = adw_id or make_adw_id()

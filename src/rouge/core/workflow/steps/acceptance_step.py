@@ -256,7 +256,7 @@ class AcceptanceStep(WorkflowStep):
         if needs_reimplementation:
             rerun_count += 1
             context.data["acceptance_rerun_count"] = rerun_count
-            max_iters = get_max_acceptance_iterations()
+            max_iters = get_max_acceptance_iterations(adw_id=context.adw_id)
 
             logger.debug("Acceptance iteration count: %s/%s", rerun_count, max_iters)
 

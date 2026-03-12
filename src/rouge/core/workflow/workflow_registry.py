@@ -9,6 +9,9 @@ from typing import Any, Callable, Dict, List, Optional, Type, Union
 
 from rouge.core.workflow.step_base import WorkflowStep
 
+# Module-level logger is appropriate here: workflow registration and step creation
+# occur at initialization time before workflow execution begins, so workflow-scoped
+# logging is not applicable.
 logger = logging.getLogger(__name__)
 
 
