@@ -267,7 +267,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(ANY, base_commit="abc1234")
+        mock__generate_review.assert_called_once_with(ANY, ANY, base_commit="abc1234")
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
@@ -304,7 +304,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(ANY, base_commit="def5678")
+        mock__generate_review.assert_called_once_with(ANY, ANY, base_commit="def5678")
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
@@ -339,7 +339,7 @@ class TestCodeReviewStepRun:
         result = step.run(mock_context)
 
         assert result.success is True
-        mock__generate_review.assert_called_once_with(ANY, base_commit=None)
+        mock__generate_review.assert_called_once_with(ANY, ANY, base_commit=None)
 
     @patch.object(CodeReviewStep, "_post_review_summary_to_pr")
     @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
@@ -649,6 +649,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
         mock_run.assert_called_once()
@@ -667,6 +668,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=7,
             platform_lower="gitlab",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
         mock_run.assert_called_once()
@@ -683,6 +685,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="",
+            adw_id="test-adw-id",
         )
 
     def test_empty_body_returns_early(self) -> None:
@@ -693,6 +696,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
@@ -707,6 +711,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
@@ -721,6 +726,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
     @patch.dict("os.environ", {"GITHUB_PAT": "test-pat"})
@@ -735,6 +741,7 @@ class TestCodeReviewStepPostCommentToPr:
             pr_number=42,
             platform_lower="github",
             repo_path="/repo",
+            adw_id="test-adw-id",
         )
 
         _, kwargs = mock_run.call_args
@@ -764,7 +771,7 @@ class TestCodeReviewStepGenerateReview:
         )
 
         step = CodeReviewStep()
-        result = step._generate_review(repo_path="/test/repo")
+        result = step._generate_review(repo_path="/test/repo", adw_id="test-adw-id")
 
         # Verify review generation succeeded
         assert result.success is True
@@ -782,7 +789,7 @@ class TestCodeReviewStepGenerateReview:
         mock_exists.return_value = False
 
         step = CodeReviewStep()
-        result = step._generate_review(repo_path="/test/repo")
+        result = step._generate_review(repo_path="/test/repo", adw_id="test-adw-id")
 
         # Verify review generation failed
         assert result.success is False
@@ -806,7 +813,7 @@ class TestCodeReviewStepGenerateReview:
         )
 
         step = CodeReviewStep()
-        result = step._generate_review(repo_path="/test/repo")
+        result = step._generate_review(repo_path="/test/repo", adw_id="test-adw-id")
 
         # Verify review generation failed
         assert result.success is False
@@ -826,7 +833,7 @@ class TestCodeReviewStepGenerateReview:
         mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd=["coderabbit"], timeout=600)
 
         step = CodeReviewStep()
-        result = step._generate_review(repo_path="/test/repo")
+        result = step._generate_review(repo_path="/test/repo", adw_id="test-adw-id")
 
         # Verify review generation failed
         assert result.success is False

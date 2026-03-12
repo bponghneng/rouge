@@ -290,8 +290,8 @@ class TestResumeCommandWorkflowInvocation:
 
             assert result.exit_code == 0
             mock_execute_adw.assert_called_once_with(
+                "adw-777",
                 777,
-                adw_id="adw-777",
                 resume_from="code-review",
                 workflow_type="adw",
             )
@@ -617,8 +617,8 @@ class TestResumeCommandResumeFromOverride:
 
             assert result.exit_code == 0
             mock_execute_adw.assert_called_once_with(
+                "adw-2001",
                 2001,
-                adw_id="adw-2001",
                 resume_from="implement",
                 workflow_type="adw",
             )
@@ -658,8 +658,8 @@ class TestResumeCommandResumeFromOverride:
             assert result.exit_code == 0
             # "plan" (from --resume-from) must be used, not "code-review" (failed_step)
             mock_execute_adw.assert_called_once_with(
+                "adw-2002",
                 2002,
-                adw_id="adw-2002",
                 resume_from="plan",
                 workflow_type="adw",
             )

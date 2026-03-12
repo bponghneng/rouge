@@ -42,7 +42,7 @@ class TestDetectPrPlatform:
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform == "github"
         assert url == "https://github.com/org/repo/pull/42"
@@ -62,7 +62,7 @@ class TestDetectPrPlatform:
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform == "gitlab"
         assert url == "https://gitlab.com/org/repo/-/merge_requests/7"
@@ -76,7 +76,7 @@ class TestDetectPrPlatform:
         step = ComposeCommitsStep()
 
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
@@ -88,7 +88,7 @@ class TestDetectPrPlatform:
         step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
@@ -101,7 +101,7 @@ class TestDetectPrPlatform:
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         mock_run.side_effect = FileNotFoundError
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
@@ -117,7 +117,7 @@ class TestDetectPrPlatform:
         mock_run.return_value = fail_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
@@ -132,7 +132,7 @@ class TestDetectPrPlatform:
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         mock_run.side_effect = raise_timeout
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
@@ -148,7 +148,7 @@ class TestDetectPrPlatform:
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo")
+        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None

@@ -42,7 +42,7 @@ def test_run_command_failure(mock_execute) -> None:
 def test_run_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     """Test run command with custom ADW ID.
 
-    Expected call: execute_adw_workflow(issue_id=123, adw_id="custom123")
+    Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123)
     """
     mock_execute.return_value = (True, "some-workflow-id")
 
@@ -51,7 +51,7 @@ def test_run_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     # When custom ADW ID is provided, make_adw_id should not be called
     mock_make_adw_id.assert_not_called()
     # Verify the custom ADW ID was passed to execute_adw_workflow
-    mock_execute.assert_called_once_with(123, "custom123")
+    mock_execute.assert_called_once_with("custom123", 123)
 
 
 def test_run_command_invalid_issue_id() -> None:
@@ -96,7 +96,7 @@ def test_patch_command_failure(mock_execute) -> None:
 def test_patch_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     """Test patch command with custom ADW ID.
 
-    Expected call: execute_adw_workflow(issue_id=123, adw_id="custom123", workflow_type="patch")
+    Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123, workflow_type="patch")
     """
     mock_execute.return_value = (True, "some-workflow-id")
 
@@ -105,7 +105,7 @@ def test_patch_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     # When custom ADW ID is provided, make_adw_id should not be called
     mock_make_adw_id.assert_not_called()
     # Verify the custom ADW ID and workflow_type were passed to execute_adw_workflow
-    mock_execute.assert_called_once_with(123, "custom123", workflow_type="patch")
+    mock_execute.assert_called_once_with("custom123", 123, workflow_type="patch")
 
 
 def test_patch_command_invalid_issue_id() -> None:
@@ -150,7 +150,7 @@ def test_codereview_command_failure(mock_execute) -> None:
 def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     """Test codereview command with custom ADW ID.
 
-    Expected call: execute_adw_workflow(issue_id=123, adw_id="custom123", workflow_type="codereview")
+    Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123, workflow_type="codereview")
     """
     mock_execute.return_value = (True, "some-workflow-id")
 
@@ -159,7 +159,7 @@ def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute) -> None:
     # When custom ADW ID is provided, make_adw_id should not be called
     mock_make_adw_id.assert_not_called()
     # Verify the custom ADW ID and workflow_type were passed to execute_adw_workflow
-    mock_execute.assert_called_once_with(123, "custom123", workflow_type="codereview")
+    mock_execute.assert_called_once_with("custom123", 123, workflow_type="codereview")
 
 
 def test_codereview_command_invalid_issue_id() -> None:
