@@ -6,7 +6,7 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
-from rouge.core.utils import make_adw_id, setup_logger
+from rouge.core.utils import get_logger, make_adw_id, setup_logger
 
 app = typer.Typer(
     help="Rouge ADW - Agent Development Workflow",
@@ -56,6 +56,7 @@ def main(
             typer.echo(f"Workflow {workflow_id} failed", err=True)
             sys.exit(1)
     except Exception as exc:
+        get_logger(workflow_id).exception("ADW workflow failed with unexpected error")
         typer.echo(f"Error executing ADW workflow: {exc}", err=True)
         sys.exit(1)
 
