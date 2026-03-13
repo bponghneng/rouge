@@ -6,7 +6,8 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
-from rouge.core.utils import make_adw_id, setup_logger
+from rouge.cli.utils import validate_issue_id
+from rouge.core.utils import get_logger, make_adw_id, setup_logger
 from rouge.core.workflow.shared import get_repo_paths
 
 app = typer.Typer(help="Workflow execution commands")
@@ -65,9 +66,7 @@ def run(
     """
     try:
         # Validate issue_id
-        if issue_id <= 0:
-            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
-            raise typer.Exit(1)
+        validate_issue_id(issue_id)
 
         # Normalize and validate ADW ID if provided
         if adw_id is not None:
@@ -95,6 +94,7 @@ def run(
     except typer.Exit:
         raise
     except Exception as e:
+        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -118,9 +118,7 @@ def patch(
     """
     try:
         # Validate issue_id
-        if issue_id <= 0:
-            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
-            raise typer.Exit(1)
+        validate_issue_id(issue_id)
 
         # Normalize and validate ADW ID if provided
         if adw_id is not None:
@@ -148,6 +146,7 @@ def patch(
     except typer.Exit:
         raise
     except Exception as e:
+        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
@@ -173,9 +172,7 @@ def codereview(
     """
     try:
         # Validate issue_id
-        if issue_id <= 0:
-            typer.echo(f"Error: issue_id must be greater than 0, got {issue_id}", err=True)
-            raise typer.Exit(1)
+        validate_issue_id(issue_id)
 
         # Normalize and validate ADW ID if provided
         if adw_id is not None:
@@ -203,5 +200,6 @@ def codereview(
     except typer.Exit:
         raise
     except Exception as e:
+        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
