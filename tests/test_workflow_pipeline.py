@@ -5,6 +5,7 @@ from rouge.core.workflow.pipeline import (
     WorkflowRunner,
     get_default_pipeline,
     get_patch_pipeline,
+    get_full_pipeline,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps import (
@@ -25,6 +26,7 @@ from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.types import StepResult
 
 _WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
@@ -436,6 +438,150 @@ class TestGetPatchPipeline:
             AcceptanceStep,
             ComposeCommitsStep,
         ]
+
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+
+
+class TestGetFullPipeline:
+    def test_pipeline_structure_no_platform(self, monkeypatch):
+        """Test full pipeline structure without platform set."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+
+        # Check step count (should be 8 without PR step)
+        assert len(pipeline) == 8
+
+        # Verify order and types
+        expected_types = [
+            FetchIssueStep,
+            GitBranchStep,
+            ClaudeCodePlanStep,
+            ImplementStep,
+            CodeReviewStep,
+            ReviewFixStep,
+            CodeQualityStep,
+            ComposeRequestStep,
+        ]
+
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+
+        # Verify ImplementStep is configured with correct plan_step_name
+        assert pipeline[3].plan_step_name == "Building implementation plan"
+
+        # Verify critical flags
+        assert pipeline[0].is_critical  # FetchIssueStep
+        assert pipeline[1].is_critical  # GitBranchStep
+        assert pipeline[2].is_critical  # ClaudeCodePlanStep
+        assert pipeline[3].is_critical  # ImplementStep
+        assert not pipeline[6].is_critical  # CodeQualityStep
+
+    def test_pipeline_structure_github(self, monkeypatch):
+        """Test full pipeline structure with GitHub platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_full_pipeline()
+
+        # Check step count (should be 9 with GitHub PR step)
+        assert len(pipeline) == 9
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+        assert not pipeline[-1].is_critical  # PR creation is best effort
+
+    def test_pipeline_structure_gitlab(self, monkeypatch):
+        """Test full pipeline structure with GitLab platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_full_pipeline()
+
+        # Check step count (should be 9 with GitLab MR step)
+        assert len(pipeline) == 9
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
+        assert not pipeline[-1].is_critical  # MR creation is best effort
+
+    def test_claude_code_plan_step_present_at_index_2(self, monkeypatch):
+        """Verify ClaudeCodePlanStep is present at index 2."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+
+        assert isinstance(
+            pipeline[2], ClaudeCodePlanStep
+        ), "ClaudeCodePlanStep should be at index 2"
+
+    def test_classify_step_absent(self, monkeypatch):
+        """Verify ClassifyStep is absent from full pipeline."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+
+        for step in pipeline:
+            assert not isinstance(
+                step, ClassifyStep
+            ), "ClassifyStep should not be in full pipeline"
+
+    def test_acceptance_step_absent(self, monkeypatch):
+        """Verify AcceptanceStep is absent from full pipeline."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+
+        for step in pipeline:
+            assert not isinstance(
+                step, AcceptanceStep
+            ), "AcceptanceStep should not be in full pipeline"
+
+    def test_conditional_pr_step_logic(self, monkeypatch):
+        """Verify conditional PR/MR step logic across all platforms."""
+        # Test with no platform set
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+        assert len(pipeline) == 8
+        pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
+        for step in pipeline:
+            assert not isinstance(
+                step, pr_step_types
+            ), "No PR/MR step should be present without platform set"
+
+        # Test with GitHub
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_full_pipeline()
+        assert len(pipeline) == 9
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+        assert not any(isinstance(s, GlabPullRequestStep) for s in pipeline)
+
+        # Test with GitLab
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_full_pipeline()
+        assert len(pipeline) == 9
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
+        assert not any(isinstance(s, GhPullRequestStep) for s in pipeline)
+
+        # Test with unsupported platform value
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
+        pipeline = get_full_pipeline()
+        assert len(pipeline) == 8
+        for step in pipeline:
+            assert not isinstance(
+                step, pr_step_types
+            ), "No PR/MR step should be present with unsupported platform"
+
+    def test_step_order_matches_spec(self, monkeypatch):
+        """Verify the exact sequence of steps matches the specification."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_full_pipeline()
+
+        expected_types = [
+            FetchIssueStep,
+            GitBranchStep,
+            ClaudeCodePlanStep,
+            ImplementStep,
+            CodeReviewStep,
+            ReviewFixStep,
+            CodeQualityStep,
+            ComposeRequestStep,
+        ]
+
+        assert len(pipeline) == len(expected_types)
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
             assert isinstance(

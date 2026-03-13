@@ -136,7 +136,16 @@ class TestSingleton:
         assert registry.is_registered("patch")
         assert registry.is_registered("codereview")
 
-    def test_reset_workflow_registry_clears_singleton(self) -> None:
+    def test_register_default_workflows_registers_full(self):
+        """
+        The default singleton has 'full' workflow type registered.
+        """
+        registry = get_workflow_registry()
+
+        assert registry.is_registered("full")
+        assert "full" in registry.list_types()
+
+    def test_reset_workflow_registry_clears_singleton(self):
         """reset_workflow_registry() causes get_workflow_registry() to create a new instance."""
         first = get_workflow_registry()
         reset_workflow_registry()
@@ -171,6 +180,14 @@ class TestGetPipelineForType:
         """Unknown types raise ValueError from the registry."""
         with pytest.raises(ValueError, match="Unknown workflow type: unknown"):
             get_pipeline_for_type("unknown")
+
+    def test_full_returns_full_pipeline(self):
+        """get_pipeline_for_type('full') returns the full pipeline."""
+        pipeline = get_pipeline_for_type("full")
+
+        assert isinstance(pipeline, list)
+        assert len(pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
 
 # ---------------------------------------------------------------------------
