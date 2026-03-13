@@ -9,7 +9,7 @@ from rouge.adw.adw import execute_adw_workflow
 from rouge.cli.utils import validate_issue_id
 from rouge.core.database import fetch_issue, update_issue
 from rouge.core.paths import RougePaths
-from rouge.core.utils import setup_logger
+from rouge.core.utils import get_logger, setup_logger
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
 from rouge.worker.worker_artifact import (
     read_worker_artifact,
@@ -118,7 +118,9 @@ def resume(
 
             # Reset issue status from 'failed' to 'started'
             update_issue(issue_id, status="started")
-            logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
+            get_logger(issue.adw_id).info(
+                "Reset issue %s status from 'failed' to 'started'", issue_id
+            )
 
             success, workflow_id = execute_adw_workflow(
                 issue.adw_id,
@@ -128,7 +130,9 @@ def resume(
             )
         except Exception as e:
             update_issue(issue_id, status="failed")
-            logger.error("Workflow execution failed during resume: %s", e, exc_info=True)
+            get_logger(issue.adw_id).error(
+                "Workflow execution failed during resume: %s", e, exc_info=True
+            )
             typer.echo(
                 f"Error: Workflow execution failed during resume: {e}",
                 err=True,

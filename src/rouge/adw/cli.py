@@ -7,7 +7,9 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
+from rouge.cli.utils import validate_issue_id
 from rouge.core.utils import get_logger, make_adw_id, setup_logger
+from rouge.core.workflow.workflow_registry import get_workflow_registry
 
 app = typer.Typer(
     help="Rouge ADW - Agent Development Workflow",
@@ -31,6 +33,7 @@ def main(
         "--workflow-type",
         "-w",
         help="Workflow type to execute (e.g. main, patch, codereview).",
+        show_default=True,
     ),
 ) -> None:
     """
@@ -42,9 +45,7 @@ def main(
         raise typer.Exit()
 
     # Validate issue_id is a positive integer
-    if issue_id <= 0:
-        typer.echo("Error: issue_id must be a positive integer", err=True)
-        raise typer.Exit(1)
+    validate_issue_id(issue_id)
 
     # Strip and validate adw_id format if provided
     if adw_id:
@@ -65,10 +66,11 @@ def main(
         typer.echo("Error: workflow_type cannot be empty", err=True)
         raise typer.Exit(1)
 
-    valid_workflow_types = {"main", "patch", "codereview"}
-    if workflow_type not in valid_workflow_types:
+    registry = get_workflow_registry()
+    if not registry.is_registered(workflow_type):
+        valid_workflow_types = registry.list_types()
         typer.echo(
-            f"Error: workflow_type must be one of {', '.join(sorted(valid_workflow_types))}",
+            f"Error: workflow_type must be one of {', '.join(valid_workflow_types)}",
             err=True,
         )
         raise typer.Exit(1)
