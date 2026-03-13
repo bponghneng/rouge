@@ -7,7 +7,6 @@ import uuid
 from logging import Handler
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-from typing import Optional
 
 
 def make_adw_id() -> str:
@@ -131,28 +130,3 @@ def get_logger(adw_id: str) -> logging.Logger:
         Logger instance
     """
     return logging.getLogger(f"rouge_{adw_id}")
-
-
-def log_workflow_event(
-    logger: logging.Logger, step: str, status: str, details: Optional[str] = None
-) -> None:
-    """Log a structured workflow event.
-
-    Args:
-        logger: Logger instance to use
-        step: Workflow step name (e.g., "classify", "plan", "implement")
-        status: Event status (e.g., "started", "completed", "failed")
-        details: Optional additional details
-    """
-    message = f"[{step}] {status}"
-    if details:
-        message += f" - {details}"
-
-    if status == "failed":
-        logger.error(message)
-    elif status in ("started", "initializing"):
-        logger.info(message)
-    elif status in ("completed", "stopped"):
-        logger.info(message)
-    else:
-        logger.debug(message)
