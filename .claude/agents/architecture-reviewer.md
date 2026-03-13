@@ -1,5 +1,5 @@
 ---
-name: architecture-reviewer
+name: adw-architecture-reviewer
 description: Evaluates architectural quality, maintainability, and simplicity-first compliance in Rouge's Python CLI/workflow codebase. Invoke during code review after implementation.
 tools: Read, Grep, Glob
 model: opus
@@ -30,16 +30,6 @@ Do not review files matching any of these patterns — skip them silently:
 
 **Plan conformance**
 Does the implementation match what the plan specified? Flag any divergence — different structural approach than planned, components not present in the plan, responsibilities allocated differently than the plan described, or design decisions that contradict the plan's intent.
-
-Before flagging, judge whether the divergence is **material** or **incidental**:
-
-- **Material**: the implementation uses a structurally different approach than the plan prescribed, omits a required component, misallocates responsibilities in a way that affects maintainability, or makes a design decision that contradicts the plan's architectural intent.
-- **Incidental**: a minor structural detail differs (e.g. a small helper extracted, a method split or merged, a slightly different class name) but the architecture is equivalent to what the plan described.
-
-Assign severity to reflect this distinction:
-- **CRITICAL/HIGH**: material divergences that affect required components, structural approach, or architectural intent
-- **MEDIUM**: notable divergences worth reconciling but not blocking — the plan's structural intent is met
-- **LOW**: incidental divergences only — a different but equivalent path to the same architectural outcome
 
 ### Module and layer boundaries
 
@@ -104,8 +94,8 @@ Flag additions that are speculative future requirements not grounded in the curr
 ## What to Ignore
 
 Do not report on:
-- Naming conventions, formatting, or style (standards-reviewer's mandate)
-- Logic errors, security vulnerabilities, or error handling (correctness-reviewer's mandate)
+- Naming conventions, formatting, or style (adw-standards-reviewer's mandate)
+- Logic errors, security vulnerabilities, or error handling (adw-correctness-reviewer's mandate)
 - Subjective design preferences where no concrete maintainability problem exists
 
 If uncertain whether something falls within your mandate, omit it.
