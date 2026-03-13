@@ -2,6 +2,7 @@
 
 import os
 import subprocess
+import sys
 from unittest.mock import Mock, patch
 
 import pytest
@@ -178,7 +179,7 @@ class TestExecuteWorkflow:
                     assert cmd[3] == "--adw-id"
                     assert cmd[4] == "test-adw"
                     assert cmd[5] == "--workflow-type"
-                    assert cmd[6] == "main"
+                    assert cmd[6] == "full"
                     assert cmd[7] == "456"
 
     def test_execute_workflow_command_from_path(self, worker) -> None:
@@ -201,7 +202,7 @@ class TestExecuteWorkflow:
                     assert cmd[1] == "--adw-id"
                     assert cmd[2] == "test-adw"
                     assert cmd[3] == "--workflow-type"
-                    assert cmd[4] == "main"
+                    assert cmd[4] == "full"
                     assert cmd[5] == "456"
 
     def test_execute_workflow_command_from_env_var(self, worker, monkeypatch) -> None:
@@ -227,14 +228,14 @@ class TestExecuteWorkflow:
                     assert cmd[adw_idx + 1] == "--adw-id"
                     assert cmd[adw_idx + 2] == "test-adw"
                     assert cmd[adw_idx + 3] == "--workflow-type"
-                    assert cmd[adw_idx + 4] == "main"
+                    assert cmd[adw_idx + 4] == "full"
                     assert cmd[adw_idx + 5] == "456"
                 else:
                     # Fallback: just verify the command contains expected args
                     assert "--adw-id" in cmd
                     assert "test-adw" in cmd
                     assert "--workflow-type" in cmd
-                    assert "main" in cmd
+                    assert "full" in cmd
                     assert "456" in cmd
 
 
@@ -454,7 +455,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
     print(config.workflow_timeout)
 """
         result = subprocess.run(
-            ["python", "-c", test_script],
+            [sys.executable, "-c", test_script],
             capture_output=True,
             text=True,
             env={
@@ -492,7 +493,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
     print(config.workflow_timeout)
 """
         result = subprocess.run(
-            ["python", "-c", test_script],
+            [sys.executable, "-c", test_script],
             capture_output=True,
             text=True,
             env={
@@ -536,7 +537,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
     print(result.output, file=_sys.stderr)
 """
         result = subprocess.run(
-            ["python", "-c", test_script_non_numeric],
+            [sys.executable, "-c", test_script_non_numeric],
             capture_output=True,
             text=True,
             env={
@@ -575,7 +576,7 @@ with patch("rouge.worker.cli.IssueWorker") as mock_worker_class:
     print(result.output, file=_sys.stderr)
 """
         result = subprocess.run(
-            ["python", "-c", test_script_negative],
+            [sys.executable, "-c", test_script_negative],
             capture_output=True,
             text=True,
             env={
@@ -596,14 +597,14 @@ class TestWorkflowRouting:
     """Tests for workflow routing based on issue type."""
 
     def test_execute_workflow_routes_to_main_for_main_type(self, worker) -> None:
-        """Test that execute_workflow calls _execute_workflow for type='main'."""
+        """Test that execute_workflow calls _execute_workflow for type='main' (mapped to 'full')."""
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-123", True)
 
             result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
             assert result is True
-            mock_workflow.assert_called_once_with(123, "main", "Test issue")
+            mock_workflow.assert_called_once_with(123, "full", "Test issue")
 
     def test_execute_workflow_routes_to_patch_for_patch_type(self, worker) -> None:
         """Test that execute_workflow calls _execute_workflow for type='patch'."""
@@ -687,7 +688,18 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(123, "Main issue", "pending", "main")
 
             assert result is False
-            mock_workflow.assert_called_once_with(123, "main", "Main issue")
+            mock_workflow.assert_called_once_with(123, "full", "Main issue")
+
+    def test_execute_workflow_maps_main_issue_type_to_full_workflow_type(self, worker) -> None:
+        """Test that issue_type='main' is dispatched with workflow_type='full'."""
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("adw-test-123", True)
+
+            result = worker.execute_workflow(789, "Main issue description", "pending", "main")
+
+            assert result is True
+            # Verify that 'main' issue type was mapped to 'full' workflow type
+            mock_workflow.assert_called_once_with(789, "full", "Main issue description")
 
 
 class TestPatchWorkflowAdwId:

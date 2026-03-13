@@ -27,7 +27,7 @@ def test_execute_adw_workflow_generates_id(monkeypatch) -> None:
     assert calls["args"] == (123, "generated-id")
     assert calls["pipeline"] == "main-pipeline"
     assert calls["resume_from"] is None
-    assert calls["pipeline_type"] == "main"
+    assert calls["pipeline_type"] == "full"
 
 
 def test_execute_adw_workflow_uses_provided_values(monkeypatch) -> None:
@@ -48,7 +48,7 @@ def test_execute_adw_workflow_uses_provided_values(monkeypatch) -> None:
     assert success is False
     assert workflow_id == "custom-id"
     assert calls["resume_from"] is None
-    assert calls["pipeline_type"] == "main"
+    assert calls["pipeline_type"] == "full"
 
 
 def test_execute_adw_workflow_patch_type(monkeypatch) -> None:
@@ -115,10 +115,10 @@ def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
     assert calls["pipeline_type"] == "codereview"
 
 
-def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch) -> None:
-    """workflow_type='main' with issue_id=None should raise ValueError."""
+def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
+    """workflow_type='full' with issue_id=None should raise ValueError."""
     with pytest.raises(ValueError, match="issue_id is required"):
-        execute_adw_workflow("test-adw-id", issue_id=None, workflow_type="main")
+        execute_adw_workflow(issue_id=None, workflow_type="full")
 
 
 def test_execute_adw_workflow_unknown_type_raises(monkeypatch) -> None:
