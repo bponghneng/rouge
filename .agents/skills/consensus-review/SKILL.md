@@ -29,6 +29,27 @@ If any are missing, generate them using the `/meta-consensus-review-agents` comm
 
 ## Steps
 
+### Step 0 — Recover prior cycle context (PR/MR number only)
+
+If the trigger includes a PR or MR number, run the context recovery script **before** doing anything else:
+
+```bash
+uv run .agents/skills/consensus-review/scripts/recover_context.py <number>
+```
+
+The script reads `DEV_SEC_OPS_PLATFORM` from `.env` at the workspace root to determine whether the repository is hosted on GitHub (`pr-` prefix) or GitLab (`mr-` prefix), and looks up the audit trail directory accordingly. If `.env` is absent the platform defaults to `github`. Override with `--platform github|gitlab` if needed (e.g. `uv run ... 161 --platform gitlab`).
+
+Read the full output. It tells you:
+- The **platform** and **log directory path** — use `LOG_DIR` from this output for the rest of the skill; do not recompute it
+- The **next cycle number** — use this as `CYCLE`; do not recompute it
+- The **plan file path** — use this instead of asking the user for one; skip the "no plan file" notice if it is present
+- **Prior cycle summaries** — a concise history of what each prior cycle found
+- **Operator-accepted findings** — items the operator explicitly accepted in a prior cycle; pass these to the synthesizer so it does not re-raise them
+
+If the log directory does not yet exist (first cycle), the script still outputs `CYCLE = 01` and a note that no prior context exists. Continue normally.
+
+---
+
 ### Step 1 — Gather inputs
 
 Determine the code scope using the following priority ladder. Check each level in order and use the first match.
@@ -82,20 +103,13 @@ If a plan file path was provided, read it in full. If no plan file was provided,
 
 **Log directory setup (PR/MR number only)**
 
-If a PR/MR number was given, set up the audit trail directory now:
+If a PR/MR number was given, set up the audit trail directory now.
+
+Use `LOG_DIR` and `CYCLE` from the Step 0 script output — do not recompute them. The directory prefix (`pr-` for GitHub, `mr-` for GitLab) was already resolved by the script from `DEV_SEC_OPS_PLATFORM`.
 
 ```bash
-LOG_DIR=".rouge/reviews/pr-<number>"
 mkdir -p "$LOG_DIR"
 ```
-
-Determine the current cycle number by counting existing review files:
-
-```bash
-ls "$LOG_DIR"/review-*.md 2>/dev/null | wc -l
-```
-
-`CYCLE = count + 1`. Zero-pad to two digits (e.g. `01`, `02`).
 
 If `CYCLE > 1`, check whether the prior cycle's fix log exists (`fix-{CYCLE-1:02d}.md`). If it is missing, note this to the user as informational — the fixer was not run for that cycle. Do not block.
 
@@ -167,6 +181,11 @@ Once all three reviewer outputs are returned, invoke `review-synthesizer` with a
 
 Log directory: [LOG_DIR or "none"]
 Current cycle: [CYCLE or "none"]
+
+[If CYCLE > 1: paste the full output from recover_context.py here, including
+prior cycle summaries and operator-accepted findings. The synthesizer uses this
+to suppress re-raised accepted findings and to calibrate findings against the
+pattern of prior cycles.]
 ```
 
 ### Step 4 — Persist review and output
