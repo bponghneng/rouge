@@ -145,7 +145,6 @@ class CodeReviewStep(WorkflowStep):
             return StepResult.ok(ReviewData(review_text=review_text))
 
         except subprocess.TimeoutExpired:
-            timeout_seconds = self._parse_timeout_seconds(adw_id)
             logger.exception("CodeRabbit review timed out after %s seconds", timeout_seconds)
             return StepResult.fail(f"CodeRabbit review timed out after {timeout_seconds} seconds")
         except Exception as e:
