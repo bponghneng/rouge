@@ -440,3 +440,65 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     ]
 
     return steps
+
+
+def get_full_pipeline() -> List[WorkflowStep]:
+    """Create the full workflow pipeline with Claude Code planning.
+
+    The full workflow uses ClaudeCodePlanStep instead of ClassifyStep + PlanStep,
+    providing a streamlined task-oriented planning approach. Like the default
+    pipeline, it conditionally includes a PR/MR creation step based on the
+    DEV_SEC_OPS_PLATFORM environment variable:
+    - "github": includes GhPullRequestStep
+    - "gitlab": includes GlabPullRequestStep
+    - unset or other value: no PR/MR step included
+
+    Pipeline sequence:
+    1. FetchIssueStep - Fetch the issue from the database
+    2. GitBranchStep - Create and checkout a new branch
+    3. ClaudeCodePlanStep - Build implementation plan using /adw-claude-code-plan
+    4. ImplementStep - Execute the plan
+    5. CodeReviewStep - Generate review of the implementation
+    6. ReviewFixStep - Address any review feedback
+    7. CodeQualityStep - Run code quality checks
+    8. ComposeRequestStep - Compose PR/MR description
+    9. GhPullRequestStep/GlabPullRequestStep - Create PR/MR (conditional)
+
+    Returns:
+        List of WorkflowStep instances in execution order
+    """
+    # Import here to avoid circular imports
+    from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
+    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
+    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
+    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+    from rouge.core.workflow.steps.gh_pull_request_step import (
+        GhPullRequestStep,
+    )
+    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
+    from rouge.core.workflow.steps.glab_pull_request_step import (
+        GlabPullRequestStep,
+    )
+    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
+
+    steps: List[WorkflowStep] = [
+        FetchIssueStep(),
+        GitBranchStep(),
+        ClaudeCodePlanStep(),
+        ImplementStep(plan_step_name="Building implementation plan"),
+        CodeReviewStep(),
+        ReviewFixStep(),
+        CodeQualityStep(),
+        ComposeRequestStep(),
+    ]
+
+    # Conditionally add PR/MR creation step based on platform
+    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
+    if platform == "github":
+        steps.append(GhPullRequestStep())
+    elif platform == "gitlab":
+        steps.append(GlabPullRequestStep())
+
+    return steps
