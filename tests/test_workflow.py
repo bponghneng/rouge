@@ -34,7 +34,7 @@ def sample_issue():
 
 
 @patch("rouge.core.workflow.status.update_issue")
-def test_update_status_success(mock_update_issue):
+def test_update_status_success(mock_update_issue) -> None:
     """Test successful status update."""
     mock_issue = Mock()
     mock_issue.id = 1
@@ -45,7 +45,7 @@ def test_update_status_success(mock_update_issue):
 
 
 @patch("rouge.core.workflow.status.update_issue")
-def test_update_status_failure(mock_update_issue):
+def test_update_status_failure(mock_update_issue) -> None:
     """Test status update handles errors gracefully."""
     mock_update_issue.side_effect = ValueError("Database error")
 
