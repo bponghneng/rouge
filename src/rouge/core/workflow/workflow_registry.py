@@ -103,6 +103,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     from rouge.core.workflow.pipeline import (
         get_code_review_pipeline,
         get_default_pipeline,
+        get_full_pipeline,
         get_patch_pipeline,
     )
 
@@ -125,6 +126,13 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
             type_id="codereview",
             pipeline=get_code_review_pipeline,
             description="Automated code review loop for commits",
+        )
+    )
+    registry.register(
+        WorkflowDefinition(
+            type_id="full",
+            pipeline=get_full_pipeline,
+            description="Streamlined workflow pipeline without classification",
         )
     )
 

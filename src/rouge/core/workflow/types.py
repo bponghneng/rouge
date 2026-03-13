@@ -15,6 +15,7 @@ PlanSlashCommand = Literal[
     "/adw-bug-plan",
     "/adw-feature-plan",
     "/adw-patch-plan",
+    "/adw-claude-code-plan",
 ]
 
 # Generic type parameter for StepResult data payload

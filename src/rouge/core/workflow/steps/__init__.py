@@ -6,6 +6,7 @@ the WorkflowStep interface for the pluggable pipeline architecture.
 
 from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
 from rouge.core.workflow.steps.classify_step import ClassifyStep
+from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 from rouge.core.workflow.steps.code_review_step import CodeReviewStep
 from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
@@ -22,6 +23,7 @@ __all__ = [
     "FetchIssueStep",
     "FetchPatchStep",
     "ClassifyStep",
+    "ClaudeCodePlanStep",
     "PlanStep",
     "ImplementStep",
     "CodeReviewStep",
