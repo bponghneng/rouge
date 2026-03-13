@@ -911,7 +911,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess):
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
-def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when GITLAB_PAT is missing."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -943,7 +943,7 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit):
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
-def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when pr_details is missing."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -970,7 +970,7 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit):
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when title is empty."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1002,7 +1002,7 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit):
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_get_logger, mock_emit) -> None:
     """Test MR creation handles glab command failure (best-effort: returns success)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1043,7 +1043,7 @@ def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_get_lo
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit) -> None:
     """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
     import subprocess
 
@@ -1089,7 +1089,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit):
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit) -> None:
     """Test MR creation handles glab CLI not found (propagates to outer FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
