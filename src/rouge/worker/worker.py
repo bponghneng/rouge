@@ -302,7 +302,13 @@ class IssueWorker:
         Returns:
             True if workflow executed successfully, False otherwise
         """
-        _, success = self._execute_workflow(issue_id, issue_type, description)
+        # Map 'main' issue type to 'full' workflow type (main is deprecated)
+        if issue_type == "main":
+            workflow_type = "full"
+        else:
+            workflow_type = issue_type
+
+        _, success = self._execute_workflow(issue_id, workflow_type, description)
         return success
 
     def run(self) -> None:

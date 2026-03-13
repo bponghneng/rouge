@@ -10,13 +10,14 @@ def execute_adw_workflow(
     adw_id: str,
     issue_id: Optional[int] = None,
     *,
-    workflow_type: str = "main",
+    workflow_type: str = "full",
     resume_from: Optional[str] = None,
 ) -> tuple[bool, str]:
     """Execute the Agent Development Workflow for a given issue.
 
     Supports multiple workflow types:
-    - ``"main"`` (default): Full issue-based workflow pipeline.
+    - ``"full"`` (default): Full issue-based workflow pipeline with Claude Code planning.
+    - ``"main"``: Full issue-based workflow pipeline.
     - ``"patch"``: Patch pipeline for existing issues.
     - ``"codereview"``: Issue-based codereview workflow pipeline.
 
@@ -31,7 +32,7 @@ def execute_adw_workflow(
         issue_id: The ID of the issue to process.  Required for all
             workflow types.
         workflow_type: The type of workflow to execute.  One of
-            ``"main"``, ``"patch"``, or ``"codereview"``.
+            ``"full"``, ``"main"``, ``"patch"``, or ``"codereview"``.
         resume_from: Optional step name to resume workflow execution from.
             When provided, all steps before this step will be skipped.
 
