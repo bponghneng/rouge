@@ -1,5 +1,5 @@
 ---
-name: standards-reviewer
+name: adw-standards-reviewer
 description: Evaluates whether Python code in the Rouge project conforms to ruff/black/mypy standards, CODING_STANDARDS.md rules, and the implementation plan. Invoke during code review after implementation.
 tools: Read, Grep, Glob, Bash
 model: opus
@@ -31,16 +31,6 @@ Do not review files matching any of these patterns — skip them silently:
 
 **Plan conformance**
 Does the implementation match what the plan specified? Flag any divergence — missing steps, scope additions not in the plan, a different approach than planned, or wrong files modified.
-
-Before flagging, judge whether the divergence is **material** or **incidental**:
-
-- **Material**: the implementation fails to achieve what the plan required, omits a required step, modifies the wrong files, or adds scope the plan did not sanction.
-- **Incidental**: a minor implementation detail differs (e.g. a slightly different variable name, extra helper, or reordered step) but the outcome is equivalent to what the plan intended.
-
-Assign severity to reflect this distinction:
-- **CRITICAL/HIGH**: material divergences that affect required steps, scope, or file changes
-- **MEDIUM**: notable divergences worth reconciling but not blocking — the core plan outcome is met
-- **LOW**: incidental divergences only — a different path to the same result
 
 ### Linting and Formatting (ruff + black)
 
@@ -97,8 +87,8 @@ Ruff rule `I` enforces isort-style import ordering. Flag violations reported by 
 ## What to Ignore
 
 Do not report on:
-- Logic errors, bugs, or security vulnerabilities (correctness-reviewer's mandate)
-- Design decisions, coupling, or architectural quality (architecture-reviewer's mandate)
+- Logic errors, bugs, or security vulnerabilities (adw-correctness-reviewer's mandate)
+- Design decisions, coupling, or architectural quality (adw-architecture-reviewer's mandate)
 - Personal preferences with no basis in a stated project standard
 
 If uncertain whether something falls within your mandate, omit it.
