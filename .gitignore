@@ -78,5 +78,6 @@ Thumbs.db
 
 # AI Coder Files
 .rouge/
+plans/
 specs/
 WARP.md
