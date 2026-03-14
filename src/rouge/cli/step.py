@@ -4,7 +4,7 @@ from typing import Optional
 
 import typer
 
-from rouge.core.utils import make_adw_id
+from rouge.core.utils import make_adw_id, setup_logger
 from rouge.core.workflow.pipeline import WorkflowRunner
 from rouge.core.workflow.step_registry import get_step_registry
 from rouge.core.workflow.workflow_registry import get_pipeline_for_type
@@ -103,6 +103,7 @@ def run_step(
         # Auto-generate workflow ID for dependency-free steps
         adw_id = make_adw_id()
 
+    setup_logger(adw_id)
     typer.echo(f"Running step '{step_slug}' for issue {issue_id} (workflow: {adw_id})")
 
     try:
