@@ -1,6 +1,5 @@
 """CLI command for resuming failed workflows."""
 
-import logging
 from typing import Optional
 
 import typer
@@ -15,8 +14,6 @@ from rouge.worker.worker_artifact import (
     read_worker_artifact,
     transition_worker_artifact,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def resume(
@@ -164,14 +161,18 @@ def resume(
                         # Update worker to ready state
                         transition_worker_artifact(worker_artifact, "ready", clear_issue=True)
                         updated_workers.append(worker_id)
-                        logger.info("Updated worker %s to ready state", worker_id)
+                        get_logger(issue.adw_id).info("Updated worker %s to ready state", worker_id)
 
                 if updated_workers:
-                    logger.info("Updated %s worker(s) to ready state", len(updated_workers))
+                    get_logger(issue.adw_id).info(
+                        "Updated %s worker(s) to ready state", len(updated_workers)
+                    )
                 else:
-                    logger.info("No workers found with current_issue_id=%s", issue_id)
+                    get_logger(issue.adw_id).info(
+                        "No workers found with current_issue_id=%s", issue_id
+                    )
         except OSError as e:
-            logger.warning(
+            get_logger(issue.adw_id).warning(
                 "Failed to scan/update worker artifacts for issue_id=%s: %s",
                 issue_id,
                 e,
@@ -186,6 +187,9 @@ def resume(
     except typer.Exit:
         raise
     except Exception as e:
-        logger.error("Unexpected error in resume command: %s", e, exc_info=True)
+        _adw_id = (
+            issue.adw_id if "issue" in dir() and hasattr(issue, "adw_id") else None
+        ) or "unknown"
+        get_logger(_adw_id).error("Unexpected error in resume command: %s", e, exc_info=True)
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
