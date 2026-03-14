@@ -1,5 +1,6 @@
 """CLI command for resuming failed workflows."""
 
+import logging
 from typing import Optional
 
 import typer
@@ -54,8 +55,7 @@ def resume(
             typer.echo("Error: --resume-from value must not be empty", err=True)
             raise typer.Exit(1)
     fallback_adw_id: str = "unknown"
-    setup_logger(fallback_adw_id)
-    logger = get_logger(fallback_adw_id)
+    logger: logging.Logger = logging.getLogger("rouge_resume_fallback")
     try:
         # Fetch the current issue
         issue = fetch_issue(issue_id)
