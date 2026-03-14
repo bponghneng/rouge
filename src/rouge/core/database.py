@@ -121,6 +121,21 @@ def get_client() -> Client:
     return _client
 
 
+def reset_client() -> None:
+    """Reset the global Supabase client instance.
+
+    This clears any stale HTTP keep-alive connections by setting the module-level
+    _client variable to None, forcing get_client() to recreate it on the next call.
+
+    Useful for:
+    - Recovering from connection issues in long-running processes
+    - Clearing stale HTTP connections after network errors
+    - Worker daemons that need to reset state periodically
+    """
+    global _client
+    _client = None
+
+
 # ============================================================================
 # Issue Operations
 # ============================================================================
