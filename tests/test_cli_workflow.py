@@ -54,7 +54,7 @@ def test_run_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logg
     # When custom ADW ID is provided, make_adw_id should not be called
     mock_make_adw_id.assert_not_called()
     # Verify the custom ADW ID was passed to execute_adw_workflow
-    mock_execute.assert_called_once_with("custom123", 123)
+    mock_execute.assert_called_once_with("custom123", 123, workflow_type="main")
 
 
 def test_run_command_invalid_issue_id() -> None:
