@@ -4,8 +4,6 @@ import logging
 import os
 import sys
 import uuid
-from logging import Handler
-from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
@@ -38,9 +36,6 @@ def setup_logger(
     adw_id: str,
     trigger_type: str = "adw_plan_build",
     detached_mode: bool = False,
-    use_rotating: bool = False,
-    max_bytes: int = 10 * 1024 * 1024,  # 10MB
-    backup_count: int = 5,
 ) -> logging.Logger:
     """Set up logger that writes to both console and file using adw_id.
 
@@ -52,9 +47,6 @@ def setup_logger(
         adw_id: The workflow ID
         trigger_type: Logical source of the run (e.g., adw_plan_build)
         detached_mode: If True, disable console handler (for background processes)
-        use_rotating: If True, use RotatingFileHandler instead of FileHandler
-        max_bytes: Maximum file size before rotation (only if use_rotating=True)
-        backup_count: Number of backup files to keep (only if use_rotating=True)
 
     Returns:
         Configured logger instance
@@ -83,13 +75,7 @@ def setup_logger(
     logger.handlers.clear()
 
     # File handler - captures everything
-    file_handler: Handler
-    if use_rotating:
-        file_handler = RotatingFileHandler(
-            log_file, maxBytes=max_bytes, backupCount=backup_count, mode="a"
-        )
-    else:
-        file_handler = logging.FileHandler(log_file, mode="a")
+    file_handler = logging.FileHandler(log_file, mode="a")
 
     file_handler.setLevel(logging.DEBUG)
 
