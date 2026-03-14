@@ -43,10 +43,7 @@ def format_status(status: str) -> str:
         Formatted status string with emoji prefix if status is known,
         otherwise returns the plain status string
     """
-    emoji = STATUS_EMOJI.get(status, "")
-    if emoji:
-        return f"{emoji} {status}"
-    return status
+    return STATUS_EMOJI.get(status, status)
 
 
 class IssueType(str, Enum):
@@ -558,10 +555,9 @@ def list_issues(
 
             # Print header
             typer.echo(
-                f"{'ID':<6} {'Title':<32} {'Type':<10} {'Status':<12} "
-                f"{'Br':<3} {'Assigned To':<12}"
+                f"{'ID':<6} {'Title':<32} {'Type':<10} {'S':<4}" f"{'Br':<3} {'Assigned To':<12}"
             )
-            typer.echo("-" * 79)
+            typer.echo("-" * 71)
 
             # Print each issue
             for issue in issues:
@@ -572,7 +568,7 @@ def list_issues(
                 # Format the row with proper spacing
                 row = (
                     f"{issue.id:<6} {truncated_title:<32} "
-                    f"{issue.type:<10} {format_status(issue.status):<12} "
+                    f"{issue.type:<10} {format_status(issue.status):<4}"
                     f"{branch_indicator:<3} {assigned_to:<12}"
                 )
                 typer.echo(row)
