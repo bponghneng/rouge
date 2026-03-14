@@ -6,8 +6,6 @@ These tests verify the complete resume workflow including:
 - Worker artifact state transitions during resume
 """
 
-import tempfile
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -15,13 +13,13 @@ import pytest
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
 from rouge.core.workflow.pipeline import WorkflowRunner
-from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.worker.worker_artifact import WorkerArtifact, read_worker_artifact, write_worker_artifact
 
 
 @pytest.fixture(autouse=True)
-def isolate_step_logging(monkeypatch):
+def isolate_step_logging(monkeypatch) -> dict[str, Mock]:
     """Isolate step logging to prevent database/credentials access during tests.
 
     This fixture automatically patches log_step_start and log_step_end with harmless
@@ -39,7 +37,7 @@ def isolate_step_logging(monkeypatch):
 class TestEndToEndResumeFlow:
     """Integration tests for complete workflow failure and resume cycle."""
 
-    def test_workflow_fails_then_resumes_and_completes(self, tmp_path):
+    def test_workflow_fails_then_resumes_and_completes(self, tmp_path) -> None:
         """Test complete flow: workflow fails → resume command → workflow completes.
 
         This integration test verifies that:
@@ -116,7 +114,7 @@ class TestEndToEndResumeFlow:
         assert final_state.failed_step is None
         assert final_state.last_completed_step == "Step 3"
 
-    def test_resume_command_integration_with_issue_and_artifact(self, tmp_path):
+    def test_resume_command_integration_with_issue_and_artifact(self, tmp_path) -> None:
         """Test resume command integrates with issue database and artifact loading.
 
         This verifies the full resume command flow:
@@ -206,7 +204,7 @@ class TestEndToEndResumeFlow:
 class TestArtifactReuseOnResume:
     """Integration tests for artifact persistence and reuse during resume."""
 
-    def test_step_artifacts_persist_across_resume_cycles(self, tmp_path):
+    def test_step_artifacts_persist_across_resume_cycles(self, tmp_path) -> None:
         """Test that artifacts written by earlier steps are available when resuming.
 
         This verifies:
@@ -289,7 +287,7 @@ class TestArtifactReuseOnResume:
         assert state_after_resume.failed_step is None
         assert state_after_resume.last_completed_step == "Step 3"
 
-    def test_workflow_state_artifact_tracks_progress_correctly(self, tmp_path):
+    def test_workflow_state_artifact_tracks_progress_correctly(self, tmp_path) -> None:
         """Test workflow state artifact correctly tracks progress through resume.
 
         This verifies:
@@ -364,7 +362,7 @@ class TestArtifactReuseOnResume:
 class TestWorkerArtifactResumeIntegration:
     """Integration tests for worker artifact updates during resume."""
 
-    def test_worker_artifact_state_transitions_during_resume(self, tmp_path):
+    def test_worker_artifact_state_transitions_during_resume(self, tmp_path) -> None:
         """Test worker artifact correctly transitions through resume cycle.
 
         This verifies:
@@ -409,7 +407,7 @@ class TestWorkerArtifactResumeIntegration:
             assert final.current_issue_id is None
             assert final.current_adw_id is None
 
-    def test_resume_command_updates_multiple_worker_artifacts(self, tmp_path):
+    def test_resume_command_updates_multiple_worker_artifacts(self, tmp_path) -> None:
         """Test resume command updates all workers working on the resumed issue.
 
         This verifies:
@@ -516,7 +514,7 @@ class TestWorkerArtifactResumeIntegration:
             assert unchanged_worker3.current_issue_id == 999
             assert unchanged_worker3.current_adw_id == "adw-999"
 
-    def test_worker_can_resume_own_failed_workflow(self, tmp_path):
+    def test_worker_can_resume_own_failed_workflow(self, tmp_path) -> None:
         """Test that a worker can resume its own failed workflow.
 
         This integration test simulates a worker:
@@ -575,7 +573,7 @@ class TestWorkerArtifactResumeIntegration:
 class TestResumeErrorRecovery:
     """Integration tests for error recovery scenarios during resume."""
 
-    def test_resume_handles_missing_artifact_gracefully(self, tmp_path):
+    def test_resume_handles_missing_artifact_gracefully(self, tmp_path) -> None:
         """Test resume fails gracefully when workflow state artifact is missing.
 
         This verifies the error handling path when artifacts are corrupted or deleted.
@@ -604,7 +602,7 @@ class TestResumeErrorRecovery:
         assert "Workflow state artifact not found" in result.output
         assert "adw-missing" in result.output
 
-    def test_resume_fails_when_workflow_execution_fails_again(self, tmp_path):
+    def test_resume_fails_when_workflow_execution_fails_again(self, tmp_path) -> None:
         """Test resume handles case when workflow fails again on resume.
 
         This verifies:

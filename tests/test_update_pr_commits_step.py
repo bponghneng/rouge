@@ -15,7 +15,7 @@ from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> Mock:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
@@ -32,7 +32,7 @@ class TestDetectPrPlatform:
     """Tests for _detect_pr_platform via DEV_SEC_OPS_PLATFORM."""
 
     @patch("subprocess.run")
-    def test_detects_github_pr_via_gh(self, mock_run, monkeypatch):
+    def test_detects_github_pr_via_gh(self, mock_run, monkeypatch) -> None:
         """Test detection of GitHub PR using gh CLI."""
         step = ComposeCommitsStep()
         gh_output = json.dumps({"url": "https://github.com/org/repo/pull/42"})
@@ -52,7 +52,7 @@ class TestDetectPrPlatform:
         assert cmd == ["gh", "pr", "view", "--json", "url"]
 
     @patch("subprocess.run")
-    def test_detects_gitlab_mr_via_glab(self, mock_run, monkeypatch):
+    def test_detects_gitlab_mr_via_glab(self, mock_run, monkeypatch) -> None:
         """Test detection of GitLab MR using glab CLI."""
         step = ComposeCommitsStep()
         glab_output = json.dumps({"web_url": "https://gitlab.com/org/repo/-/merge_requests/7"})
@@ -71,7 +71,7 @@ class TestDetectPrPlatform:
         assert cmd == ["glab", "mr", "view", "--output", "json"]
 
     @patch("subprocess.run")
-    def test_returns_none_when_env_missing(self, mock_run, monkeypatch):
+    def test_returns_none_when_env_missing(self, mock_run, monkeypatch) -> None:
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is unset."""
         step = ComposeCommitsStep()
 
@@ -83,7 +83,7 @@ class TestDetectPrPlatform:
         mock_run.assert_not_called()
 
     @patch("subprocess.run")
-    def test_returns_none_when_env_invalid(self, mock_run, monkeypatch):
+    def test_returns_none_when_env_invalid(self, mock_run, monkeypatch) -> None:
         """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is invalid."""
         step = ComposeCommitsStep()
 
@@ -95,7 +95,7 @@ class TestDetectPrPlatform:
         mock_run.assert_not_called()
 
     @patch("subprocess.run")
-    def test_returns_none_when_cli_missing(self, mock_run, monkeypatch):
+    def test_returns_none_when_cli_missing(self, mock_run, monkeypatch) -> None:
         """Test returns (None, None) when CLI is missing."""
         step = ComposeCommitsStep()
 
@@ -107,7 +107,7 @@ class TestDetectPrPlatform:
         assert url is None
 
     @patch("subprocess.run")
-    def test_returns_none_when_github_cli_fails(self, mock_run, monkeypatch):
+    def test_returns_none_when_github_cli_fails(self, mock_run, monkeypatch) -> None:
         """Test returns (None, None) when the selected CLI command fails."""
         step = ComposeCommitsStep()
 
@@ -123,7 +123,7 @@ class TestDetectPrPlatform:
         assert url is None
 
     @patch("subprocess.run")
-    def test_handles_gh_timeout(self, mock_run, monkeypatch):
+    def test_handles_gh_timeout(self, mock_run, monkeypatch) -> None:
         """Test handles timeout from gh command gracefully."""
         step = ComposeCommitsStep()
 
@@ -138,7 +138,7 @@ class TestDetectPrPlatform:
         assert url is None
 
     @patch("subprocess.run")
-    def test_handles_invalid_json_from_gh(self, mock_run, monkeypatch):
+    def test_handles_invalid_json_from_gh(self, mock_run, monkeypatch) -> None:
         """Test handles invalid JSON output from gh gracefully."""
         step = ComposeCommitsStep()
 
@@ -172,7 +172,7 @@ class TestRunWhenPlatformMissing:
         _mock_emit,
         monkeypatch,
         mock_context,
-    ):
+    ) -> None:
         """Test step fails when DEV_SEC_OPS_PLATFORM is not set."""
         step = ComposeCommitsStep()
 
@@ -212,7 +212,7 @@ class TestComposeCommits:
         _mock_emit,
         monkeypatch,
         mock_context,
-    ):
+    ) -> None:
         """Test that execute_template is called with /adw-compose-commits before push."""
         step = ComposeCommitsStep()
 
@@ -281,7 +281,7 @@ class TestComposeCommits:
         _mock_emit,
         monkeypatch,
         mock_context,
-    ):
+    ) -> None:
         """Test that a failed compose-commits prevents git push."""
         step = ComposeCommitsStep()
 
@@ -316,7 +316,7 @@ class TestComposeCommits:
         _mock_emit,
         monkeypatch,
         mock_context,
-    ):
+    ) -> None:
         """Test that invalid JSON from compose-commits prevents git push."""
         step = ComposeCommitsStep()
 
@@ -351,7 +351,7 @@ class TestComposeCommits:
         _mock_emit,
         monkeypatch,
         mock_context,
-    ):
+    ) -> None:
         """Test that an exception from execute_template prevents git push."""
         step = ComposeCommitsStep()
 
@@ -372,12 +372,12 @@ class TestComposeCommits:
 class TestUpdatePRCommitsStepProperties:
     """Tests for ComposeCommitsStep properties."""
 
-    def test_step_name(self):
+    def test_step_name(self) -> None:
         """Test step has correct name."""
         step = ComposeCommitsStep()
         assert step.name == "Updating pull request with patch commits"
 
-    def test_step_is_not_critical(self):
+    def test_step_is_not_critical(self) -> None:
         """Test step is not critical."""
         step = ComposeCommitsStep()
         assert step.is_critical is False

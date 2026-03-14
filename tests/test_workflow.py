@@ -5,7 +5,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from postgrest.exceptions import APIError
 
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
@@ -28,7 +27,7 @@ def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> Workfl
 
 
 @pytest.fixture
-def sample_issue():
+def sample_issue() -> Issue:
     """Create a sample issue for testing."""
     return Issue(id=1, description="Fix login bug", status="pending")
 
@@ -54,7 +53,7 @@ def test_update_status_failure(mock_update_issue) -> None:
 
 
 @patch("rouge.core.notifications.comments.create_comment")
-def test_emit_comment_from_payload_success(mock_create_comment):
+def test_emit_comment_from_payload_success(mock_create_comment) -> None:
     """Test successful progress comment insertion."""
     mock_comment = Mock()
     mock_comment.id = 1
@@ -80,7 +79,7 @@ def test_emit_comment_from_payload_success(mock_create_comment):
 
 
 @patch("rouge.core.notifications.comments.create_comment")
-def test_emit_comment_from_payload_failure(mock_create_comment):
+def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
     """Test progress comment insertion handles errors gracefully."""
     mock_create_comment.side_effect = Exception("Database error")
 
@@ -116,7 +115,7 @@ def test_emit_comment_from_payload_failure(mock_create_comment):
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_success(mock_get_pipeline):
+def test_execute_workflow_success(mock_get_pipeline) -> None:
     """Test successful complete workflow execution via pipeline."""
     # Create mock steps that all succeed
     mock_steps = []
@@ -138,7 +137,7 @@ def test_execute_workflow_success(mock_get_pipeline):
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_fetch_failure(mock_get_pipeline):
+def test_execute_workflow_fetch_failure(mock_get_pipeline) -> None:
     """Test workflow handles fetch failure (first step fails)."""
     # Create a mock first step that fails
     mock_fetch_step = Mock()
@@ -153,7 +152,7 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline):
 
 
 @patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_classify_failure(mock_get_pipeline):
+def test_execute_workflow_classify_failure(mock_get_pipeline) -> None:
     """Test workflow handles classification failure (second step fails)."""
     # Create mock steps where first succeeds, second fails
     mock_fetch_step = Mock()
@@ -172,7 +171,7 @@ def test_execute_workflow_classify_failure(mock_get_pipeline):
     assert result is False
 
 
-def test_derive_paths_from_plan():
+def test_derive_paths_from_plan() -> None:
     """Test deriving paths from plan file name."""
     # Test typical case
     result = derive_paths_from_plan("specs/chore-fix-login-plan.md")
@@ -209,13 +208,13 @@ def test_derive_paths_from_plan():
 # === is_clean_review Tests ===
 
 
-def test_is_clean_review_clean_text():
+def test_is_clean_review_clean_text() -> None:
     """Test is_clean_review returns True for clean review text."""
     review_text = "Review completed\nNo issues found. The code looks good."
     assert is_clean_review(review_text) is True
 
 
-def test_is_clean_review_with_issues():
+def test_is_clean_review_with_issues() -> None:
     """Test is_clean_review returns False when review contains file-level issues."""
     review_text = (
         "Review completed\nFile: src/main.py\nLine 42: Missing error handling for null case."
@@ -223,24 +222,24 @@ def test_is_clean_review_with_issues():
     assert is_clean_review(review_text) is False
 
 
-def test_is_clean_review_empty_text():
+def test_is_clean_review_empty_text() -> None:
     """Test is_clean_review returns False for empty text."""
     assert is_clean_review("") is False
 
 
-def test_is_clean_review_missing_review_completed_marker():
+def test_is_clean_review_missing_review_completed_marker() -> None:
     """Test is_clean_review returns False when 'Review completed' marker is absent."""
     review_text = "All checks passed. No issues found."
     assert is_clean_review(review_text) is False
 
 
-def test_is_clean_review_only_file_marker():
+def test_is_clean_review_only_file_marker() -> None:
     """Test is_clean_review returns False when only 'File:' marker is present."""
     review_text = "File: src/utils.py\nLine 10: Unused import."
     assert is_clean_review(review_text) is False
 
 
-def test_is_clean_review_both_markers_missing():
+def test_is_clean_review_both_markers_missing() -> None:
     """Test is_clean_review returns False when both markers are absent."""
     review_text = "Some random text without any markers."
     assert is_clean_review(review_text) is False
@@ -260,7 +259,7 @@ def test_is_clean_review_both_markers_missing():
 
 @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
+def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     """Test code quality step passes strict JSON schema to Claude template request."""
 
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
@@ -294,7 +293,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which):
+def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation: rev-parse, pr list (empty), push, pr create."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -352,7 +351,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which):
 
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
-def test_create_pr_step_missing_github_pat(mock_emit):
+def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     """Test PR creation skipped when GITHUB_PAT is missing."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -378,7 +377,7 @@ def test_create_pr_step_missing_github_pat(mock_emit):
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
-def test_create_pr_step_missing_pr_details(mock_emit):
+def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     """Test PR creation skipped when pr_details is missing."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -401,7 +400,7 @@ def test_create_pr_step_missing_pr_details(mock_emit):
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_empty_title(mock_emit):
+def test_create_pr_step_empty_title(mock_emit) -> None:
     """Test PR creation skipped when title is empty."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -430,7 +429,7 @@ def test_create_pr_step_empty_title(mock_emit):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which):
+def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation is idempotent when gh pr list returns an existing PR (Layer 2 adopt)."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -473,7 +472,7 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which):
+def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation handles gh command failure."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -515,7 +514,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which):
+def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation handles timeout on gh pr create (propagates to outer handler)."""
     import subprocess
 
@@ -559,7 +558,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_gh_not_found(mock_emit, mock_which):
+def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     """Test PR creation handles gh CLI not found via proactive detection."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -594,7 +593,9 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which):
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_push_failure_continues_to_pr(mock_subprocess, mock_emit, mock_which):
+def test_create_pr_step_push_failure_continues_to_pr(
+    mock_subprocess, mock_emit, mock_which
+) -> None:
     """Test PR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -636,7 +637,9 @@ def test_create_pr_step_push_failure_continues_to_pr(mock_subprocess, mock_emit,
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_push_timeout_continues_to_pr(mock_subprocess, mock_emit, mock_which):
+def test_create_pr_step_push_timeout_continues_to_pr(
+    mock_subprocess, mock_emit, mock_which
+) -> None:
     """Test PR creation continues even when git push times out."""
     import subprocess
 
@@ -683,7 +686,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(mock_subprocess, mock_emit,
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which):
+def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation across two repos: subprocess invoked once per repo."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
@@ -763,7 +766,7 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
-def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which):
+def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
     """Test PR creation with both repos failing: subprocess invoked once per repo, best-effort continues."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
@@ -831,7 +834,7 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     )
 
 
-def test_create_pr_step_is_not_critical():
+def test_create_pr_step_is_not_critical() -> None:
     """Test GhPullRequestStep is not critical."""
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
@@ -841,7 +844,7 @@ def test_create_pr_step_is_not_critical():
     assert step.is_critical is False
 
 
-def test_create_pr_step_name():
+def test_create_pr_step_name() -> None:
     """Test GhPullRequestStep has correct name."""
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
@@ -857,7 +860,7 @@ def test_create_pr_step_name():
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess):
+def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     """Test successful MR creation: rev-parse, mr list (empty), push, mr create."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1002,7 +1005,9 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_command_failure(mock_subprocess, mock_get_logger, mock_emit) -> None:
+def test_create_gitlab_mr_step_glab_command_failure(
+    mock_subprocess, mock_get_logger, mock_emit
+) -> None:
     """Test MR creation handles glab command failure (best-effort: returns success)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1089,7 +1094,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit) -> None:
+def test_create_gitlab_mr_step_glab_not_found(
+    mock_subprocess, mock_get_logger, mock_emit
+) -> None:
     """Test MR creation handles glab CLI not found (propagates to outer FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1132,7 +1139,7 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit):
+def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit) -> None:
     """Test MR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1170,7 +1177,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 @patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit):
+def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit) -> None:
     """Test MR creation continues even when git push times out."""
     import subprocess
 
@@ -1210,7 +1217,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
-def test_create_gitlab_mr_step_is_not_critical():
+def test_create_gitlab_mr_step_is_not_critical() -> None:
     """Test GlabPullRequestStep is not critical."""
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
@@ -1218,7 +1225,7 @@ def test_create_gitlab_mr_step_is_not_critical():
     assert step.is_critical is False
 
 
-def test_create_gitlab_mr_step_name():
+def test_create_gitlab_mr_step_name() -> None:
     """Test GlabPullRequestStep has correct name."""
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
@@ -1229,7 +1236,7 @@ def test_create_gitlab_mr_step_name():
 # === ComposeRequestStep JSON parsing Tests ===
 
 
-def test_prepare_pr_step_store_pr_details_success():
+def test_prepare_pr_step_store_pr_details_success() -> None:
     """Test _store_pr_details stores validated dict correctly."""
 
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
@@ -1252,7 +1259,7 @@ def test_prepare_pr_step_store_pr_details_success():
     assert context.data["pr_details"]["commits"] == [{"message": "abc123"}, {"message": "def456"}]
 
 
-def test_prepare_pr_step_store_pr_details_missing_fields():
+def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
     """Test _store_pr_details handles missing fields with defaults."""
 
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
@@ -1274,7 +1281,9 @@ def test_prepare_pr_step_store_pr_details_missing_fields():
 @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
 @patch("rouge.core.workflow.steps.compose_request_step.update_status")
-def test_prepare_pr_step_emits_raw_llm_response(mock_update_status, mock_execute, mock_emit):
+def test_prepare_pr_step_emits_raw_llm_response(
+    mock_update_status, mock_execute, mock_emit
+) -> None:
     """Test ComposeRequestStep emits raw LLM response for debugging."""
 
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
