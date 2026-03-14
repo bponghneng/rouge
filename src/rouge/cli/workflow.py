@@ -5,8 +5,8 @@ from typing import Optional
 import typer
 
 from rouge.adw.adw import execute_adw_workflow
-from rouge.cli.utils import validate_issue_id
-from rouge.core.utils import get_logger, make_adw_id, setup_logger
+from rouge.cli.utils import prepare_adw_id, validate_issue_id
+from rouge.core.utils import get_logger, setup_logger
 
 app = typer.Typer(help="Workflow execution commands")
 
@@ -27,16 +27,7 @@ def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> N
     """
     try:
         validate_issue_id(issue_id)
-
-        if adw_id is not None:
-            adw_id = adw_id.strip()
-            if not adw_id:
-                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
-                raise typer.Exit(1)
-
-        if not adw_id:
-            adw_id = make_adw_id()
-
+        adw_id = prepare_adw_id(adw_id)
         setup_logger(adw_id)
 
         success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type=workflow_type)
