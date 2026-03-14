@@ -1,7 +1,6 @@
 """Review generation step implementation."""
 
 import json
-import logging
 import os
 import subprocess
 
@@ -18,9 +17,6 @@ from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifac
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
-
-# Module-level logger for methods that may be called without adw_id
-logger = logging.getLogger(__name__)
 
 # Module-level constant for step name used in rerun_from references
 CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
@@ -157,7 +153,7 @@ class CodeReviewStep(WorkflowStep):
         pr_number: int,
         platform: str,
         repo_path: str,
-        adw_id: str | None,
+        adw_id: str,
         issue_id: int | None,
     ) -> None:
         """Summarise the review with Claude and post it as a PR/MR comment.
@@ -171,10 +167,10 @@ class CodeReviewStep(WorkflowStep):
             pr_number: PR or MR number to comment on.
             platform: ``"github"`` or ``"gitlab"`` (from DEV_SEC_OPS_PLATFORM).
             repo_path: Repository root path for CLI invocations.
-            adw_id: Optional ADW ID for the Claude request.
+            adw_id: ADW ID for the Claude request.
             issue_id: Optional Rouge issue ID for the Claude request.
         """
-        func_logger = get_logger(adw_id) if adw_id else logger
+        func_logger = get_logger(adw_id)
         platform_lower = platform.strip().lower()
         if platform_lower not in {"github", "gitlab"}:
             func_logger.warning(
@@ -190,7 +186,7 @@ class CodeReviewStep(WorkflowStep):
                 agent_name=AGENT_PLANNER,
                 slash_command="/adw-code-review-summary",
                 args=[review_text],
-                adw_id=adw_id or "",
+                adw_id=adw_id,
                 issue_id=issue_id,
                 model="sonnet",
                 json_schema=CODE_REVIEW_SUMMARY_JSON_SCHEMA,
@@ -231,7 +227,7 @@ class CodeReviewStep(WorkflowStep):
         pr_number: int,
         platform_lower: str,
         repo_path: str,
-        adw_id: str | None,
+        adw_id: str,
     ) -> None:
         """Post a pre-formatted comment to a GitHub PR or GitLab MR via CLI.
 
@@ -244,9 +240,9 @@ class CodeReviewStep(WorkflowStep):
             pr_number: PR or MR number to comment on (caller has already validated > 0).
             platform_lower: Normalised platform string (``"github"`` or ``"gitlab"``).
             repo_path: Repository root path for CLI invocation.
-            adw_id: Optional ADW ID for logger retrieval.
+            adw_id: ADW ID for logger retrieval.
         """
-        func_logger = get_logger(adw_id) if adw_id else logger
+        func_logger = get_logger(adw_id)
         if not repo_path.strip():
             func_logger.warning("Empty repo_path, skipping PR comment")
             return
