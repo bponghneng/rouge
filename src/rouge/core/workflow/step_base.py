@@ -161,6 +161,9 @@ class WorkflowContext:
     # ------------------------------------------------------------------
     # Deprecated helpers — kept for backward compatibility; do not use in
     # new code.  These will be removed in a future refactor phase.
+    # TODO: Remove load_artifact_if_missing and load_issue_artifact_if_missing
+    #       once confirmed no external callers exist. Both have zero callers in
+    #       the current production source tree.
     # ------------------------------------------------------------------
 
     def load_artifact_if_missing(
