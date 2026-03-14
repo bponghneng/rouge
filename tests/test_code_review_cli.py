@@ -1,71 +1,12 @@
 """Tests for the codereview CLI command."""
 
-import subprocess
 from unittest.mock import ANY, MagicMock, patch
 
-import pytest
-import typer
 from typer.testing import CliRunner
 
 from rouge.cli.cli import app
-from rouge.cli.workflow import resolve_to_sha
 
 runner = CliRunner()
-
-
-# ---------------------------------------------------------------------------
-# Tests for resolve_to_sha()
-# ---------------------------------------------------------------------------
-
-
-class TestResolveToSha:
-    """Tests for the resolve_to_sha helper function."""
-
-    @patch("rouge.cli.workflow.get_repo_paths")
-    @patch("rouge.cli.workflow.subprocess.run")
-    def test_successful_resolution(
-        self, mock_run: MagicMock, mock_get_repo_paths: MagicMock
-    ) -> None:
-        """resolve_to_sha should return the stripped stdout from git rev-parse."""
-        mock_get_repo_paths.return_value = ["/mock/repo/path"]
-        mock_run.return_value = MagicMock(
-            stdout="abc123def456\n",
-            returncode=0,
-        )
-
-        sha = resolve_to_sha("main")
-
-        assert sha == "abc123def456"
-        mock_run.assert_called_once_with(
-            ["git", "rev-parse", "main"],
-            cwd="/mock/repo/path",
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-
-    @patch("rouge.cli.workflow.subprocess.run")
-    def test_invalid_reference_raises_exit(self, mock_run: MagicMock) -> None:
-        """resolve_to_sha should raise typer.Exit(1) for invalid git references."""
-        mock_run.side_effect = subprocess.CalledProcessError(
-            returncode=128,
-            cmd=["git", "rev-parse", "nonexistent-ref"],
-        )
-
-        with pytest.raises(typer.Exit) as exc_info:
-            resolve_to_sha("nonexistent-ref")
-
-        assert exc_info.value.exit_code == 1
-
-    @patch("rouge.cli.workflow.subprocess.run")
-    def test_git_not_found_raises_exit(self, mock_run: MagicMock) -> None:
-        """resolve_to_sha should raise typer.Exit(1) when git is not installed."""
-        mock_run.side_effect = FileNotFoundError("git not found")
-
-        with pytest.raises(typer.Exit) as exc_info:
-            resolve_to_sha("main")
-
-        assert exc_info.value.exit_code == 1
 
 
 # ---------------------------------------------------------------------------

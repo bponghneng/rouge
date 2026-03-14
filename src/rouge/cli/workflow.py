@@ -1,6 +1,5 @@
 """CLI commands for workflow execution."""
 
-import subprocess
 from typing import Optional
 
 import typer
@@ -8,7 +7,6 @@ import typer
 from rouge.adw.adw import execute_adw_workflow
 from rouge.cli.utils import validate_issue_id
 from rouge.core.utils import get_logger, make_adw_id, setup_logger
-from rouge.core.workflow.shared import get_repo_paths
 
 app = typer.Typer(help="Workflow execution commands")
 
@@ -52,42 +50,10 @@ def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> N
     except typer.Exit:
         raise
     except Exception as e:
-        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
+        _effective_adw_id = adw_id or "unknown"
+        setup_logger(_effective_adw_id)
+        get_logger(_effective_adw_id).exception("Unexpected error in workflow command")
         typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
-
-
-def resolve_to_sha(ref: str) -> str:
-    """Resolve a git reference to a full SHA.
-
-    Runs ``git rev-parse <ref>`` to validate the reference and return the
-    resolved commit SHA.
-
-    Args:
-        ref: A git reference such as a branch name, tag, or commit SHA.
-
-    Returns:
-        The full SHA string for the resolved reference.
-
-    Raises:
-        typer.Exit: If the reference cannot be resolved.
-    """
-    repo_path = get_repo_paths()[0]
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", ref],
-            cwd=repo_path,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
-        typer.echo(f"Error: Invalid git reference '{ref}' (from {repo_path})", err=True)
-        typer.echo(f"stderr: {e.stderr if hasattr(e, 'stderr') else 'N/A'}", err=True)
-        raise typer.Exit(1)
-    except FileNotFoundError:
-        typer.echo("Error: git is not installed or not in PATH", err=True)
         raise typer.Exit(1)
 
 
