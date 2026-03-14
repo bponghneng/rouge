@@ -128,5 +128,10 @@ def get_logger(adw_id: str) -> logging.Logger:
 
     Returns:
         Logger instance
+
+    Raises:
+        ValueError: If adw_id is empty or None
     """
+    if not adw_id:
+        raise ValueError("adw_id must be a non-empty string")
     return logging.getLogger(f"rouge_{adw_id}")
