@@ -13,6 +13,50 @@ from rouge.core.workflow.shared import get_repo_paths
 app = typer.Typer(help="Workflow execution commands")
 
 
+def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> None:
+    """Execute a workflow of the given type for the specified issue.
+
+    Validates the issue ID, normalizes the ADW ID, sets up logging,
+    and delegates to :func:`execute_adw_workflow`.
+
+    Args:
+        issue_id: The issue ID to process
+        adw_id: Optional workflow ID (auto-generated if None or empty)
+        workflow_type: The workflow type identifier (e.g. "main", "patch", "codereview")
+
+    Raises:
+        typer.Exit: On validation failure, execution failure, or unexpected error
+    """
+    try:
+        validate_issue_id(issue_id)
+
+        if adw_id is not None:
+            adw_id = adw_id.strip()
+            if not adw_id:
+                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
+                raise typer.Exit(1)
+
+        if not adw_id:
+            adw_id = make_adw_id()
+
+        setup_logger(adw_id)
+
+        success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type=workflow_type)
+
+        if not success:
+            raise typer.Exit(1)
+
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
+        typer.echo(f"Unexpected error: {e}", err=True)
+        raise typer.Exit(1)
+
+
 def resolve_to_sha(ref: str) -> str:
     """Resolve a git reference to a full SHA.
 
@@ -64,39 +108,7 @@ def run(
         rouge workflow run 123
         rouge workflow run 123 --adw-id abc12345
     """
-    try:
-        # Validate issue_id
-        validate_issue_id(issue_id)
-
-        # Normalize and validate ADW ID if provided
-        if adw_id is not None:
-            adw_id = adw_id.strip()
-            if not adw_id:
-                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
-                raise typer.Exit(1)
-
-        # Generate ADW ID if not provided
-        if not adw_id:
-            adw_id = make_adw_id()
-
-        # Setup logger before workflow execution
-        setup_logger(adw_id)
-
-        # Execute workflow
-        success, _workflow_id = execute_adw_workflow(adw_id, issue_id)
-
-        if not success:
-            raise typer.Exit(1)
-
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except typer.Exit:
-        raise
-    except Exception as e:
-        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+    _run_workflow(issue_id, adw_id, workflow_type="main")
 
 
 @app.command()
@@ -116,39 +128,7 @@ def patch(
         rouge workflow patch 123
         rouge workflow patch 123 --adw-id abc12345
     """
-    try:
-        # Validate issue_id
-        validate_issue_id(issue_id)
-
-        # Normalize and validate ADW ID if provided
-        if adw_id is not None:
-            adw_id = adw_id.strip()
-            if not adw_id:
-                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
-                raise typer.Exit(1)
-
-        # Generate ADW ID if not provided
-        if not adw_id:
-            adw_id = make_adw_id()
-
-        # Setup logger before workflow execution
-        setup_logger(adw_id)
-
-        # Execute workflow
-        success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type="patch")
-
-        if not success:
-            raise typer.Exit(1)
-
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except typer.Exit:
-        raise
-    except Exception as e:
-        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+    _run_workflow(issue_id, adw_id, workflow_type="patch")
 
 
 @app.command()
@@ -170,36 +150,4 @@ def codereview(
         rouge workflow codereview 123
         rouge workflow codereview 123 --adw-id abc12345
     """
-    try:
-        # Validate issue_id
-        validate_issue_id(issue_id)
-
-        # Normalize and validate ADW ID if provided
-        if adw_id is not None:
-            adw_id = adw_id.strip()
-            if not adw_id:
-                typer.echo("Error: adw_id cannot be empty or whitespace", err=True)
-                raise typer.Exit(1)
-
-        # Generate ADW ID if not provided
-        if not adw_id:
-            adw_id = make_adw_id()
-
-        # Setup logger before workflow execution
-        setup_logger(adw_id)
-
-        # Execute workflow
-        success, _workflow_id = execute_adw_workflow(adw_id, issue_id, workflow_type="codereview")
-
-        if not success:
-            raise typer.Exit(1)
-
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1)
-    except typer.Exit:
-        raise
-    except Exception as e:
-        get_logger(adw_id or "unknown").exception("Unexpected error in workflow command")
-        typer.echo(f"Unexpected error: {e}", err=True)
-        raise typer.Exit(1)
+    _run_workflow(issue_id, adw_id, workflow_type="codereview")
