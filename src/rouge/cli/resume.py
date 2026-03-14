@@ -53,9 +53,12 @@ def resume(
         if not resume_from:
             typer.echo("Error: --resume-from value must not be empty", err=True)
             raise typer.Exit(1)
+    _adw_id: str = "unknown"
     try:
         # Fetch the current issue
         issue = fetch_issue(issue_id)
+        if issue.adw_id:
+            _adw_id = issue.adw_id
 
         # Validate issue has adw_id set
         if not issue.adw_id:
@@ -127,9 +130,7 @@ def resume(
             )
         except Exception as e:
             update_issue(issue_id, status="failed")
-            get_logger(issue.adw_id).error(
-                "Workflow execution failed during resume: %s", e, exc_info=True
-            )
+            get_logger(issue.adw_id).exception("Workflow execution failed during resume: %s", e)
             typer.echo(
                 f"Error: Workflow execution failed during resume: {e}",
                 err=True,
@@ -187,9 +188,6 @@ def resume(
     except typer.Exit:
         raise
     except Exception as e:
-        _adw_id = (
-            issue.adw_id if "issue" in dir() and hasattr(issue, "adw_id") else None
-        ) or "unknown"
-        get_logger(_adw_id).error("Unexpected error in resume command: %s", e, exc_info=True)
+        get_logger(_adw_id).exception("Unexpected error in resume command: %s", e)
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
