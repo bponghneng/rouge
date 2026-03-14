@@ -498,9 +498,10 @@ class ArtifactStore:
             raise FileNotFoundError(f"Artifact not found: {artifact_type}")
 
         if model_class is None:
-            model_class = ARTIFACT_MODELS.get(artifact_type)
-            if model_class is None:
+            resolved = ARTIFACT_MODELS.get(artifact_type)
+            if resolved is None:
                 raise ValueError(f"Unknown artifact type: {artifact_type}")
+            model_class = cast(Type[T], resolved)
 
         try:
             json_data = artifact_path.read_text(encoding="utf-8")
