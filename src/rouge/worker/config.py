@@ -16,6 +16,8 @@ class WorkerConfig:
         log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         workflow_timeout: Timeout in seconds for workflow execution
         working_dir: Optional directory to run worker from
+        db_retries: Number of retry attempts for database operations
+        db_backoff_ms: Backoff delay in milliseconds between retry attempts
     """
 
     worker_id: str
@@ -23,6 +25,8 @@ class WorkerConfig:
     log_level: str = "INFO"
     workflow_timeout: int = 3600  # 1 hour default
     working_dir: Optional[str] = None
+    db_retries: int = 3
+    db_backoff_ms: int = 500
 
     def __post_init__(self):
         """Validate configuration values."""
@@ -56,6 +60,12 @@ class WorkerConfig:
 
         if self.workflow_timeout <= 0:
             raise ValueError("workflow_timeout must be positive")
+
+        if self.db_retries <= 0:
+            raise ValueError("db_retries must be positive")
+
+        if self.db_backoff_ms <= 0:
+            raise ValueError("db_backoff_ms must be positive")
 
         valid_log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         if self.log_level.upper() not in valid_log_levels:
