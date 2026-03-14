@@ -3,8 +3,12 @@
 import logging
 from typing import Optional, Tuple
 
+import httpx
+
 from rouge.core.database import get_client as _get_client
+from rouge.core.database import reset_client
 from rouge.core.database import update_issue as _update_issue
+from rouge.worker.exceptions import TransientDatabaseError
 
 
 def get_client():
@@ -37,6 +41,10 @@ def get_next_issue(
         Tuple of (issue_id, description, status, type) if an issue is available,
         None otherwise. Status and type allow the worker to route correctly
         between new issue processing and patch application.
+
+    Raises:
+        TransientDatabaseError: If a transient network/timeout error occurs during
+            the RPC call. The database client is automatically reset on these errors.
     """
     try:
         client = get_client()
@@ -62,6 +70,18 @@ def get_next_issue(
             return (issue_id, description, status, issue_type)
 
         return None
+
+    except (httpx.ReadTimeout, httpx.ConnectTimeout, httpx.ConnectError) as e:
+        if logger:
+            logger.warning(
+                "Transient database error during get_next_issue: %s. Resetting client.",
+                type(e).__name__,
+            )
+        reset_client()
+        raise TransientDatabaseError(
+            f"Database connection error while fetching next issue for worker {worker_id}",
+            original_error=e,
+        ) from e
 
     except Exception:
         if logger:
