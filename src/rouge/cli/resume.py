@@ -59,6 +59,7 @@ def resume(
         issue = fetch_issue(issue_id)
         if issue.adw_id:
             _adw_id = issue.adw_id
+            setup_logger(_adw_id)
 
         # Validate issue has adw_id set
         if not issue.adw_id:
@@ -113,9 +114,6 @@ def resume(
 
         # Execute workflow with resume parameters
         try:
-            # Setup logger before workflow execution
-            setup_logger(issue.adw_id)
-
             # Reset issue status from 'failed' to 'started'
             update_issue(issue_id, status="started")
             get_logger(issue.adw_id).info(
