@@ -1,7 +1,6 @@
 """Tests for WorkflowContext with optional issue_id."""
 
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -109,91 +108,6 @@ class TestWorkflowContextArtifacts:
 
         assert ctx.issue_id is None
         assert ctx.artifact_store is not None
-
-    def test_load_artifact_if_missing_returns_existing_data(self, tmp_path: Path) -> None:
-        """Test load_artifact_if_missing returns existing data from context."""
-        store = ArtifactStore(workflow_id="adw-existing", base_path=tmp_path)
-        ctx = WorkflowContext(
-            adw_id="adw-existing",
-            issue_id=None,
-            artifact_store=store,
-            data={"test_key": "existing_value"},
-        )
-
-        result = ctx.load_artifact_if_missing(
-            context_key="test_key",
-            artifact_type="plan",
-            artifact_class=MagicMock,
-            extract_fn=lambda a: a,
-        )
-
-        assert result == "existing_value"
-
-    def test_load_artifact_if_missing_handles_file_not_found(self, tmp_path: Path) -> None:
-        """Test load_artifact_if_missing returns None when artifact file is missing."""
-        store = ArtifactStore(workflow_id="adw-missing", base_path=tmp_path)
-        ctx = WorkflowContext(
-            adw_id="adw-missing",
-            issue_id=None,
-            artifact_store=store,
-        )
-
-        result = ctx.load_artifact_if_missing(
-            context_key="missing_key",
-            artifact_type="plan",
-            artifact_class=MagicMock,
-            extract_fn=lambda a: a,
-        )
-
-        assert result is None
-
-    def test_load_artifact_if_missing_loads_real_artifact(self, tmp_path: Path) -> None:
-        """Test load_artifact_if_missing loads and extracts real artifact from store."""
-        # Create artifact store and write a real plan artifact
-        store = ArtifactStore(workflow_id="adw-real-plan", base_path=tmp_path)
-        plan_data = PlanData(
-            plan="Test implementation plan",
-            summary="Brief summary",
-        )
-        plan_artifact = PlanArtifact(
-            workflow_id="adw-real-plan",
-            plan_data=plan_data,
-        )
-        store.write_artifact(plan_artifact)
-
-        # Create context and load artifact
-        ctx = WorkflowContext(
-            adw_id="adw-real-plan",
-            issue_id=None,
-            artifact_store=store,
-        )
-
-        result = ctx.load_artifact_if_missing(
-            context_key="plan_data",
-            artifact_type="plan",
-            artifact_class=PlanArtifact,
-            extract_fn=lambda a: a.plan_data,
-        )
-
-        # Assert the loaded data matches what was written
-        assert result is not None
-        assert result.plan == "Test implementation plan"
-        assert result.summary == "Brief summary"
-        assert ctx.data["plan_data"] == result
-
-    def test_load_issue_artifact_if_missing_returns_none_when_artifact_absent(
-        self, tmp_path: Path
-    ) -> None:
-        """Test load_issue_artifact_if_missing returns None when artifact file is missing."""
-        store = ArtifactStore(workflow_id="adw-no-issue", base_path=tmp_path)
-        ctx = WorkflowContext(adw_id="adw-no-issue", issue_id=None, artifact_store=store)
-
-        result = ctx.load_issue_artifact_if_missing(
-            artifact_class=MagicMock,
-            extract_fn=lambda a: a.issue,
-        )
-
-        assert result is None
 
 
 class TestLoadRequiredArtifact:

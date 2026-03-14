@@ -3,68 +3,24 @@
 Provides a registry of workflow definitions that can be looked up by type ID.
 """
 
-import logging
-from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, List, Optional, Type, Union
+from dataclasses import dataclass
+from typing import Callable, Dict, List, Optional
 
 from rouge.core.workflow.step_base import WorkflowStep
-
-# Module-level logger is appropriate here: workflow registration and step creation
-# occur at initialization time before workflow execution begins, so workflow-scoped
-# logging is not applicable.
-logger = logging.getLogger(__name__)
-
-
-@dataclass
-class StepConfig:
-    """Configuration for a single workflow step.
-
-    Attributes:
-        step_class: The WorkflowStep subclass to instantiate
-        is_critical: Optional override for step criticality (deferred feature)
-        config: Additional configuration passed to the step (reserved for future use)
-
-    Note:
-        No production pipeline currently uses StepConfig — all registered workflows
-        use callable factories instead. This class is retained for API completeness
-        and future declarative pipelines.
-        TODO: Remove if no declarative pipeline is added in the next refactor cycle.
-    """
-
-    step_class: Type[WorkflowStep]
-    is_critical: Optional[bool] = None
-    config: Dict[str, Any] = field(default_factory=dict)
-
-    def create_step(self) -> WorkflowStep:
-        """Instantiate the configured workflow step.
-
-        Returns:
-            A new instance of the configured WorkflowStep subclass
-        """
-        if self.is_critical is not None:
-            logger.warning(
-                "is_critical override requested for %s, not yet implemented",
-                self.step_class.__name__,
-            )
-        return self.step_class()
 
 
 @dataclass
 class WorkflowDefinition:
     """Definition of a named workflow pipeline.
 
-    The pipeline can be specified either as a list of StepConfig objects
-    (for declarative pipelines) or as a callable that returns a list of
-    WorkflowStep instances (for dynamic pipelines).
-
     Attributes:
         type_id: Unique identifier for this workflow type (e.g., "main", "patch")
-        pipeline: Either a list of StepConfig or a callable returning List[WorkflowStep]
+        pipeline: A callable that returns a list of WorkflowStep instances
         description: Human-readable description of the workflow
     """
 
     type_id: str
-    pipeline: Union[List[StepConfig], Callable[[], List[WorkflowStep]]]
+    pipeline: Callable[[], List[WorkflowStep]]
     description: str = ""
 
     def get_pipeline(self) -> List[WorkflowStep]:
@@ -73,9 +29,7 @@ class WorkflowDefinition:
         Returns:
             List of WorkflowStep instances in execution order
         """
-        if callable(self.pipeline):
-            return self.pipeline()
-        return [step_config.create_step() for step_config in self.pipeline]
+        return self.pipeline()
 
 
 class WorkflowRegistry:
