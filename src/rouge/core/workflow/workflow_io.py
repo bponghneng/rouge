@@ -22,7 +22,7 @@ def log_step_start(step_name: str, adw_id: str, issue_id: int | None = None) -> 
         message = f"Step {step_name} started"
         payload = CommentPayload(
             issue_id=issue_id,
-            adw_id=None,
+            adw_id=adw_id,
             text=message,
             raw={"step": step_name, "status": "started"},
             source="system",
@@ -55,7 +55,7 @@ def log_step_end(step_name: str, success: bool, adw_id: str, issue_id: int | Non
         message = f"Step {step_name} completed: {status_text}"
         payload = CommentPayload(
             issue_id=issue_id,
-            adw_id=None,
+            adw_id=adw_id,
             text=message,
             raw={"step": step_name, "status": "completed", "success": success},
             source="system",

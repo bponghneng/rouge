@@ -5,7 +5,6 @@ for persisting workflow step inputs and outputs to disk.
 """
 
 import json
-import logging
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar, cast
@@ -20,9 +19,6 @@ from rouge.core.workflow.types import (
     PlanData,
     ReviewData,
 )
-
-# Module-level logger for non-ArtifactStore utility code
-logger = logging.getLogger(__name__)
 
 
 def _utc_now() -> datetime:
