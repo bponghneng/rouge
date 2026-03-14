@@ -41,7 +41,7 @@ def test_run_command_failure(mock_execute, mock_setup_logger) -> None:
 
 @patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-@patch("rouge.cli.workflow.make_adw_id")
+@patch("rouge.cli.utils.make_adw_id")
 def test_run_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test run command with custom ADW ID.
 
@@ -98,7 +98,7 @@ def test_patch_command_failure(mock_execute, mock_setup_logger) -> None:
 
 @patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-@patch("rouge.cli.workflow.make_adw_id")
+@patch("rouge.cli.utils.make_adw_id")
 def test_patch_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test patch command with custom ADW ID.
 
@@ -155,7 +155,7 @@ def test_codereview_command_failure(mock_execute, mock_setup_logger) -> None:
 
 @patch("rouge.cli.workflow.setup_logger")
 @patch("rouge.cli.workflow.execute_adw_workflow")
-@patch("rouge.cli.workflow.make_adw_id")
+@patch("rouge.cli.utils.make_adw_id")
 def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test codereview command with custom ADW ID.
 
