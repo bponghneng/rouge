@@ -1,6 +1,5 @@
 """Tests for workflow registry module."""
 
-import logging
 from typing import Generator
 
 import pytest
@@ -8,7 +7,6 @@ import pytest
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 from rouge.core.workflow.workflow_registry import (
-    StepConfig,
     WorkflowDefinition,
     WorkflowRegistry,
     get_pipeline_for_type,
@@ -40,32 +38,6 @@ def _reset_workflow_registry_fixture() -> Generator[None, None, None]:
 
 
 # ---------------------------------------------------------------------------
-# TestStepConfig
-# ---------------------------------------------------------------------------
-
-
-class TestStepConfig:
-    def test_create_step_instantiates_correctly(self) -> None:
-        """StepConfig.create_step() returns an instance of the configured step class."""
-        config = StepConfig(step_class=DummyStep)
-        step = config.create_step()
-
-        assert isinstance(step, DummyStep)
-        assert isinstance(step, WorkflowStep)
-
-    def test_create_step_logs_warning_when_is_critical_set(self, caplog) -> None:
-        """StepConfig.create_step() logs a warning when is_critical is overridden."""
-        config = StepConfig(step_class=DummyStep, is_critical=True)
-
-        with caplog.at_level(logging.WARNING):
-            step = config.create_step()
-
-        assert isinstance(step, DummyStep)
-        assert "is_critical override requested for DummyStep" in caplog.text
-        assert "not yet implemented" in caplog.text
-
-
-# ---------------------------------------------------------------------------
 # TestWorkflowDefinition
 # ---------------------------------------------------------------------------
 
@@ -88,19 +60,6 @@ class TestWorkflowDefinition:
         assert len(pipeline) == 1
         assert isinstance(pipeline[0], DummyStep)
         assert pipeline[0].name == "from_callable"
-
-    def test_get_pipeline_with_step_config_list(self) -> None:
-        """WorkflowDefinition.get_pipeline() instantiates from StepConfig list."""
-        defn = WorkflowDefinition(
-            type_id="test",
-            pipeline=[StepConfig(step_class=DummyStep)],
-            description="test workflow",
-        )
-        pipeline = defn.get_pipeline()
-
-        assert isinstance(pipeline, list)
-        assert len(pipeline) == 1
-        assert isinstance(pipeline[0], DummyStep)
 
 
 # ---------------------------------------------------------------------------
