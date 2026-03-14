@@ -1,5 +1,6 @@
 """Abstract base class for workflow steps and context management."""
 
+import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, TypeVar
@@ -42,6 +43,7 @@ class WorkflowContext:
     pipeline_type: str = "main"
     repo_paths: List[str] = field(default_factory=get_repo_paths)
     data: Dict[str, Any] = field(default_factory=dict)
+    _logger: logging.Logger = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         """Initialize cached logger after dataclass initialization."""
