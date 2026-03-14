@@ -5,12 +5,14 @@ import subprocess
 import sys
 from unittest.mock import Mock, patch
 
+import httpx
 import pytest
 from typer.testing import CliRunner
 
 from rouge.worker import database
 from rouge.worker.cli import app as worker_app
 from rouge.worker.config import WorkerConfig
+from rouge.worker.exceptions import TransientDatabaseError
 from rouge.worker.worker import IssueWorker
 from rouge.worker.worker_artifact import WorkerArtifact
 
@@ -104,6 +106,57 @@ class TestGetNextIssue:
             result = database.get_next_issue("test-worker")
 
             assert result is None
+
+    def test_get_next_issue_httpx_timeout(self, mock_env) -> None:
+        """Test handling httpx.ReadTimeout errors raises TransientDatabaseError."""
+        mock_client = Mock()
+        mock_client.rpc.side_effect = httpx.ReadTimeout("Request timed out")
+
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
+            with patch("rouge.worker.database.reset_client") as mock_reset:
+                with pytest.raises(TransientDatabaseError) as exc_info:
+                    database.get_next_issue("test-worker")
+
+                # Verify the error message and original error
+                assert "Database connection error" in str(exc_info.value)
+                assert isinstance(exc_info.value.original_error, httpx.ReadTimeout)
+
+                # Verify reset_client was called
+                mock_reset.assert_called_once()
+
+    def test_get_next_issue_httpx_connect_timeout(self, mock_env) -> None:
+        """Test handling httpx.ConnectTimeout errors raises TransientDatabaseError."""
+        mock_client = Mock()
+        mock_client.rpc.side_effect = httpx.ConnectTimeout("Connection timed out")
+
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
+            with patch("rouge.worker.database.reset_client") as mock_reset:
+                with pytest.raises(TransientDatabaseError) as exc_info:
+                    database.get_next_issue("test-worker")
+
+                # Verify the error message and original error
+                assert "Database connection error" in str(exc_info.value)
+                assert isinstance(exc_info.value.original_error, httpx.ConnectTimeout)
+
+                # Verify reset_client was called
+                mock_reset.assert_called_once()
+
+    def test_get_next_issue_httpx_connect_error(self, mock_env) -> None:
+        """Test handling httpx.ConnectError errors raises TransientDatabaseError."""
+        mock_client = Mock()
+        mock_client.rpc.side_effect = httpx.ConnectError("Connection error")
+
+        with patch("rouge.worker.database.get_client", return_value=mock_client):
+            with patch("rouge.worker.database.reset_client") as mock_reset:
+                with pytest.raises(TransientDatabaseError) as exc_info:
+                    database.get_next_issue("test-worker")
+
+                # Verify the error message and original error
+                assert "Database connection error" in str(exc_info.value)
+                assert isinstance(exc_info.value.original_error, httpx.ConnectError)
+
+                # Verify reset_client was called
+                mock_reset.assert_called_once()
 
 
 class TestExecuteWorkflow:
