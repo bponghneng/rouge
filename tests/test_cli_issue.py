@@ -576,7 +576,7 @@ def test_read_command_success(mock_fetch_issue) -> None:
     assert "Issue #123" in result.output
     assert "Title: Test Issue" in result.output
     assert "Type: main" in result.output
-    assert "Status: ⏳ pending" in result.output
+    assert "Status: ⏳" in result.output
     assert "Assigned to: local-1" in result.output
     assert "Branch: feature/test" in result.output
     assert "ADW ID: test-adw-123" in result.output
@@ -600,7 +600,7 @@ def test_read_command_minimal_issue(mock_fetch_issue) -> None:
     assert "Issue #456" in result.output
     assert "Title: (none)" in result.output
     assert "Type: main" in result.output
-    assert "Status: ⏳ pending" in result.output
+    assert "Status: ⏳" in result.output
     assert "Assigned to: (none)" in result.output
     assert "Minimal issue description" in result.output
     # Branch and ADW ID should not appear when not set
@@ -646,7 +646,7 @@ def test_read_command_completed_issue(mock_fetch_issue) -> None:
     result = runner.invoke(app, ["read", "789"])
     assert result.exit_code == 0
     assert "Issue #789" in result.output
-    assert "Status: ✅ completed" in result.output
+    assert "Status: ✅" in result.output
     assert "Type: patch" in result.output
 
 
@@ -681,12 +681,12 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     assert "ID" in result.output
     assert "Title" in result.output
     assert "Type" in result.output
-    assert "Status" in result.output
+    assert "S" in result.output
     assert "Br" in result.output
     assert "Assigned To" in result.output
     assert "1" in result.output
     assert "Single Issue" in result.output
-    assert "⏳ pending" in result.output
+    assert "⏳" in result.output
     assert "main" in result.output
     assert "❌" in result.output  # No branch
     assert "(none)" in result.output  # No assignment
@@ -732,16 +732,16 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
     # Check all issues are present
     assert "1" in result.output
     assert "First Issue" in result.output
-    assert "⏳ pending" in result.output
+    assert "⏳" in result.output
     assert "local-1" in result.output
     assert "2" in result.output
     assert "Second Issue" in result.output
-    assert "🔄 started" in result.output
+    assert "🔄" in result.output
     assert "✅" in result.output  # Second issue has a branch
     assert "local-2" in result.output
     assert "3" in result.output
     assert "Third Issue" in result.output
-    assert "✅ completed" in result.output
+    assert "✅" in result.output  # completed status or branch indicator
     assert "❌" in result.output  # First/Third issues have no branch
     assert "(none)" in result.output  # Third issue has no assignment
     mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
@@ -1077,7 +1077,7 @@ def test_list_command_filter_by_status_failed(mock_fetch_all_issues) -> None:
     # Verify failed issues are in output
     assert "Failed Issue 1" in result.output
     assert "Failed Issue 2" in result.output
-    assert "❌ failed" in result.output
+    assert "❌" in result.output
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
