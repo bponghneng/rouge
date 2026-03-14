@@ -16,6 +16,7 @@ Example:
 
 import logging
 import os
+import random
 import shutil
 import signal
 import subprocess
@@ -24,11 +25,12 @@ from pathlib import Path
 from types import FrameType
 from typing import Literal
 
-from rouge.core.database import init_db_env
+from rouge.core.database import init_db_env, reset_client
 from rouge.core.utils import _get_log_level, make_adw_id
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
+from .exceptions import TransientDatabaseError
 from .worker_artifact import (
     WorkerArtifact,
     read_worker_artifact,
@@ -320,6 +322,7 @@ class IssueWorker:
         Checks worker artifact state before polling to handle failed or working states.
         """
         self.logger.info("Worker %s starting main loop", self.config.worker_id)
+        transient_error_count = 0
 
         while self.running:
             try:
@@ -351,8 +354,46 @@ class IssueWorker:
                     time.sleep(self.config.poll_interval)
                     continue
 
-                # Get next issue (returns tuple of issue_id, description, status, type)
-                issue = get_next_issue(self.config.worker_id, self.logger)
+                # Get next issue with retry logic for transient database errors
+                issue = None
+                for attempt in range(self.config.db_retries):
+                    try:
+                        issue = get_next_issue(self.config.worker_id, self.logger)
+                        # Success - reset global transient error counter
+                        transient_error_count = 0
+                        break
+                    except TransientDatabaseError as e:
+                        transient_error_count += 1
+                        if transient_error_count == 1:
+                            # First occurrence - log with full traceback
+                            self.logger.warning(
+                                "Transient database error during get_next_issue: %s",
+                                e,
+                                exc_info=True,
+                            )
+                        else:
+                            # Subsequent occurrences - log one-line warning with counter
+                            self.logger.warning(
+                                "Transient DB error (attempt %d of %d)",
+                                attempt + 1,
+                                self.config.db_retries,
+                            )
+
+                        # If this was the last attempt, skip the poll cycle
+                        if attempt + 1 >= self.config.db_retries:
+                            self.logger.warning(
+                                "All %d retry attempts exhausted, skipping poll cycle",
+                                self.config.db_retries,
+                            )
+                            break
+
+                        # Apply backoff with ±20% jitter before retry
+                        jitter = random.uniform(-0.2, 0.2)
+                        backoff_ms = self.config.db_backoff_ms * (1 + jitter)
+                        time.sleep(backoff_ms / 1000.0)
+
+                        # Reset client before retry
+                        reset_client()
 
                 if issue:
                     issue_id, description, status, issue_type = issue
