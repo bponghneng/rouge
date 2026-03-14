@@ -42,6 +42,52 @@ def _get_default_log_level() -> str:
     return level
 
 
+def _get_default_db_retries() -> int:
+    default_retries = 3
+    retries_env = os.environ.get("ROUGE_WORKER_DB_RETRIES")
+    if retries_env:
+        try:
+            parsed = int(retries_env)
+            if parsed > 0:
+                return parsed
+            else:
+                print(
+                    f"Warning: ROUGE_WORKER_DB_RETRIES must be positive, "
+                    f"got '{retries_env}', using default {default_retries}",
+                    file=sys.stderr,
+                )
+        except ValueError:
+            print(
+                f"Warning: Invalid value for ROUGE_WORKER_DB_RETRIES "
+                f"'{retries_env}', using default {default_retries}",
+                file=sys.stderr,
+            )
+    return default_retries
+
+
+def _get_default_db_backoff_ms() -> int:
+    default_backoff = 500
+    backoff_env = os.environ.get("ROUGE_WORKER_DB_BACKOFF_MS")
+    if backoff_env:
+        try:
+            parsed = int(backoff_env)
+            if parsed > 0:
+                return parsed
+            else:
+                print(
+                    f"Warning: ROUGE_WORKER_DB_BACKOFF_MS must be positive, "
+                    f"got '{backoff_env}', using default {default_backoff} ms",
+                    file=sys.stderr,
+                )
+        except ValueError:
+            print(
+                f"Warning: Invalid value for ROUGE_WORKER_DB_BACKOFF_MS "
+                f"'{backoff_env}', using default {default_backoff} ms",
+                file=sys.stderr,
+            )
+    return default_backoff
+
+
 app = typer.Typer(invoke_without_command=True)
 
 
@@ -96,6 +142,8 @@ def main(
             poll_interval=poll_interval,
             log_level=resolved_log_level,
             workflow_timeout=resolved_timeout,
+            db_retries=_get_default_db_retries(),
+            db_backoff_ms=_get_default_db_backoff_ms(),
         )
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)
