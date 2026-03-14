@@ -23,6 +23,12 @@ class StepConfig:
         step_class: The WorkflowStep subclass to instantiate
         is_critical: Optional override for step criticality (deferred feature)
         config: Additional configuration passed to the step (reserved for future use)
+
+    Note:
+        No production pipeline currently uses StepConfig — all registered workflows
+        use callable factories instead. This class is retained for API completeness
+        and future declarative pipelines.
+        TODO: Remove if no declarative pipeline is added in the next refactor cycle.
     """
 
     step_class: Type[WorkflowStep]
