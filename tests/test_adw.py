@@ -118,7 +118,7 @@ def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
 def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
     """workflow_type='full' with issue_id=None should raise ValueError."""
     with pytest.raises(ValueError, match="issue_id is required"):
-        execute_adw_workflow(issue_id=None, workflow_type="full")
+        execute_adw_workflow(adw_id="test-adw-id", issue_id=None, workflow_type="full")
 
 
 def test_execute_adw_workflow_unknown_type_raises(monkeypatch) -> None:
