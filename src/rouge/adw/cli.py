@@ -1,7 +1,6 @@
 """CLI interface for Rouge ADW."""
 
 import re
-import sys
 from typing import Optional
 
 import typer
@@ -89,11 +88,11 @@ def main(
             typer.echo(f"Workflow {workflow_id} completed successfully")
         else:
             typer.echo(f"Workflow {workflow_id} failed", err=True)
-            sys.exit(1)
+            raise typer.Exit(1)
     except Exception as exc:
         get_logger(workflow_id).exception("ADW workflow failed with unexpected error")
         typer.echo(f"Error executing ADW workflow: {exc}", err=True)
-        sys.exit(1)
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":
