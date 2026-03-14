@@ -53,13 +53,16 @@ def resume(
         if not resume_from:
             typer.echo("Error: --resume-from value must not be empty", err=True)
             raise typer.Exit(1)
-    _adw_id: str = "unknown"
+    fallback_adw_id: str = "unknown"
+    setup_logger(fallback_adw_id)
+    logger = get_logger(fallback_adw_id)
     try:
         # Fetch the current issue
         issue = fetch_issue(issue_id)
         if issue.adw_id:
-            _adw_id = issue.adw_id
-            setup_logger(_adw_id)
+            fallback_adw_id = issue.adw_id
+            setup_logger(fallback_adw_id)
+            logger = get_logger(fallback_adw_id)
 
         # Validate issue has adw_id set
         if not issue.adw_id:
@@ -116,9 +119,7 @@ def resume(
         try:
             # Reset issue status from 'failed' to 'started'
             update_issue(issue_id, status="started")
-            get_logger(issue.adw_id).info(
-                "Reset issue %s status from 'failed' to 'started'", issue_id
-            )
+            logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
 
             success, workflow_id = execute_adw_workflow(
                 issue.adw_id,
@@ -128,7 +129,7 @@ def resume(
             )
         except Exception as e:
             update_issue(issue_id, status="failed")
-            get_logger(issue.adw_id).exception("Workflow execution failed during resume: %s", e)
+            logger.exception("Workflow execution failed during resume: %s", e)
             typer.echo(
                 f"Error: Workflow execution failed during resume: {e}",
                 err=True,
@@ -160,18 +161,14 @@ def resume(
                         # Update worker to ready state
                         transition_worker_artifact(worker_artifact, "ready", clear_issue=True)
                         updated_workers.append(worker_id)
-                        get_logger(issue.adw_id).info("Updated worker %s to ready state", worker_id)
+                        logger.info("Updated worker %s to ready state", worker_id)
 
                 if updated_workers:
-                    get_logger(issue.adw_id).info(
-                        "Updated %s worker(s) to ready state", len(updated_workers)
-                    )
+                    logger.info("Updated %s worker(s) to ready state", len(updated_workers))
                 else:
-                    get_logger(issue.adw_id).info(
-                        "No workers found with current_issue_id=%s", issue_id
-                    )
+                    logger.info("No workers found with current_issue_id=%s", issue_id)
         except OSError as e:
-            get_logger(issue.adw_id).warning(
+            logger.warning(
                 "Failed to scan/update worker artifacts for issue_id=%s: %s",
                 issue_id,
                 e,
@@ -186,6 +183,6 @@ def resume(
     except typer.Exit:
         raise
     except Exception as e:
-        get_logger(_adw_id).exception("Unexpected error in resume command: %s", e)
+        logger.exception("Unexpected error in resume command: %s", e)
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)

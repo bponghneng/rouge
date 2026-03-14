@@ -50,9 +50,9 @@ def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> N
     except typer.Exit:
         raise
     except Exception as e:
-        _effective_adw_id = adw_id or "unknown"
-        setup_logger(_effective_adw_id)
-        get_logger(_effective_adw_id).exception("Unexpected error in workflow command")
+        effective_adw_id = adw_id or "unknown"
+        setup_logger(effective_adw_id)
+        get_logger(effective_adw_id).exception("Unexpected error in workflow command")
         typer.echo(f"Unexpected error: {e}", err=True)
         raise typer.Exit(1)
 
