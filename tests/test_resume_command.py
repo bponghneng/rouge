@@ -1,9 +1,7 @@
 """Unit tests for resume CLI command."""
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
-import pytest
 from typer.testing import CliRunner
 
 from rouge.cli.cli import app
@@ -18,7 +16,7 @@ class TestResumeCommandValidation:
     """Tests for resume command input validation."""
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_command_with_valid_issue_id(self, mock_fetch_issue):
+    def test_resume_command_with_valid_issue_id(self, mock_fetch_issue) -> None:
         """Test resume command accepts valid issue ID."""
         mock_issue = Issue(
             id=123,
@@ -34,21 +32,21 @@ class TestResumeCommandValidation:
         mock_fetch_issue.assert_called_once_with(123)
         # Exit code will be non-zero due to missing artifact, but that's expected
 
-    def test_resume_command_with_zero_issue_id(self):
+    def test_resume_command_with_zero_issue_id(self) -> None:
         """Test resume command rejects issue_id of 0."""
         result = runner.invoke(app, ["resume", "0"])
 
         assert result.exit_code == 1
         assert "Error: issue_id must be greater than 0" in result.output
 
-    def test_resume_command_with_negative_issue_id(self):
+    def test_resume_command_with_negative_issue_id(self) -> None:
         """Test resume command rejects negative issue_id."""
         result = runner.invoke(app, ["resume", "-1"])
 
         # Typer will reject negative numbers as invalid
         assert result.exit_code != 0
 
-    def test_resume_command_requires_issue_id(self):
+    def test_resume_command_requires_issue_id(self) -> None:
         """Test resume command requires issue_id argument."""
         result = runner.invoke(app, ["resume"])
 
@@ -60,7 +58,7 @@ class TestResumeCommandIssueValidation:
     """Tests for issue state validation in resume command."""
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_with_non_failed_issue(self, mock_fetch_issue):
+    def test_resume_with_non_failed_issue(self, mock_fetch_issue) -> None:
         """Test resume rejects issues that are not in failed status."""
         mock_issue = Issue(
             id=456,
@@ -77,7 +75,7 @@ class TestResumeCommandIssueValidation:
         assert "can only resume 'failed' issues" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_with_pending_issue(self, mock_fetch_issue):
+    def test_resume_with_pending_issue(self, mock_fetch_issue) -> None:
         """Test resume rejects pending issues."""
         mock_issue = Issue(
             id=789,
@@ -94,7 +92,7 @@ class TestResumeCommandIssueValidation:
         assert "can only resume 'failed' issues" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_with_started_issue(self, mock_fetch_issue):
+    def test_resume_with_started_issue(self, mock_fetch_issue) -> None:
         """Test resume rejects started issues."""
         mock_issue = Issue(
             id=111,
@@ -110,7 +108,7 @@ class TestResumeCommandIssueValidation:
         assert "has status 'started'" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_with_missing_adw_id(self, mock_fetch_issue):
+    def test_resume_with_missing_adw_id(self, mock_fetch_issue) -> None:
         """Test resume rejects issues without adw_id."""
         mock_issue = Issue(
             id=222,
@@ -127,7 +125,7 @@ class TestResumeCommandIssueValidation:
         assert "cannot resume without workflow ID" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_with_nonexistent_issue(self, mock_fetch_issue):
+    def test_resume_with_nonexistent_issue(self, mock_fetch_issue) -> None:
         """Test resume handles nonexistent issue."""
         mock_fetch_issue.side_effect = ValueError("Issue with id 999 not found")
 
@@ -145,7 +143,7 @@ class TestResumeCommandArtifactLoading:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_loads_workflow_state_artifact(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume command loads workflow state artifact."""
         mock_issue = Issue(
             id=333,
@@ -178,7 +176,7 @@ class TestResumeCommandArtifactLoading:
             )
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_fails_when_state_artifact_missing(self, mock_fetch_issue, tmp_path):
+    def test_resume_fails_when_state_artifact_missing(self, mock_fetch_issue, tmp_path) -> None:
         """Test resume fails when workflow state artifact is missing."""
         mock_issue = Issue(
             id=444,
@@ -200,7 +198,7 @@ class TestResumeCommandArtifactLoading:
             assert "adw-444" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_fails_when_failed_step_not_set(self, mock_fetch_issue, tmp_path):
+    def test_resume_fails_when_failed_step_not_set(self, mock_fetch_issue, tmp_path) -> None:
         """Test resume fails when workflow state has no failed_step."""
         mock_issue = Issue(
             id=555,
@@ -231,7 +229,7 @@ class TestResumeCommandArtifactLoading:
             assert "cannot determine resume point" in result.output
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_fails_when_artifact_corrupted(self, mock_fetch_issue, tmp_path):
+    def test_resume_fails_when_artifact_corrupted(self, mock_fetch_issue, tmp_path) -> None:
         """Test resume fails when workflow state artifact is corrupted."""
         mock_issue = Issue(
             id=666,
@@ -262,7 +260,7 @@ class TestResumeCommandWorkflowInvocation:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_invokes_execute_adw_workflow(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume command invokes execute_adw_workflow with correct params."""
         mock_issue = Issue(
             id=777,
@@ -301,7 +299,7 @@ class TestResumeCommandWorkflowInvocation:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_resets_issue_status_to_started(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume command resets issue status from failed to started."""
         mock_issue = Issue(
             id=888,
@@ -335,7 +333,7 @@ class TestResumeCommandWorkflowInvocation:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_fails_when_workflow_execution_fails(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume command handles workflow execution failure."""
         mock_issue = Issue(
             id=999,
@@ -369,7 +367,7 @@ class TestResumeCommandWorkflowInvocation:
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_outputs_workflow_id_on_success(
         self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume command outputs workflow ID on success."""
         mock_issue = Issue(
             id=1000,
@@ -417,7 +415,7 @@ class TestResumeCommandWorkerArtifactUpdate:
         mock_read_worker,
         mock_transition_worker,
         tmp_path,
-    ):
+    ) -> None:
         """Test resume updates worker artifact with matching current_issue_id."""
         # Setup base directory with workers
         workers_dir = tmp_path / "workers"
@@ -495,7 +493,7 @@ class TestResumeCommandWorkerArtifactUpdate:
         mock_read_worker,
         mock_transition_worker,
         tmp_path,
-    ):
+    ) -> None:
         """Test resume doesn't update workers not working on the issue."""
         workers_dir = tmp_path / "workers"
         workers_dir.mkdir()
@@ -547,7 +545,7 @@ class TestResumeCommandWorkerArtifactUpdate:
     @patch("rouge.cli.resume.RougePaths.get_base_dir")
     def test_resume_handles_missing_workers_directory(
         self, mock_get_base_dir, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
-    ):
+    ) -> None:
         """Test resume handles case when workers directory doesn't exist."""
         # No workers directory created
         mock_get_base_dir.return_value = tmp_path
@@ -706,7 +704,7 @@ class TestResumeCommandErrorHandling:
     """Tests for error handling in resume command."""
 
     @patch("rouge.cli.resume.fetch_issue")
-    def test_resume_handles_unexpected_exception(self, mock_fetch_issue):
+    def test_resume_handles_unexpected_exception(self, mock_fetch_issue) -> None:
         """Test resume command handles unexpected exceptions."""
         mock_fetch_issue.side_effect = Exception("Unexpected database error")
 

@@ -45,7 +45,7 @@ def _reset_workflow_registry_fixture() -> Generator[None, None, None]:
 
 
 class TestStepConfig:
-    def test_create_step_instantiates_correctly(self):
+    def test_create_step_instantiates_correctly(self) -> None:
         """StepConfig.create_step() returns an instance of the configured step class."""
         config = StepConfig(step_class=DummyStep)
         step = config.create_step()
@@ -53,7 +53,7 @@ class TestStepConfig:
         assert isinstance(step, DummyStep)
         assert isinstance(step, WorkflowStep)
 
-    def test_create_step_logs_warning_when_is_critical_set(self, caplog):
+    def test_create_step_logs_warning_when_is_critical_set(self, caplog) -> None:
         """StepConfig.create_step() logs a warning when is_critical is overridden."""
         config = StepConfig(step_class=DummyStep, is_critical=True)
 
@@ -71,7 +71,7 @@ class TestStepConfig:
 
 
 class TestWorkflowDefinition:
-    def test_get_pipeline_with_callable(self):
+    def test_get_pipeline_with_callable(self) -> None:
         """WorkflowDefinition.get_pipeline() delegates to a callable pipeline."""
 
         def make_pipeline():
@@ -89,7 +89,7 @@ class TestWorkflowDefinition:
         assert isinstance(pipeline[0], DummyStep)
         assert pipeline[0].name == "from_callable"
 
-    def test_get_pipeline_with_step_config_list(self):
+    def test_get_pipeline_with_step_config_list(self) -> None:
         """WorkflowDefinition.get_pipeline() instantiates from StepConfig list."""
         defn = WorkflowDefinition(
             type_id="test",
@@ -109,7 +109,7 @@ class TestWorkflowDefinition:
 
 
 class TestWorkflowRegistry:
-    def test_register_and_get_pipeline(self):
+    def test_register_and_get_pipeline(self) -> None:
         """Registering a definition and retrieving its pipeline returns the expected steps."""
         registry = WorkflowRegistry()
         defn = WorkflowDefinition(
@@ -126,14 +126,14 @@ class TestWorkflowRegistry:
         assert isinstance(pipeline[0], DummyStep)
         assert pipeline[0].name == "custom_step"
 
-    def test_get_pipeline_unknown_type_raises_value_error(self):
+    def test_get_pipeline_unknown_type_raises_value_error(self) -> None:
         """get_pipeline() raises ValueError for an unregistered type."""
         registry = WorkflowRegistry()
 
         with pytest.raises(ValueError, match="Unknown workflow type: unknown"):
             registry.get_pipeline("unknown")
 
-    def test_list_types(self):
+    def test_list_types(self) -> None:
         """list_types() returns a sorted list of registered type IDs."""
         registry = WorkflowRegistry()
         registry.register(WorkflowDefinition(type_id="beta", pipeline=lambda: [], description=""))
@@ -144,7 +144,7 @@ class TestWorkflowRegistry:
 
         assert types == ["alpha", "beta", "gamma"]
 
-    def test_is_registered(self):
+    def test_is_registered(self) -> None:
         """is_registered() returns True for registered types and False otherwise."""
         registry = WorkflowRegistry()
         registry.register(WorkflowDefinition(type_id="exists", pipeline=lambda: [], description=""))
@@ -159,14 +159,14 @@ class TestWorkflowRegistry:
 
 
 class TestSingleton:
-    def test_get_workflow_registry_returns_same_instance(self):
+    def test_get_workflow_registry_returns_same_instance(self) -> None:
         """get_workflow_registry() returns the same object on repeated calls."""
         first = get_workflow_registry()
         second = get_workflow_registry()
 
         assert first is second
 
-    def test_register_default_workflows_registers_main_patch_and_codereview(self):
+    def test_register_default_workflows_registers_main_patch_and_codereview(self) -> None:
         """
         The default singleton has 'main', 'patch', and 'codereview'
         workflow types registered.
@@ -177,7 +177,7 @@ class TestSingleton:
         assert registry.is_registered("patch")
         assert registry.is_registered("codereview")
 
-    def test_reset_workflow_registry_clears_singleton(self):
+    def test_reset_workflow_registry_clears_singleton(self) -> None:
         """reset_workflow_registry() causes get_workflow_registry() to create a new instance."""
         first = get_workflow_registry()
         reset_workflow_registry()
@@ -192,7 +192,7 @@ class TestSingleton:
 
 
 class TestGetPipelineForType:
-    def test_main_returns_default_pipeline(self):
+    def test_main_returns_default_pipeline(self) -> None:
         """get_pipeline_for_type('main') returns the default pipeline."""
         pipeline = get_pipeline_for_type("main")
 
@@ -200,7 +200,7 @@ class TestGetPipelineForType:
         assert len(pipeline) > 0
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_patch_returns_patch_pipeline(self):
+    def test_patch_returns_patch_pipeline(self) -> None:
         """get_pipeline_for_type('patch') returns the patch pipeline."""
         pipeline = get_pipeline_for_type("patch")
 
@@ -208,7 +208,7 @@ class TestGetPipelineForType:
         assert len(pipeline) > 0
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_unknown_raises_value_error(self):
+    def test_unknown_raises_value_error(self) -> None:
         """Unknown types raise ValueError from the registry."""
         with pytest.raises(ValueError, match="Unknown workflow type: unknown"):
             get_pipeline_for_type("unknown")
@@ -224,7 +224,7 @@ class TestCLIToRegistryFlow:
     get_pipeline_for_type and passes a valid pipeline to execute_workflow.
     """
 
-    def test_adw_workflow_uses_registry_for_main(self, monkeypatch):
+    def test_adw_workflow_uses_registry_for_main(self, monkeypatch) -> None:
         """Calling execute_adw_workflow with workflow_type='main' uses the real
         get_pipeline_for_type('main') and passes a non-empty WorkflowStep pipeline
         to execute_workflow.
@@ -255,7 +255,7 @@ class TestCLIToRegistryFlow:
         assert len(pipeline) > 0
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_adw_workflow_uses_registry_for_patch(self, monkeypatch):
+    def test_adw_workflow_uses_registry_for_patch(self, monkeypatch) -> None:
         """Calling execute_adw_workflow with workflow_type='patch' uses the real
         get_pipeline_for_type('patch') and passes a valid WorkflowStep pipeline
         to execute_workflow.
@@ -284,7 +284,7 @@ class TestCLIToRegistryFlow:
         assert len(pipeline) > 0
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
-    def test_adw_workflow_unknown_type_raises(self, monkeypatch):
+    def test_adw_workflow_unknown_type_raises(self, monkeypatch) -> None:
         """execute_adw_workflow with an unknown workflow_type raises ValueError
         containing 'Unknown workflow type'.
         """
