@@ -5,9 +5,6 @@ contains its own description and does not depend on any parent workflow
 artifacts (original issue or original plan).
 """
 
-from rouge.core.agent import execute_template
-from rouge.core.agents.claude import ClaudeAgentTemplateRequest
-from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
@@ -17,29 +14,9 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
-from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.steps._plan_common import build_plan_from_template
 from rouge.core.workflow.types import PlanData, StepResult
-
-# Required fields for plan output JSON
-# Plan output must have type, output, plan (inline content), summary
-PLAN_REQUIRED_FIELDS = {
-    "type": str,
-    "output": str,
-    "plan": str,
-    "summary": str,
-}
-
-PLAN_JSON_SCHEMA = """{
-  "type": "object",
-  "properties": {
-    "type": { "type": "string", "minLength": 1 },
-    "output": { "type": "string", "const": "plan" },
-    "plan": { "type": "string", "minLength": 1 },
-    "summary": { "type": "string", "minLength": 1 }
-  },
-  "required": ["type", "output", "plan", "summary"]
-}"""
 
 
 class PatchPlanStep(WorkflowStep):
@@ -77,49 +54,7 @@ class PatchPlanStep(WorkflowStep):
         Returns:
             StepResult with PlanData containing output and optional session_id
         """
-        logger = get_logger(adw_id)
-        request = ClaudeAgentTemplateRequest(
-            agent_name=AGENT_PLANNER,
-            prompt_id=prompt_id,
-            args=[issue.description],
-            adw_id=adw_id,
-            issue_id=issue.id,
-            model="sonnet",
-            json_schema=PLAN_JSON_SCHEMA,
-        )
-        logger.debug(
-            "build_plan request: %s",
-            request.model_dump_json(indent=2, by_alias=True),
-        )
-        response = execute_template(request)
-        logger.debug(
-            "build_plan response: %s",
-            response.model_dump_json(indent=2, by_alias=True),
-        )
-
-        if not response.success:
-            return StepResult.fail(response.output or "Agent failure: no output")
-
-        # Guard: Check that response.output is present before parsing
-        if not response.output:
-            return StepResult.fail("No output from template execution")
-
-        # Parse and validate JSON output
-        parse_result = parse_and_validate_json(
-            response.output, PLAN_REQUIRED_FIELDS, step_name="build_plan"
-        )
-        if not parse_result.success:
-            return StepResult.fail(parse_result.error or "JSON parsing failed")
-
-        parsed_data = parse_result.data or {}
-        return StepResult.ok(
-            PlanData(
-                plan=parsed_data.get("plan", ""),
-                summary=parsed_data.get("summary", ""),
-                session_id=response.session_id,
-            ),
-            parsed_data=parsed_data,
-        )
+        return build_plan_from_template(issue, prompt_id, adw_id)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Build standalone plan for patch issue and store in context.
