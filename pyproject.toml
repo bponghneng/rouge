@@ -35,6 +35,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rouge"]
+artifacts = ["src/rouge/core/prompts/templates/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
