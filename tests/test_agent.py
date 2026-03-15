@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+import pytest
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import (
     check_claude_installed,
@@ -34,7 +36,7 @@ def test_check_claude_installed_not_found() -> None:
         assert "not installed" in result
 
 
-def test_get_claude_env(monkeypatch) -> None:
+def test_get_claude_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test getting Claude Code environment variables."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test_key")
     monkeypatch.setenv("HOME", "/home/test")
@@ -46,7 +48,7 @@ def test_get_claude_env(monkeypatch) -> None:
     assert "PATH" in env
 
 
-def test_get_claude_env_with_github_pat(monkeypatch) -> None:
+def test_get_claude_env_with_github_pat(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test environment includes GitHub tokens when GITHUB_PAT is set."""
     monkeypatch.setenv("GITHUB_PAT", "test_pat")
     monkeypatch.setenv("HOME", "/home/test")

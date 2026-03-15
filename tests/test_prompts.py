@@ -145,7 +145,7 @@ class TestParseTemplate:
         _, model, _ = _parse_template(text, PromptId.CLASSIFY)
         assert model is None
 
-    def test_invalid_model_logs_warning(self, caplog) -> None:
+    def test_invalid_model_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         import logging
         text = "---\nmodel: gpt-4\n---\n\nBody."
         with caplog.at_level(logging.WARNING, logger="rouge.core.prompts.registry"):
