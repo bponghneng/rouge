@@ -8,15 +8,6 @@ from typing import Literal, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-# All slash commands used in the Rouge workflow system
-SlashCommand = Literal[
-    "/implement",
-    "/triage:classify",
-    "/triage:chore",
-    "/triage:bug",
-    "/triage:feature",
-]
-
 
 class Issue(BaseModel):
     """Issue model matching Supabase schema.
@@ -227,8 +218,3 @@ class Patch(BaseModel):
     def from_supabase(cls, row: dict) -> "Patch":
         """Create Patch from Supabase row."""
         return cls(**row)
-
-
-# Backward compatibility aliases
-CapeIssue = Issue
-CapeComment = Comment
