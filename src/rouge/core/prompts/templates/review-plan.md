@@ -1,6 +1,8 @@
 ---
-description: Extract a code review base commit from issue text using a strict, schema-compatible output.
+description: ADW step: extracts a base git commit reference and optional PR/MR number from an issue description. Returns JSON matching the schema contract; returns INVALID for base_commit if no supported pattern is found.
 model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
 # Review Base Commit Extraction

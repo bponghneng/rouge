@@ -1,5 +1,8 @@
 ---
-description: Triage a patch and produce a direct, simplicity-first implementation plan.
+description: ADW step: scopes a targeted patch request and produces a direct simplicity-first implementation plan as JSON with minimal research. Accepts the patch description as $ARGUMENTS.
+model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
 # Triage a Patch into an Implementation Plan

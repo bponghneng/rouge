@@ -1,5 +1,8 @@
 ---
-description: Execute a plan
+description: ADW step: orchestrates plan execution by delegating each numbered implementation step to a subagent in sequence. Accepts plan content as $ARGUMENTS and returns a JSON summary of all files modified.
+model: opus
+thinking: true
+disable-model-invocation: true
 ---
 
 # Implement Plan (Orchestrator)

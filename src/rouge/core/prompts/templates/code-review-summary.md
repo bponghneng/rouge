@@ -1,6 +1,8 @@
 ---
-description: Summarise a CodeRabbit review as concise markdown for a PR/MR comment.
+description: ADW step: reads a CodeRabbit plain-text review and produces a concise markdown summary as JSON, suitable for posting as a PR/MR comment. Accepts the review text as $ARGUMENTS.
 model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
 # Code Review Summary
