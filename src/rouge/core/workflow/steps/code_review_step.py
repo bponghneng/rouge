@@ -17,7 +17,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER, CODE_REVIEW_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import ReviewData, StepResult
+from rouge.core.workflow.types import RepoReviewResult, StepResult
 
 # JSON schema for code review summary structured output
 CODE_REVIEW_SUMMARY_JSON_SCHEMA = """{
@@ -81,7 +81,7 @@ class CodeReviewStep(WorkflowStep):
         repo_path: str,
         adw_id: str,
         base_commit: str | None = None,
-    ) -> StepResult[ReviewData]:
+    ) -> StepResult[str]:
         """Generate CodeRabbit review output.
 
         Args:
@@ -90,7 +90,7 @@ class CodeReviewStep(WorkflowStep):
             base_commit: Optional base commit SHA for CodeRabbit --base-commit flag
 
         Returns:
-            StepResult with ReviewData containing review text
+            StepResult with the review text string
         """
         logger = get_logger(adw_id)
         try:
@@ -136,7 +136,7 @@ class CodeReviewStep(WorkflowStep):
             review_text = result.stdout
             logger.info("CodeRabbit review generated (%s chars)", len(review_text))
 
-            return StepResult.ok(ReviewData(review_text=review_text))
+            return StepResult.ok(review_text)
 
         except subprocess.TimeoutExpired:
             logger.exception("CodeRabbit review timed out after %s seconds", timeout_seconds)
@@ -300,7 +300,11 @@ class CodeReviewStep(WorkflowStep):
             func_logger.info("Posted review summary to %s", label)
 
     def run(self, context: WorkflowContext) -> StepResult:
-        """Generate review and store result in context.
+        """Generate review for each repo and store aggregate result.
+
+        Iterates over the effective repo list, generating a CodeRabbit review
+        per repo. Repos already marked ``is_clean`` in a prior artifact are
+        skipped for rerun continuity.
 
         Args:
             context: Workflow context with plan artifact
@@ -322,11 +326,9 @@ class CodeReviewStep(WorkflowStep):
             logger.warning("No plan data available: %s", e)
             return StepResult.fail(f"No plan data available: {e}")
 
-        repo_path = context.repo_paths[0]
-
-        # For codereview/patch workflows, prefer repos where the branch was
-        # actually checked out (stored in GitCheckoutArtifact). Fall back to
-        # repo_paths[0] when the artifact is absent (e.g. main workflow).
+        # Determine the effective repo list.
+        # Prefer checked-out repos from GitCheckoutArtifact when available;
+        # fall back to context.repo_paths.
         checkout_artifact = context.load_optional_artifact(
             "git_checkout",
             "git-checkout",
@@ -334,41 +336,103 @@ class CodeReviewStep(WorkflowStep):
             lambda a: a,
         )
         if checkout_artifact is not None and checkout_artifact.checked_out_repos:
-            repo_path = checkout_artifact.checked_out_repos[0]
-            logger.debug("Using checked-out repo from GitCheckoutArtifact: %s", repo_path)
+            repo_list = list(checkout_artifact.checked_out_repos)
+            logger.debug("Using checked-out repos from GitCheckoutArtifact: %s", repo_list)
+        else:
+            repo_list = list(context.repo_paths)
+
+        if not repo_list:
+            return StepResult.fail("No repos available for code review")
 
         # Only codereview workflows should pass a base commit to CodeRabbit.
         # Main/patch workflows use plan_data.plan for markdown content, not a git SHA.
+        # The same base_commit applies to all repos in a codereview workflow.
         base_commit = None
         if context.data.get("workflow_type") == "codereview":
             base_commit = context.data.get("base_commit")
             if not base_commit and plan_data.plan:
                 base_commit = plan_data.plan
 
-        review_result = self._generate_review(repo_path, context.adw_id, base_commit=base_commit)
+        # Load existing artifact for rerun continuity — repos already marked
+        # is_clean can be skipped on re-review.
+        existing_reviews: dict[str, RepoReviewResult] = {}
+        if context.artifact_store.artifact_exists("code-review"):
+            try:
+                existing_artifact = context.artifact_store.read_artifact(
+                    "code-review", CodeReviewArtifact
+                )
+                existing_reviews = {r.repo_path: r for r in existing_artifact.repo_reviews}
+                logger.debug("Loaded %d existing repo reviews from artifact", len(existing_reviews))
+            except (FileNotFoundError, ValueError) as e:
+                logger.debug("Could not load existing code-review artifact: %s", e)
 
-        if not review_result.success:
-            logger.error("Failed to generate CodeRabbit review: %s", review_result.error)
-            return StepResult.fail(f"Failed to generate CodeRabbit review: {review_result.error}")
+        repo_reviews: list[RepoReviewResult] = []
+        pr_number = context.data.get("pr_number")
+        platform = os.environ.get("DEV_SEC_OPS_PLATFORM")
 
-        if review_result.data is None:
-            logger.warning("CodeRabbit review succeeded but no data was returned")
-            return StepResult.fail("CodeRabbit review succeeded but no data was returned")
+        for repo_path in repo_list:
+            repo_name = os.path.basename(repo_path)
 
-        logger.info("CodeRabbit review generated successfully")
+            # Skip repos already clean from a previous run
+            existing = existing_reviews.get(repo_path)
+            if existing is not None and existing.is_clean:
+                logger.info("Repo %s already clean, skipping re-review", repo_name)
+                repo_reviews.append(existing)
+                continue
 
-        # Detect whether the review is clean (no actionable issues)
-        is_clean = is_clean_review(review_result.data.review_text)
-        if is_clean:
-            logger.info("Review is clean — no actionable issues detected")
-        else:
-            logger.info("Review contains issues that need to be addressed")
+            review_result = self._generate_review(
+                repo_path, context.adw_id, base_commit=base_commit
+            )
 
-        # Save artifact
+            if not review_result.success or review_result.data is None:
+                error_detail = review_result.error or "no data returned"
+                logger.error(
+                    "Failed to generate CodeRabbit review for %s: %s", repo_name, error_detail
+                )
+                # Record a failed (non-clean) entry so the aggregate reflects the failure
+                repo_reviews.append(
+                    RepoReviewResult(
+                        repo_path=repo_path,
+                        review_text="",
+                        is_clean=False,
+                    )
+                )
+                continue
+
+            review_text = review_result.data
+            clean = is_clean_review(review_text)
+            if clean:
+                logger.info("Review for %s is clean — no actionable issues", repo_name)
+            else:
+                logger.info("Review for %s contains issues that need to be addressed", repo_name)
+
+            repo_reviews.append(
+                RepoReviewResult(
+                    repo_path=repo_path,
+                    review_text=review_text,
+                    is_clean=clean,
+                )
+            )
+
+            # Post PR comment per repo (best-effort)
+            if isinstance(pr_number, int) and pr_number > 0 and platform:
+                self._post_review_summary_to_pr(
+                    review_text=review_text,
+                    pr_number=pr_number,
+                    platform=platform,
+                    repo_path=repo_path,
+                    adw_id=context.adw_id,
+                    issue_id=context.issue_id,
+                )
+
+        # Compute aggregate is_clean
+        aggregate_clean = all(r.is_clean for r in repo_reviews)
+
+        # Save artifact with full repo_reviews list
         artifact = CodeReviewArtifact(
             workflow_id=context.adw_id,
-            review_data=review_result.data,
-            is_clean=is_clean,
+            repo_reviews=repo_reviews,
+            is_clean=aggregate_clean,
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved review artifact for workflow %s", context.adw_id)
@@ -376,27 +440,19 @@ class CodeReviewStep(WorkflowStep):
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
-        # Post review summary to PR/MR if pr_number is available
-        pr_number = context.data.get("pr_number")
-        platform = os.environ.get("DEV_SEC_OPS_PLATFORM")
-
-        if isinstance(pr_number, int) and pr_number > 0 and platform:
-            self._post_review_summary_to_pr(
-                review_text=review_result.data.review_text,
-                pr_number=pr_number,
-                platform=platform,
-                repo_path=repo_path,
-                adw_id=context.adw_id,
-                issue_id=context.issue_id,
-            )
-
         # Insert progress comment - best-effort, non-blocking
         if context.issue_id is not None:
+            reviewed_count = len(repo_reviews)
+            clean_count = sum(1 for r in repo_reviews if r.is_clean)
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
-                text="CodeRabbit review complete.",
-                raw={"text": "CodeRabbit review complete."},
+                text=f"CodeRabbit review complete ({clean_count}/{reviewed_count} repos clean).",
+                raw={
+                    "text": "CodeRabbit review complete.",
+                    "repos": reviewed_count,
+                    "clean": clean_count,
+                },
                 source="system",
                 kind="workflow",
             )

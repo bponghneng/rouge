@@ -17,7 +17,8 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    ReviewData,
+    RepoFixResult,
+    RepoReviewResult,
 )
 
 
@@ -132,20 +133,15 @@ class CodeReviewArtifact(Artifact):
     """Artifact containing code review results.
 
     Attributes:
-        review_data: The review content
-        is_clean: Whether the code passed review without issues
+        repo_reviews: Per-repo review results
+        is_clean: Aggregate flag — True only if ALL repos are clean
     """
 
     artifact_type: Literal["code-review"] = "code-review"
-    review_data: ReviewData = Field(
-        ...,
-        description="Structured code review payload",
-        examples=[{"review_text": "Code review feedback"}],
-    )
+    repo_reviews: List[RepoReviewResult] = Field(default_factory=list)
     is_clean: bool = Field(
         default=False,
-        description="Whether the code passed review without requiring fixes",
-        examples=[True, False],
+        description="Aggregate: True only if ALL repos are clean",
     )
 
 
@@ -162,6 +158,7 @@ class ReviewFixArtifact(Artifact):
     message: Optional[str] = Field(
         default=None, description="Optional details about the resolution process"
     )
+    repo_fixes: List[RepoFixResult] = Field(default_factory=list)
 
 
 class CodeQualityArtifact(Artifact):

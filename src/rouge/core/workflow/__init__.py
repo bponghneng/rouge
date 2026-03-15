@@ -27,7 +27,8 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    ReviewData,
+    RepoFixResult,
+    RepoReviewResult,
     StepResult,
 )
 from rouge.core.workflow.workflow_registry import WorkflowRegistry, get_pipeline_for_type
@@ -48,7 +49,8 @@ __all__ = [
     "ClassifyData",
     "PlanData",
     "ImplementData",
-    "ReviewData",
+    "RepoReviewResult",
+    "RepoFixResult",
     # Workflow registry
     "get_pipeline_for_type",
     "WorkflowRegistry",
