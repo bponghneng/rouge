@@ -96,7 +96,8 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
     assert "Database error" in msg
 
 
-# REMOVED: Tests for classify_issue function (moved to step class in rouge.core.workflow.steps.classify)
+# REMOVED: Tests for classify_issue function (moved to step class in
+# rouge.core.workflow.steps.classify)
 # These tests tested a top-level function that no longer exists after refactoring.
 # The business logic is now in ClassifyStep.run() method.
 # To test classification logic, test ClassifyStep directly instead.
@@ -108,7 +109,8 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
 # To test plan building logic, test PlanStep directly instead.
 
 
-# REMOVED: Tests for implement_plan function (moved to step class in rouge.core.workflow.steps.implement)
+# REMOVED: Tests for implement_plan function (moved to step class in
+# rouge.core.workflow.steps.implement)
 # This test tested a top-level function that no longer exists after refactoring.
 # The business logic is now in ImplementStep.run() method.
 # To test implementation logic, test ImplementStep directly instead.
@@ -199,7 +201,8 @@ def test_derive_paths_from_plan() -> None:
     assert result["review_file"] == "specs/chore-review.txt"
 
 
-# REMOVED: Tests for generate_review function (moved to step class in rouge.core.workflow.steps.code_review)
+# REMOVED: Tests for generate_review function (moved to step class in
+# rouge.core.workflow.steps.code_review)
 # These tests tested a top-level function that no longer exists after refactoring.
 # The business logic is now in CodeReviewStep._generate_review() method.
 # To test review generation logic, test CodeReviewStep directly instead.
@@ -245,13 +248,15 @@ def test_is_clean_review_both_markers_missing() -> None:
     assert is_clean_review(review_text) is False
 
 
-# REMOVED: Tests for address_review_issues function (moved to step class in rouge.core.workflow.steps.review_fix)
+# REMOVED: Tests for address_review_issues function (moved to step class in
+# rouge.core.workflow.steps.review_fix)
 # This test tested a top-level function that no longer exists after refactoring.
 # The business logic is now in ReviewFixStep.run() method.
 # To test address review logic, test ReviewFixStep directly instead.
 
 
-# REMOVED: Tests for notify_plan_acceptance function (moved to step class in rouge.core.workflow.steps.acceptance)
+# REMOVED: Tests for notify_plan_acceptance function (moved to step class in
+# rouge.core.workflow.steps.acceptance)
 # This test tested a top-level function that no longer exists after refactoring.
 # The business logic is now in AcceptanceStep.run() method.
 # To test acceptance logic, test AcceptanceStep directly instead.
@@ -280,7 +285,8 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     assert '"const": "code-quality"' in request.json_schema
 
 
-# REMOVED: More tests for address_review_issues function (moved to step class in rouge.core.workflow.steps.review_fix)
+# REMOVED: More tests for address_review_issues function (moved to step class in
+# rouge.core.workflow.steps.review_fix)
 # These tests tested a top-level function that no longer exists after refactoring.
 # The business logic is now in ReviewFixStep.run() method.
 # To test address review logic, test ReviewFixStep directly instead.
@@ -767,14 +773,16 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
-    """Test PR creation with both repos failing: subprocess invoked once per repo, best-effort continues."""
+    """Test PR creation with both repos failing: subprocess invoked once per repo,
+    best-effort continues."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
     mock_which.return_value = "/usr/bin/gh"
     mock_emit.return_value = ("success", "Comment inserted")
 
-    # Two repos: each needs rev-parse, pr list (empty), push, pr create (fail) — 4 calls each = 8 total
+    # Two repos: each needs rev-parse, pr list (empty), push, pr create (fail)
+    # — 4 calls each = 8 total
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
     mock_push_a = Mock(returncode=0, stdout="", stderr="")
@@ -1094,10 +1102,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(
-    mock_subprocess, mock_get_logger, mock_emit
-) -> None:
-    """Test MR creation handles glab CLI not found (propagates to outer FileNotFoundError handler)."""
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit) -> None:
+    """Test MR creation handles glab CLI not found (propagates to outer
+    FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 

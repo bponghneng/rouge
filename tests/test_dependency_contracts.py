@@ -8,7 +8,6 @@ This module tests the three dependency kinds defined in ARTIFACT_POLICY.md:
 These tests validate that step implementations match their registry declarations.
 """
 
-import logging
 from pathlib import Path
 from typing import Any, Optional
 from unittest.mock import Mock, patch
@@ -23,7 +22,6 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.step_registry import get_step_registry
-from rouge.core.workflow.types import ClassifyData
 
 
 @pytest.fixture
@@ -279,12 +277,10 @@ class TestOrderingOnlyDependencies:
                     mock_db_client = Mock()
                     mock_db_response = Mock()
                     mock_db_response.data = [{"id": 42, "status": "completed"}]
-                    mock_db_client.table.return_value.select.return_value.eq.return_value.execute.return_value = (
-                        mock_db_response
-                    )
-                    mock_db_client.table.return_value.update.return_value.eq.return_value.execute.return_value = (
-                        mock_db_response
-                    )
+                    select_chain = mock_db_client.table.return_value.select.return_value
+                    select_chain.eq.return_value.execute.return_value = mock_db_response
+                    update_chain = mock_db_client.table.return_value.update.return_value
+                    update_chain.eq.return_value.execute.return_value = mock_db_response
                     mock_db_client.table.return_value.insert.return_value.execute.return_value = (
                         mock_db_response
                     )

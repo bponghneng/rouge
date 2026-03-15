@@ -574,9 +574,10 @@ class TestJitteredBackoff:
                             # Verify random.uniform was called with correct jitter bounds (±20%)
                             for call in mock_random.call_args_list:
                                 args = call[0]
-                                assert args == (-0.2, 0.2), (
-                                    f"Expected jitter bounds (-0.2, 0.2), got {args}"
-                                )
+                                assert args == (
+                                    -0.2,
+                                    0.2,
+                                ), f"Expected jitter bounds (-0.2, 0.2), got {args}"
 
                             # Verify we got different jittered values
                             poll_interval = worker.config.poll_interval

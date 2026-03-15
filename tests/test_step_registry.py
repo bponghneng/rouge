@@ -588,7 +588,7 @@ class TestGlobalRegistry:
 
             metadata = registry.get_step_metadata_by_slug(slug)
             assert metadata is not None, f"Slug '{slug}' should resolve to metadata"
-            assert metadata.slug == slug, f"Metadata slug should match lookup slug"
+            assert metadata.slug == slug, "Metadata slug should match lookup slug"
 
     def test_reset_step_registry(self):
         """Test reset_step_registry clears the registry."""
