@@ -23,7 +23,7 @@ def get_client():
 def get_next_issue(
     worker_id: str,
     logger: Optional[logging.Logger] = None,
-) -> Optional[Tuple[int, str, str, str]]:
+) -> Optional[Tuple[int, str, str, str, Optional[str]]]:
     """
     Atomically retrieve and lock the next pending issue via RPC.
 
@@ -38,9 +38,10 @@ def get_next_issue(
         logger: Optional logger for logging operations
 
     Returns:
-        Tuple of (issue_id, description, status, type) if an issue is available,
-        None otherwise. Status and type allow the worker to route correctly
-        between new issue processing and patch application.
+        Tuple of (issue_id, description, status, type, adw_id) if an issue is
+        available, None otherwise. Status and type allow the worker to route
+        correctly between new issue processing and patch application. adw_id
+        is the optional ADW workflow identifier (nullable column).
 
     Raises:
         TransientDatabaseError: If a transient network/timeout error occurs during
@@ -60,14 +61,16 @@ def get_next_issue(
             description = issue["issue_description"]
             status = issue["issue_status"]
             issue_type = issue["issue_type"]
+            adw_id: Optional[str] = issue.get("issue_adw_id")
             if logger:
                 logger.info(
-                    "Locked issue %s (status: %s, type: %s) for processing",
+                    "Locked issue %s (status: %s, type: %s, adw_id: %s) for processing",
                     issue_id,
                     status,
                     issue_type,
+                    adw_id,
                 )
-            return (issue_id, description, status, issue_type)
+            return (issue_id, description, status, issue_type, adw_id)
 
         return None
 

@@ -193,26 +193,30 @@ class IssueWorker:
         transition_worker_artifact(self.worker_artifact, state, clear_issue)
 
     def _execute_workflow(
-        self, issue_id: int, workflow_type: str, description: str = ""
+        self,
+        issue_id: int,
+        workflow_type: str,
+        description: str = "",
+        adw_id: str | None = None,
     ) -> tuple[str | None, bool]:
         """Execute a rouge-adw workflow for the given issue.
 
-        Generates a new adw_id and builds the appropriate command with
-        --workflow-type for all workflow types.
+        Uses the provided adw_id or generates a new one, and builds the
+        appropriate command with --workflow-type for all workflow types.
 
         Args:
             issue_id: The ID of the issue to process
             workflow_type: The workflow type (e.g. "main", "patch")
             description: The issue description (used for logging)
+            adw_id: Optional pre-assigned ADW ID; if None, a new one is generated
 
         Returns:
             Tuple of (adw_id, success) where success is True if workflow completed
 
         """
-        adw_id = None
         try:
-            # Generate a new adw_id for all workflow types
-            adw_id = make_adw_id()
+            # Use provided adw_id or generate a new one
+            adw_id = adw_id or make_adw_id()
             self.logger.info(
                 "Executing %s workflow %s for issue %s", workflow_type, adw_id, issue_id
             )
@@ -286,7 +290,12 @@ class IssueWorker:
             return adw_id, False
 
     def execute_workflow(
-        self, issue_id: int, description: str, _status: str, issue_type: str
+        self,
+        issue_id: int,
+        description: str,
+        _status: str,
+        issue_type: str,
+        adw_id: str | None = None,
     ) -> bool:
         """
         Execute the appropriate workflow for the given issue based on type.
@@ -300,6 +309,7 @@ class IssueWorker:
             description: The issue description
             _status: The issue status (unused, kept for interface compatibility)
             issue_type: The workflow type (e.g. 'main', 'patch') passed to rouge-adw
+            adw_id: Optional pre-assigned ADW ID to forward to _execute_workflow
 
         Returns:
             True if workflow executed successfully, False otherwise
@@ -310,7 +320,7 @@ class IssueWorker:
         else:
             workflow_type = issue_type
 
-        _, success = self._execute_workflow(issue_id, workflow_type, description)
+        _, success = self._execute_workflow(issue_id, workflow_type, description, adw_id=adw_id)
         return success
 
     def run(self) -> None:
@@ -396,8 +406,8 @@ class IssueWorker:
                         reset_client()
 
                 if issue:
-                    issue_id, description, status, issue_type = issue
-                    self.execute_workflow(issue_id, description, status, issue_type)
+                    issue_id, description, status, issue_type, adw_id = issue
+                    self.execute_workflow(issue_id, description, status, issue_type, adw_id=adw_id)
                 else:
                     # No issues available, sleep for poll interval
                     self.logger.debug(
