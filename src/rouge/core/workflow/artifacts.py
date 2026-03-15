@@ -90,7 +90,7 @@ class ClassifyArtifact(Artifact):
     artifact_type: Literal["classify"] = "classify"
     classify_data: ClassifyData = Field(
         description=(
-            "Classification results including the slash command to execute "
+            "Classification results including the prompt template to execute "
             "and normalized classification metadata with type and level"
         )
     )

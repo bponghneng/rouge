@@ -34,7 +34,7 @@ def execute_template(
     *,
     require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
-    """Execute a Claude Code template with slash command and arguments.
+    """Execute a prompt template with prompt ID and arguments.
 
     This is a Claude-specific function that uses the Claude agent provider
     exclusively. It constructs an AgentExecuteRequest and calls the Claude
@@ -45,8 +45,7 @@ def execute_template(
         request: Claude-specific template request
         require_json: If True (default), validates output as JSON and emits
             error comments for non-JSON output. If False, skips JSON validation
-            and allows plain text output (used by FindPlanFileStep and
-            CodeReviewStep).
+            and allows plain text output (used by CodeReviewStep).
 
     Returns:
         Claude-specific prompt response
@@ -129,7 +128,7 @@ def execute_template(
                 status, msg = emit_comment_from_payload(payload)
                 logger.debug(msg) if status == "success" else logger.error(msg)
         else:
-            # Skip JSON validation for plain text output (FindPlanFileStep, CodeReviewStep)
+            # Skip JSON validation for plain text output (CodeReviewStep)
             payload = CommentPayload(
                 issue_id=request.issue_id,
                 text=f"Template {prompt_label} completed",

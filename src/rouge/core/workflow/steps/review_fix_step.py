@@ -86,7 +86,7 @@ class ReviewFixStep(WorkflowStep):
 
         try:
             # Construct the template request
-            # Pass the review text as an argument to the slash command
+            # Pass the review text as an argument to the prompt template
             request = ClaudeAgentTemplateRequest(
                 agent_name="code_review",
                 prompt_id=PromptId.IMPLEMENT_REVIEW,
@@ -167,7 +167,7 @@ class ReviewFixStep(WorkflowStep):
 
             return StepResult.ok(None, parsed_data=parse_result.data)
 
-        except (FileNotFoundError, ValueError, RuntimeError) as e:
+        except Exception as e:
             logger.exception("Failed to address review issues")
             return StepResult.fail(f"Failed to address review issues: {e}")
 
