@@ -15,12 +15,9 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
-from rouge.core.workflow.shared import AGENT_PLANNER
+from rouge.core.workflow.shared import AGENT_PLANNER, CODE_REVIEW_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ReviewData, StepResult
-
-# Module-level constant for step name used in rerun_from references
-CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
 
 # JSON schema for code review summary structured output
 CODE_REVIEW_SUMMARY_JSON_SCHEMA = """{
