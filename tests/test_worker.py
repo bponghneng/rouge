@@ -80,7 +80,7 @@ class TestGetNextIssue:
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
-            assert result == (123, "Test issue", "pending", "main")
+            assert result == (123, "Test issue", "pending", "main", None)
             mock_client.rpc.assert_called_once_with(
                 "get_and_lock_next_issue", {"p_worker_id": "test-worker"}
             )
@@ -324,7 +324,7 @@ class TestWorkerRun:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Test issue", "pending", "main")
+                return (123, "Test issue", "pending", "main", "abc12345")
             worker.running = False
             return None
 
@@ -332,7 +332,9 @@ class TestWorkerRun:
             with patch.object(worker, "execute_workflow") as mock_execute:
                 worker.run()
 
-                mock_execute.assert_called_once_with(123, "Test issue", "pending", "main")
+                mock_execute.assert_called_once_with(
+                    123, "Test issue", "pending", "main", adw_id="abc12345"
+                )
 
     @pytest.mark.skip(reason="Flaky sleep timing on CI runners; revisit later.")
     def test_run_sleeps_when_no_issues(self, worker) -> None:
@@ -657,7 +659,9 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(123, "Test issue", "pending", "main")
 
             assert result is True
-            mock_workflow.assert_called_once_with(123, "full", "Test issue")
+            mock_workflow.assert_called_once_with(
+                123, "full", "Test issue", adw_id=None
+            )
 
     def test_execute_workflow_routes_to_patch_for_patch_type(self, worker) -> None:
         """Test that execute_workflow calls _execute_workflow for type='patch'."""
@@ -667,7 +671,9 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(456, "Patch issue", "pending", "patch")
 
             assert result is True
-            mock_workflow.assert_called_once_with(456, "patch", "Patch issue")
+            mock_workflow.assert_called_once_with(
+                456, "patch", "Patch issue", adw_id=None
+            )
 
     def test_execute_workflow_defaults_to_main_for_unknown_type(self, worker) -> None:
         """Test execute_workflow passes unknown type to _execute_workflow (registry)."""
@@ -677,7 +683,9 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(789, "Unknown type issue", "pending", "unknown")
 
             assert result is True
-            mock_workflow.assert_called_once_with(789, "unknown", "Unknown type issue")
+            mock_workflow.assert_called_once_with(
+                789, "unknown", "Unknown type issue", adw_id=None
+            )
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
     def test_run_loop_routes_patch_issue_to_patch_workflow(self, worker) -> None:
@@ -688,7 +696,7 @@ class TestWorkflowRouting:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Patch issue description", "pending", "patch")
+                return (123, "Patch issue description", "pending", "patch", "abc12345")
             worker.running = False
             return None
 
@@ -698,7 +706,7 @@ class TestWorkflowRouting:
                 worker.run()
 
                 mock_execute.assert_called_once_with(
-                    123, "Patch issue description", "pending", "patch"
+                    123, "Patch issue description", "pending", "patch", adw_id="abc12345"
                 )
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
@@ -710,7 +718,7 @@ class TestWorkflowRouting:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (456, "Main issue description", "pending", "main")
+                return (456, "Main issue description", "pending", "main", "abc12345")
             worker.running = False
             return None
 
@@ -720,7 +728,7 @@ class TestWorkflowRouting:
                 worker.run()
 
                 mock_execute.assert_called_once_with(
-                    456, "Main issue description", "pending", "main"
+                    456, "Main issue description", "pending", "main", adw_id="abc12345"
                 )
 
     def test_execute_workflow_handles_patch_failure(self, worker) -> None:
@@ -731,7 +739,9 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
 
             assert result is False
-            mock_workflow.assert_called_once_with(123, "patch", "Patch issue")
+            mock_workflow.assert_called_once_with(
+                123, "patch", "Patch issue", adw_id=None
+            )
 
     def test_execute_workflow_handles_main_failure(self, worker) -> None:
         """Test execute_workflow handles main workflow failure correctly."""
@@ -741,7 +751,9 @@ class TestWorkflowRouting:
             result = worker.execute_workflow(123, "Main issue", "pending", "main")
 
             assert result is False
-            mock_workflow.assert_called_once_with(123, "full", "Main issue")
+            mock_workflow.assert_called_once_with(
+                123, "full", "Main issue", adw_id=None
+            )
 
     def test_execute_workflow_maps_main_issue_type_to_full_workflow_type(self, worker) -> None:
         """Test that issue_type='main' is dispatched with workflow_type='full'."""
@@ -752,7 +764,23 @@ class TestWorkflowRouting:
 
             assert result is True
             # Verify that 'main' issue type was mapped to 'full' workflow type
-            mock_workflow.assert_called_once_with(789, "full", "Main issue description")
+            mock_workflow.assert_called_once_with(
+                789, "full", "Main issue description", adw_id=None
+            )
+
+    def test_execute_workflow_forwards_adw_id(self, worker) -> None:
+        """Test that execute_workflow forwards adw_id to _execute_workflow."""
+        with patch.object(worker, "_execute_workflow") as mock_workflow:
+            mock_workflow.return_value = ("abc12345", True)
+
+            result = worker.execute_workflow(
+                123, "Test issue", "pending", "main", adw_id="abc12345"
+            )
+
+            assert result is True
+            mock_workflow.assert_called_once_with(
+                123, "full", "Test issue", adw_id="abc12345"
+            )
 
 
 class TestPatchWorkflowAdwId:
@@ -827,6 +855,83 @@ class TestPatchWorkflowAdwId:
                     worker.execute_workflow(100, "Issue", "pending", "patch")
 
                     mock_make.assert_called_once()
+
+
+class TestAdwIdResolution:
+    """Tests for adw_id resolution: reuse from issue vs. fallback to make_adw_id()."""
+
+    def test_adw_id_from_issue_is_reused(self, worker) -> None:
+        """When get_next_issue returns an adw_id, make_adw_id() is not called."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id") as mock_make:
+                    with patch("shutil.which", return_value=None):
+                        worker.execute_workflow(
+                            123, "Test issue", "pending", "main", adw_id="abc12345"
+                        )
+
+                    # make_adw_id should NOT have been called
+                    mock_make.assert_not_called()
+
+                    # The subprocess command should contain the issue's adw_id
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
+                    assert "--adw-id" in cmd
+                    adw_idx = cmd.index("--adw-id")
+                    assert cmd[adw_idx + 1] == "abc12345"
+
+    def test_make_adw_id_fallback_when_adw_id_is_none(self, worker) -> None:
+        """When get_next_issue returns adw_id=None, make_adw_id() is called."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch(
+                    "rouge.worker.worker.make_adw_id", return_value="generated-id"
+                ) as mock_make:
+                    with patch("shutil.which", return_value=None):
+                        worker.execute_workflow(
+                            123, "Test issue", "pending", "main", adw_id=None
+                        )
+
+                    # make_adw_id SHOULD have been called
+                    mock_make.assert_called_once()
+
+                    # The subprocess command should contain the generated adw_id
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
+                    assert "--adw-id" in cmd
+                    adw_idx = cmd.index("--adw-id")
+                    assert cmd[adw_idx + 1] == "generated-id"
+
+    def test_adw_id_reuse_in_subprocess_command(self, worker) -> None:
+        """Verify the exact subprocess command uses the issue's adw_id, not a generated one."""
+        mock_result = Mock()
+        mock_result.returncode = 0
+
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            with patch("rouge.worker.worker.update_issue_status"):
+                with patch("rouge.worker.worker.make_adw_id") as mock_make:
+                    with patch("shutil.which", return_value=None):
+                        worker.execute_workflow(
+                            456, "Patch issue", "pending", "patch", adw_id="preassigned-id"
+                        )
+
+                    mock_make.assert_not_called()
+
+                    call_args = mock_run.call_args
+                    cmd = call_args[0][0]
+                    # Verify full command structure
+                    assert cmd == [
+                        "uv", "run", "rouge-adw",
+                        "--adw-id", "preassigned-id",
+                        "--workflow-type", "patch",
+                        "456",
+                    ]
 
 
 class TestWorkerConfig:
