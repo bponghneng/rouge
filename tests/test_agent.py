@@ -79,7 +79,7 @@ def test_save_prompt(tmp_path: Path) -> None:
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.run")
 def test_execute_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_path: Path) -> None:
-    """Test executing template with slash command."""
+    """Test executing template with prompt ID."""
     mock_wd.return_value = str(tmp_path)
     mock_check.return_value = None
 
