@@ -75,7 +75,6 @@ class TestPromptId:
             "CODE_REVIEW_SUMMARY",
             "COMPOSE_COMMITS",
             "FEATURE_PLAN",
-            "FIND_PLAN_FILE",
             "IMPLEMENT_PLAN",
             "IMPLEMENT_REVIEW",
             "PATCH_PLAN",
@@ -105,8 +104,8 @@ class TestPromptId:
         assert PromptId.REVIEW_PLAN.value == "review-plan"
 
     def test_count(self):
-        """Exactly 15 prompt IDs are declared."""
-        assert len(list(PromptId)) == 15
+        """Exactly 14 prompt IDs are declared."""
+        assert len(list(PromptId)) == 14
 
 
 # ---------------------------------------------------------------------------

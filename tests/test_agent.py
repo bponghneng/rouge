@@ -140,7 +140,7 @@ def test_execute_template_require_json_false(
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        prompt_id=PromptId.FIND_PLAN_FILE,
+        prompt_id=PromptId.COMPOSE_COMMITS,
         args=["output"],
         adw_id="test123",
         issue_id=1,
