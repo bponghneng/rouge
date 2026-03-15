@@ -5,8 +5,6 @@ Uses a streamlined task-keyed schema (task, output, plan, summary) instead
 of the type-keyed schema used by PlanStep.
 """
 
-import logging
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -17,12 +15,11 @@ from rouge.core.notifications.comments import (
     log_artifact_comment_status,
 )
 from rouge.core.prompts import PromptId
+from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
-
-logger = logging.getLogger(__name__)
 
 # Required fields for plan output JSON
 # Plan output must have task, output, plan (inline content), summary
@@ -57,7 +54,7 @@ class ClaudeCodePlanStep(WorkflowStep):
 
     @property
     def name(self) -> str:
-        return "Building implementation plan"
+        return "Building task-oriented implementation plan"
 
     def _build_plan(
         self,
@@ -73,6 +70,7 @@ class ClaudeCodePlanStep(WorkflowStep):
         Returns:
             StepResult with PlanData containing output and optional session_id
         """
+        logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
             prompt_id=PromptId.CLAUDE_CODE_PLAN,
@@ -125,6 +123,8 @@ class ClaudeCodePlanStep(WorkflowStep):
         Returns:
             StepResult with success status and optional error message
         """
+        logger = get_logger(context.adw_id)
+
         # Load issue from artifact (required)
         try:
             issue = context.load_required_artifact(
