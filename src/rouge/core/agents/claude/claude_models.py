@@ -59,7 +59,7 @@ class ClaudeAgentTemplateRequest(BaseModel):
     args: List[str]
     adw_id: str
     issue_id: Optional[int]
-    model: Literal["sonnet", "opus"] = "sonnet"
+    model: Literal["sonnet", "opus", "haiku"] = "sonnet"
     model_override: Optional[Literal["sonnet", "opus", "haiku"]] = None
     json_schema: Optional[str] = None
 
