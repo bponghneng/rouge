@@ -159,7 +159,9 @@ def test_codereview_command_failure(mock_execute, mock_setup_logger) -> None:
 def test_codereview_command_with_adw_id(mock_make_adw_id, mock_execute, mock_setup_logger) -> None:
     """Test codereview command with custom ADW ID.
 
-    Expected call: execute_adw_workflow(adw_id="custom123", issue_id=123, workflow_type="codereview")
+    Expected call: execute_adw_workflow(
+        adw_id="custom123", issue_id=123, workflow_type="codereview"
+    )
     """
     mock_execute.return_value = (True, "some-workflow-id")
 

@@ -15,11 +15,10 @@ import pytest
 
 from rouge.core.prompts import PromptId, PromptRegistry, get_registry, render_prompt
 from rouge.core.prompts.registry import (
-    RenderedPrompt,
     PromptTemplate,
+    RenderedPrompt,
     _parse_template,
 )
-
 
 # ---------------------------------------------------------------------------
 # Test helpers
@@ -87,9 +86,9 @@ class TestPromptId:
     def test_values_have_no_adw_prefix(self) -> None:
         """PromptId values do not carry an 'adw-' prefix."""
         for prompt_id in PromptId:
-            assert not prompt_id.value.startswith("adw-"), (
-                f"{prompt_id.name} value {prompt_id.value!r} still has 'adw-' prefix"
-            )
+            assert not prompt_id.value.startswith(
+                "adw-"
+            ), f"{prompt_id.name} value {prompt_id.value!r} still has 'adw-' prefix"
 
     def test_is_str_subclass(self) -> None:
         """PromptId inherits from str so it serialises cleanly."""
@@ -147,6 +146,7 @@ class TestParseTemplate:
 
     def test_invalid_model_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
         import logging
+
         text = "---\nmodel: gpt-4\n---\n\nBody."
         with caplog.at_level(logging.WARNING, logger="rouge.core.prompts.registry"):
             _parse_template(text, PromptId.CLASSIFY)
@@ -253,9 +253,9 @@ class TestPromptRegistryGet:
         registry = PromptRegistry()
         for prompt_id in PromptId:
             template = registry.get(prompt_id)
-            assert not template.body.startswith("---"), (
-                f"{prompt_id.value} body still contains front matter marker"
-            )
+            assert not template.body.startswith(
+                "---"
+            ), f"{prompt_id.value} body still contains front matter marker"
 
     def test_classify_template_has_model_sonnet(self) -> None:
         """classify.md front matter declares model: sonnet."""
@@ -427,9 +427,7 @@ class TestPromptIdTemplateContract:
             if not name.endswith(".md"):
                 continue
             stem = name[: -len(".md")]
-            assert stem in declared_values, (
-                f"Template file '{name}' has no matching PromptId"
-            )
+            assert stem in declared_values, f"Template file '{name}' has no matching PromptId"
 
 
 # ---------------------------------------------------------------------------
@@ -459,9 +457,9 @@ class TestModuleLevelHelpers:
             registry = get_registry()
             # All PromptIds must be cached — validation happened at startup
             for prompt_id in PromptId:
-                assert prompt_id in registry._cache, (
-                    f"{prompt_id.value} was not validated at registry creation"
-                )
+                assert (
+                    prompt_id in registry._cache
+                ), f"{prompt_id.value} was not validated at registry creation"
         finally:
             _mod._registry = old
 

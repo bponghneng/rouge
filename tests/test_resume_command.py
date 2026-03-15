@@ -27,7 +27,7 @@ class TestResumeCommandValidation:
         mock_fetch_issue.return_value = mock_issue
 
         # Will fail later but should pass initial validation
-        result = runner.invoke(app, ["resume", "123"])
+        runner.invoke(app, ["resume", "123"])
 
         mock_fetch_issue.assert_called_once_with(123)
         # Exit code will be non-zero due to missing artifact, but that's expected

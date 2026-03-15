@@ -6,7 +6,7 @@ Focuses on:
 - Loading PR details from artifact when present
 """
 
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 

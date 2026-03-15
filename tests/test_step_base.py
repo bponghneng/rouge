@@ -3,8 +3,6 @@
 import os
 from unittest.mock import MagicMock
 
-import pytest
-
 from rouge.core.workflow.step_base import WorkflowContext
 
 

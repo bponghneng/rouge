@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 
 from rouge.core.models import Issue
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import (
     ARTIFACT_MODELS,
     AcceptanceArtifact,
@@ -16,7 +17,6 @@ from rouge.core.workflow.artifacts import (
     CodeReviewArtifact,
     ComposeRequestArtifact,
     FetchIssueArtifact,
-    FetchPatchArtifact,
     GhPullRequestArtifact,
     GlabPullRequestArtifact,
     ImplementArtifact,
@@ -24,7 +24,6 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
     ReviewFixArtifact,
 )
-from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,

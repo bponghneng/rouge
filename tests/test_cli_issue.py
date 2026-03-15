@@ -327,9 +327,7 @@ def test_create_command_with_assigned_to(mock_create_issue) -> None:
     )
     mock_create_issue.return_value = mock_issue
 
-    result = runner.invoke(
-        app, ["create", "Task description", "--assigned-to", "agent-1"]
-    )
+    result = runner.invoke(app, ["create", "Task description", "--assigned-to", "agent-1"])
     assert result.exit_code == 0
     assert "555" in result.output
     mock_create_issue.assert_called_once_with(
@@ -383,7 +381,8 @@ def test_create_patch_with_branch_succeeds(mock_create_issue: MagicMock) -> None
 def test_create_patch_with_parent_issue_id_succeeds(
     mock_create_issue: MagicMock, mock_fetch_issue: MagicMock
 ) -> None:
-    """Test patch creation with --parent-issue-id (parent has branch) succeeds and inherits branch."""
+    """Test patch creation with --parent-issue-id (parent has branch) succeeds and inherits
+    branch."""
     # Mock parent issue with branch
     parent_issue = Issue(
         id=100, description="Parent issue", status="pending", branch="feature/parent"
@@ -1112,7 +1111,8 @@ def test_list_command_combined_filters(mock_fetch_all_issues) -> None:
 
 @patch("rouge.cli.issue.fetch_all_issues")
 def test_list_command_json_format_with_filters(mock_fetch_all_issues) -> None:
-    """Test list command with --format json --limit 3 --type main honors filters and outputs JSON."""
+    """Test list command with --format json --limit 3 --type main honors filters and outputs
+    JSON."""
     mock_issues = [
         Issue(
             id=1,
@@ -1366,7 +1366,9 @@ def test_update_command_unexpected_error(mock_update_issue) -> None:
 
 @patch("rouge.cli.issue.update_issue")
 def test_update_command_type_main_auto_clears_branch(mock_update_issue) -> None:
-    """Test update command auto-clears branch when changing type to 'main' without explicit --branch."""
+    """Test update command auto-clears branch when changing type to 'main'
+    without explicit --branch.
+    """
     mock_issue = Issue(
         id=123,
         description="Test description",

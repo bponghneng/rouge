@@ -5,15 +5,15 @@ artifact (not from context.issue directly).
 """
 
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from rouge.core.models import Issue
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import ArtifactStore, FetchPatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
-from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import PlanData, StepResult
 
 

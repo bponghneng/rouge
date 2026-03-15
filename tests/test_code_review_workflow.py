@@ -84,7 +84,8 @@ class TestCodeReviewPipeline:
         ), f"expected 7 steps in code review pipeline but got {len(pipeline)}"
 
     def test_pipeline_step_order(self) -> None:
-        """Steps should be: FetchIssueStep, GitCheckoutStep, ReviewPlanStep, CodeReviewStep, ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
+        """Steps should be: FetchIssueStep, GitCheckoutStep, ReviewPlanStep, CodeReviewStep,
+        ReviewFixStep, CodeQualityStep, ComposeCommitsStep."""
         pipeline = get_code_review_pipeline()
 
         expected_types = [
@@ -141,12 +142,12 @@ class TestCodeReviewPipeline:
     def test_pipeline_does_not_include_implementation_steps(self) -> None:
         """Codereview pipeline should not contain planning or implementation steps."""
         from rouge.core.workflow.steps import (
-            PlanStep,
+            AcceptanceStep,
             ClassifyStep,
-            ImplementStep,
             ComposeRequestStep,
             GitBranchStep,
-            AcceptanceStep,
+            ImplementStep,
+            PlanStep,
         )
 
         excluded_types = (
@@ -207,10 +208,12 @@ class TestCodeReviewRerunBehavior:
     """
 
     def test_review_fix_step_returns_rerun_from_code_review(self) -> None:
-        """ReviewFixStep should return rerun_from set to CodeReviewStep name when issues are addressed."""
+        """ReviewFixStep should return rerun_from set to CodeReviewStep name
+        when issues are addressed.
+        """
         from rouge.core.workflow.artifacts import CodeReviewArtifact
-        from rouge.core.workflow.types import RepoReviewResult
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
+        from rouge.core.workflow.types import RepoReviewResult
 
         # Create a mock context with review data
         mock_artifact_store = MagicMock()

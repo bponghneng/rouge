@@ -7,6 +7,7 @@ from rouge.core.notifications.comments import (
     emit_artifact_comment,
     emit_comment_from_payload,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import (
     AcceptanceArtifact,
     ClassifyArtifact,
@@ -24,7 +25,6 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
     ReviewFixArtifact,
 )
-from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
@@ -128,7 +128,9 @@ class TestEmitArtifactComment:
         mock_create_comment.assert_not_called()
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_raw_field_contains_full_artifact(self, mock_create_comment) -> None:
+    def test_emit_artifact_comment_raw_field_contains_full_artifact(
+        self, mock_create_comment
+    ) -> None:
         """Test that raw field contains the full serialized artifact JSON."""
         # Create artifact with nested data
         repo_review = RepoReviewResult(
@@ -162,7 +164,9 @@ class TestEmitArtifactComment:
         assert "created_at" in artifact_json
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_type_compatibility_all_artifact_types(self, mock_create_comment) -> None:
+    def test_emit_artifact_comment_type_compatibility_all_artifact_types(
+        self, mock_create_comment
+    ) -> None:
         """Test emit_artifact_comment with all ArtifactType values to verify type compatibility."""
         mock_create_comment.return_value = Comment(
             id=1, issue_id=100, comment="test", adw_id="adw-type-test"

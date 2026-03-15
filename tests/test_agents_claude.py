@@ -61,14 +61,7 @@ def test_save_prompt(tmp_path: Path) -> None:
         save_prompt("implement plan.md", "test123", "ops")
 
         expected_file = (
-            tmp_path
-            / ".rouge"
-            / "agents"
-            / "logs"
-            / "test123"
-            / "ops"
-            / "prompts"
-            / "ops.txt"
+            tmp_path / ".rouge" / "agents" / "logs" / "test123" / "ops" / "prompts" / "ops.txt"
         )
         assert expected_file.exists()
         assert expected_file.read_text() == "implement plan.md"

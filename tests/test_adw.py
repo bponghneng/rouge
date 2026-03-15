@@ -70,9 +70,7 @@ def test_execute_adw_workflow_patch_type(monkeypatch) -> None:
     monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute)
     monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", fake_get_pipeline)
 
-    success, workflow_id = execute_adw_workflow(
-        "any-workflow-id", 789, workflow_type="patch"
-    )
+    success, workflow_id = execute_adw_workflow("any-workflow-id", 789, workflow_type="patch")
 
     assert success is True
     assert workflow_id == "any-workflow-id"
