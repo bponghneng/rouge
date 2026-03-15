@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.classify_step import ClassifyStep
 from rouge.core.workflow.types import ClassifyData, StepResult
@@ -36,7 +37,7 @@ def sample_issue():
 def sample_classify_data():
     """Create sample classification data."""
     return ClassifyData(
-        command="/adw-feature-plan",
+        command=PromptId.FEATURE_PLAN,
         classification={"type": "feature", "level": "average"},
     )
 

@@ -24,6 +24,7 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
     ReviewFixArtifact,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
@@ -81,7 +82,7 @@ class TestEmitArtifactComment:
         """Test that emit_artifact_comment constructs correct payload."""
         # Create a test artifact
         classify_data = ClassifyData(
-            command="/adw-feature-plan",
+            command=PromptId.FEATURE_PLAN,
             classification={"type": "feature", "level": "medium"},
         )
         artifact = ClassifyArtifact(workflow_id="adw-classify-test", classify_data=classify_data)
@@ -176,7 +177,7 @@ class TestEmitArtifactComment:
                 ClassifyArtifact(
                     workflow_id="adw-type-test",
                     classify_data=ClassifyData(
-                        command="/adw-feature-plan", classification={"type": "feature"}
+                        command=PromptId.FEATURE_PLAN, classification={"type": "feature"}
                     ),
                 ),
                 "classify",
