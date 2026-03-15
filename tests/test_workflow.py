@@ -858,7 +858,7 @@ def test_create_pr_step_name() -> None:
 
 
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     """Test successful MR creation: rev-parse, mr list (empty), push, mr create."""
@@ -912,7 +912,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when GITLAB_PAT is missing."""
@@ -944,7 +944,7 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) ->
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when pr_details is missing."""
@@ -970,7 +970,7 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) ->
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
@@ -1001,7 +1001,7 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -1044,7 +1044,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -1090,7 +1090,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -1136,7 +1136,7 @@ def test_create_gitlab_mr_step_glab_not_found(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit) -> None:
@@ -1174,7 +1174,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
-@patch("rouge.core.workflow.steps.glab_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit) -> None:

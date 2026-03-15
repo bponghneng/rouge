@@ -158,7 +158,7 @@ class TestRunWhenPlatformMissing:
     """Tests for ComposeCommitsStep.run when platform cannot be detected."""
 
     @patch(
-        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
@@ -196,7 +196,7 @@ class TestComposeCommits:
     """Tests for compose-commits integration in ComposeCommitsStep.run."""
 
     @patch(
-        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
@@ -267,7 +267,7 @@ class TestComposeCommits:
         assert result.success is True
 
     @patch(
-        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
@@ -300,7 +300,7 @@ class TestComposeCommits:
         mock_subprocess.assert_not_called()
 
     @patch(
-        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
@@ -337,7 +337,7 @@ class TestComposeCommits:
         mock_subprocess.assert_not_called()
 
     @patch(
-        "rouge.core.workflow.steps.compose_commits_step.emit_comment_from_payload",
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
     @patch("subprocess.run")
