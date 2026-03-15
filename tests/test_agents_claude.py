@@ -56,7 +56,7 @@ def test_get_claude_env_with_github_pat(monkeypatch):
 def test_save_prompt(tmp_path: Path) -> None:
     """Test saving prompt to file."""
     with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
-        save_prompt("/implement plan.md", "test123", "ops")
+        save_prompt("implement plan.md", "test123", "ops")
 
         expected_file = (
             tmp_path
@@ -66,10 +66,10 @@ def test_save_prompt(tmp_path: Path) -> None:
             / "test123"
             / "ops"
             / "prompts"
-            / "implement.txt"
+            / "ops.txt"
         )
         assert expected_file.exists()
-        assert expected_file.read_text() == "/implement plan.md"
+        assert expected_file.read_text() == "implement plan.md"
 
 
 @patch(_WORKING_DIR_PATCH)
