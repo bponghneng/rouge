@@ -54,10 +54,11 @@ def execute_template(
     # Render prompt from packaged template
     rendered = render_prompt(request.prompt_id, request.args)
 
-    # Use model from template front matter when the request uses the default,
-    # giving the template a chance to override; explicit request.model wins.
-    template_model = rendered.model or request.model
-    effective_model = request.model if request.model != "sonnet" else template_model
+    # Model resolution priority:
+    # 1. model_override (explicit caller intent) — wins unconditionally
+    # 2. Template front matter model — preferred over the request default
+    # 3. request.model default ("sonnet")
+    effective_model = request.model_override or rendered.model or request.model
 
     # Build provider options
     provider_options: dict[str, object] = {"dangerously_skip_permissions": True}

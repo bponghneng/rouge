@@ -45,6 +45,13 @@ class ClaudeAgentTemplateRequest(BaseModel):
 
     Used for executing packaged prompt templates through the Claude Code CLI
     with specific arguments and configuration.
+
+    Attributes:
+        model_override: When set, overrides both the template front matter model
+            and the ``model`` default. Use this when the caller explicitly wants
+            a specific model rather than the per-template default.
+        model: The fallback default model used when ``model_override`` is None
+            and the template front matter does not specify a model.
     """
 
     agent_name: str
@@ -53,6 +60,7 @@ class ClaudeAgentTemplateRequest(BaseModel):
     adw_id: str
     issue_id: Optional[int]
     model: Literal["sonnet", "opus"] = "sonnet"
+    model_override: Optional[str] = None
     json_schema: Optional[str] = None
 
 
