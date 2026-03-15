@@ -109,7 +109,7 @@ class AcceptanceStep(WorkflowStep):
                 logger.error("Plan content is empty")
                 return StepResult.fail("Plan content is empty")
 
-            logger.debug("Invoking /adw-acceptance template with plan content")
+            logger.debug("Invoking acceptance prompt template with plan content")
 
             # Create template request with plan content as argument
             request = ClaudeAgentTemplateRequest(
@@ -136,9 +136,11 @@ class AcceptanceStep(WorkflowStep):
             )
 
             if not response.success:
-                logger.error("Failed to execute /adw-acceptance template: %s", response.output)
+                logger.error(
+                    "Failed to execute %s template: %s", PromptId.ACCEPTANCE.value, response.output
+                )
                 return StepResult.fail(
-                    f"Failed to execute /adw-acceptance template: {response.output}"
+                    f"Failed to execute {PromptId.ACCEPTANCE.value} template: {response.output}"
                 )
 
             # Parse and validate JSON output
@@ -404,7 +406,3 @@ class AcceptanceStep(WorkflowStep):
             logger.error(msg)
 
         return StepResult.ok(None)
-
-
-# Backwards compatibility alias
-ValidateAcceptanceStep = AcceptanceStep

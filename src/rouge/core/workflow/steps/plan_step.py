@@ -189,7 +189,3 @@ class PlanStep(WorkflowStep):
             logger.error(msg)
 
         return StepResult.ok(None)
-
-
-# Backwards compatibility alias
-BuildPlanStep = PlanStep

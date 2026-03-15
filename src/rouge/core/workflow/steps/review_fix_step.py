@@ -66,7 +66,7 @@ class ReviewFixStep(WorkflowStep):
     ) -> StepResult:
         """Address issues found in the review.
 
-        This step runs the /adw-implement-review slash command to address
+        This step runs the implement-review prompt template to address
         the issues identified in the review step.
 
         Args:
@@ -124,10 +124,13 @@ class ReviewFixStep(WorkflowStep):
 
             if not response.success:
                 logger.error(
-                    "Failed to execute /adw-implement-review template: %s", response.output
+                    "Failed to execute %s template: %s",
+                    PromptId.IMPLEMENT_REVIEW.value,
+                    response.output,
                 )
                 return StepResult.fail(
-                    f"Failed to execute /adw-implement-review template: {response.output}"
+                    f"Failed to execute {PromptId.IMPLEMENT_REVIEW.value} template: "
+                    f"{response.output}"
                 )
 
             # Parse and validate JSON output
@@ -164,7 +167,7 @@ class ReviewFixStep(WorkflowStep):
 
             return StepResult.ok(None, parsed_data=parse_result.data)
 
-        except Exception as e:
+        except (FileNotFoundError, ValueError, RuntimeError) as e:
             logger.exception("Failed to address review issues")
             return StepResult.fail(f"Failed to address review issues: {e}")
 

@@ -194,7 +194,12 @@ class CodeReviewStep(WorkflowStep):
             )
             summary_response = execute_template(request, require_json=True)
         except Exception as e:
-            func_logger.error("Failed to call /adw-code-review-summary: %s", e, exc_info=True)
+            func_logger.error(
+                "Failed to call %s template: %s",
+                PromptId.CODE_REVIEW_SUMMARY.value,
+                e,
+                exc_info=True,
+            )
             return
 
         if not summary_response.success or not summary_response.output:

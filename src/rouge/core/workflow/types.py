@@ -11,14 +11,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from rouge.core.prompts.prompt_id import PromptId
 
-# Prompt IDs that can be used to build plans.
-# PlanPromptId is an alias for the PromptId enum; callers that used the
-# old PlanSlashCommand string literal type should now use PromptId directly.
-PlanPromptId = PromptId
-
-# Backwards-compatibility alias
-PlanSlashCommand = PromptId
-
 # Generic type parameter for StepResult data payload
 T = TypeVar("T")
 
