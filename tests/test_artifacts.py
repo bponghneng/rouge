@@ -36,7 +36,7 @@ from rouge.core.workflow.types import (
 class TestArtifactModels:
     """Tests for artifact model definitions."""
 
-    def test_issue_artifact_creation(self):
+    def test_issue_artifact_creation(self) -> None:
         """Test FetchIssueArtifact can be created with valid data."""
         issue = Issue(id=1, description="Test issue")
         artifact = FetchIssueArtifact(
@@ -50,7 +50,7 @@ class TestArtifactModels:
         assert artifact.issue.description == "Test issue"
         assert isinstance(artifact.created_at, datetime)
 
-    def test_classification_artifact_creation(self):
+    def test_classification_artifact_creation(self) -> None:
         """Test ClassifyArtifact can be created with valid data."""
         classify_data = ClassifyData(
             command=PromptId.FEATURE_PLAN,
@@ -65,7 +65,7 @@ class TestArtifactModels:
         assert artifact.classify_data.command == PromptId.FEATURE_PLAN
         assert artifact.classify_data.classification["type"] == "feature"
 
-    def test_plan_artifact_creation(self):
+    def test_plan_artifact_creation(self) -> None:
         """Test PlanArtifact can be created with valid data."""
         plan_data = PlanData(
             plan="Plan content here", summary="Plan summary", session_id="session-456"
@@ -80,7 +80,7 @@ class TestArtifactModels:
         assert artifact.plan_data.summary == "Plan summary"
         assert artifact.plan_data.session_id == "session-456"
 
-    def test_implementation_artifact_creation(self):
+    def test_implementation_artifact_creation(self) -> None:
         """Test ImplementArtifact can be created with valid data."""
         implement_data = ImplementData(output="Implementation output")
         artifact = ImplementArtifact(
@@ -91,7 +91,7 @@ class TestArtifactModels:
         assert artifact.artifact_type == "implement"
         assert artifact.implement_data.output == "Implementation output"
 
-    def test_review_artifact_creation(self):
+    def test_review_artifact_creation(self) -> None:
         """Test CodeReviewArtifact can be created with valid data."""
         review_data = ReviewData(
             review_text="Code review content",
@@ -104,7 +104,7 @@ class TestArtifactModels:
         assert artifact.artifact_type == "code-review"
         assert artifact.review_data.review_text == "Code review content"
 
-    def test_review_addressed_artifact_creation(self):
+    def test_review_addressed_artifact_creation(self) -> None:
         """Test ReviewFixArtifact can be created with valid data."""
         artifact = ReviewFixArtifact(
             workflow_id="adw-123",
@@ -116,7 +116,7 @@ class TestArtifactModels:
         assert artifact.success is True
         assert artifact.message == "All issues resolved"
 
-    def test_quality_check_artifact_creation(self):
+    def test_quality_check_artifact_creation(self) -> None:
         """Test CodeQualityArtifact can be created with valid data."""
         artifact = CodeQualityArtifact(
             workflow_id="adw-123",
@@ -130,7 +130,7 @@ class TestArtifactModels:
         assert artifact.tools == ["ruff", "mypy"]
         assert artifact.parsed_data == {"issues": 0}
 
-    def test_acceptance_artifact_creation(self):
+    def test_acceptance_artifact_creation(self) -> None:
         """Test AcceptanceArtifact can be created with valid data."""
         artifact = AcceptanceArtifact(
             workflow_id="adw-123",
@@ -142,7 +142,7 @@ class TestArtifactModels:
         assert artifact.success is True
         assert artifact.message == "Implementation accepted"
 
-    def test_pr_metadata_artifact_creation(self):
+    def test_pr_metadata_artifact_creation(self) -> None:
         """Test ComposeRequestArtifact can be created with valid data."""
         artifact = ComposeRequestArtifact(
             workflow_id="adw-123",
@@ -157,7 +157,7 @@ class TestArtifactModels:
         assert len(artifact.commits) == 1
         assert artifact.commits[0]["sha"] == "abc123"
 
-    def test_pull_request_artifact_creation(self):
+    def test_pull_request_artifact_creation(self) -> None:
         """Test GhPullRequestArtifact can be created with valid data."""
         entry = PullRequestEntry(
             repo="org/repo",
@@ -178,7 +178,7 @@ class TestArtifactModels:
         assert artifact.pull_requests[0].adopted is False
         assert artifact.platform == "github"
 
-    def test_gh_pull_request_artifact_empty_pull_requests(self):
+    def test_gh_pull_request_artifact_empty_pull_requests(self) -> None:
         """Test GhPullRequestArtifact can be created with zero pull requests."""
         artifact = GhPullRequestArtifact(
             workflow_id="adw-123",
@@ -189,7 +189,7 @@ class TestArtifactModels:
         assert artifact.pull_requests == []
         assert artifact.platform == "github"
 
-    def test_gh_pull_request_artifact_two_entries(self):
+    def test_gh_pull_request_artifact_two_entries(self) -> None:
         """Test GhPullRequestArtifact with two PullRequestEntry items."""
         entries = [
             PullRequestEntry(
@@ -215,7 +215,7 @@ class TestArtifactModels:
         assert artifact.pull_requests[0].repo == "org/repo-a"
         assert artifact.pull_requests[1].adopted is True
 
-    def test_glab_pull_request_artifact_creation(self):
+    def test_glab_pull_request_artifact_creation(self) -> None:
         """Test GlabPullRequestArtifact can be created with valid data."""
         entry = PullRequestEntry(
             repo="org/repo",
@@ -233,7 +233,7 @@ class TestArtifactModels:
         assert artifact.pull_requests[0].url == "https://gitlab.com/org/repo/-/merge_requests/10"
         assert artifact.platform == "gitlab"
 
-    def test_glab_pull_request_artifact_empty(self):
+    def test_glab_pull_request_artifact_empty(self) -> None:
         """Test GlabPullRequestArtifact can be created with zero pull requests."""
         artifact = GlabPullRequestArtifact(
             workflow_id="adw-456",
@@ -243,7 +243,7 @@ class TestArtifactModels:
         assert artifact.artifact_type == "glab-pull-request"
         assert artifact.pull_requests == []
 
-    def test_glab_pull_request_artifact_two_entries(self):
+    def test_glab_pull_request_artifact_two_entries(self) -> None:
         """Test GlabPullRequestArtifact with two PullRequestEntry items."""
         entries = [
             PullRequestEntry(
@@ -266,7 +266,7 @@ class TestArtifactModels:
 
         assert len(artifact.pull_requests) == 2
 
-    def test_pull_request_entry_adopted_defaults_false(self):
+    def test_pull_request_entry_adopted_defaults_false(self) -> None:
         """Test PullRequestEntry.adopted defaults to False."""
         entry = PullRequestEntry(
             repo="org/repo",
@@ -277,7 +277,7 @@ class TestArtifactModels:
         assert entry.adopted is False
         assert entry.number is None
 
-    def test_artifact_models_mapping_complete(self):
+    def test_artifact_models_mapping_complete(self) -> None:
         """Test ARTIFACT_MODELS contains all expected types."""
         expected_types = {
             "fetch-issue",
@@ -304,7 +304,7 @@ class TestArtifactModels:
 class TestArtifactSerialization:
     """Tests for artifact JSON serialization/deserialization."""
 
-    def test_issue_artifact_round_trip(self):
+    def test_issue_artifact_round_trip(self) -> None:
         """Test FetchIssueArtifact can be serialized and deserialized."""
         issue = Issue(id=42, description="Test issue for round trip")
         artifact = FetchIssueArtifact(
@@ -320,7 +320,7 @@ class TestArtifactSerialization:
         assert restored.issue.id == 42
         assert restored.issue.description == "Test issue for round trip"
 
-    def test_classification_artifact_round_trip(self):
+    def test_classification_artifact_round_trip(self) -> None:
         """Test ClassifyArtifact can be serialized and deserialized."""
         classify_data = ClassifyData(
             command=PromptId.BUG_PLAN,
@@ -337,7 +337,7 @@ class TestArtifactSerialization:
         assert restored.classify_data.command == PromptId.BUG_PLAN
         assert restored.classify_data.classification["type"] == "bug"
 
-    def test_gh_pull_request_artifact_round_trip_empty(self):
+    def test_gh_pull_request_artifact_round_trip_empty(self) -> None:
         """Test GhPullRequestArtifact serializes/deserializes with zero entries."""
         artifact = GhPullRequestArtifact(
             workflow_id="adw-rt",
@@ -351,7 +351,7 @@ class TestArtifactSerialization:
         assert restored.pull_requests == []
         assert restored.platform == "github"
 
-    def test_gh_pull_request_artifact_round_trip_one_entry(self):
+    def test_gh_pull_request_artifact_round_trip_one_entry(self) -> None:
         """Test GhPullRequestArtifact serializes/deserializes with one entry."""
         entry = PullRequestEntry(
             repo="org/repo",
@@ -372,7 +372,7 @@ class TestArtifactSerialization:
         assert restored.pull_requests[0].number == 7
         assert restored.pull_requests[0].adopted is False
 
-    def test_gh_pull_request_artifact_round_trip_two_entries(self):
+    def test_gh_pull_request_artifact_round_trip_two_entries(self) -> None:
         """Test GhPullRequestArtifact serializes/deserializes with two entries."""
         entries = [
             PullRequestEntry(
@@ -400,7 +400,7 @@ class TestArtifactSerialization:
         assert len(restored.pull_requests) == 2
         assert restored.pull_requests[1].adopted is True
 
-    def test_glab_pull_request_artifact_round_trip_empty(self):
+    def test_glab_pull_request_artifact_round_trip_empty(self) -> None:
         """Test GlabPullRequestArtifact serializes/deserializes with zero entries."""
         artifact = GlabPullRequestArtifact(
             workflow_id="adw-rt",
@@ -414,7 +414,7 @@ class TestArtifactSerialization:
         assert restored.pull_requests == []
         assert restored.platform == "gitlab"
 
-    def test_glab_pull_request_artifact_round_trip_one_entry(self):
+    def test_glab_pull_request_artifact_round_trip_one_entry(self) -> None:
         """Test GlabPullRequestArtifact serializes/deserializes with one entry."""
         entry = PullRequestEntry(
             repo="group/project",
@@ -434,7 +434,7 @@ class TestArtifactSerialization:
         assert restored.pull_requests[0].number == 3
         assert restored.pull_requests[0].adopted is False
 
-    def test_glab_pull_request_artifact_round_trip_two_entries(self):
+    def test_glab_pull_request_artifact_round_trip_two_entries(self) -> None:
         """Test GlabPullRequestArtifact serializes/deserializes with two entries."""
         entries = [
             PullRequestEntry(
@@ -462,7 +462,7 @@ class TestArtifactSerialization:
         assert len(restored.pull_requests) == 2
         assert restored.pull_requests[1].adopted is True
 
-    def test_artifact_json_is_valid(self):
+    def test_artifact_json_is_valid(self) -> None:
         """Test artifact JSON is valid and human-readable."""
         issue = Issue(id=1, description="Test")
         artifact = FetchIssueArtifact(workflow_id="adw-123", issue=issue)
@@ -479,7 +479,7 @@ class TestArtifactSerialization:
 class TestArtifactStore:
     """Tests for ArtifactStore filesystem operations."""
 
-    def test_store_initialization_creates_directory(self, tmp_path):
+    def test_store_initialization_creates_directory(self, tmp_path) -> None:
         """Test ArtifactStore creates workflow directory on init."""
         store = ArtifactStore("adw-test-123", base_path=tmp_path)
 
@@ -488,7 +488,7 @@ class TestArtifactStore:
         assert store.workflow_dir.exists()
         assert store.workflow_dir.is_dir()
 
-    def test_store_initialization_with_rouge_paths(self, tmp_path):
+    def test_store_initialization_with_rouge_paths(self, tmp_path) -> None:
         """Test ArtifactStore uses RougePaths.get_workflows_dir() by default."""
         with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
             store = ArtifactStore("adw-default-123")
@@ -496,7 +496,7 @@ class TestArtifactStore:
             assert store.workflow_dir == tmp_path / ".rouge" / "workflows" / "adw-default-123"
             assert store.workflow_dir.exists()
 
-    def test_write_artifact(self, tmp_path):
+    def test_write_artifact(self, tmp_path) -> None:
         """Test writing an artifact to disk."""
         store = ArtifactStore("adw-write-test", base_path=tmp_path)
         issue = Issue(id=1, description="Test issue")
@@ -512,7 +512,7 @@ class TestArtifactStore:
         assert content["artifact_type"] == "fetch-issue"
         assert content["issue"]["id"] == 1
 
-    def test_read_artifact(self, tmp_path):
+    def test_read_artifact(self, tmp_path) -> None:
         """Test reading an artifact from disk."""
         store = ArtifactStore("adw-read-test", base_path=tmp_path)
         issue = Issue(id=42, description="Read test issue")
@@ -525,7 +525,7 @@ class TestArtifactStore:
         assert restored.issue.id == 42
         assert restored.issue.description == "Read test issue"
 
-    def test_read_artifact_auto_detects_model(self, tmp_path):
+    def test_read_artifact_auto_detects_model(self, tmp_path) -> None:
         """Test read_artifact auto-detects model class from artifact type."""
         store = ArtifactStore("adw-auto-detect", base_path=tmp_path)
         issue = Issue(id=1, description="Test")
@@ -537,14 +537,14 @@ class TestArtifactStore:
         assert isinstance(restored, FetchIssueArtifact)
         assert restored.issue.id == 1
 
-    def test_read_artifact_not_found(self, tmp_path):
+    def test_read_artifact_not_found(self, tmp_path) -> None:
         """Test read_artifact raises FileNotFoundError for missing artifact."""
         store = ArtifactStore("adw-missing", base_path=tmp_path)
 
         with pytest.raises(FileNotFoundError, match="Artifact not found: fetch-issue"):
             store.read_artifact("fetch-issue")
 
-    def test_read_artifact_corrupted_json(self, tmp_path):
+    def test_read_artifact_corrupted_json(self, tmp_path) -> None:
         """Test read_artifact raises ValueError for corrupted JSON."""
         store = ArtifactStore("adw-corrupted", base_path=tmp_path)
         artifact_path = tmp_path / "adw-corrupted" / "fetch-issue.json"
@@ -554,7 +554,7 @@ class TestArtifactStore:
         with pytest.raises(ValueError):
             store.read_artifact("fetch-issue")
 
-    def test_read_artifact_invalid_data(self, tmp_path):
+    def test_read_artifact_invalid_data(self, tmp_path) -> None:
         """Test read_artifact raises ValueError for invalid artifact data."""
         store = ArtifactStore("adw-invalid", base_path=tmp_path)
         artifact_path = tmp_path / "adw-invalid" / "fetch-issue.json"
@@ -564,7 +564,7 @@ class TestArtifactStore:
         with pytest.raises(ValueError, match="Failed to validate artifact"):
             store.read_artifact("fetch-issue")
 
-    def test_artifact_exists_true(self, tmp_path):
+    def test_artifact_exists_true(self, tmp_path) -> None:
         """Test artifact_exists returns True for existing artifact."""
         store = ArtifactStore("adw-exists", base_path=tmp_path)
         issue = Issue(id=1, description="Test")
@@ -572,19 +572,19 @@ class TestArtifactStore:
 
         assert store.artifact_exists("fetch-issue") is True
 
-    def test_artifact_exists_false(self, tmp_path):
+    def test_artifact_exists_false(self, tmp_path) -> None:
         """Test artifact_exists returns False for missing artifact."""
         store = ArtifactStore("adw-no-exists", base_path=tmp_path)
 
         assert store.artifact_exists("fetch-issue") is False
 
-    def test_list_artifacts_empty(self, tmp_path):
+    def test_list_artifacts_empty(self, tmp_path) -> None:
         """Test list_artifacts returns empty list for new workflow."""
         store = ArtifactStore("adw-empty", base_path=tmp_path)
 
         assert store.list_artifacts() == []
 
-    def test_list_artifacts_with_artifacts(self, tmp_path):
+    def test_list_artifacts_with_artifacts(self, tmp_path) -> None:
         """Test list_artifacts returns all existing artifact types."""
         store = ArtifactStore("adw-multiple", base_path=tmp_path)
 
@@ -606,7 +606,7 @@ class TestArtifactStore:
         assert "classify" in artifacts
         assert len(artifacts) == 2
 
-    def test_get_artifact_info(self, tmp_path):
+    def test_get_artifact_info(self, tmp_path) -> None:
         """Test get_artifact_info returns file metadata."""
         store = ArtifactStore("adw-info", base_path=tmp_path)
         issue = Issue(id=1, description="Test")
@@ -620,7 +620,7 @@ class TestArtifactStore:
         assert info["size_bytes"] > 0
         assert isinstance(info["modified_at"], datetime)
 
-    def test_get_artifact_info_not_found(self, tmp_path):
+    def test_get_artifact_info_not_found(self, tmp_path) -> None:
         """Test get_artifact_info returns None for missing artifact."""
         store = ArtifactStore("adw-no-info", base_path=tmp_path)
 
@@ -628,7 +628,7 @@ class TestArtifactStore:
 
         assert info is None
 
-    def test_delete_artifact(self, tmp_path):
+    def test_delete_artifact(self, tmp_path) -> None:
         """Test delete_artifact removes artifact file."""
         store = ArtifactStore("adw-delete", base_path=tmp_path)
         issue = Issue(id=1, description="Test")
@@ -641,7 +641,7 @@ class TestArtifactStore:
         assert result is True
         assert store.artifact_exists("fetch-issue") is False
 
-    def test_delete_artifact_not_found(self, tmp_path):
+    def test_delete_artifact_not_found(self, tmp_path) -> None:
         """Test delete_artifact returns False for missing artifact."""
         store = ArtifactStore("adw-no-delete", base_path=tmp_path)
 
@@ -649,7 +649,7 @@ class TestArtifactStore:
 
         assert result is False
 
-    def test_multiple_artifact_types(self, tmp_path):
+    def test_multiple_artifact_types(self, tmp_path) -> None:
         """Test storing and retrieving multiple artifact types."""
         store = ArtifactStore("adw-multi-type", base_path=tmp_path)
 
@@ -677,7 +677,7 @@ class TestArtifactStore:
         assert classification_artifact.classify_data.command == PromptId.CHORE_PLAN
         assert plan_artifact.plan_data.plan == "Plan output"
 
-    def test_store_overwrites_existing_artifact(self, tmp_path):
+    def test_store_overwrites_existing_artifact(self, tmp_path) -> None:
         """Test writing an artifact overwrites existing one."""
         store = ArtifactStore("adw-overwrite", base_path=tmp_path)
 
@@ -698,7 +698,7 @@ class TestArtifactStore:
 class TestArtifactStoreIntegration:
     """Integration tests for complete artifact workflows."""
 
-    def test_full_workflow_artifact_chain(self, tmp_path):
+    def test_full_workflow_artifact_chain(self, tmp_path) -> None:
         """Test a complete workflow storing all artifact types."""
         store = ArtifactStore("adw-full-chain", base_path=tmp_path)
         workflow_id = "adw-full-chain"

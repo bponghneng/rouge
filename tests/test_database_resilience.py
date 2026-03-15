@@ -465,7 +465,7 @@ class TestWorkerContinuesAfterTransientError:
                                     "rouge.worker.worker_artifact.write_worker_artifact",
                                     side_effect=capture_write,
                                 ):
-                                        worker.run()
+                                    worker.run()
 
                                 # Should have transitioned to failed state
                                 assert any(

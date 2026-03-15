@@ -37,7 +37,7 @@ class TestEmitArtifactComment:
     """Tests for emit_artifact_comment helper function."""
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_with_valid_issue_id(self, mock_create_comment):
+    def test_emit_artifact_comment_with_valid_issue_id(self, mock_create_comment) -> None:
         """Test emit_artifact_comment with valid artifact and issue_id."""
         # Create a test artifact
         plan_data = PlanData(plan="# Test Plan\n...", summary="Test summary")
@@ -78,7 +78,7 @@ class TestEmitArtifactComment:
         assert call_args.type == "plan"
         assert call_args.adw_id == "adw-test-123"
 
-    def test_emit_artifact_comment_payload_construction(self):
+    def test_emit_artifact_comment_payload_construction(self) -> None:
         """Test that emit_artifact_comment constructs correct payload."""
         # Create a test artifact
         classify_data = ClassifyData(
@@ -108,7 +108,7 @@ class TestEmitArtifactComment:
             assert call_args.raw["artifact"]["workflow_id"] == "adw-classify-test"
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_with_none_issue_id(self, mock_create_comment):
+    def test_emit_artifact_comment_with_none_issue_id(self, mock_create_comment) -> None:
         """Test emit_artifact_comment with issue_id=None (verify skipped status)."""
         # Create a test artifact
         implement_data = ImplementData(output="Implementation complete")
@@ -128,7 +128,7 @@ class TestEmitArtifactComment:
         mock_create_comment.assert_not_called()
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_raw_field_contains_full_artifact(self, mock_create_comment):
+    def test_emit_artifact_comment_raw_field_contains_full_artifact(self, mock_create_comment) -> None:
         """Test that raw field contains the full serialized artifact JSON."""
         # Create artifact with nested data
         review_data = ReviewData(review_text="Code review feedback")
@@ -157,7 +157,7 @@ class TestEmitArtifactComment:
         assert "created_at" in artifact_json
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_type_compatibility_all_artifact_types(self, mock_create_comment):
+    def test_emit_artifact_comment_type_compatibility_all_artifact_types(self, mock_create_comment) -> None:
         """Test emit_artifact_comment with all ArtifactType values to verify type compatibility."""
         mock_create_comment.return_value = Comment(
             id=1, issue_id=100, comment="test", adw_id="adw-type-test"
@@ -295,7 +295,7 @@ class TestEmitArtifactComment:
             assert f"Artifact saved: {expected_type}" == call_args.comment
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_database_error_handling(self, mock_create_comment):
+    def test_emit_artifact_comment_database_error_handling(self, mock_create_comment) -> None:
         """Test emit_artifact_comment handles database errors gracefully."""
         # Create a test artifact
         artifact = AcceptanceArtifact(workflow_id="adw-error-test", success=True)
@@ -313,7 +313,7 @@ class TestEmitArtifactComment:
         assert "Failed to insert comment" in message
         assert "Database connection failed" in message
 
-    def test_emit_artifact_comment_no_database_call_when_issue_id_none(self):
+    def test_emit_artifact_comment_no_database_call_when_issue_id_none(self) -> None:
         """Test that no database call is made when issue_id is None."""
         # Create a test artifact
         artifact = PlanArtifact(
@@ -334,7 +334,7 @@ class TestEmitArtifactComment:
             mock_create.assert_not_called()
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_preserves_artifact_metadata(self, mock_create_comment):
+    def test_emit_artifact_comment_preserves_artifact_metadata(self, mock_create_comment) -> None:
         """Test that artifact metadata like created_at is preserved in raw field."""
         # Create artifact with specific created_at time
 
@@ -360,7 +360,7 @@ class TestEmitCommentFromPayload:
     """Tests for emit_comment_from_payload helper function."""
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_comment_from_payload_success(self, mock_create_comment):
+    def test_emit_comment_from_payload_success(self, mock_create_comment) -> None:
         """Test emit_comment_from_payload creates comment successfully."""
         from rouge.core.models import CommentPayload
 
@@ -386,7 +386,7 @@ class TestEmitCommentFromPayload:
         assert "ID=10" in message
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_comment_from_payload_with_none_issue_id(self, mock_create_comment):
+    def test_emit_comment_from_payload_with_none_issue_id(self, mock_create_comment) -> None:
         """Test emit_comment_from_payload skips when issue_id is None."""
         from rouge.core.models import CommentPayload
 
@@ -405,7 +405,7 @@ class TestEmitCommentFromPayload:
         assert "No issue_id" in message
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_comment_from_payload_handles_error(self, mock_create_comment):
+    def test_emit_comment_from_payload_handles_error(self, mock_create_comment) -> None:
         """Test emit_comment_from_payload handles database errors."""
         from rouge.core.models import CommentPayload
 

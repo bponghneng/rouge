@@ -12,7 +12,7 @@ from rouge.core.workflow.types import ClassifyData, StepResult
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> Mock:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
@@ -24,7 +24,7 @@ def mock_context():
 
 
 @pytest.fixture
-def sample_issue():
+def sample_issue() -> Issue:
     """Create a sample Issue."""
     return Issue(
         id=10,
@@ -34,7 +34,7 @@ def sample_issue():
 
 
 @pytest.fixture
-def sample_classify_data():
+def sample_classify_data() -> ClassifyData:
     """Create sample classification data."""
     return ClassifyData(
         command=PromptId.FEATURE_PLAN,
@@ -262,12 +262,12 @@ class TestClassifyStepRun:
 class TestClassifyStepProperties:
     """Tests for ClassifyStep properties."""
 
-    def test_step_name(self):
+    def test_step_name(self) -> None:
         """Test that ClassifyStep has correct name."""
         step = ClassifyStep()
         assert step.name == "Classifying issue"
 
-    def test_step_is_critical(self):
+    def test_step_is_critical(self) -> None:
         """Test that ClassifyStep is critical by default."""
         step = ClassifyStep()
         assert step.is_critical is True
