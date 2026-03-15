@@ -9,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     AcceptanceArtifact,
@@ -73,9 +74,9 @@ class ImplementStep(WorkflowStep):
             StepResult with ImplementData containing output and optional session_id
         """
         logger = get_logger(adw_id)
-        # Create template request with /adw-implement-plan slash command
+        # Create template request using packaged prompt
         request = ClaudeAgentTemplateRequest(
-            slash_command="/adw-implement-plan",
+            prompt_id=PromptId.IMPLEMENT_PLAN,
             args=[plan_content.lstrip()],
             issue_id=issue_id,
             adw_id=adw_id,

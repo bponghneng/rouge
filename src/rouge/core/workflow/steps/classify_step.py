@@ -1,7 +1,5 @@
 """Classify issue step implementation."""
 
-from typing import cast
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -11,11 +9,12 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ClassifyArtifact, FetchIssueArtifact
 from rouge.core.workflow.shared import AGENT_CLASSIFIER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import ClassifyData, PlanSlashCommand, StepResult
+from rouge.core.workflow.types import ClassifyData, StepResult
 
 # Required fields for classification output JSON
 CLASSIFY_REQUIRED_FIELDS = {
@@ -62,7 +61,7 @@ class ClassifyStep(WorkflowStep):
         logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_CLASSIFIER,
-            slash_command="/adw-classify",
+            prompt_id=PromptId.CLASSIFY,
             args=[issue.description],
             adw_id=adw_id,
             issue_id=issue.id,
@@ -115,7 +114,12 @@ class ClassifyStep(WorkflowStep):
         if normalized_level not in valid_levels:
             return StepResult.fail(f"Invalid complexity level selected: {complexity_level}")
 
-        triage_command = cast(PlanSlashCommand, f"/adw-{normalized_type}-plan")
+        _type_to_prompt_id = {
+            "chore": PromptId.CHORE_PLAN,
+            "bug": PromptId.BUG_PLAN,
+            "feature": PromptId.FEATURE_PLAN,
+        }
+        triage_command = _type_to_prompt_id[normalized_type]
         normalized_classification = {
             "type": normalized_type,
             "level": normalized_level,
@@ -169,7 +173,7 @@ class ClassifyStep(WorkflowStep):
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
-        issue_command = result.data.command
+        issue_prompt_id = result.data.command
         classification_data = result.data.classification
 
         if classification_data:
@@ -177,15 +181,15 @@ class ClassifyStep(WorkflowStep):
                 "Issue classified as %s (%s) -> %s",
                 classification_data["type"],
                 classification_data["level"],
-                issue_command,
+                issue_prompt_id.value,
             )
             comment_text = (
                 f"Issue classified as {classification_data['type']} "
-                f"({classification_data['level']}) -> {issue_command}"
+                f"({classification_data['level']}) -> {issue_prompt_id.value}"
             )
         else:
-            logger.info("Issue classified as: %s", issue_command)
-            comment_text = f"Issue classified as {issue_command}"
+            logger.info("Issue classified as: %s", issue_prompt_id.value)
+            comment_text = f"Issue classified as {issue_prompt_id.value}"
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(

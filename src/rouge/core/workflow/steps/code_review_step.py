@@ -12,6 +12,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, GitCheckoutArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
@@ -184,7 +185,7 @@ class CodeReviewStep(WorkflowStep):
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PLANNER,
-                slash_command="/adw-code-review-summary",
+                prompt_id=PromptId.CODE_REVIEW_SUMMARY,
                 args=[review_text],
                 adw_id=adw_id,
                 issue_id=issue_id,

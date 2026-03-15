@@ -16,6 +16,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
@@ -238,7 +239,7 @@ class ComposeCommitsStep(WorkflowStep):
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
-                slash_command="/adw-compose-commits",
+                prompt_id=PromptId.COMPOSE_COMMITS,
                 args=context.repo_paths,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,

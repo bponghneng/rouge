@@ -14,11 +14,12 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import PlanData, PlanSlashCommand, StepResult
+from rouge.core.workflow.types import PlanData, StepResult
 
 # Required fields for plan output JSON
 # Plan output must have type, output, plan (inline content), summary
@@ -63,14 +64,14 @@ class PatchPlanStep(WorkflowStep):
     def _build_plan(
         self,
         issue: Issue,
-        command: PlanSlashCommand,
+        prompt_id: PromptId,
         adw_id: str,
     ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using the specified command.
+        """Build implementation plan for the issue using the specified prompt.
 
         Args:
             issue: The Rouge issue to plan for
-            command: The planning command to use (e.g., /adw-feature-plan)
+            prompt_id: The planning prompt to use (e.g., PromptId.PATCH_PLAN)
             adw_id: Workflow ID for tracking
 
         Returns:
@@ -79,7 +80,7 @@ class PatchPlanStep(WorkflowStep):
         logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
-            slash_command=command,
+            prompt_id=prompt_id,
             args=[issue.description],
             adw_id=adw_id,
             issue_id=issue.id,
@@ -146,7 +147,7 @@ class PatchPlanStep(WorkflowStep):
             return StepResult.fail("Cannot build patch plan: patch issue not available")
 
         # Build standalone plan from patch issue description
-        plan_response = self._build_plan(issue, "/adw-patch-plan", context.adw_id)
+        plan_response = self._build_plan(issue, PromptId.PATCH_PLAN, context.adw_id)
 
         if not plan_response.success:
             logger.error("Error building patch plan: %s", plan_response.error)

@@ -9,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ClassifyArtifact,
@@ -17,7 +18,7 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import ClassifyData, PlanData, PlanSlashCommand, StepResult
+from rouge.core.workflow.types import ClassifyData, PlanData, StepResult
 
 # Required fields for plan output JSON
 # Plan output must have output, plan (inline content), summary
@@ -50,14 +51,14 @@ class PlanStep(WorkflowStep):
     def _build_plan(
         self,
         issue: Issue,
-        command: PlanSlashCommand,
+        prompt_id: PromptId,
         adw_id: str,
     ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using the specified command.
+        """Build implementation plan for the issue using the specified prompt.
 
         Args:
             issue: The Rouge issue to plan for
-            command: The planning command to use (e.g., /adw-feature-plan)
+            prompt_id: The planning prompt to use (e.g., PromptId.FEATURE_PLAN)
             adw_id: Workflow ID for tracking
 
         Returns:
@@ -66,7 +67,7 @@ class PlanStep(WorkflowStep):
         logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
-            slash_command=command,
+            prompt_id=prompt_id,
             args=[issue.description],
             adw_id=adw_id,
             issue_id=issue.id,
@@ -137,7 +138,7 @@ class PlanStep(WorkflowStep):
 
         plan_response = self._build_plan(
             issue,
-            classify_data.command,
+            classify_data.command,  # already a PromptId
             context.adw_id,
         )
 

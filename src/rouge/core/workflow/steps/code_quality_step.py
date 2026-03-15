@@ -9,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeQualityArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
@@ -67,7 +68,7 @@ class CodeQualityStep(WorkflowStep):
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
-                slash_command="/adw-code-quality",
+                prompt_id=PromptId.CODE_QUALITY,
                 args=[],
                 adw_id=context.adw_id,
                 issue_id=context.issue_id,

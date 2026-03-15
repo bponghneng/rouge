@@ -16,6 +16,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
@@ -74,7 +75,7 @@ class ClaudeCodePlanStep(WorkflowStep):
         """
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
-            slash_command="/adw-claude-code-plan",
+            prompt_id=PromptId.CLAUDE_CODE_PLAN,
             args=[issue.description],
             adw_id=adw_id,
             issue_id=issue.id,
