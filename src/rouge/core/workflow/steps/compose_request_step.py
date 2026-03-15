@@ -1,6 +1,7 @@
 """Pull request preparation step implementation."""
 
-from typing import Any, Dict
+import re
+from typing import Any, Dict, Optional
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -48,6 +49,35 @@ PULL_REQUEST_JSON_SCHEMA = """{
   "required": ["output", "title", "summary", "commits"]
 }"""
 
+# Max characters to log from LLM response
+MAX_LOG_LENGTH = 500
+
+
+def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) -> str:
+    """Sanitize text by redacting secrets and truncating to safe length.
+
+    Args:
+        text: Text to sanitize (None is converted to "[None]")
+        max_length: Maximum length of returned string
+
+    Returns:
+        Sanitized and truncated text safe for logging
+    """
+    if text is None:
+        return "[None]"
+
+    sanitized = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", text)
+    sanitized = re.sub(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b", "[GITHUB_TOKEN]", sanitized)
+    sanitized = re.sub(
+        r"\b(?:glpat|gldt|gloas|glcbt)-[A-Za-z0-9_-]{20,}\b", "[GITLAB_TOKEN]", sanitized
+    )
+    sanitized = re.sub(r"\bsk-[A-Za-z0-9]{20,}\b", "[API_KEY]", sanitized)
+    sanitized = re.sub(r"\b[A-Za-z0-9]{32,}\b", "[TOKEN]", sanitized)
+
+    if len(sanitized) > max_length:
+        return sanitized[:max_length] + "..."
+    return sanitized
+
 
 class ComposeRequestStep(WorkflowStep):
     """Compose pull request via the pull-request prompt template."""
@@ -91,7 +121,7 @@ class ComposeRequestStep(WorkflowStep):
             response = execute_template(request)
 
             logger.debug("pull_request response: success=%s", response.success)
-            logger.debug("PR preparation LLM response: %s", response.output)
+            logger.debug("PR preparation LLM response: %s", _sanitize_for_logging(response.output))
 
             # Emit raw LLM response for debugging visibility
             payload = CommentPayload(
@@ -100,7 +130,7 @@ class ComposeRequestStep(WorkflowStep):
                 text="PR preparation LLM response received",
                 raw={
                     "output": "pr-preparation-response",
-                    "llm_response": response.output,
+                    "llm_response": response.output[:500] if response.output else "",
                 },
                 source="system",
                 kind="workflow",
