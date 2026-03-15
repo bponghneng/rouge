@@ -448,6 +448,8 @@ class TestWorkerContinuesAfterTransientError:
 
         def capture_write(artifact):
             artifact_writes.append(artifact.model_copy(deep=True))
+            if artifact.state == "failed":
+                worker.running = False
 
         # Mock subprocess to fail
         mock_result = Mock()
@@ -455,14 +457,15 @@ class TestWorkerContinuesAfterTransientError:
 
         with patch("rouge.worker.worker.read_worker_artifact", return_value=ready_artifact):
             with patch("rouge.worker.worker.get_next_issue", side_effect=mock_get_next_issue):
-                with patch("subprocess.run", return_value=mock_result):
-                    with patch("rouge.worker.worker.update_issue_status"):
-                        with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
-                            with patch(
-                                "rouge.worker.worker_artifact.write_worker_artifact",
-                                side_effect=capture_write,
-                            ):
-                                worker.run()
+                with patch("rouge.worker.worker.time.sleep"):
+                    with patch("subprocess.run", return_value=mock_result):
+                        with patch("rouge.worker.worker.update_issue_status"):
+                            with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
+                                with patch(
+                                    "rouge.worker.worker_artifact.write_worker_artifact",
+                                    side_effect=capture_write,
+                                ):
+                                        worker.run()
 
                                 # Should have transitioned to failed state
                                 assert any(

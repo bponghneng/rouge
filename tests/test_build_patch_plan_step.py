@@ -13,6 +13,7 @@ from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import ArtifactStore, FetchPatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import PlanData, StepResult
 
 
@@ -90,7 +91,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         # Verify _build_plan was called with the issue from the artifact
         mock_build.assert_called_once_with(
             patch_issue,
-            "/adw-patch-plan",
+            PromptId.PATCH_PLAN,
             context_with_artifact.adw_id,
         )
 

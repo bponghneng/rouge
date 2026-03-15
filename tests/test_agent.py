@@ -13,6 +13,7 @@ from rouge.core.agents.claude import (
 from rouge.core.agents.claude.claude_models import (
     ClaudeAgentTemplateRequest as AgentTemplateRequest,
 )
+from rouge.core.prompts import PromptId
 
 _WORKING_DIR_PATCH = "rouge.core.workflow.shared.get_working_dir"
 
@@ -100,7 +101,7 @@ def test_execute_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_p
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        slash_command="/adw-implement-plan",
+        prompt_id=PromptId.IMPLEMENT_PLAN,
         args=["plan.md"],
         adw_id="test123",
         issue_id=1,
@@ -139,7 +140,7 @@ def test_execute_template_require_json_false(
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        slash_command="/adw-find-plan-file",
+        prompt_id=PromptId.FIND_PLAN_FILE,
         args=["output"],
         adw_id="test123",
         issue_id=1,
@@ -180,7 +181,7 @@ def test_execute_template_sanitizes_markdown_fence(
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        slash_command="/adw-classify",
+        prompt_id=PromptId.CLASSIFY,
         args=["issue"],
         adw_id="test123",
         issue_id=1,

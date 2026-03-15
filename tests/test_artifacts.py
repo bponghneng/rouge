@@ -24,6 +24,7 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
     ReviewFixArtifact,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
@@ -52,7 +53,7 @@ class TestArtifactModels:
     def test_classification_artifact_creation(self):
         """Test ClassifyArtifact can be created with valid data."""
         classify_data = ClassifyData(
-            command="/adw-feature-plan",
+            command=PromptId.FEATURE_PLAN,
             classification={"type": "feature", "level": "medium"},
         )
         artifact = ClassifyArtifact(
@@ -61,7 +62,7 @@ class TestArtifactModels:
         )
 
         assert artifact.artifact_type == "classify"
-        assert artifact.classify_data.command == "/adw-feature-plan"
+        assert artifact.classify_data.command == PromptId.FEATURE_PLAN
         assert artifact.classify_data.classification["type"] == "feature"
 
     def test_plan_artifact_creation(self):
@@ -322,7 +323,7 @@ class TestArtifactSerialization:
     def test_classification_artifact_round_trip(self):
         """Test ClassifyArtifact can be serialized and deserialized."""
         classify_data = ClassifyData(
-            command="/adw-bug-plan",
+            command=PromptId.BUG_PLAN,
             classification={"type": "bug", "level": "high"},
         )
         artifact = ClassifyArtifact(
@@ -333,7 +334,7 @@ class TestArtifactSerialization:
         json_str = artifact.model_dump_json()
         restored = ClassifyArtifact.model_validate_json(json_str)
 
-        assert restored.classify_data.command == "/adw-bug-plan"
+        assert restored.classify_data.command == PromptId.BUG_PLAN
         assert restored.classify_data.classification["type"] == "bug"
 
     def test_gh_pull_request_artifact_round_trip_empty(self):
@@ -592,7 +593,7 @@ class TestArtifactStore:
         store.write_artifact(FetchIssueArtifact(workflow_id="adw-multiple", issue=issue))
 
         classify_data = ClassifyData(
-            command="/adw-feature-plan",
+            command=PromptId.FEATURE_PLAN,
             classification={"type": "feature", "level": "low"},
         )
         store.write_artifact(
@@ -657,7 +658,7 @@ class TestArtifactStore:
         store.write_artifact(FetchIssueArtifact(workflow_id="adw-multi-type", issue=issue))
 
         classify_data = ClassifyData(
-            command="/adw-chore-plan",
+            command=PromptId.CHORE_PLAN,
             classification={"type": "chore", "level": "small"},
         )
         store.write_artifact(
@@ -673,7 +674,7 @@ class TestArtifactStore:
         plan_artifact = store.read_artifact("plan")
 
         assert issue_artifact.issue.id == 1
-        assert classification_artifact.classify_data.command == "/adw-chore-plan"
+        assert classification_artifact.classify_data.command == PromptId.CHORE_PLAN
         assert plan_artifact.plan_data.plan == "Plan output"
 
     def test_store_overwrites_existing_artifact(self, tmp_path):
@@ -708,7 +709,7 @@ class TestArtifactStoreIntegration:
 
         # 2. Classification artifact
         classify_data = ClassifyData(
-            command="/adw-feature-plan",
+            command=PromptId.FEATURE_PLAN,
             classification={"type": "feature", "level": "medium"},
         )
         store.write_artifact(ClassifyArtifact(workflow_id=workflow_id, classify_data=classify_data))
