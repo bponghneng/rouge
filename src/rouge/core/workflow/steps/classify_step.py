@@ -49,7 +49,7 @@ class ClassifyStep(WorkflowStep):
         issue: Issue,
         adw_id: str,
     ) -> StepResult[ClassifyData]:
-        """Classify issue and return appropriate slash command.
+        """Classify issue and return appropriate prompt template.
 
         Args:
             issue: The issue to classify
