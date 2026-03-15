@@ -63,7 +63,7 @@ class ImplementStep(WorkflowStep):
     ) -> StepResult[ImplementData]:
         """Implement the plan using Claude Code template.
 
-        Uses the /adw-implement-plan slash command via execute_template pattern.
+        Uses the implement-plan prompt template via execute_template pattern.
 
         Args:
             plan_content: The plan content (markdown) to implement

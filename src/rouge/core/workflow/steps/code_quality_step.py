@@ -43,7 +43,7 @@ CODE_QUALITY_JSON_SCHEMA = """{
 
 
 class CodeQualityStep(WorkflowStep):
-    """Run code quality checks via /adw-code-quality slash command."""
+    """Run code quality checks via the code-quality prompt template."""
 
     @property
     def name(self) -> str:

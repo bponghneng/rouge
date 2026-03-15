@@ -51,7 +51,7 @@ class ClaudeCodePlanStep(WorkflowStep):
     This step builds an implementation plan directly from the issue
     description, without requiring classification. It:
     1. Uses the issue from FetchIssueArtifact
-    2. Generates a task-oriented plan via /adw-claude-code-plan
+    2. Generates a task-oriented plan via the claude-code-plan prompt template
     3. Stores the result in context and as a PlanArtifact
     """
 
@@ -64,7 +64,7 @@ class ClaudeCodePlanStep(WorkflowStep):
         issue: Issue,
         adw_id: str,
     ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using /adw-claude-code-plan.
+        """Build implementation plan for the issue using the claude-code-plan prompt template.
 
         Args:
             issue: The Rouge issue to plan for

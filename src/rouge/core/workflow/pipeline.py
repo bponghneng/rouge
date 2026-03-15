@@ -456,7 +456,7 @@ def get_full_pipeline() -> List[WorkflowStep]:
     Pipeline sequence:
     1. FetchIssueStep - Fetch the issue from the database
     2. GitBranchStep - Create and checkout a new branch
-    3. ClaudeCodePlanStep - Build implementation plan using /adw-claude-code-plan
+    3. ClaudeCodePlanStep - Build implementation plan using the claude-code-plan prompt template
     4. ImplementStep - Execute the plan
     5. CodeReviewStep - Generate review of the implementation
     6. ReviewFixStep - Address any review feedback
