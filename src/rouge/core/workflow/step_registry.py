@@ -364,6 +364,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
     from rouge.core.workflow.steps.classify_step import ClassifyStep
+    from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
@@ -552,6 +553,16 @@ def _register_default_steps(registry: StepRegistry) -> None:
         outputs=["compose-commits"],
         is_critical=False,
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
+    )
+
+    # 15. ClaudeCodePlanStep: requires fetch-issue, produces plan (alternative to classify+plan)
+    registry.register(
+        ClaudeCodePlanStep,
+        slug="claude-code-plan",
+        dependencies=["fetch-issue"],
+        outputs=["plan"],
+        is_critical=True,
+        description="Build task-oriented implementation plan without classification",
     )
 
 
