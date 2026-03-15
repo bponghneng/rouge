@@ -13,8 +13,8 @@ from rouge.core.workflow.artifacts import (
     FetchIssueArtifact,
     PlanArtifact,
 )
+from rouge.core.workflow.plan_common import build_plan_from_template
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps._plan_common import build_plan_from_template
 from rouge.core.workflow.types import ClassifyData, PlanData, StepResult
 
 

@@ -14,8 +14,8 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
+from rouge.core.workflow.plan_common import build_plan_from_template
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps._plan_common import build_plan_from_template
 from rouge.core.workflow.types import PlanData, StepResult
 
 
