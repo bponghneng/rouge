@@ -23,6 +23,7 @@ AGENT_COMMIT_COMPOSER = "commit_composer"
 
 # Step names
 IMPLEMENT_STEP_NAME = "Implementing solution"
+CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
 
 
 def get_repo_paths() -> list[str]:

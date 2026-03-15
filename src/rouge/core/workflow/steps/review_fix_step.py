@@ -12,6 +12,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
+from rouge.core.workflow.shared import CODE_REVIEW_STEP_NAME
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -192,9 +193,6 @@ class ReviewFixStep(WorkflowStep):
             set to the CodeReviewStep name so the pipeline re-reviews.
         """
         logger = get_logger(context.adw_id)
-
-        # Import here to avoid circular dependency
-        from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
         # Default max iterations for review/fix cycle
         MAX_REVIEW_ITERATIONS = 5
