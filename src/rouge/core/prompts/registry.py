@@ -199,8 +199,9 @@ def get_registry() -> PromptRegistry:
     if _registry is None:
         with _registry_lock:
             if _registry is None:
-                _registry = PromptRegistry()
-                _registry.validate()
+                reg = PromptRegistry()
+                reg.validate()
+                _registry = reg
     return _registry
 
 
