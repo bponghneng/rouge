@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib.resources
 import logging
+import threading
 from dataclasses import dataclass
 from typing import Dict, List, Literal, Optional
 
@@ -25,7 +26,7 @@ logger = logging.getLogger(__name__)
 # All other keys are silently dropped.
 _ALLOWED_FRONT_MATTER_KEYS = {"description", "model"}
 
-_VALID_MODELS = {"sonnet", "opus"}
+_VALID_MODELS = {"sonnet", "opus", "haiku"}
 
 
 @dataclass
@@ -36,13 +37,13 @@ class PromptTemplate:
         prompt_id: The identifier for this template.
         body: Template body text (front matter stripped).
         description: Optional human-readable description from front matter.
-        model: Optional model hint from front matter ("sonnet" or "opus").
+        model: Optional model hint from front matter ("sonnet", "opus", or "haiku").
     """
 
     prompt_id: PromptId
     body: str
     description: Optional[str] = None
-    model: Optional[Literal["sonnet", "opus"]] = None
+    model: Optional[Literal["sonnet", "opus", "haiku"]] = None
 
 
 @dataclass
@@ -55,7 +56,7 @@ class RenderedPrompt:
     """
 
     text: str
-    model: Optional[Literal["sonnet", "opus"]] = None
+    model: Optional[Literal["sonnet", "opus", "haiku"]] = None
 
 
 class PromptRegistry:
@@ -132,14 +133,14 @@ class PromptRegistry:
 
 def _parse_template(
     text: str, prompt_id: PromptId
-) -> tuple[Optional[str], Optional[Literal["sonnet", "opus"]], str]:
+) -> tuple[Optional[str], Optional[Literal["sonnet", "opus", "haiku"]], str]:
     """Parse YAML front matter from *text* using the narrow allowlist.
 
     Returns:
         (description, model, body) where body is the text after front matter.
     """
     description: Optional[str] = None
-    model: Optional[Literal["sonnet", "opus"]] = None
+    model: Optional[Literal["sonnet", "opus", "haiku"]] = None
 
     if not text.startswith("---"):
         return description, model, text
@@ -176,8 +177,9 @@ def _parse_template(
     return description, model, body
 
 
-# Module-level singleton registry.
+# Module-level singleton registry and its creation lock.
 _registry: Optional[PromptRegistry] = None
+_registry_lock: threading.Lock = threading.Lock()
 
 
 def get_registry() -> PromptRegistry:
@@ -186,14 +188,19 @@ def get_registry() -> PromptRegistry:
     On first call, eagerly validates all packaged templates so that missing
     or empty templates are caught at startup rather than mid-workflow.
 
+    Thread-safe: guarded by a module-level lock so concurrent callers in a
+    thread-pool environment cannot create duplicate registry instances.
+
     Raises:
         FileNotFoundError: If any template file is missing from the package.
         ValueError: If any template body is empty.
     """
     global _registry
     if _registry is None:
-        _registry = PromptRegistry()
-        _registry.validate()
+        with _registry_lock:
+            if _registry is None:
+                _registry = PromptRegistry()
+                _registry.validate()
     return _registry
 
 
