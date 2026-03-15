@@ -1,7 +1,6 @@
 """Pull request preparation step implementation."""
 
-import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -18,6 +17,7 @@ from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import _sanitize_for_logging
 from rouge.core.workflow.types import StepResult
 
 # Required fields for pull request output JSON
@@ -48,35 +48,6 @@ PULL_REQUEST_JSON_SCHEMA = """{
   },
   "required": ["output", "title", "summary", "commits"]
 }"""
-
-# Max characters to log from LLM response
-MAX_LOG_LENGTH = 500
-
-
-def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) -> str:
-    """Sanitize text by redacting secrets and truncating to safe length.
-
-    Args:
-        text: Text to sanitize (None is converted to "[None]")
-        max_length: Maximum length of returned string
-
-    Returns:
-        Sanitized and truncated text safe for logging
-    """
-    if text is None:
-        return "[None]"
-
-    sanitized = re.sub(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b", "[EMAIL]", text)
-    sanitized = re.sub(r"\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{36,}\b", "[GITHUB_TOKEN]", sanitized)
-    sanitized = re.sub(
-        r"\b(?:glpat|gldt|gloas|glcbt)-[A-Za-z0-9_-]{20,}\b", "[GITLAB_TOKEN]", sanitized
-    )
-    sanitized = re.sub(r"\bsk-[A-Za-z0-9]{20,}\b", "[API_KEY]", sanitized)
-    sanitized = re.sub(r"\b[A-Za-z0-9]{32,}\b", "[TOKEN]", sanitized)
-
-    if len(sanitized) > max_length:
-        return sanitized[:max_length] + "..."
-    return sanitized
 
 
 class ComposeRequestStep(WorkflowStep):
