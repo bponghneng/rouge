@@ -13,7 +13,7 @@ import pytest
 from rouge.core.workflow.artifacts import ArtifactStore, CodeReviewArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
-from rouge.core.workflow.types import ReviewData
+from rouge.core.workflow.types import RepoReviewResult
 
 
 @pytest.fixture
@@ -67,7 +67,13 @@ class TestReviewFixStepCleanReviewShortCircuit:
         # Create a clean review artifact
         artifact = CodeReviewArtifact(
             workflow_id="test-review-fix",
-            review_data=ReviewData(review_text="Code looks good"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Code looks good",
+                    is_clean=True,
+                ),
+            ],
             is_clean=True,
         )
         store.write_artifact(artifact)
@@ -92,7 +98,13 @@ class TestReviewFixStepCleanReviewShortCircuit:
         # Create a clean review artifact
         artifact = CodeReviewArtifact(
             workflow_id="test-review-fix",
-            review_data=ReviewData(review_text="Code looks good"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Code looks good",
+                    is_clean=True,
+                ),
+            ],
             is_clean=True,
         )
         store.write_artifact(artifact)
@@ -108,6 +120,138 @@ class TestReviewFixStepCleanReviewShortCircuit:
 
         assert result.success is True
         assert result.error is None
+
+
+class TestReviewFixMultiRepo:
+    """Tests for ReviewFixStep multi-repo filtering and rerun limit behavior."""
+
+    def test_review_fix_skips_clean_repos(self, store: ArtifactStore) -> None:
+        """Two repos, one clean — verify _address_review_issues receives only the dirty repo's review text."""
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-review-fix",
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/clean-repo",
+                    review_text="Review completed",
+                    is_clean=True,
+                ),
+                RepoReviewResult(
+                    repo_path="/path/to/dirty-repo",
+                    review_text="File: src/dirty.py\nLine 10: Bug found",
+                    is_clean=False,
+                    rerun_count=0,
+                ),
+            ],
+            is_clean=False,
+        )
+        store.write_artifact(review_artifact)
+
+        context = WorkflowContext(
+            adw_id="test-review-fix",
+            issue_id=99,
+            artifact_store=store,
+        )
+
+        step = ReviewFixStep()
+        with patch.object(step, "_address_review_issues") as mock_address:
+            from rouge.core.workflow.types import StepResult
+
+            mock_address.return_value = StepResult.ok(
+                None, parsed_data={"issues": [], "summary": "Fixed"}
+            )
+            step.run(context)
+
+        # _address_review_issues should be called with only the dirty repo's text
+        mock_address.assert_called_once()
+        review_text_arg = mock_address.call_args[0][2]
+        assert "/path/to/dirty-repo" in review_text_arg
+        assert "Bug found" in review_text_arg
+        # Clean repo text should NOT appear
+        assert "Review completed" not in review_text_arg or "/path/to/clean-repo" not in review_text_arg
+
+    def test_review_fix_per_repo_rerun_limit(self, store: ArtifactStore) -> None:
+        """Two repos, one at max rerun count — verify only the other repo triggers re-review."""
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-review-fix",
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/maxed-repo",
+                    review_text="File: src/maxed.py\nIssue",
+                    is_clean=False,
+                    rerun_count=5,
+                ),
+                RepoReviewResult(
+                    repo_path="/path/to/active-repo",
+                    review_text="File: src/active.py\nIssue",
+                    is_clean=False,
+                    rerun_count=0,
+                ),
+            ],
+            is_clean=False,
+        )
+        store.write_artifact(review_artifact)
+
+        context = WorkflowContext(
+            adw_id="test-review-fix",
+            issue_id=99,
+            artifact_store=store,
+        )
+
+        step = ReviewFixStep()
+        with patch.object(step, "_address_review_issues") as mock_address:
+            from rouge.core.workflow.types import StepResult
+
+            mock_address.return_value = StepResult.ok(
+                None, parsed_data={"issues": [], "summary": "Fixed"}
+            )
+            result = step.run(context)
+
+        # _address_review_issues should be called only with the active repo's text
+        mock_address.assert_called_once()
+        review_text_arg = mock_address.call_args[0][2]
+        assert "/path/to/active-repo" in review_text_arg
+        assert "/path/to/maxed-repo" not in review_text_arg
+
+        # Should request rerun because the active repo still has budget
+        assert result.success is True
+        assert result.rerun_from is not None
+
+    def test_review_fix_all_repos_at_limit(self, store: ArtifactStore) -> None:
+        """Both repos at max — verify no rerun requested and _address_review_issues is not called."""
+        review_artifact = CodeReviewArtifact(
+            workflow_id="test-review-fix",
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo-a",
+                    review_text="File: src/a.py\nIssue",
+                    is_clean=False,
+                    rerun_count=5,
+                ),
+                RepoReviewResult(
+                    repo_path="/path/to/repo-b",
+                    review_text="File: src/b.py\nIssue",
+                    is_clean=False,
+                    rerun_count=5,
+                ),
+            ],
+            is_clean=False,
+        )
+        store.write_artifact(review_artifact)
+
+        context = WorkflowContext(
+            adw_id="test-review-fix",
+            issue_id=99,
+            artifact_store=store,
+        )
+
+        step = ReviewFixStep()
+        with patch.object(step, "_address_review_issues") as mock_address:
+            result = step.run(context)
+
+        # _address_review_issues should NOT be called — all repos exhausted
+        mock_address.assert_not_called()
+        assert result.success is True
+        assert result.rerun_from is None
 
 
 class TestReviewFixStepWithArtifact:
@@ -127,10 +271,16 @@ class TestReviewFixStepWithArtifact:
         store: ArtifactStore,
     ) -> None:
         """Step loads review_data from code-review artifact when present."""
-        # Write a code-review artifact
+        # Write a code-review artifact with a dirty repo
         review_artifact = CodeReviewArtifact(
             workflow_id="test-review-fix",
-            review_data=ReviewData(review_text="Some review feedback"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Some review feedback",
+                    is_clean=False,
+                ),
+            ],
         )
         store.write_artifact(review_artifact)
 

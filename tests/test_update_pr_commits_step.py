@@ -369,6 +369,154 @@ class TestComposeCommits:
         mock_subprocess.assert_not_called()
 
 
+class TestComposeCommitsMultiRepo:
+    """Tests for ComposeCommitsStep multi-repo push behavior."""
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_compose_commits_multi_repo_push(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """Two repos, both have PRs — verify push runs for each."""
+        step = ComposeCommitsStep()
+        mock_context.repo_paths = ["/repo/a", "/repo/b"]
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        mock_response = Mock(
+            success=True,
+            output='{"output": "compose-commits", "summary": "Test", "commits": []}',
+        )
+        mock_parse_response = Mock(
+            success=True,
+            data={"output": "compose-commits", "summary": "Test", "commits": []},
+            error=None,
+        )
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+        mock_request.return_value = mock_request_instance
+        mock_exec.return_value = mock_response
+        mock_parse.return_value = mock_parse_response
+
+        def subprocess_side_effect(cmd, **kwargs):
+            cwd = kwargs.get("cwd", "")
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return Mock(returncode=0, stdout="feature-branch\n", stderr="")
+            if cmd[0] == "git" and cmd[1] == "push":
+                return Mock(returncode=0, stdout="", stderr="")
+            # gh pr view for platform detection
+            return Mock(
+                returncode=0,
+                stdout=json.dumps({"url": f"https://github.com/org/repo/pull/1"}),
+            )
+
+        mock_subprocess.side_effect = subprocess_side_effect
+
+        result = step.run(mock_context)
+
+        assert result.success is True
+
+        # Count push calls (git push origin feature-branch) — should be 2
+        push_calls = [
+            call
+            for call in mock_subprocess.call_args_list
+            if len(call[0]) > 0
+            and len(call[0][0]) >= 2
+            and call[0][0][0] == "git"
+            and call[0][0][1] == "push"
+        ]
+        assert len(push_calls) == 2
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_compose_commits_multi_repo_partial_pr(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """One repo has PR, other doesn't — verify push runs only for the repo with a PR."""
+        step = ComposeCommitsStep()
+        mock_context.repo_paths = ["/repo/with-pr", "/repo/no-pr"]
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        mock_response = Mock(
+            success=True,
+            output='{"output": "compose-commits", "summary": "Test", "commits": []}',
+        )
+        mock_parse_response = Mock(
+            success=True,
+            data={"output": "compose-commits", "summary": "Test", "commits": []},
+            error=None,
+        )
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+        mock_request.return_value = mock_request_instance
+        mock_exec.return_value = mock_response
+        mock_parse.return_value = mock_parse_response
+
+        def subprocess_side_effect(cmd, **kwargs):
+            cwd = kwargs.get("cwd", "")
+            if cmd == ["gh", "pr", "view", "--json", "url"]:
+                # Only /repo/with-pr has a PR
+                if cwd == "/repo/with-pr":
+                    return Mock(
+                        returncode=0,
+                        stdout=json.dumps({"url": "https://github.com/org/repo/pull/1"}),
+                    )
+                else:
+                    return Mock(returncode=1, stdout="", stderr="no PR found")
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return Mock(returncode=0, stdout="feature-branch\n", stderr="")
+            if cmd[0] == "git" and cmd[1] == "push":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=1, stdout="", stderr="")
+
+        mock_subprocess.side_effect = subprocess_side_effect
+
+        result = step.run(mock_context)
+
+        # Step succeeds because at least one repo pushed
+        assert result.success is True
+
+        # Count push calls — should be 1 (only the repo with a PR)
+        push_calls = [
+            call
+            for call in mock_subprocess.call_args_list
+            if len(call[0]) > 0
+            and len(call[0][0]) >= 2
+            and call[0][0][0] == "git"
+            and call[0][0][1] == "push"
+        ]
+        assert len(push_calls) == 1
+
+
 class TestUpdatePRCommitsStepProperties:
     """Tests for ComposeCommitsStep properties."""
 

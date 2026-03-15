@@ -209,7 +209,7 @@ class TestCodeReviewRerunBehavior:
     def test_review_fix_step_returns_rerun_from_code_review(self) -> None:
         """ReviewFixStep should return rerun_from set to CodeReviewStep name when issues are addressed."""
         from rouge.core.workflow.artifacts import CodeReviewArtifact
-        from rouge.core.workflow.types import ReviewData
+        from rouge.core.workflow.types import RepoReviewResult
         from rouge.core.workflow.steps.code_review_step import CODE_REVIEW_STEP_NAME
 
         # Create a mock context with review data
@@ -220,10 +220,17 @@ class TestCodeReviewRerunBehavior:
             artifact_store=mock_artifact_store,
         )
 
-        # Create a review artifact with issues (not clean)
+        # Create a review artifact with a dirty repo (not clean, rerun_count=0)
         review_artifact = CodeReviewArtifact(
             workflow_id="test-adw-001",
-            review_data=ReviewData(review_text="Some review feedback with issues"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Some review feedback with issues",
+                    is_clean=False,
+                    rerun_count=0,
+                ),
+            ],
             is_clean=False,
         )
 
@@ -248,7 +255,7 @@ class TestCodeReviewRerunBehavior:
     def test_review_fix_step_does_not_rerun_when_clean(self) -> None:
         """ReviewFixStep should not request rerun when review is clean."""
         from rouge.core.workflow.artifacts import CodeReviewArtifact
-        from rouge.core.workflow.types import ReviewData
+        from rouge.core.workflow.types import RepoReviewResult
 
         # Create a mock context with clean review
         mock_artifact_store = MagicMock()
@@ -261,7 +268,13 @@ class TestCodeReviewRerunBehavior:
         # Create a clean review artifact
         review_artifact = CodeReviewArtifact(
             workflow_id="test-adw-002",
-            review_data=ReviewData(review_text="Code looks good"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Code looks good",
+                    is_clean=True,
+                ),
+            ],
             is_clean=True,
         )
 
@@ -278,7 +291,7 @@ class TestCodeReviewRerunBehavior:
     def test_review_fix_step_does_not_rerun_after_max_iterations(self) -> None:
         """ReviewFixStep should not request rerun after reaching max iterations."""
         from rouge.core.workflow.artifacts import CodeReviewArtifact
-        from rouge.core.workflow.types import ReviewData
+        from rouge.core.workflow.types import RepoReviewResult
 
         # Create a mock context with review data
         mock_artifact_store = MagicMock()
@@ -288,27 +301,26 @@ class TestCodeReviewRerunBehavior:
             artifact_store=mock_artifact_store,
         )
 
-        # Create a review artifact with issues (not clean)
+        # Create a review artifact with a dirty repo already at max iterations
         review_artifact = CodeReviewArtifact(
             workflow_id="test-adw-003",
-            review_data=ReviewData(review_text="Some review feedback"),
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo",
+                    review_text="Some review feedback",
+                    is_clean=False,
+                    rerun_count=5,  # Already at max (5)
+                ),
+            ],
             is_clean=False,
         )
 
         # Mock read_artifact to return the artifact
         mock_artifact_store.read_artifact = MagicMock(return_value=review_artifact)
 
-        # Set iteration count at max
-        context.data["review_fix_rerun_count"] = 4  # Will be incremented to 5 (max)
-
-        # Mock the address review issues method to succeed
+        # No need to mock _address_review_issues — step should skip before calling it
         review_fix_step = ReviewFixStep()
-        with patch.object(
-            review_fix_step,
-            "_address_review_issues",
-            return_value=StepResult.ok(None, parsed_data={"issues": [], "summary": "Fixed"}),
-        ):
-            result = review_fix_step.run(context)
+        result = review_fix_step.run(context)
 
         # Should succeed but NOT request rerun (max iterations reached)
         assert result.success is True, "expected ReviewFixStep to succeed"
