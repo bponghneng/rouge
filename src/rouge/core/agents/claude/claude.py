@@ -8,7 +8,6 @@ management, and JSON envelope parsing from stdout.
 import json
 import logging
 import os
-import re
 import subprocess
 from pathlib import Path
 from typing import Dict, Optional
@@ -90,13 +89,7 @@ def get_claude_env() -> Dict[str, str]:
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     """Save a prompt to the appropriate logging directory."""
-    # Derive a log filename: prefer the first slash command in the prompt,
-    # otherwise fall back to the agent_name so rendered templates are still logged.
-    match = re.match(r"^(/\w+)", prompt)
-    if match:
-        command_name = match.group(1)[1:]  # strip leading slash
-    else:
-        command_name = agent_name
+    command_name = agent_name
 
     # Create directory structure using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
