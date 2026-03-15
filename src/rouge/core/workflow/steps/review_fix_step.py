@@ -14,6 +14,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
 from rouge.core.workflow.shared import CODE_REVIEW_STEP_NAME
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import _sanitize_for_logging
 from rouge.core.workflow.types import StepResult
 
 # Required fields for address review output JSON
@@ -112,7 +113,10 @@ class ReviewFixStep(WorkflowStep):
             payload = CommentPayload(
                 issue_id=issue_id,
                 text="Addressing review issues...",
-                raw={"output": "address-review-response", "llm_response": response.output},
+                raw={
+                    "output": "address-review-response",
+                    "llm_response": _sanitize_for_logging(response.output),
+                },
                 source="system",
                 kind="workflow",
                 adw_id=adw_id,
