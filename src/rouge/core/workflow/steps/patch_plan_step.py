@@ -77,9 +77,9 @@ class PatchPlanStep(WorkflowStep):
                 FetchPatchArtifact,
                 lambda a: a.patch,
             )
-        except StepInputError:
-            logger.error("Cannot build patch plan: patch issue not available")
-            return StepResult.fail("Cannot build patch plan: patch issue not available")
+        except StepInputError as e:
+            logger.error("Cannot build patch plan: %s", e)
+            return StepResult.fail(f"Cannot build patch plan: {e}")
 
         # Build standalone plan from patch issue description
         plan_response = self._build_plan(issue, PromptId.PATCH_PLAN, context.adw_id)

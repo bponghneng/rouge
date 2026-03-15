@@ -126,7 +126,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         result = step.run(context_without_artifact)
 
         assert result.success is False
-        assert "patch issue not available" in result.error
+        assert "Cannot build patch plan" in result.error
 
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_artifact_comment")
