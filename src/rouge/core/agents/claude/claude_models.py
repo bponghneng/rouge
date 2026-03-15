@@ -9,24 +9,7 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
-# Import SlashCommand type directly to avoid circular import
-SlashCommand = Literal[
-    "/adw-acceptance",
-    "/adw-bug-plan",
-    "/adw-chore-plan",
-    "/adw-classify",
-    "/adw-claude-code-plan",
-    "/adw-code-quality",
-    "/adw-code-review-summary",
-    "/adw-compose-commits",
-    "/adw-feature-plan",
-    "/adw-find-plan-file",
-    "/adw-implement-plan",
-    "/adw-implement-review",
-    "/adw-patch-plan",
-    "/adw-pull-request",
-    "/adw-review-plan",
-]
+from rouge.core.prompts.prompt_id import PromptId
 
 
 class ClaudeAgentPromptRequest(BaseModel):
@@ -60,12 +43,12 @@ class ClaudeAgentPromptResponse(BaseModel):
 class ClaudeAgentTemplateRequest(BaseModel):
     """Claude Code agent template execution request.
 
-    Used for executing slash commands through the Claude Code CLI
+    Used for executing packaged prompt templates through the Claude Code CLI
     with specific arguments and configuration.
     """
 
     agent_name: str
-    slash_command: SlashCommand
+    prompt_id: PromptId
     args: List[str]
     adw_id: str
     issue_id: Optional[int]

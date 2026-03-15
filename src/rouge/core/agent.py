@@ -20,6 +20,7 @@ from rouge.core.agents.claude import (
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
+from rouge.core.prompts import render_prompt
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +51,13 @@ def execute_template(
     Returns:
         Claude-specific prompt response
     """
-    # Construct prompt from slash command and args
-    prompt = f"{request.slash_command} {' '.join(request.args)}"
+    # Render prompt from packaged template
+    rendered = render_prompt(request.prompt_id, request.args)
+
+    # Use model from template front matter when the request uses the default,
+    # giving the template a chance to override; explicit request.model wins.
+    template_model = rendered.model or request.model
+    effective_model = request.model if request.model != "sonnet" else template_model
 
     # Build provider options
     provider_options: dict[str, object] = {"dangerously_skip_permissions": True}
@@ -60,11 +66,11 @@ def execute_template(
 
     # Build AgentExecuteRequest
     agent_request = AgentExecuteRequest(
-        prompt=prompt,
+        prompt=rendered.text,
         issue_id=request.issue_id,
         adw_id=request.adw_id,
         agent_name=request.agent_name,
-        model=request.model,
+        model=effective_model,
         provider_options=provider_options,
     )
 
@@ -83,19 +89,20 @@ def execute_template(
     if response.success and response.output:
         raw_output = response.output.strip()
 
+        prompt_label = request.prompt_id.value
         if require_json:
             # Use shared parser to sanitize and validate JSON
             result = parse_and_validate_json(
                 raw_output,
                 AGENT_REQUIRED_FIELDS,
-                step_name=request.slash_command,
+                step_name=prompt_label,
             )
             if result.success:
                 # Emit progress comment with parsed JSON in raw field
                 payload = CommentPayload(
                     issue_id=request.issue_id,
-                    text=f"Template {request.slash_command} completed",
-                    raw={"template": request.slash_command, "result": result.data},
+                    text=f"Template {prompt_label} completed",
+                    raw={"template": prompt_label, "result": result.data},
                     source="system",
                     kind="workflow",
                     adw_id=request.adw_id,
@@ -108,9 +115,9 @@ def execute_template(
                 logger.error("Template output is not valid JSON: %s", result.error)
                 payload = CommentPayload(
                     issue_id=request.issue_id,
-                    text=f"Template {request.slash_command} returned non-JSON output",
+                    text=f"Template {prompt_label} returned non-JSON output",
                     raw={
-                        "template": request.slash_command,
+                        "template": prompt_label,
                         "error": result.error,
                         "output": raw_output[:500],
                     },
@@ -124,8 +131,8 @@ def execute_template(
             # Skip JSON validation for plain text output (FindPlanFileStep, CodeReviewStep)
             payload = CommentPayload(
                 issue_id=request.issue_id,
-                text=f"Template {request.slash_command} completed",
-                raw={"template": request.slash_command, "output": raw_output[:500]},
+                text=f"Template {prompt_label} completed",
+                raw={"template": prompt_label, "output": raw_output[:500]},
                 source="system",
                 kind="workflow",
                 adw_id=request.adw_id,

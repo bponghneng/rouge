@@ -5,18 +5,19 @@ replacing various patterns (tuples, booleans, response objects) with
 a unified StepResult[T] generic type.
 """
 
-from typing import Any, Dict, Generic, Literal, Optional, TypeVar
+from typing import Any, Dict, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-# Slash commands that can be used to build plans
-PlanSlashCommand = Literal[
-    "/adw-chore-plan",
-    "/adw-bug-plan",
-    "/adw-feature-plan",
-    "/adw-patch-plan",
-    "/adw-claude-code-plan",
-]
+from rouge.core.prompts.prompt_id import PromptId
+
+# Prompt IDs that can be used to build plans.
+# PlanPromptId is an alias for the PromptId enum; callers that used the
+# old PlanSlashCommand string literal type should now use PromptId directly.
+PlanPromptId = PromptId
+
+# Backwards-compatibility alias
+PlanSlashCommand = PromptId
 
 # Generic type parameter for StepResult data payload
 T = TypeVar("T")
@@ -141,11 +142,11 @@ class ClassifyData(BaseModel):
     """Data payload for issue classification results.
 
     Attributes:
-        command: The slash command to execute (e.g., "/adw-feature-plan")
+        command: The prompt ID to execute (e.g., PromptId.FEATURE_PLAN)
         classification: Normalized classification dict with "type" and "level"
     """
 
-    command: PlanSlashCommand
+    command: PromptId
     classification: Dict[str, str]
 
 
