@@ -15,7 +15,6 @@ SlashCommand = Literal[
     "/triage:chore",
     "/triage:bug",
     "/triage:feature",
-    "/triage:find-plan-file",
 ]
 
 

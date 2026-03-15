@@ -19,7 +19,6 @@ class PromptId(str, Enum):
     CODE_REVIEW_SUMMARY = "code-review-summary"
     COMPOSE_COMMITS = "compose-commits"
     FEATURE_PLAN = "feature-plan"
-    FIND_PLAN_FILE = "find-plan-file"
     IMPLEMENT_PLAN = "implement-plan"
     IMPLEMENT_REVIEW = "implement-review"
     PATCH_PLAN = "patch-plan"
