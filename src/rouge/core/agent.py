@@ -70,6 +70,7 @@ def execute_template(
         issue_id=request.issue_id,
         adw_id=request.adw_id,
         agent_name=request.agent_name,
+        prompt_label=request.prompt_id.value,
         model=effective_model,
         provider_options=provider_options,
     )

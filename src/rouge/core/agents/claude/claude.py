@@ -87,16 +87,33 @@ def get_claude_env() -> Dict[str, str]:
     return {k: v for k, v in required_env_vars.items() if v is not None}
 
 
-def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
-    """Save a prompt to the appropriate logging directory."""
+def save_prompt(
+    prompt: str,
+    adw_id: str,
+    agent_name: str = "ops",
+    label: Optional[str] = None,
+) -> None:
+    """Save a prompt to the appropriate logging directory.
+
+    Args:
+        prompt: The rendered prompt text to save.
+        adw_id: Workflow identifier used to scope the directory.
+        agent_name: Agent name used for the directory structure.
+        label: Filename stem for the saved file (e.g. the PromptId value).
+            Defaults to ``agent_name`` when not supplied, which causes
+            invocations sharing the same agent to overwrite each other.
+    """
     # Create directory structure using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
 
     prompt_dir = Path(get_working_dir()) / ".rouge/agents/logs" / adw_id / agent_name / "prompts"
     os.makedirs(str(prompt_dir), exist_ok=True)
 
-    # Save prompt to file
-    prompt_file = prompt_dir / f"{agent_name}.txt"
+    # Use label as the filename stem so that different prompts executed by the
+    # same agent (e.g. AGENT_PLANNER used for classify, plan, review-plan, ...)
+    # each get their own file instead of overwriting one another.
+    filename = label if label else agent_name
+    prompt_file = prompt_dir / f"{filename}.txt"
     with open(str(prompt_file), "w") as f:
         f.write(prompt)
 
@@ -157,7 +174,12 @@ class ClaudeAgent(CodingAgent):
                 )
 
             # Save prompt before execution
-            save_prompt(request.prompt, request.adw_id, request.agent_name)
+            save_prompt(
+                request.prompt,
+                request.adw_id,
+                request.agent_name,
+                label=request.prompt_label,
+            )
 
             # Build command - use json format (not stream-json)
             cmd = [CLAUDE_PATH, "-p", request.prompt]

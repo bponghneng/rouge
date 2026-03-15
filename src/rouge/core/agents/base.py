@@ -34,6 +34,7 @@ class AgentExecuteRequest(BaseModel):
     issue_id: Optional[int] = None
     adw_id: str
     agent_name: str
+    prompt_label: Optional[str] = None
     model: Optional[str] = None
     output_path: Optional[str] = None
     provider_options: Dict[str, Any] = Field(default_factory=dict)
