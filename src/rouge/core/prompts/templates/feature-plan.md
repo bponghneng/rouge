@@ -124,13 +124,6 @@ Explain how to validate that the feature works as intended and that there are no
 
 <list the commands to run (e.g., linting, targeted tests, or other existing project commands) and briefly state what each command is validating. Include any manual verification steps (e.g., key user flows) if they are important. Choose a level of validation that gives high confidence appropriate to the scope and risk of the feature. Avoid using raw curl commands for validation.>
 
-Run these commands from `rouge/` to validate changes:
-
-- `uv run mypy` - Static type checking
-- `uv run pytest tests/ -v` - Run unit tests with verbose output
-- `uv run ruff check src/` - Fast Python linter
-- `uv run black src/` - Code formatter
-
 ## Notes / Future Considerations (Optional)
 
 <optionally list any additional notes, follow-up ideas, or context that might inform future improvements or related features.>
