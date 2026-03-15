@@ -307,7 +307,7 @@ class TestClaudeCodePlanStepProperties:
     def test_step_name(self) -> None:
         """Test step has correct name."""
         step = ClaudeCodePlanStep()
-        assert step.name == "Building implementation plan"
+        assert step.name == "Building task-oriented implementation plan"
 
     def test_step_is_critical(self) -> None:
         """Test step is critical."""
