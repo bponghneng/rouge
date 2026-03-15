@@ -4,7 +4,7 @@ import json
 import os
 import subprocess
 import traceback
-from typing import Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -148,11 +148,112 @@ class ComposeCommitsStep(WorkflowStep):
 
         return (None, None)
 
+    def _push_repo(
+        self,
+        repo_path: str,
+        env: Dict[str, str],
+        adw_id: str,
+        issue_id: int,
+    ) -> StepResult:
+        """Push commits to origin for a single repository.
+
+        Checks that the repo is on a named branch, then runs
+        ``git push origin <branch>``.
+
+        Args:
+            repo_path: Path to the repository root.
+            env: Environment dict with the appropriate token set.
+            adw_id: Workflow ID for logger retrieval.
+            issue_id: Issue ID for progress comments.
+
+        Returns:
+            StepResult indicating success or failure for this repo.
+        """
+        logger = get_logger(adw_id)
+
+        try:
+            # Check if we're on a branch (not in detached HEAD state)
+            branch_check = subprocess.run(
+                ["git", "symbolic-ref", "--short", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                cwd=repo_path,
+            )
+
+            if branch_check.returncode != 0:
+                error_msg = f"Cannot push {repo_path}: not on a branch (detached HEAD state)"
+                logger.error(error_msg)
+                _emit_and_log(
+                    issue_id,
+                    adw_id,
+                    error_msg,
+                    {"output": "pr-update-failed", "error": error_msg, "repo": repo_path},
+                )
+                return StepResult.fail(error_msg)
+
+            branch = branch_check.stdout.strip()
+            logger.debug("On branch: %s (repo: %s)", branch, repo_path)
+
+            # Push commits to origin (the PR/MR will automatically update)
+            push_cmd = ["git", "push", "origin", branch]
+            logger.debug("Pushing patch commits to origin for %s...", repo_path)
+
+            push_result = subprocess.run(
+                push_cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=60,
+                cwd=repo_path,
+            )
+
+            if push_result.returncode != 0:
+                error_msg = (
+                    f"git push failed for {repo_path} "
+                    f"(exit code {push_result.returncode}): "
+                    f"{push_result.stderr}"
+                )
+                logger.warning(error_msg)
+                _emit_and_log(
+                    issue_id,
+                    adw_id,
+                    error_msg,
+                    {"output": "pr-update-failed", "error": error_msg, "repo": repo_path},
+                )
+                return StepResult.fail(error_msg)
+
+            logger.info("Patch commits pushed for repo: %s", repo_path)
+            return StepResult.ok(None)
+
+        except subprocess.TimeoutExpired:
+            error_msg = f"git push timed out after 60 seconds for {repo_path}"
+            logger.exception(error_msg)
+            _emit_and_log(
+                issue_id,
+                adw_id,
+                error_msg,
+                {"output": "pr-update-failed", "error": error_msg, "repo": repo_path},
+            )
+            return StepResult.fail(error_msg)
+        except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
+            error_msg = f"Error updating PR/MR with patch commits for {repo_path}: {e}"
+            logger.exception(error_msg)
+            _emit_and_log(
+                issue_id,
+                adw_id,
+                error_msg,
+                {"output": "pr-update-failed", "error": error_msg, "repo": repo_path},
+            )
+            return StepResult.fail(error_msg)
+
     def run(self, context: WorkflowContext) -> StepResult:
-        """Push new commits to an existing PR/MR.
+        """Push new commits to existing PR/MRs across all repos.
 
         Detects the PR/MR platform by running the CLI indicated by
         DEV_SEC_OPS_PLATFORM rather than loading artifacts from a parent workflow.
+        Iterates over all repos in ``context.repo_paths`` and pushes each one
+        independently.
 
         Args:
             context: Workflow context
@@ -161,8 +262,6 @@ class ComposeCommitsStep(WorkflowStep):
             StepResult with success status and optional error message
         """
         logger = get_logger(context.adw_id)
-
-        repo_path = context.repo_paths[0]
 
         # Compose conventional commits from unstaged changes
         try:
@@ -252,133 +351,92 @@ class ComposeCommitsStep(WorkflowStep):
             )
             return StepResult.fail(error_msg)
 
-        # Detect platform and PR/MR URL
-        platform, pr_url = self._detect_pr_platform(repo_path, context.adw_id)
+        # Multi-repo PR detection and push loop
+        issue_id = context.require_issue_id
+        succeeded: List[str] = []
+        errors: List[str] = []
 
-        if not platform or not pr_url:
-            error_msg = "No existing PR/MR found for patch update"
-            logger.warning(error_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                error_msg,
-                {"output": "pr-update-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
+        for repo_path in context.repo_paths:
+            # Detect platform and PR/MR URL for this repo
+            platform, pr_url = self._detect_pr_platform(repo_path, context.adw_id)
 
-        # Determine which PAT to use based on detected platform
-        if platform == "github":
-            pat = os.environ.get("GITHUB_PAT")
-            pat_name = "GITHUB_PAT"
-            token_env_var = "GH_TOKEN"
-        else:  # gitlab
-            pat = os.environ.get("GITLAB_PAT")
-            pat_name = "GITLAB_PAT"
-            token_env_var = "GITLAB_TOKEN"
+            if not platform or not pr_url:
+                warn_msg = f"No existing PR/MR found for {repo_path}, skipping push"
+                logger.warning(warn_msg)
+                _emit_and_log(
+                    issue_id,
+                    context.adw_id,
+                    warn_msg,
+                    {"output": "pr-update-skipped", "reason": warn_msg, "repo": repo_path},
+                )
+                errors.append(warn_msg)
+                continue
 
-        if not pat:
-            skip_msg = f"PR update skipped: {pat_name} environment variable not set"
-            logger.info(skip_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                skip_msg,
-                {"output": "pr-update-skipped", "reason": skip_msg},
-            )
-            return StepResult.ok(None)
+            # Determine which PAT to use based on detected platform
+            if platform == "github":
+                pat = os.environ.get("GITHUB_PAT")
+                pat_name = "GITHUB_PAT"
+                token_env_var = "GH_TOKEN"
+            else:  # gitlab
+                pat = os.environ.get("GITLAB_PAT")
+                pat_name = "GITLAB_PAT"
+                token_env_var = "GITLAB_TOKEN"
 
-        try:
-            # Execute with appropriate token environment variable
+            if not pat:
+                skip_msg = (
+                    f"PR update skipped for {repo_path}: "
+                    f"{pat_name} environment variable not set"
+                )
+                logger.info(skip_msg)
+                _emit_and_log(
+                    issue_id,
+                    context.adw_id,
+                    skip_msg,
+                    {"output": "pr-update-skipped", "reason": skip_msg, "repo": repo_path},
+                )
+                errors.append(skip_msg)
+                continue
+
             env = os.environ.copy()
             env[token_env_var] = pat
 
-            # Check if we're on a branch (not in detached HEAD state)
-            branch_check = subprocess.run(
-                ["git", "symbolic-ref", "--short", "HEAD"],
-                capture_output=True,
-                text=True,
-                cwd=repo_path,
-            )
+            push_result = self._push_repo(repo_path, env, context.adw_id, issue_id)
 
-            if branch_check.returncode != 0:
-                error_msg = "Cannot push: not on a branch (detached HEAD state)"
-                logger.error(error_msg)
+            if push_result.success:
+                succeeded.append(repo_path)
+                comment_msg = f"Commits pushed to branch for {repo_path}"
                 _emit_and_log(
-                    context.require_issue_id,
+                    issue_id,
                     context.adw_id,
-                    error_msg,
-                    {"output": "pr-update-failed", "error": error_msg},
+                    comment_msg,
+                    {
+                        "output": "pr-updated",
+                        "url": pr_url,
+                        "platform": platform,
+                        "repo": repo_path,
+                    },
                 )
-                return StepResult.fail(error_msg)
+            else:
+                errors.append(push_result.error or f"Push failed for {repo_path}")
 
-            branch = branch_check.stdout.strip()
-            logger.debug("On branch: %s", branch)
-
-            # Push commits to origin (the PR/MR will automatically update)
-            push_cmd = ["git", "push", "origin", branch]
-            logger.debug("Pushing patch commits to origin...")
-
-            push_result = subprocess.run(
-                push_cmd,
-                capture_output=True,
-                text=True,
-                env=env,
-                timeout=60,
-                cwd=repo_path,
+        # Return ok if at least one repo pushed successfully
+        if succeeded:
+            logger.info(
+                "Pushed commits for %d/%d repos: %s",
+                len(succeeded),
+                len(context.repo_paths),
+                succeeded,
             )
-
-            if push_result.returncode != 0:
-                error_msg = (
-                    f"git push failed (exit code {push_result.returncode}): "
-                    f"{push_result.stderr}"
-                )
-                logger.warning(error_msg)
-                _emit_and_log(
-                    context.require_issue_id,
-                    context.adw_id,
-                    error_msg,
-                    {"output": "pr-update-failed", "error": error_msg},
-                )
-                return StepResult.fail(error_msg)
-
-            logger.info("Patch commits pushed to PR/MR: %s", pr_url)
-
-            # Emit progress comment indicating commits were added
-            comment_msg = "Commits pushed to branch"
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                comment_msg,
-                {
-                    "output": "pr-updated",
-                    "url": pr_url,
-                    "platform": platform,
-                },
-            )
-
             return StepResult.ok(None)
 
-        except subprocess.TimeoutExpired:
-            error_msg = "git push timed out after 60 seconds"
-            logger.exception(error_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                error_msg,
-                {"output": "pr-update-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
-        except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
-            error_msg = f"Error updating PR/MR with patch commits: {e}"
-            logger.exception(error_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                error_msg,
-                {"output": "pr-update-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
-        except Exception:
-            # Re-raise unexpected exceptions after logging
-            logger.exception("Unexpected error updating PR/MR")
-            raise
+        # All repos failed
+        combined = "; ".join(errors)
+        error_msg = f"All repo pushes failed: {combined}"
+        logger.warning(error_msg)
+        _emit_and_log(
+            issue_id,
+            context.adw_id,
+            error_msg,
+            {"output": "pr-update-failed", "error": error_msg},
+        )
+        return StepResult.fail(error_msg)

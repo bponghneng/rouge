@@ -130,6 +130,23 @@ class StepResult(BaseModel, Generic[T]):
         )
 
 
+class RepoReviewResult(BaseModel):
+    """Per-repo review result."""
+
+    repo_path: str
+    review_text: str = ""
+    is_clean: bool = False
+    rerun_count: int = 0
+
+
+class RepoFixResult(BaseModel):
+    """Per-repo fix result."""
+
+    repo_path: str
+    success: bool
+    message: str = ""
+
+
 class ClassifyData(BaseModel):
     """Data payload for issue classification results.
 
@@ -168,37 +185,3 @@ class ImplementData(BaseModel):
 
     output: str
     session_id: Optional[str] = None
-
-
-class ReviewData(BaseModel):
-    """Data payload for review generation results.
-
-    Attributes:
-        review_text: The generated review content
-    """
-
-    review_text: str = Field(
-        description="The generated review content analyzing code changes and providing feedback",
-        min_length=1,
-    )
-
-    @field_validator("review_text", mode="before")
-    @classmethod
-    def validate_review_text(cls, v: str) -> str:
-        """Validate and normalize review_text field.
-
-        Trims whitespace and rejects empty/whitespace-only strings.
-
-        Args:
-            v: The input value for review_text
-
-        Returns:
-            Trimmed string
-
-        Raises:
-            ValueError: If the value is empty or whitespace-only
-        """
-        trimmed = v.strip()
-        if not trimmed:
-            raise ValueError("review_text cannot be empty or whitespace-only")
-        return trimmed

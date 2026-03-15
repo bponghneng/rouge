@@ -8,7 +8,7 @@ import pytest
 
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.code_review_step import CodeReviewStep, is_clean_review
-from rouge.core.workflow.types import PlanData, ReviewData, StepResult
+from rouge.core.workflow.types import PlanData, StepResult
 
 
 @pytest.fixture
@@ -22,6 +22,7 @@ def mock_context() -> Mock:
     context.artifact_store = Mock()
     context.repo_paths = ["/path/to/repo"]
     context.load_optional_artifact.return_value = None
+    context.artifact_store.artifact_exists.return_value = False
     return context
 
 
@@ -36,14 +37,12 @@ def sample_plan_data() -> PlanData:
 
 
 @pytest.fixture
-def sample_review_data() -> ReviewData:
-    """Create sample review data."""
-    return ReviewData(
-        review_text=(
-            "File: src/app.py\n"
-            "Line 10: Consider using list comprehension for better performance.\n\n"
-            "File: tests/test_app.py\nLine 5: Add test coverage for edge cases."
-        )
+def sample_review_text() -> str:
+    """Create sample review text."""
+    return (
+        "File: src/app.py\n"
+        "Line 10: Consider using list comprehension for better performance.\n\n"
+        "File: tests/test_app.py\nLine 5: Add test coverage for edge cases."
     )
 
 
@@ -60,7 +59,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test successful review generation emits artifact comment with full review data."""
         # Setup: plan loaded, review generation succeeds
@@ -74,7 +73,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
 
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         # Mock for artifact comment
         mock_emit_artifact_comment.return_value = ("success", "Artifact comment inserted")
         # Mock for progress comment from run
@@ -93,7 +92,7 @@ class TestCodeReviewStepRun:
         mock_context.artifact_store.write_artifact.assert_called_once()
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "code-review"
-        assert saved_artifact.review_data == sample_review_data
+        assert saved_artifact.repo_reviews[0].review_text == sample_review_text
         # Verify is_clean field is False because review contains "File: src/app.py"
         # indicating issues
         assert saved_artifact.is_clean is False
@@ -119,7 +118,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test that step succeeds even if progress comment fails (non-blocking)."""
         # Setup: plan loaded, review generation succeeds
@@ -133,7 +132,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
 
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
 
         # Mock progress comment emission to fail (e.g., DB unavailable)
@@ -165,14 +164,18 @@ class TestCodeReviewStepRun:
         assert result.success is False
         assert "No plan data available" in result.error
 
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
     @patch.object(CodeReviewStep, "_generate_review")
-    def test_run_fails_when__generate_review_fails(
+    def test_run_records_non_clean_entry_when__generate_review_fails(
         self,
         mock__generate_review,
+        mock_emit_comment,
+        mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
     ) -> None:
-        """Test that run fails when _generate_review fails."""
+        """Test that run records a non-clean entry when _generate_review fails for a repo."""
         mock_context.data = {"plan_data": sample_plan_data}
 
         def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
@@ -182,15 +185,20 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
+        mock_emit_artifact_comment.return_value = ("success", "ok")
+        mock_emit_comment.return_value = ("success", "Comment inserted")
 
         mock__generate_review.return_value = StepResult.fail("CodeRabbit review failed")
 
         step = CodeReviewStep()
         result = step.run(mock_context)
 
-        assert result.success is False
-        assert "Failed to generate CodeRabbit review" in result.error
-        assert "CodeRabbit review failed" in result.error
+        # Step succeeds but artifact records non-clean entry
+        assert result.success is True
+        saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
+        assert saved_artifact.is_clean is False
+        assert len(saved_artifact.repo_reviews) == 1
+        assert saved_artifact.repo_reviews[0].is_clean is False
 
     @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
@@ -202,7 +210,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test that review artifact is saved."""
         mock_context.data = {"plan_data": sample_plan_data}
@@ -215,7 +223,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
 
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -228,7 +236,7 @@ class TestCodeReviewStepRun:
         # Check the artifact fields
         saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
         assert saved_artifact.artifact_type == "code-review"
-        assert saved_artifact.review_data == sample_review_data
+        assert saved_artifact.repo_reviews[0].review_text == sample_review_text
         # Verify is_clean field is set based on review content
         # Sample review has "File:" so it's not clean
         assert saved_artifact.is_clean is False
@@ -243,7 +251,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test codereview workflow passes base_commit from context to CodeRabbit."""
         mock_context.data = {
@@ -259,7 +267,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -278,7 +286,7 @@ class TestCodeReviewStepRun:
         mock_emit_comment,
         mock_emit_artifact_comment,
         mock_context,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test codereview workflow falls back to plan_data.plan when base_commit is missing."""
         plan_data = PlanData(
@@ -296,7 +304,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -316,7 +324,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test patch/main workflows never use plan markdown as CodeRabbit base_commit."""
         mock_context.data = {
@@ -331,7 +339,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -353,7 +361,7 @@ class TestCodeReviewStepRun:
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test run calls _post_review_summary_to_pr when pr_number and platform are set."""
         mock_context.data = {"plan_data": sample_plan_data, "pr_number": 99}
@@ -365,7 +373,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -375,7 +383,7 @@ class TestCodeReviewStepRun:
 
         assert result.success is True
         mock_post_review_summary.assert_called_once_with(
-            review_text=sample_review_data.review_text,
+            review_text=sample_review_text,
             pr_number=99,
             platform="github",
             repo_path="/path/to/repo",
@@ -395,7 +403,7 @@ class TestCodeReviewStepRun:
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test run skips _post_review_summary_to_pr when pr_number is absent."""
         mock_context.data = {"plan_data": sample_plan_data}
@@ -407,7 +415,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -430,7 +438,7 @@ class TestCodeReviewStepRun:
         mock_post_review_summary,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test run skips _post_review_summary_to_pr when DEV_SEC_OPS_PLATFORM is not set."""
         mock_context.data = {"plan_data": sample_plan_data, "pr_number": 99}
@@ -442,7 +450,7 @@ class TestCodeReviewStepRun:
             return value
 
         mock_context.load_required_artifact = load_required_artifact
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
         mock_emit_comment.return_value = ("success", "Comment inserted")
 
@@ -464,7 +472,7 @@ class TestCodeReviewStepRun:
         mock_emit_artifact_comment,
         mock_context,
         sample_plan_data,
-        sample_review_data,
+        sample_review_text,
     ) -> None:
         """Test that standalone codereview workflow works without issue_id."""
         # Standalone workflow: no issue_id
@@ -479,7 +487,7 @@ class TestCodeReviewStepRun:
 
         mock_context.load_required_artifact = load_required_artifact
 
-        mock__generate_review.return_value = StepResult.ok(sample_review_data)
+        mock__generate_review.return_value = StepResult.ok(str(sample_review_text))
         mock_emit_artifact_comment.return_value = ("success", "ok")
 
         step = CodeReviewStep()
@@ -495,6 +503,159 @@ class TestCodeReviewStepRun:
         # emit_artifact_comment is called in run() but skipped when issue_id is None
         # (returns "skipped")
         mock_emit_comment.assert_not_called()
+
+
+class TestCodeReviewMultiRepo:
+    """Tests for CodeReviewStep multi-repo behavior."""
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_code_review_multi_repo_success(
+        self,
+        mock__generate_review,
+        mock_emit_comment_from_payload,
+        mock_emit_artifact_comment,
+        mock_context,
+        sample_plan_data,
+    ) -> None:
+        """Two repos, both generate reviews, artifact has two RepoReviewResult entries."""
+        mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+
+        review_a = "File: src/a.py\nLine 5: Issue in repo A"
+        review_b = "Review completed"
+        mock__generate_review.side_effect = [
+            StepResult.ok(review_a),
+            StepResult.ok(review_b),
+        ]
+        mock_emit_artifact_comment.return_value = ("success", "ok")
+        mock_emit_comment_from_payload.return_value = ("success", "ok")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        assert mock__generate_review.call_count == 2
+
+        saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
+        assert len(saved_artifact.repo_reviews) == 2
+        assert saved_artifact.repo_reviews[0].repo_path == "/path/to/repo-a"
+        assert saved_artifact.repo_reviews[0].is_clean is False
+        assert saved_artifact.repo_reviews[1].repo_path == "/path/to/repo-b"
+        assert saved_artifact.repo_reviews[1].is_clean is True
+        # Aggregate is False because repo-a is dirty
+        assert saved_artifact.is_clean is False
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_code_review_multi_repo_partial_failure(
+        self,
+        mock__generate_review,
+        mock_emit_comment_from_payload,
+        mock_emit_artifact_comment,
+        mock_context,
+        sample_plan_data,
+    ) -> None:
+        """One repo fails CodeRabbit, other succeeds — step still succeeds with partial results."""
+        mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+
+        mock__generate_review.side_effect = [
+            StepResult.fail("CodeRabbit review failed"),
+            StepResult.ok("Review completed"),
+        ]
+        mock_emit_artifact_comment.return_value = ("success", "ok")
+        mock_emit_comment_from_payload.return_value = ("success", "ok")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        saved_artifact = mock_context.artifact_store.write_artifact.call_args[0][0]
+        assert len(saved_artifact.repo_reviews) == 2
+        # First repo failed: non-clean with empty review_text
+        assert saved_artifact.repo_reviews[0].is_clean is False
+        assert saved_artifact.repo_reviews[0].review_text == ""
+        # Second repo succeeded and is clean
+        assert saved_artifact.repo_reviews[1].is_clean is True
+        assert saved_artifact.is_clean is False
+
+    @patch("rouge.core.workflow.steps.code_review_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.code_review_step.emit_comment_from_payload")
+    @patch.object(CodeReviewStep, "_generate_review")
+    def test_code_review_skips_clean_repos_on_rerun(
+        self,
+        mock__generate_review,
+        mock_emit_comment_from_payload,
+        mock_emit_artifact_comment,
+        mock_context,
+        sample_plan_data,
+    ) -> None:
+        """Pre-load artifact with one clean repo; verify _generate_review is called only for the dirty repo."""
+        from rouge.core.workflow.artifacts import CodeReviewArtifact
+        from rouge.core.workflow.types import RepoReviewResult
+
+        mock_context.data = {"plan_data": sample_plan_data}
+        mock_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+
+        def load_required_artifact(context_key, _artifact_type, _artifact_class, _extract_fn):
+            value = mock_context.data.get(context_key)
+            if value is None:
+                raise Exception(f"Required artifact '{_artifact_type}' not found")
+            return value
+
+        mock_context.load_required_artifact = load_required_artifact
+
+        # Pre-existing artifact: repo-a is clean, repo-b is dirty
+        existing_artifact = CodeReviewArtifact(
+            workflow_id="test-adw-review",
+            repo_reviews=[
+                RepoReviewResult(
+                    repo_path="/path/to/repo-a",
+                    review_text="Review completed",
+                    is_clean=True,
+                ),
+                RepoReviewResult(
+                    repo_path="/path/to/repo-b",
+                    review_text="File: src/b.py\nIssue",
+                    is_clean=False,
+                ),
+            ],
+            is_clean=False,
+        )
+        mock_context.artifact_store.artifact_exists.return_value = True
+        mock_context.artifact_store.read_artifact.return_value = existing_artifact
+
+        mock__generate_review.return_value = StepResult.ok("Review completed")
+        mock_emit_artifact_comment.return_value = ("success", "ok")
+        mock_emit_comment_from_payload.return_value = ("success", "ok")
+
+        step = CodeReviewStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        # _generate_review should be called only for repo-b (the dirty one)
+        mock__generate_review.assert_called_once()
+        call_args = mock__generate_review.call_args
+        assert call_args[0][0] == "/path/to/repo-b"
 
 
 class TestCodeReviewStepPostReviewSummary:
@@ -612,7 +773,7 @@ class TestCodeReviewStepPostReviewSummary:
 
         # Mock execute_template to return malformed JSON
         mock_execute_template.return_value = ClaudeAgentPromptResponse(
-            output='{invalid json syntax',
+            output="{invalid json syntax",
             success=True,
             session_id="sess-summary",
         )
@@ -776,7 +937,7 @@ class TestCodeReviewStepGenerateReview:
         # Verify review generation succeeded
         assert result.success is True
         assert result.data is not None
-        assert result.data.review_text == review_text
+        assert result.data == review_text
 
     @patch("rouge.core.workflow.steps.code_review_step.subprocess.run")
     @patch("rouge.core.workflow.steps.code_review_step.os.path.exists")

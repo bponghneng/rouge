@@ -15,7 +15,7 @@ from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
 from rouge.core.workflow.shared import CODE_REVIEW_STEP_NAME
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _sanitize_for_logging
-from rouge.core.workflow.types import StepResult
+from rouge.core.workflow.types import RepoFixResult, StepResult
 
 # Required fields for address review output JSON
 ADDRESS_REVIEW_REQUIRED_FIELDS = {
@@ -177,16 +177,16 @@ class ReviewFixStep(WorkflowStep):
             return StepResult.fail(f"Failed to address review issues: {e}")
 
     def run(self, context: WorkflowContext) -> StepResult:
-        """Address review issues.
+        """Address review issues on a per-repo basis.
 
         If the review was clean (no actionable issues), returns early with
-        a success result.  Otherwise addresses the issues and signals the
-        pipeline to rerun from the review-generation step so the fixes
-        can be re-evaluated.
+        a success result.  Otherwise filters to dirty repos that are under
+        the rerun limit, concatenates their review texts with repo-path
+        headers, and passes the combined string to ``_address_review_issues``.
 
-        Tracks rerun count to enforce max iterations (default 5). If max
-        iterations reached, returns success to allow workflow to continue
-        (best-effort semantics).
+        Rerun tracking is per-repo via ``RepoReviewResult.rerun_count``,
+        persisted in the ``CodeReviewArtifact``.  The volatile
+        ``context.data`` counter is not used.
 
         Args:
             context: Workflow context with review_data
@@ -216,24 +216,85 @@ class ReviewFixStep(WorkflowStep):
             logger.info("Review is clean, no issues to address")
             return StepResult.ok(None)
 
-        review_text = artifact.review_data.review_text.strip()
-        if not review_text:
-            logger.warning("No review text available, skipping address review")
+        # Filter to non-clean repos
+        dirty_repos = [r for r in artifact.repo_reviews if not r.is_clean]
+
+        if not dirty_repos:
+            logger.info("No dirty repos found despite aggregate is_clean=False, skipping")
             return StepResult.ok(None)
 
+        # Check per-repo rerun limits; separate under-limit from over-limit
+        actionable_repos = []
+        for r in dirty_repos:
+            if r.rerun_count >= MAX_REVIEW_ITERATIONS:
+                logger.warning(
+                    "Repo %s has reached max review/fix iterations (%s), skipping",
+                    r.repo_path,
+                    MAX_REVIEW_ITERATIONS,
+                )
+            else:
+                actionable_repos.append(r)
+
+        # If all dirty repos have hit their limit, no rerun needed
+        if not actionable_repos:
+            logger.warning(
+                "All dirty repos have reached max iterations (%s), continuing workflow",
+                MAX_REVIEW_ITERATIONS,
+            )
+            fix_artifact = ReviewFixArtifact(
+                workflow_id=context.adw_id,
+                success=True,
+                message=(f"All dirty repos reached max iterations ({MAX_REVIEW_ITERATIONS})"),
+                repo_fixes=[
+                    RepoFixResult(
+                        repo_path=r.repo_path,
+                        success=True,
+                        message=f"Max iterations ({MAX_REVIEW_ITERATIONS}) reached",
+                    )
+                    for r in dirty_repos
+                ],
+            )
+            context.artifact_store.write_artifact(fix_artifact)
+
+            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
+            log_artifact_comment_status(status, msg)
+
+            return StepResult.ok(None)
+
+        # Concatenate review texts with repo-path headers
+        review_sections = []
+        for r in actionable_repos:
+            text = r.review_text.strip()
+            if text:
+                review_sections.append(f"## {r.repo_path}\n{text}")
+
+        combined_review_text = "\n\n".join(review_sections)
+
+        if not combined_review_text:
+            logger.warning("No review text available from dirty repos, skipping")
+            return StepResult.ok(None)
+
+        # Pass concatenated string to the existing fix method
         review_issues_result = self._address_review_issues(
             context.issue_id,
             context.adw_id,
-            review_text,
+            combined_review_text,
         )
 
         if not review_issues_result.success:
             logger.error("Failed to address review issues: %s", review_issues_result.error)
-            # Save artifact even on failure
             fix_artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=False,
                 message=review_issues_result.error,
+                repo_fixes=[
+                    RepoFixResult(
+                        repo_path=r.repo_path,
+                        success=False,
+                        message=review_issues_result.error or "Failed to address review issues",
+                    )
+                    for r in actionable_repos
+                ],
             )
             context.artifact_store.write_artifact(fix_artifact)
 
@@ -243,77 +304,56 @@ class ReviewFixStep(WorkflowStep):
 
         logger.info("Review issues addressed successfully")
 
-        # Track rerun count to enforce max iterations
-        rerun_count = context.data.get("review_fix_rerun_count", 0)
-        rerun_count += 1
-        context.data["review_fix_rerun_count"] = rerun_count
+        # Increment rerun_count for each actionable dirty repo in the artifact
+        actionable_paths = {r.repo_path for r in actionable_repos}
+        for r in artifact.repo_reviews:
+            if r.repo_path in actionable_paths:
+                r.rerun_count += 1
 
-        logger.debug("Review/fix iteration count: %s/%s", rerun_count, MAX_REVIEW_ITERATIONS)
+        # Write back updated CodeReviewArtifact with incremented rerun counts
+        context.artifact_store.write_artifact(artifact)
 
-        # Check if we've reached max iterations
-        if rerun_count >= MAX_REVIEW_ITERATIONS:
-            logger.warning(
-                "Max review/fix iterations (%s) reached, continuing workflow",
-                MAX_REVIEW_ITERATIONS,
+        # Build repo_fixes list
+        repo_fixes = [
+            RepoFixResult(
+                repo_path=r.repo_path,
+                success=True,
+                message="Review issues addressed",
             )
+            for r in actionable_repos
+        ]
 
-            # Save artifact with iteration limit message
+        # Determine if any repo still needs re-review (under limit after increment)
+        still_dirty = any(
+            not r.is_clean and r.rerun_count < MAX_REVIEW_ITERATIONS for r in artifact.repo_reviews
+        )
+
+        if not still_dirty:
+            logger.info("All repos are either clean or at max iterations, continuing workflow")
             fix_artifact = ReviewFixArtifact(
                 workflow_id=context.adw_id,
                 success=True,
-                message=(
-                    f"Review issues addressed, max iterations " f"({MAX_REVIEW_ITERATIONS}) reached"
-                ),
+                message="Review issues addressed, all repos clean or at max iterations",
+                repo_fixes=repo_fixes,
             )
             context.artifact_store.write_artifact(fix_artifact)
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
             log_artifact_comment_status(status, msg)
 
-            # Insert progress comment - best-effort, non-blocking
-            if context.issue_id is not None:
-                payload = CommentPayload(
-                    issue_id=context.issue_id,
-                    adw_id=context.adw_id,
-                    text=(
-                        f"Review issues addressed. Max iterations "
-                        f"({MAX_REVIEW_ITERATIONS}) reached, continuing workflow."
-                    ),
-                    raw={
-                        "text": (
-                            f"Review issues addressed. Max iterations "
-                            f"({MAX_REVIEW_ITERATIONS}) reached."
-                        ),
-                        "rerun_count": rerun_count,
-                    },
-                    source="system",
-                    kind="workflow",
-                )
-                status, msg = emit_comment_from_payload(payload)
-                if status == "success":
-                    logger.debug(msg)
-                elif status == "skipped":
-                    logger.debug(msg)
-                else:
-                    logger.error(msg)
-
-            # Return success without rerun_from to continue workflow
             return StepResult.ok(None)
 
-        # Budget remains, request re-review
-        logger.info("Requesting re-review (iteration %s/%s)", rerun_count, MAX_REVIEW_ITERATIONS)
+        # Budget remains for at least one repo, request re-review
+        logger.info("Requesting re-review for repos still needing fixes")
 
-        # Save artifact
         fix_artifact = ReviewFixArtifact(
             workflow_id=context.adw_id,
             success=True,
-            message=(
-                f"Review issues addressed, re-running review "
-                f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})"
-            ),
+            message="Review issues addressed, re-running review",
+            repo_fixes=repo_fixes,
         )
         context.artifact_store.write_artifact(fix_artifact)
-        logger.debug("Saved review_addressed artifact for workflow %s", context.adw_id)
+        logger.debug("Saved review-fix artifact for workflow %s", context.adw_id)
 
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, fix_artifact)
         log_artifact_comment_status(status, msg)
@@ -323,14 +363,10 @@ class ReviewFixStep(WorkflowStep):
             payload = CommentPayload(
                 issue_id=context.issue_id,
                 adw_id=context.adw_id,
-                text=(
-                    f"Review issues addressed, re-running review "
-                    f"(iteration {rerun_count}/{MAX_REVIEW_ITERATIONS})."
-                ),
+                text="Review issues addressed, re-running review.",
                 raw={
                     "text": "Review issues addressed, re-running review.",
-                    "rerun_count": rerun_count,
-                    "max_iterations": MAX_REVIEW_ITERATIONS,
+                    "repos_fixed": [r.repo_path for r in actionable_repos],
                 },
                 source="system",
                 kind="workflow",

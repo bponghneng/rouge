@@ -29,7 +29,7 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    ReviewData,
+    RepoReviewResult,
 )
 
 
@@ -131,8 +131,13 @@ class TestEmitArtifactComment:
     def test_emit_artifact_comment_raw_field_contains_full_artifact(self, mock_create_comment) -> None:
         """Test that raw field contains the full serialized artifact JSON."""
         # Create artifact with nested data
-        review_data = ReviewData(review_text="Code review feedback")
-        artifact = CodeReviewArtifact(workflow_id="adw-review-test", review_data=review_data)
+        repo_review = RepoReviewResult(
+            repo_path="/path/to/repo",
+            review_text="Code review feedback",
+        )
+        artifact = CodeReviewArtifact(
+            workflow_id="adw-review-test", repo_reviews=[repo_review]
+        )
 
         mock_create_comment.return_value = Comment(
             id=1, issue_id=10, comment="test", adw_id="adw-review-test"
@@ -152,8 +157,8 @@ class TestEmitArtifactComment:
         artifact_json = call_args.raw["artifact"]
         assert artifact_json["workflow_id"] == "adw-review-test"
         assert artifact_json["artifact_type"] == "code-review"
-        assert "review_data" in artifact_json
-        assert artifact_json["review_data"]["review_text"] == "Code review feedback"
+        assert "repo_reviews" in artifact_json
+        assert artifact_json["repo_reviews"][0]["review_text"] == "Code review feedback"
         assert "created_at" in artifact_json
 
     @patch("rouge.core.notifications.comments.create_comment")
@@ -199,7 +204,9 @@ class TestEmitArtifactComment:
             (
                 CodeReviewArtifact(
                     workflow_id="adw-type-test",
-                    review_data=ReviewData(review_text="Review"),
+                    repo_reviews=[
+                        RepoReviewResult(repo_path="/repo", review_text="Review")
+                    ],
                 ),
                 "code-review",
             ),
