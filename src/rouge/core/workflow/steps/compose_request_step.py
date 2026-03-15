@@ -11,6 +11,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
@@ -74,7 +75,7 @@ class ComposeRequestStep(WorkflowStep):
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
-                slash_command="/adw-pull-request",
+                prompt_id=PromptId.PULL_REQUEST,
                 args=context.repo_paths,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,

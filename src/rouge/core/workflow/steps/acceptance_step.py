@@ -11,6 +11,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import AcceptanceArtifact, PlanArtifact
 from rouge.core.workflow.shared import (
@@ -113,7 +114,7 @@ class AcceptanceStep(WorkflowStep):
             # Create template request with plan content as argument
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_VALIDATOR,
-                slash_command="/adw-acceptance",
+                prompt_id=PromptId.ACCEPTANCE,
                 args=[plan_content],
                 adw_id=adw_id,
                 issue_id=issue_id,

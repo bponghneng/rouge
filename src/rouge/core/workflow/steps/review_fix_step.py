@@ -9,6 +9,7 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
+from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeReviewArtifact, ReviewFixArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -88,7 +89,7 @@ class ReviewFixStep(WorkflowStep):
             # Pass the review text as an argument to the slash command
             request = ClaudeAgentTemplateRequest(
                 agent_name="code_review",
-                slash_command="/adw-implement-review",
+                prompt_id=PromptId.IMPLEMENT_REVIEW,
                 args=[review_text],
                 adw_id=adw_id,
                 issue_id=issue_id,
