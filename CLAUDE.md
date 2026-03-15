@@ -82,19 +82,6 @@ See `README.md` for the full command reference (issue, workflow, step, artifact 
 
 **Workflow Registry**: `workflow_registry.py` provides a declarative registration system. All workflow type resolution goes through the `WorkflowRegistry` singleton. Entry point: `get_pipeline_for_type(workflow_type)`.
 
-## Shared Skills
-
-Reusable agent skills are installed under `.agents/skills/`. Invoke them by name when relevant:
-
-| Skill | Description |
-|---|---|
-| `git-ops` | Compose conventional commits, push branches, create GitHub PRs or GitLab MRs |
-| `consensus-review` | Multi-agent code review: spawns three reviewers in parallel, synthesizes a tiered report with a 1–100 quality score |
-| `rouge` | Use the Rouge CLI to manage issues, run workflows, and inspect step/artifact state |
-| `spec` | Interactively build a concise spec outline, then save to a file and optionally create a rouge issue |
-| `review-spec` | Generate a fix-ready specification from unresolved GitHub PR review feedback |
-| `coderabbit-config-refinement` | Tune `.coderabbit.yaml` and `CODING_STANDARDS.md` based on review-noise issues |
-
 ## Testing Strategy
 
 Tests are in `tests/` and use pytest with async support via `pytest-asyncio`. Mock all external dependencies (Supabase, AI agents) for isolation.
