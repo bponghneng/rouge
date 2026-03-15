@@ -5,15 +5,13 @@ import os
 import re
 import subprocess
 import traceback
-from typing import Any, Optional, Tuple
+from typing import Optional, Tuple
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
-    emit_comment_from_payload,
     log_artifact_comment_status,
 )
 from rouge.core.prompts import PromptId
@@ -21,6 +19,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import _emit_and_log
 from rouge.core.workflow.types import StepResult
 
 # Required fields for compose-commits output JSON
@@ -87,33 +86,6 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
     if len(sanitized) > max_length:
         return sanitized[:max_length] + "..."
     return sanitized
-
-
-def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
-    """Helper to emit comment and log based on status.
-
-    Args:
-        issue_id: Issue ID
-        adw_id: ADW ID
-        text: Comment text
-        raw: Raw payload data
-    """
-    logger = get_logger(adw_id)
-    payload = CommentPayload(
-        issue_id=issue_id,
-        adw_id=adw_id,
-        text=text,
-        raw=raw,
-        source="system",
-        kind="workflow",
-    )
-    status, msg = emit_comment_from_payload(payload)
-    if status == "success":
-        logger.debug(msg)
-    elif status == "skipped":
-        logger.info(msg)
-    else:
-        logger.error(msg)
 
 
 class ComposeCommitsStep(WorkflowStep):
@@ -314,7 +286,7 @@ class ComposeCommitsStep(WorkflowStep):
             sanitized_error = _sanitize_for_logging(str(e))
             error_msg = f"Compose commits failed: {sanitized_error}"
             tb = _sanitize_for_logging(traceback.format_exc())
-            logger.error(error_msg)
+            logger.exception(error_msg)
             _emit_and_log(
                 context.require_issue_id,
                 context.adw_id,

@@ -5,10 +5,8 @@ import os
 import re
 import subprocess
 
-from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
-    emit_comment_from_payload,
     log_artifact_comment_status,
 )
 from rouge.core.utils import get_logger
@@ -18,32 +16,8 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import _emit_and_log
 from rouge.core.workflow.types import StepResult
-
-
-def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict) -> None:
-    """Helper to emit comment and log based on status.
-
-    Args:
-        issue_id: Issue ID
-        adw_id: ADW ID
-        text: Comment text
-        raw: Raw payload data
-    """
-    logger = get_logger(adw_id)
-    payload = CommentPayload(
-        issue_id=issue_id,
-        adw_id=adw_id,
-        text=text,
-        raw=raw,
-        source="system",
-        kind="workflow",
-    )
-    status, msg = emit_comment_from_payload(payload)
-    if status == "success":
-        logger.debug(msg)
-    else:
-        logger.error(msg)
 
 
 class GlabPullRequestStep(WorkflowStep):
