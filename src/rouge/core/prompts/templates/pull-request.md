@@ -1,5 +1,8 @@
 ---
-description: Compose conventional commits from repo changes and prepare a pull request summary
+description: ADW step: groups unstaged changes into conventional commits, executes them, and prepares a PR title and structured PR description as JSON, including commit list and test checklist.
+model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
 # Compose Commits & PR Summary

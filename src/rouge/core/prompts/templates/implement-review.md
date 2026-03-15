@@ -1,5 +1,8 @@
 ---
-description: Use an automated review report to work through issues one by one with simplicity-first fixes.
+description: ADW step: processes an automated review report (e.g. CodeRabbit plain-text) issue by issue, applying simplicity-first fixes or deferring large changes to a plan file. Returns a JSON report of actions taken per issue.
+model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
 # Work Through Automated Review Issues

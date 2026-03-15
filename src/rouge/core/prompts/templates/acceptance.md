@@ -1,5 +1,8 @@
 ---
-description: Validate that an implementation matches its plan and report requirement status as JSON.
+description: ADW step: validates a completed implementation against its plan by inspecting the codebase and returning a structured JSON report of requirement status (met/not_met/unknown) with an overall pass/fail/partial result.
+model: opus
+thinking: true
+disable-model-invocation: true
 ---
 
 # Plan Acceptance Validation
