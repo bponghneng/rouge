@@ -90,14 +90,13 @@ def get_claude_env() -> Dict[str, str]:
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     """Save a prompt to the appropriate logging directory."""
-    # Extract slash command from prompt
+    # Derive a log filename: prefer the first slash command in the prompt,
+    # otherwise fall back to the agent_name so rendered templates are still logged.
     match = re.match(r"^(/\w+)", prompt)
-    if not match:
-        return
-
-    slash_command = match.group(1)
-    # Remove leading slash for filename
-    command_name = slash_command[1:]
+    if match:
+        command_name = match.group(1)[1:]  # strip leading slash
+    else:
+        command_name = agent_name
 
     # Create directory structure using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
