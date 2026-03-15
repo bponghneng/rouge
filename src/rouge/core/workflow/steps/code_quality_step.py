@@ -136,5 +136,5 @@ class CodeQualityStep(WorkflowStep):
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
-            logger.warning("Code quality step failed: %s", e)
+            logger.exception("Code quality step failed: %s", e)
             return StepResult.fail(f"Code quality step failed: {e}")

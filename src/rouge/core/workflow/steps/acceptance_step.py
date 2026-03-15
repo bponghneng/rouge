@@ -153,7 +153,7 @@ class AcceptanceStep(WorkflowStep):
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
-            logger.error("Failed to notify plan acceptance template: %s", e)
+            logger.error("Failed to notify plan acceptance template: %s", e, exc_info=True)
             return StepResult.fail(f"Failed to notify plan acceptance template: {e}")
 
     def _load_plan_text(self, context: WorkflowContext) -> Optional[str]:

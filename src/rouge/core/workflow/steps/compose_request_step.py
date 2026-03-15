@@ -155,7 +155,7 @@ class ComposeRequestStep(WorkflowStep):
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
-            logger.warning("Pull request preparation failed: %s", e)
+            logger.exception("Pull request preparation failed: %s", e)
             # Still mark workflow as completed
             self._finalize_workflow(context)
             return StepResult.fail(f"Pull request preparation failed: {e}")
