@@ -89,8 +89,6 @@ def get_claude_env() -> Dict[str, str]:
 
 def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     """Save a prompt to the appropriate logging directory."""
-    command_name = agent_name
-
     # Create directory structure using get_working_dir() as base
     from rouge.core.workflow.shared import get_working_dir
 
@@ -98,7 +96,7 @@ def save_prompt(prompt: str, adw_id: str, agent_name: str = "ops") -> None:
     os.makedirs(str(prompt_dir), exist_ok=True)
 
     # Save prompt to file
-    prompt_file = prompt_dir / f"{command_name}.txt"
+    prompt_file = prompt_dir / f"{agent_name}.txt"
     with open(str(prompt_file), "w") as f:
         f.write(prompt)
 
