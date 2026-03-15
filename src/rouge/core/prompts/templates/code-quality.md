@@ -1,49 +1,58 @@
 ---
-description: Run Rouge code quality tools, fix issues, and re-check until clean
+description: ADW step: runs code quality tools (linters, type checkers, formatters) across the project, applies fixes for reported errors and warnings, and returns a JSON summary of issues resolved.
+model: sonnet
+thinking: false
+disable-model-invocation: true
 ---
 
-# Rouge Code Quality
+# Code Quality
 
-Run the Rouge repo code quality tools and fix any reported issues. Then respond with the exact `Output Format` below.
+Discover the available code quality tools in each repository present in the working environment, then run all tools and fix any reported issues. Then respond with the exact `Output Format` below.
 
 ## Instructions
 
-### 1. Setup and Context
-- Change directory to the project repo: `cd rouge/`
-- Ensure dependencies are installed: `uv sync` (only if tools fail due to missing deps)
-- Track progress with a short checklist (TODOs in your response) while executing steps
+### 1. Discover Repositories and Their Tools
 
-### 2. Backend / Service Code Quality (Rouge)
+Before running anything, survey the working environment:
 
-**a. Static Analysis**
-- Run: `uv run mypy`
+- Find all repositories by locating directories that contain a `.git` folder
+- For each repo, identify which tools are available by checking config files and lock files:
+  - **Python**: `pyproject.toml` or `setup.cfg` → look for `ruff`, `flake8`, `pylint`, `mypy`, `pyright`, `pytest`, `black`, `isort`
+  - **JavaScript / TypeScript**: `package.json` scripts → look for `eslint`, `tsc`, `vitest`, `jest`, `prettier`
+  - **Elixir**: `mix.exs` → look for `credo`, `dialyxir`, `ex_unit` (`mix test`), `mix format`
+  - **PHP**: `composer.json` → look for `phpstan`, `psalm`, `phpcs`, `phpunit`, `php-cs-fixer`
+  - **Other**: inspect Makefiles, CI config (`.github/workflows/`, `.gitlab-ci.yml`) for tool invocations
+- Record the discovered tools per repo before proceeding. Skip any repo or tool category for which no tooling is configured.
+
+### 2. Run Tools in Order — Linters → Type Checkers → Tests → Formatters
+
+For each discovered repo, run its tools in the following order. Fix issues after each category before moving on.
+
+#### a. Linters
+
+- Run all configured linters for the repo
+- Apply auto-fixes where the tool supports them (e.g., `ruff check --fix`, `eslint --fix`)
+- Re-run until the linter reports zero errors
+
+#### b. Type Checkers
+
+- Run all configured type checkers for the repo
 - Fix type errors and re-run until clean
 
-**b. Unit Tests**
-- Run: `uv run pytest tests/ -v`
+#### c. Tests
+
+- Run all configured test suites for the repo
 - Fix failing tests and re-run until clean
 
-**c. Style / Linting**
-- Run: `uv run ruff check src/`
-- If issues are fixable, apply: `uv run ruff check src/ --fix`
-- Re-run `uv run ruff check src/` until clean
+#### d. Formatters
 
-**d. Formatting**
-- Run formatter: `uv run black src/`
-- If formatting changed files, re-run `uv run ruff check src/` to ensure style remains clean
+- Run all configured formatters for the repo
+- After formatting, re-run linters to confirm style remains clean
 
-### 3. E2E Code Quality
+### 3. Final Verification
 
-- Not applicable (no separate E2E workspace noted for this repo). Skip.
-
-### 4. Application / Frontend Code Quality
-
-- Not applicable (repo is Python backend/CLI). Skip.
-
-### 5. Final Verification
-
-- Re-run in order: `uv run mypy`, `uv run pytest tests/ -v`, `uv run ruff check src/`, `uv run black src/`
-- All commands should pass with zero errors
+- Re-run all discovered tools for every repo in the same order (linters → type checkers → tests → formatters)
+- All commands must pass with zero errors before completing
 
 ## Output Format
 
@@ -57,10 +66,5 @@ Return ONLY valid JSON with zero additional text, formatting, markdown, or expla
     }
   ],
   "output": "code-quality",
-  "tools": [
-    "uv run ruff check src/",
-    "uv run black src/",
-    "uv run mypy src/",
-    "uv run pytest tests/ -v"
-  ]
+  "tools": ["<each tool command actually run, in execution order>"]
 }
