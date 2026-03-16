@@ -36,7 +36,7 @@ Does the implementation match what the plan specified? Flag any divergence — m
 
 ### Linter and Formatter
 
-Run linting, formatting, type-checking, and tests using the project's configured tools. These commands must be run from the repo root (`/Users/bponghneng/git/rouge`):
+Run linting, formatting, type-checking, and tests using the project's configured tools. These commands must be run from the repo root (`~/git/rouge`):
 
 ```bash
 uv run ruff check src/ tests/
@@ -48,16 +48,19 @@ uv run pytest tests/ -v
 Report every violation emitted by these tools as a finding. Do not manually evaluate formatting or import order — let the tools produce the findings. Report each failing test as a CRITICAL finding.
 
 Ruff is configured in `pyproject.toml` with:
+
 - `target-version = "py312"`
 - `line-length = 100`
 - Rules: `E`, `F`, `I`, `W`, `ARG`, `G004`
 - Per-file ignore: `tests/**/*.py` ignores `ARG`; `migrations/**/*.py` ignores `E501`
 
 Black enforces:
+
 - `line-length = 100`
 - `target-version = ["py312"]`
 
 Mypy enforces:
+
 - `python_version = "3.12"`
 - `warn_unused_ignores = true`
 - Covers `src/` only
@@ -69,6 +72,7 @@ Mypy enforces:
 **Type annotations in tests** — Every test function and pytest fixture must have an explicit return type annotation. Use `-> None` for test functions and void fixtures; use the concrete return type for value-returning fixtures. No exceptions.
 
 **CLI option hygiene** — For new or updated Typer options:
+
 - Use `show_default=True` where appropriate
 - Normalize string inputs (strip whitespace, reject whitespace-only values)
 - Never expose internal sentinel values (e.g., `__UNSET_SENTINEL_VALUE__`) in `--help` output; use a descriptive placeholder
@@ -98,6 +102,7 @@ Mypy enforces:
 ## What to Ignore
 
 Do not report on:
+
 - Logic errors, bugs, or security vulnerabilities (correctness-reviewer's mandate)
 - Design decisions, coupling, or architectural quality (architecture-reviewer's mandate)
 - Personal preferences with no basis in a stated project standard
@@ -119,6 +124,7 @@ Findings where the implementation does not match the plan. Write "None." if none
 For each finding:
 
 ### [SEVERITY] Short title
+
 **File:** path/to/file:line
 **Finding:** What diverges and how
 **Plan reference:** The specific section or statement in the plan that was not followed
@@ -131,6 +137,7 @@ Standards and compliance issues in the code itself. Write "None." if none found.
 For each finding:
 
 ### [SEVERITY] Short title
+
 **File:** path/to/file:line
 **Finding:** What the issue is and where
 **Standard:** Which convention, rule, or configuration is violated
@@ -139,6 +146,7 @@ For each finding:
 ---
 
 Severity levels:
+
 - **CRITICAL** — violates a hard project rule or breaks a required convention
 - **HIGH** — significant standards violation that would fail a team code review
 - **MEDIUM** — notable deviation from convention, should be corrected
