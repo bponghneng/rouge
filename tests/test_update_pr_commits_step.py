@@ -413,7 +413,6 @@ class TestComposeCommitsMultiRepo:
         mock_parse.return_value = mock_parse_response
 
         def subprocess_side_effect(cmd, **kwargs):
-            cwd = kwargs.get("cwd", "")
             if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
                 return Mock(returncode=0, stdout="feature-branch\n", stderr="")
             if cmd[0] == "git" and cmd[1] == "push":
@@ -421,7 +420,7 @@ class TestComposeCommitsMultiRepo:
             # gh pr view for platform detection
             return Mock(
                 returncode=0,
-                stdout=json.dumps({"url": f"https://github.com/org/repo/pull/1"}),
+                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1"}),
             )
 
         mock_subprocess.side_effect = subprocess_side_effect
