@@ -609,7 +609,8 @@ class TestCodeReviewMultiRepo:
         mock_context,
         sample_plan_data,
     ) -> None:
-        """Pre-load artifact with one clean repo; verify _generate_review is called only for the dirty repo."""
+        """Pre-load artifact with one clean repo; verify _generate_review is called only for the
+        dirty repo."""
         from rouge.core.workflow.artifacts import CodeReviewArtifact
         from rouge.core.workflow.types import RepoReviewResult
 

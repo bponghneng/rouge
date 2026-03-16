@@ -126,7 +126,8 @@ class TestReviewFixMultiRepo:
     """Tests for ReviewFixStep multi-repo filtering and rerun limit behavior."""
 
     def test_review_fix_skips_clean_repos(self, store: ArtifactStore) -> None:
-        """Two repos, one clean — verify _address_review_issues receives only the dirty repo's review text."""
+        """Two repos, one clean — verify _address_review_issues receives only the dirty repo's
+        review text."""
         review_artifact = CodeReviewArtifact(
             workflow_id="test-review-fix",
             repo_reviews=[
@@ -167,7 +168,10 @@ class TestReviewFixMultiRepo:
         assert "/path/to/dirty-repo" in review_text_arg
         assert "Bug found" in review_text_arg
         # Clean repo text should NOT appear
-        assert "Review completed" not in review_text_arg or "/path/to/clean-repo" not in review_text_arg
+        assert (
+            "Review completed" not in review_text_arg
+            or "/path/to/clean-repo" not in review_text_arg
+        )
 
     def test_review_fix_per_repo_rerun_limit(self, store: ArtifactStore) -> None:
         """Two repos, one at max rerun count — verify only the other repo triggers re-review."""
@@ -217,7 +221,8 @@ class TestReviewFixMultiRepo:
         assert result.rerun_from is not None
 
     def test_review_fix_all_repos_at_limit(self, store: ArtifactStore) -> None:
-        """Both repos at max — verify no rerun requested and _address_review_issues is not called."""
+        """Both repos at max — verify no rerun requested and _address_review_issues is not
+        called."""
         review_artifact = CodeReviewArtifact(
             workflow_id="test-review-fix",
             repo_reviews=[

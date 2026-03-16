@@ -137,9 +137,7 @@ class TestEmitArtifactComment:
             repo_path="/path/to/repo",
             review_text="Code review feedback",
         )
-        artifact = CodeReviewArtifact(
-            workflow_id="adw-review-test", repo_reviews=[repo_review]
-        )
+        artifact = CodeReviewArtifact(workflow_id="adw-review-test", repo_reviews=[repo_review])
 
         mock_create_comment.return_value = Comment(
             id=1, issue_id=10, comment="test", adw_id="adw-review-test"
@@ -208,9 +206,7 @@ class TestEmitArtifactComment:
             (
                 CodeReviewArtifact(
                     workflow_id="adw-type-test",
-                    repo_reviews=[
-                        RepoReviewResult(repo_path="/repo", review_text="Review")
-                    ],
+                    repo_reviews=[RepoReviewResult(repo_path="/repo", review_text="Review")],
                 ),
                 "code-review",
             ),
