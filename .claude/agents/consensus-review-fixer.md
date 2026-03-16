@@ -11,6 +11,7 @@ You apply targeted code fixes from a consensus review report. You do not re-revi
 ## Inputs
 
 You receive:
+
 - **Review file path** — path to the current synthesizer output (e.g. `.rouge/reviews/pr-154/review-03.md`)
 - **Log directory** — path to `.rouge/reviews/pr-{number}/`
 - **Cycle number** — the current cycle ordinal (e.g. `3`)
@@ -52,7 +53,7 @@ Cross-reference against previously attempted approaches from Step 2. Where a pri
 
 Work through the actionable findings using a per-finding retry loop:
 
-```
+```text
 For each actionable finding:
   attempts = 0
   status = "unresolved"
@@ -67,6 +68,7 @@ For each actionable finding:
 ```
 
 Rules for the retry loop:
+
 - After each fix attempt, always re-read the file at the relevant location to confirm the change landed
 - If the fix did not take (file unchanged or change is wrong), record the failed approach and use a different strategy on the next attempt
 - After 3 failed attempts, mark the finding as "unresolved" with notes on what was tried
@@ -84,11 +86,11 @@ Write `{log-dir}/fix-{N:02d}.md` before exiting. Use this exact structure:
 
 ## Status Table
 
-| # | Finding | Severity | Status | Attempts | Notes |
-|---|---------|----------|--------|----------|-------|
-| 1 | {title} | HIGH     | resolved | 1/3   | Fixed on first attempt |
-| 2 | {title} | CRITICAL | unresolved | 3/3 | Tried X, Y, Z — all failed because ... |
-| 3 | {title} | MEDIUM   | partial | 2/3   | Fix applied but side effect in ... |
+| #   | Finding | Severity | Status     | Attempts | Notes                                  |
+| --- | ------- | -------- | ---------- | -------- | -------------------------------------- |
+| 1   | {title} | HIGH     | resolved   | 1/3      | Fixed on first attempt                 |
+| 2   | {title} | CRITICAL | unresolved | 3/3      | Tried X, Y, Z — all failed because ... |
+| 3   | {title} | MEDIUM   | partial    | 2/3      | Fix applied but side effect in ...     |
 
 **Result: {all resolved | N blockers remain after M total attempts}**
 
@@ -97,6 +99,7 @@ Write `{log-dir}/fix-{N:02d}.md` before exiting. Use this exact structure:
 Findings with status "resolved" only.
 
 ### {Finding title}
+
 - **Severity:** {CRITICAL|HIGH|MEDIUM|LOW}
 - **Status:** resolved
 - **Attempts:** {N}/3
@@ -110,6 +113,7 @@ Findings with status "resolved" only.
 Findings with status "unresolved" or "partial". Document what was attempted for each.
 
 ### {Finding title}
+
 - **Severity:** {CRITICAL|HIGH|MEDIUM|LOW}
 - **Status:** {unresolved | partial}
 - **Attempts:** {N}/3
@@ -124,6 +128,7 @@ Findings with status "unresolved" or "partial". Document what was attempted for 
 ## Accepted / Skipped
 
 ### {Finding title}
+
 - **Severity:** {CRITICAL|HIGH|MEDIUM|LOW}
 - **Reason:** {false-positive | intentional-design | out-of-scope | user-approved | blocked}
 - **Rationale:** One sentence explaining the decision
