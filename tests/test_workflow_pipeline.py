@@ -12,7 +12,6 @@ from rouge.core.workflow.steps import (
     AcceptanceStep,
     ClassifyStep,
     CodeQualityStep,
-    CodeReviewStep,
     ComposeRequestStep,
     FetchIssueStep,
     FetchPatchStep,
@@ -20,7 +19,6 @@ from rouge.core.workflow.steps import (
     GitCheckoutStep,
     ImplementStep,
     PlanStep,
-    ReviewFixStep,
 )
 from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
@@ -314,8 +312,8 @@ class TestGetDefaultPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_default_pipeline()
 
-        # Check step count (should be 10 without PR step)
-        assert len(pipeline) == 10
+        # Check step count (should be 8 without PR step)
+        assert len(pipeline) == 8
 
         # Verify order and types
         expected_types = [
@@ -324,8 +322,6 @@ class TestGetDefaultPipeline:
             ClassifyStep,
             PlanStep,
             ImplementStep,
-            CodeReviewStep,
-            ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
             ComposeRequestStep,
@@ -344,13 +340,13 @@ class TestGetDefaultPipeline:
         assert pipeline[2].is_critical  # Classify
         assert pipeline[3].is_critical  # Plan
         assert pipeline[4].is_critical  # Implement
-        assert not pipeline[7].is_critical  # Quality
+        assert not pipeline[5].is_critical  # Quality
 
     def test_pipeline_structure_github(self, monkeypatch):
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_default_pipeline()
 
-        assert len(pipeline) == 11
+        assert len(pipeline) == 9
         assert isinstance(pipeline[-1], GhPullRequestStep)
         assert not pipeline[-1].is_critical  # PR creation is best effort
 
@@ -358,7 +354,7 @@ class TestGetDefaultPipeline:
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
         pipeline = get_default_pipeline()
 
-        assert len(pipeline) == 11
+        assert len(pipeline) == 9
         assert isinstance(pipeline[-1], GlabPullRequestStep)
         assert not pipeline[-1].is_critical
 
@@ -368,8 +364,8 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        # Check step count (should be 9)
-        assert len(pipeline) == 9
+        # Check step count (should be 7)
+        assert len(pipeline) == 7
 
         # Verify order and types
         expected_types = [
@@ -377,8 +373,6 @@ class TestGetPatchPipeline:
             GitCheckoutStep,
             PatchPlanStep,
             ImplementStep,
-            CodeReviewStep,
-            ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
             ComposeCommitsStep,
@@ -396,11 +390,9 @@ class TestGetPatchPipeline:
         assert pipeline[1].is_critical  # Git checkout
         assert pipeline[2].is_critical  # Build patch plan
         assert pipeline[3].is_critical  # Implement
-        assert not pipeline[4].is_critical  # Review (best effort)
-        assert not pipeline[5].is_critical  # Address review (best effort)
-        assert not pipeline[6].is_critical  # Code quality
-        assert not pipeline[7].is_critical  # Validate patch acceptance (best effort)
-        assert not pipeline[8].is_critical  # Update PR commits (best effort)
+        assert not pipeline[4].is_critical  # Code quality
+        assert not pipeline[5].is_critical  # Validate patch acceptance (best effort)
+        assert not pipeline[6].is_critical  # Update PR commits (best effort)
 
     def test_patch_pipeline_excludes_create_pr_steps(self, monkeypatch):
         """Verify patch pipeline never includes PR creation steps."""
@@ -432,8 +424,6 @@ class TestGetPatchPipeline:
             GitCheckoutStep,
             PatchPlanStep,
             ImplementStep,
-            CodeReviewStep,
-            ReviewFixStep,
             CodeQualityStep,
             AcceptanceStep,
             ComposeCommitsStep,
@@ -451,8 +441,8 @@ class TestGetFullPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        # Check step count (should be 8 without PR step)
-        assert len(pipeline) == 8
+        # Check step count (should be 6 without PR step)
+        assert len(pipeline) == 6
 
         # Verify order and types
         expected_types = [
@@ -460,8 +450,6 @@ class TestGetFullPipeline:
             GitBranchStep,
             ClaudeCodePlanStep,
             ImplementStep,
-            CodeReviewStep,
-            ReviewFixStep,
             CodeQualityStep,
             ComposeRequestStep,
         ]
@@ -479,15 +467,15 @@ class TestGetFullPipeline:
         assert pipeline[1].is_critical  # GitBranchStep
         assert pipeline[2].is_critical  # ClaudeCodePlanStep
         assert pipeline[3].is_critical  # ImplementStep
-        assert not pipeline[6].is_critical  # CodeQualityStep
+        assert not pipeline[4].is_critical  # CodeQualityStep
 
     def test_pipeline_structure_github(self, monkeypatch):
         """Test full pipeline structure with GitHub platform."""
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_full_pipeline()
 
-        # Check step count (should be 9 with GitHub PR step)
-        assert len(pipeline) == 9
+        # Check step count (should be 7 with GitHub PR step)
+        assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GhPullRequestStep)
         assert not pipeline[-1].is_critical  # PR creation is best effort
 
@@ -496,8 +484,8 @@ class TestGetFullPipeline:
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
         pipeline = get_full_pipeline()
 
-        # Check step count (should be 9 with GitLab MR step)
-        assert len(pipeline) == 9
+        # Check step count (should be 7 with GitLab MR step)
+        assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GlabPullRequestStep)
         assert not pipeline[-1].is_critical  # MR creation is best effort
 
@@ -533,7 +521,7 @@ class TestGetFullPipeline:
         # Test with no platform set
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
-        assert len(pipeline) == 8
+        assert len(pipeline) == 6
         pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
         for step in pipeline:
             assert not isinstance(
@@ -543,21 +531,21 @@ class TestGetFullPipeline:
         # Test with GitHub
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_full_pipeline()
-        assert len(pipeline) == 9
+        assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GhPullRequestStep)
         assert not any(isinstance(s, GlabPullRequestStep) for s in pipeline)
 
         # Test with GitLab
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
         pipeline = get_full_pipeline()
-        assert len(pipeline) == 9
+        assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GlabPullRequestStep)
         assert not any(isinstance(s, GhPullRequestStep) for s in pipeline)
 
         # Test with unsupported platform value
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
         pipeline = get_full_pipeline()
-        assert len(pipeline) == 8
+        assert len(pipeline) == 6
         for step in pipeline:
             assert not isinstance(
                 step, pr_step_types
@@ -573,8 +561,6 @@ class TestGetFullPipeline:
             GitBranchStep,
             ClaudeCodePlanStep,
             ImplementStep,
-            CodeReviewStep,
-            ReviewFixStep,
             CodeQualityStep,
             ComposeRequestStep,
         ]

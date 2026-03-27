@@ -495,46 +495,7 @@ def test_create_patch_with_nonexistent_parent_issue_id_fails(
     mock_create_issue.assert_not_called()
 
 
-@patch("rouge.cli.issue.create_issue")
-def test_create_codereview_without_branch_fails(mock_create_issue: MagicMock) -> None:
-    """Test that codereview creation without --branch exits with code 1 and prints an error."""
-    result = runner.invoke(
-        app,
-        ["create", "Review this code", "--type", "codereview"],
-    )
-    assert result.exit_code == 1
-    assert "Error: For codereview issues, --branch must be provided" in result.output
-    mock_create_issue.assert_not_called()
-
-
-@patch("rouge.cli.issue.create_issue")
-def test_create_codereview_with_branch_succeeds(mock_create_issue: MagicMock) -> None:
-    """Test that codereview creation with --branch calls create_issue and succeeds."""
-    mock_issue = Issue(
-        id=500,
-        description="Review this code",
-        status="pending",
-        type="codereview",
-        branch="main",
-    )
-    mock_create_issue.return_value = mock_issue
-
-    result = runner.invoke(
-        app,
-        ["create", "Review this code", "--type", "codereview", "--branch", "main"],
-    )
-    assert result.exit_code == 0
-    assert "500" in result.output
-    mock_create_issue.assert_called_once_with(
-        description="Review this code",
-        title="Review this code",
-        issue_type="codereview",
-        branch="main",
-        assigned_to=None,
-    )
-
-
-@pytest.mark.parametrize("type_arg", ["main", "codereview"])
+@pytest.mark.parametrize("type_arg", ["main"])
 @patch("rouge.cli.issue.create_issue")
 def test_create_non_patch_with_parent_issue_id_fails(
     mock_create_issue: MagicMock, type_arg: str
@@ -1026,26 +987,13 @@ def test_list_command_filter_by_type_patch(mock_fetch_all_issues) -> None:
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
-def test_list_command_filter_by_type_codereview(mock_fetch_all_issues) -> None:
-    """Test list command with --type codereview returns only codereview issues."""
-    mock_issues = [
-        Issue(
-            id=1,
-            title="Code Review Issue",
-            description="Review description",
-            status="pending",
-            type="codereview",
-        ),
-    ]
-    mock_fetch_all_issues.return_value = mock_issues
+def test_list_command_filter_by_type_passes_value(mock_fetch_all_issues) -> None:
+    """Test list command with --type passes the value to fetch_all_issues."""
+    mock_fetch_all_issues.return_value = []
 
-    result = runner.invoke(app, ["list", "--type", "codereview"])
+    result = runner.invoke(app, ["list", "--type", "main"])
     assert result.exit_code == 0
-    # Verify type filter is passed correctly
-    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="codereview", status=None)
-    # Verify codereview issue is in output
-    assert "Code Review Issue" in result.output
-    assert "codereview" in result.output
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="main", status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")

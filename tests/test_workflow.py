@@ -12,7 +12,6 @@ from rouge.core.workflow import execute_workflow, update_status
 from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.shared import derive_paths_from_plan
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.code_review_step import is_clean_review
 from rouge.core.workflow.types import StepResult
 
 
@@ -201,67 +200,6 @@ def test_derive_paths_from_plan() -> None:
     assert result["review_file"] == "specs/chore-review.txt"
 
 
-# REMOVED: Tests for generate_review function (moved to step class in
-# rouge.core.workflow.steps.code_review)
-# These tests tested a top-level function that no longer exists after refactoring.
-# The business logic is now in CodeReviewStep._generate_review() method.
-# To test review generation logic, test CodeReviewStep directly instead.
-
-
-# === is_clean_review Tests ===
-
-
-def test_is_clean_review_clean_text() -> None:
-    """Test is_clean_review returns True for clean review text."""
-    review_text = "Review completed\nNo issues found. The code looks good."
-    assert is_clean_review(review_text) is True
-
-
-def test_is_clean_review_with_issues() -> None:
-    """Test is_clean_review returns False when review contains file-level issues."""
-    review_text = (
-        "Review completed\nFile: src/main.py\nLine 42: Missing error handling for null case."
-    )
-    assert is_clean_review(review_text) is False
-
-
-def test_is_clean_review_empty_text() -> None:
-    """Test is_clean_review returns False for empty text."""
-    assert is_clean_review("") is False
-
-
-def test_is_clean_review_missing_review_completed_marker() -> None:
-    """Test is_clean_review returns False when 'Review completed' marker is absent."""
-    review_text = "All checks passed. No issues found."
-    assert is_clean_review(review_text) is False
-
-
-def test_is_clean_review_only_file_marker() -> None:
-    """Test is_clean_review returns False when only 'File:' marker is present."""
-    review_text = "File: src/utils.py\nLine 10: Unused import."
-    assert is_clean_review(review_text) is False
-
-
-def test_is_clean_review_both_markers_missing() -> None:
-    """Test is_clean_review returns False when both markers are absent."""
-    review_text = "Some random text without any markers."
-    assert is_clean_review(review_text) is False
-
-
-# REMOVED: Tests for address_review_issues function (moved to step class in
-# rouge.core.workflow.steps.review_fix)
-# This test tested a top-level function that no longer exists after refactoring.
-# The business logic is now in ReviewFixStep.run() method.
-# To test address review logic, test ReviewFixStep directly instead.
-
-
-# REMOVED: Tests for notify_plan_acceptance function (moved to step class in
-# rouge.core.workflow.steps.acceptance)
-# This test tested a top-level function that no longer exists after refactoring.
-# The business logic is now in AcceptanceStep.run() method.
-# To test acceptance logic, test AcceptanceStep directly instead.
-
-
 @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
 def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
@@ -283,13 +221,6 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     request = mock_execute.call_args[0][0]
     assert request.json_schema is not None
     assert '"const": "code-quality"' in request.json_schema
-
-
-# REMOVED: More tests for address_review_issues function (moved to step class in
-# rouge.core.workflow.steps.review_fix)
-# These tests tested a top-level function that no longer exists after refactoring.
-# The business logic is now in ReviewFixStep.run() method.
-# To test address review logic, test ReviewFixStep directly instead.
 
 
 # === GhPullRequestStep Tests ===

@@ -69,13 +69,6 @@ def test_legacy_patch_command_fails() -> None:
     assert "patch" in result.output.lower() or "command" in result.output.lower()
 
 
-def test_legacy_codereview_command_fails() -> None:
-    """Test that legacy 'rouge codereview' command no longer exists."""
-    result = runner.invoke(app, ["codereview", "123"])
-    assert result.exit_code != 0
-    assert "codereview" in result.output.lower() or "command" in result.output.lower()
-
-
 def test_legacy_read_command_fails() -> None:
     """Test that legacy 'rouge read' command no longer exists."""
     result = runner.invoke(app, ["read", "123"])
@@ -348,46 +341,6 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         assigned_to=None,
         status="pending",
         branch=None,
-    )
-
-
-@patch("rouge.cli.reset.update_issue")
-@patch("rouge.cli.reset.fetch_issue")
-def test_reset_command_with_failed_codereview_issue_preserves_branch(
-    mock_fetch_issue, mock_update_issue
-) -> None:
-    """Test 'rouge issue reset' with failed codereview issue preserves branch (new behavior)."""
-    # Mock a failed codereview issue with branch
-    mock_issue = Issue(
-        id=222,
-        description="Test codereview issue",
-        status="failed",
-        type="codereview",
-        assigned_to="local-2",
-        branch="feature/codereview-branch",
-    )
-    mock_fetch_issue.return_value = mock_issue
-
-    # Mock the updated issue (branch preserved)
-    updated_issue = Issue(
-        id=222,
-        description="Test codereview issue",
-        status="pending",
-        type="codereview",
-        assigned_to=None,
-        branch="feature/codereview-branch",
-    )
-    mock_update_issue.return_value = updated_issue
-
-    result = runner.invoke(issue_app, ["reset", "222"])
-    assert result.exit_code == 0
-    assert "222" in result.output
-    mock_fetch_issue.assert_called_once_with(222)
-    # Verify branch is NOT in kwargs (preserves existing value for codereview)
-    mock_update_issue.assert_called_once_with(
-        222,
-        assigned_to=None,
-        status="pending",
     )
 
 

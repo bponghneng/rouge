@@ -81,38 +81,6 @@ def test_execute_adw_workflow_patch_type(monkeypatch) -> None:
     assert calls["pipeline_type"] == "patch"
 
 
-def test_execute_adw_workflow_codereview_type(monkeypatch) -> None:
-    """Codereview workflow should use codereview pipeline via workflow registry."""
-    calls = {}
-    registry_calls = {}
-
-    def fake_get_pipeline(wf_type):
-        registry_calls["workflow_type"] = wf_type
-        return "codereview-pipeline"
-
-    def fake_execute(issue_id, adw_id, *, pipeline=None, resume_from=None, pipeline_type=None):
-        calls["args"] = (issue_id, adw_id)
-        calls["pipeline"] = pipeline
-        calls["resume_from"] = resume_from
-        calls["pipeline_type"] = pipeline_type
-        return True
-
-    monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute)
-    monkeypatch.setattr("rouge.adw.adw.get_pipeline_for_type", fake_get_pipeline)
-
-    success, workflow_id = execute_adw_workflow(
-        "codereview-workflow-id", 123, workflow_type="codereview"
-    )
-
-    assert success is True, "expected success to be True"
-    assert workflow_id == "codereview-workflow-id", "unexpected workflow_id"
-    assert registry_calls["workflow_type"] == "codereview", "registry workflow_type mismatch"
-    assert calls["args"] == (123, "codereview-workflow-id"), "pipeline call args mismatch"
-    assert calls["pipeline"] == "codereview-pipeline", "pipeline name mismatch"
-    assert calls["resume_from"] is None
-    assert calls["pipeline_type"] == "codereview"
-
-
 def test_execute_adw_workflow_main_without_issue_id_raises(monkeypatch):
     """workflow_type='full' with issue_id=None should raise ValueError."""
     with pytest.raises(ValueError, match="issue_id is required"):

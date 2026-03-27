@@ -71,14 +71,11 @@ class TestPromptId:
             "CLASSIFY",
             "CLAUDE_CODE_PLAN",
             "CODE_QUALITY",
-            "CODE_REVIEW_SUMMARY",
             "COMPOSE_COMMITS",
             "FEATURE_PLAN",
             "IMPLEMENT_PLAN",
-            "IMPLEMENT_REVIEW",
             "PATCH_PLAN",
             "PULL_REQUEST",
-            "REVIEW_PLAN",
         }
         actual = {m.name for m in PromptId}
         assert actual == expected
@@ -100,11 +97,11 @@ class TestPromptId:
         assert PromptId.CLASSIFY.value == "classify"
         assert PromptId.FEATURE_PLAN.value == "feature-plan"
         assert PromptId.IMPLEMENT_PLAN.value == "implement-plan"
-        assert PromptId.REVIEW_PLAN.value == "review-plan"
+        assert PromptId.PATCH_PLAN.value == "patch-plan"
 
     def test_count(self) -> None:
-        """Exactly 14 prompt IDs are declared."""
-        assert len(list(PromptId)) == 14
+        """Exactly 11 prompt IDs are declared."""
+        assert len(list(PromptId)) == 11
 
 
 # ---------------------------------------------------------------------------

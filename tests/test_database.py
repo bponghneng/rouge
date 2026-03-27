@@ -809,38 +809,6 @@ def test_create_issue_auto_generates_adw_id(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_with_explicit_type_codereview(mock_get_client) -> None:
-    """Test creating issue with explicit type='codereview'."""
-    mock_client = Mock()
-    mock_table = Mock()
-    mock_insert = Mock()
-    mock_execute = Mock()
-
-    mock_client.table.return_value = mock_table
-    mock_table.insert.return_value = mock_insert
-    mock_execute.data = [
-        {
-            "id": 10,
-            "description": "Code review for feature X",
-            "status": "pending",
-            "type": "codereview",
-            "adw_id": "review123",
-        }
-    ]
-    mock_insert.execute.return_value = mock_execute
-    mock_get_client.return_value = mock_client
-
-    issue = create_issue("Code review for feature X", issue_type="codereview")
-    assert issue.id == 10
-    assert issue.description == "Code review for feature X"
-    assert issue.type == "codereview"
-
-    # Verify the insert data included the type
-    insert_call_args = mock_table.insert.call_args[0][0]
-    assert insert_call_args["type"] == "codereview"
-
-
-@patch("rouge.core.database.get_client")
 def test_create_issue_invalid_type(_mock_get_client) -> None:
     """Test creating issue with invalid type raises ValueError."""
     with pytest.raises(ValueError, match="Invalid issue_type"):
@@ -1620,46 +1588,6 @@ def test_update_issue_both_types(mock_get_client) -> None:
 
         issue = update_issue(1, issue_type=issue_type)
         assert issue.type == issue_type
-
-
-@patch("rouge.core.database.get_client")
-def test_update_issue_with_type_codereview(mock_get_client) -> None:
-    """Test updating issue_type to 'codereview'."""
-    mock_client = Mock()
-    mock_table = Mock()
-
-    # Mock for the select check
-    mock_select_check = Mock()
-    mock_eq_check = Mock()
-    mock_execute_check = Mock()
-    mock_execute_check.data = [{"id": 1}]
-    mock_eq_check.execute.return_value = mock_execute_check
-    mock_select_check.eq.return_value = mock_eq_check
-
-    # Mock for the update
-    mock_update = Mock()
-    mock_eq_update = Mock()
-    mock_execute_update = Mock()
-    mock_execute_update.data = [
-        {
-            "id": 1,
-            "description": "Test issue",
-            "status": "pending",
-            "type": "codereview",
-        }
-    ]
-    mock_eq_update.execute.return_value = mock_execute_update
-    mock_update.eq.return_value = mock_eq_update
-
-    mock_table.select.return_value = mock_select_check
-    mock_table.update.return_value = mock_update
-    mock_client.table.return_value = mock_table
-    mock_get_client.return_value = mock_client
-
-    issue = update_issue(1, issue_type="codereview")
-    assert issue.id == 1
-    assert issue.type == "codereview"
-    mock_table.update.assert_called_once_with({"type": "codereview"})
 
 
 @patch("rouge.core.database.get_client")

@@ -14,7 +14,6 @@ from rouge.core.workflow.artifacts import (
     ArtifactStore,
     ClassifyArtifact,
     CodeQualityArtifact,
-    CodeReviewArtifact,
     ComposeRequestArtifact,
     FetchIssueArtifact,
     GhPullRequestArtifact,
@@ -22,14 +21,11 @@ from rouge.core.workflow.artifacts import (
     ImplementArtifact,
     PlanArtifact,
     PullRequestEntry,
-    ReviewFixArtifact,
 )
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    RepoFixResult,
-    RepoReviewResult,
 )
 
 
@@ -90,33 +86,6 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "implement"
         assert artifact.implement_data.output == "Implementation output"
-
-    def test_review_artifact_creation(self) -> None:
-        """Test CodeReviewArtifact can be created with valid data."""
-        repo_review = RepoReviewResult(
-            repo_path="/path/to/repo",
-            review_text="Code review content",
-            is_clean=False,
-        )
-        artifact = CodeReviewArtifact(
-            workflow_id="adw-123",
-            repo_reviews=[repo_review],
-        )
-
-        assert artifact.artifact_type == "code-review"
-        assert artifact.repo_reviews[0].review_text == "Code review content"
-
-    def test_review_addressed_artifact_creation(self) -> None:
-        """Test ReviewFixArtifact can be created with valid data."""
-        artifact = ReviewFixArtifact(
-            workflow_id="adw-123",
-            success=True,
-            message="All issues resolved",
-        )
-
-        assert artifact.artifact_type == "review-fix"
-        assert artifact.success is True
-        assert artifact.message == "All issues resolved"
 
     def test_quality_check_artifact_creation(self) -> None:
         """Test CodeQualityArtifact can be created with valid data."""
@@ -286,8 +255,6 @@ class TestArtifactModels:
             "classify",
             "plan",
             "implement",
-            "code-review",
-            "review-fix",
             "code-quality",
             "acceptance",
             "compose-request",
@@ -463,92 +430,6 @@ class TestArtifactSerialization:
 
         assert len(restored.pull_requests) == 2
         assert restored.pull_requests[1].adopted is True
-
-    def test_aggregate_is_clean_all_clean(self) -> None:
-        """Test CodeReviewArtifact.is_clean is True when all repos are clean."""
-        repo_reviews = [
-            RepoReviewResult(repo_path="/repo/a", review_text="Review completed", is_clean=True),
-            RepoReviewResult(repo_path="/repo/b", review_text="Review completed", is_clean=True),
-        ]
-        artifact = CodeReviewArtifact(
-            workflow_id="adw-agg",
-            repo_reviews=repo_reviews,
-            is_clean=all(r.is_clean for r in repo_reviews),
-        )
-
-        assert artifact.is_clean is True
-
-    def test_aggregate_is_clean_any_dirty(self) -> None:
-        """Test CodeReviewArtifact.is_clean is False when any repo is dirty."""
-        repo_reviews = [
-            RepoReviewResult(repo_path="/repo/a", review_text="Review completed", is_clean=True),
-            RepoReviewResult(
-                repo_path="/repo/b", review_text="File: src/b.py\nIssue", is_clean=False
-            ),
-        ]
-        artifact = CodeReviewArtifact(
-            workflow_id="adw-agg",
-            repo_reviews=repo_reviews,
-            is_clean=all(r.is_clean for r in repo_reviews),
-        )
-
-        assert artifact.is_clean is False
-
-    def test_repo_reviews_round_trip(self) -> None:
-        """Test CodeReviewArtifact with repo_reviews survives serialization round-trip."""
-        repo_reviews = [
-            RepoReviewResult(
-                repo_path="/repo/a", review_text="Review completed", is_clean=True, rerun_count=1
-            ),
-            RepoReviewResult(
-                repo_path="/repo/b",
-                review_text="File: src/b.py\nIssue found",
-                is_clean=False,
-                rerun_count=0,
-            ),
-        ]
-        artifact = CodeReviewArtifact(
-            workflow_id="adw-rt-reviews",
-            repo_reviews=repo_reviews,
-            is_clean=False,
-        )
-
-        json_str = artifact.model_dump_json()
-        restored = CodeReviewArtifact.model_validate_json(json_str)
-
-        assert len(restored.repo_reviews) == 2
-        assert restored.repo_reviews[0].repo_path == "/repo/a"
-        assert restored.repo_reviews[0].is_clean is True
-        assert restored.repo_reviews[0].rerun_count == 1
-        assert restored.repo_reviews[1].repo_path == "/repo/b"
-        assert restored.repo_reviews[1].is_clean is False
-        assert restored.repo_reviews[1].review_text == "File: src/b.py\nIssue found"
-        assert restored.is_clean is False
-
-    def test_repo_fixes_round_trip(self) -> None:
-        """Test ReviewFixArtifact with repo_fixes survives serialization round-trip."""
-        repo_fixes = [
-            RepoFixResult(repo_path="/repo/a", success=True, message="Fixed"),
-            RepoFixResult(repo_path="/repo/b", success=False, message="Agent failed"),
-        ]
-        artifact = ReviewFixArtifact(
-            workflow_id="adw-rt-fixes",
-            success=True,
-            message="Partial success",
-            repo_fixes=repo_fixes,
-        )
-
-        json_str = artifact.model_dump_json()
-        restored = ReviewFixArtifact.model_validate_json(json_str)
-
-        assert len(restored.repo_fixes) == 2
-        assert restored.repo_fixes[0].repo_path == "/repo/a"
-        assert restored.repo_fixes[0].success is True
-        assert restored.repo_fixes[1].repo_path == "/repo/b"
-        assert restored.repo_fixes[1].success is False
-        assert restored.repo_fixes[1].message == "Agent failed"
-        assert restored.success is True
-        assert restored.message == "Partial success"
 
     def test_artifact_json_is_valid(self) -> None:
         """Test artifact JSON is valid and human-readable."""
@@ -814,35 +695,17 @@ class TestArtifactStoreIntegration:
             ImplementArtifact(workflow_id=workflow_id, implement_data=implement_data)
         )
 
-        # 5. Review artifact
-        store.write_artifact(
-            CodeReviewArtifact(
-                workflow_id=workflow_id,
-                repo_reviews=[
-                    RepoReviewResult(
-                        repo_path="/path/to/repo",
-                        review_text="Code looks good",
-                        is_clean=True,
-                    ),
-                ],
-                is_clean=True,
-            )
-        )
-
-        # 7. Review addressed artifact
-        store.write_artifact(ReviewFixArtifact(workflow_id=workflow_id, success=True))
-
-        # 8. Quality check artifact
+        # 5. Quality check artifact
         store.write_artifact(
             CodeQualityArtifact(
                 workflow_id=workflow_id, output="All checks passed", tools=["ruff", "mypy"]
             )
         )
 
-        # 9. Acceptance artifact
+        # 6. Acceptance artifact
         store.write_artifact(AcceptanceArtifact(workflow_id=workflow_id, success=True))
 
-        # 10. PR metadata artifact
+        # 7. PR metadata artifact
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id=workflow_id,
@@ -852,7 +715,7 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # 11. Pull request artifact
+        # 8. Pull request artifact
         store.write_artifact(
             GhPullRequestArtifact(
                 workflow_id=workflow_id,
@@ -868,9 +731,9 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # Verify all 10 artifacts exist
+        # Verify all 8 artifacts exist
         artifacts = store.list_artifacts()
-        assert len(artifacts) == 10
+        assert len(artifacts) == 8
 
         # Verify each type is present
         expected_types = [
@@ -878,8 +741,6 @@ class TestArtifactStoreIntegration:
             "classify",
             "plan",
             "implement",
-            "code-review",
-            "review-fix",
             "code-quality",
             "acceptance",
             "compose-request",

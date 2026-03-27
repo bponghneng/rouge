@@ -12,7 +12,6 @@ from rouge.core.workflow.artifacts import (
     AcceptanceArtifact,
     ClassifyArtifact,
     CodeQualityArtifact,
-    CodeReviewArtifact,
     ComposeCommitsArtifact,
     ComposeRequestArtifact,
     FetchIssueArtifact,
@@ -23,13 +22,11 @@ from rouge.core.workflow.artifacts import (
     ImplementArtifact,
     PlanArtifact,
     PullRequestEntry,
-    ReviewFixArtifact,
 )
 from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    RepoReviewResult,
 )
 
 
@@ -128,40 +125,6 @@ class TestEmitArtifactComment:
         mock_create_comment.assert_not_called()
 
     @patch("rouge.core.notifications.comments.create_comment")
-    def test_emit_artifact_comment_raw_field_contains_full_artifact(
-        self, mock_create_comment
-    ) -> None:
-        """Test that raw field contains the full serialized artifact JSON."""
-        # Create artifact with nested data
-        repo_review = RepoReviewResult(
-            repo_path="/path/to/repo",
-            review_text="Code review feedback",
-        )
-        artifact = CodeReviewArtifact(workflow_id="adw-review-test", repo_reviews=[repo_review])
-
-        mock_create_comment.return_value = Comment(
-            id=1, issue_id=10, comment="test", adw_id="adw-review-test"
-        )
-
-        emit_artifact_comment(issue_id=10, adw_id="adw-review-test", artifact=artifact)
-
-        # Get the comment that was passed to create_comment
-        call_args = mock_create_comment.call_args[0][0]
-
-        # Verify raw field structure
-        assert "artifact_type" in call_args.raw
-        assert "artifact" in call_args.raw
-        assert call_args.raw["artifact_type"] == "code-review"
-
-        # Verify the artifact field contains the full serialized artifact
-        artifact_json = call_args.raw["artifact"]
-        assert artifact_json["workflow_id"] == "adw-review-test"
-        assert artifact_json["artifact_type"] == "code-review"
-        assert "repo_reviews" in artifact_json
-        assert artifact_json["repo_reviews"][0]["review_text"] == "Code review feedback"
-        assert "created_at" in artifact_json
-
-    @patch("rouge.core.notifications.comments.create_comment")
     def test_emit_artifact_comment_type_compatibility_all_artifact_types(
         self, mock_create_comment
     ) -> None:
@@ -202,17 +165,6 @@ class TestEmitArtifactComment:
                     implement_data=ImplementData(output="Output"),
                 ),
                 "implement",
-            ),
-            (
-                CodeReviewArtifact(
-                    workflow_id="adw-type-test",
-                    repo_reviews=[RepoReviewResult(repo_path="/repo", review_text="Review")],
-                ),
-                "code-review",
-            ),
-            (
-                ReviewFixArtifact(workflow_id="adw-type-test", success=True),
-                "review-fix",
             ),
             (
                 CodeQualityArtifact(
