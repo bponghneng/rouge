@@ -51,7 +51,6 @@ class IssueType(str, Enum):
 
     MAIN = "main"
     PATCH = "patch"
-    CODEREVIEW = "codereview"
 
 
 class OutputFormat(str, Enum):
@@ -104,7 +103,7 @@ def validate_new_args(
         branch: Pre-set branch name for the issue (or None)
         assigned_to: Assignee identifier (or None)
         parent_issue_id: Parent issue ID for patch issues (or None)
-        issue_type: Issue type (main, patch, or codereview)
+        issue_type: Issue type (main or patch)
 
     Raises:
         typer.Exit: If validation fails
@@ -200,15 +199,6 @@ def validate_new_args(
             err=True,
         )
         raise typer.Exit(1)
-
-    # Validation: for codereview issues, --branch must be provided
-    if issue_type == IssueType.CODEREVIEW:
-        if branch is None:
-            typer.echo(
-                "Error: For codereview issues, --branch must be provided",
-                err=True,
-            )
-            raise typer.Exit(1)
 
 
 def read_spec_file(spec_file: Path) -> str:
@@ -338,10 +328,7 @@ def create(
     issue_type: IssueType = typer.Option(
         IssueType.MAIN,
         "--type",
-        help=(
-            "Issue type: 'main' for primary issues, 'patch' for patch issues, "
-            "'codereview' for code review issues (requires --branch)"
-        ),
+        help=("Issue type: 'main' for primary issues, 'patch' for patch issues"),
         show_default=True,
     ),
     branch: Optional[str] = typer.Option(
@@ -377,9 +364,6 @@ def create(
     - The --parent-issue-id option is only valid for patch issues
     - If --parent-issue-id is provided, the branch will be inherited from the parent issue
     - The parent issue must exist and have a branch assigned
-
-    Code review issue validation rules:
-    - For codereview issues, --branch is required
 
     Examples:
         rouge issue create "Fix authentication bug in login flow"
@@ -521,7 +505,7 @@ def list_issues(
 
     Filter Options:
         - limit: Maximum number of issues to return (default: 5)
-        - issue_type: Filter by issue type ('main', 'patch', 'codereview')
+        - issue_type: Filter by issue type ('main', 'patch')
         - status: Filter by status ('pending', 'started', 'completed', 'failed')
 
     Examples:
@@ -594,7 +578,7 @@ def update(
         show_default=True,
     ),
     issue_type: Optional[str] = typer.Option(
-        None, "--type", help="Issue type: 'main', 'patch', or 'codereview'", show_default=True
+        None, "--type", help="Issue type: 'main' or 'patch'", show_default=True
     ),
     title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
     description: Optional[str] = typer.Option(
