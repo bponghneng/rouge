@@ -22,4 +22,3 @@
 
 7. **All steps write their output artifact unconditionally.** A step must not guard its `write_artifact` call behind a conditional. If the step's `run` method succeeds, it writes its artifact. This ensures downstream steps and the artifact CLI commands always find a consistent artifact on disk.
 
-8. **`review-fix` step failure does not abort the pipeline.** `ReviewFixStep` is registered with `is_critical=False`. A failure (e.g. CodeRabbit review unavailable) is logged and the pipeline continues to the next step rather than aborting the workflow.
