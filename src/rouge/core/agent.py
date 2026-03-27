@@ -31,8 +31,6 @@ AGENT_REQUIRED_FIELDS = {"output": str}
 
 def execute_template(
     request: ClaudeAgentTemplateRequest,
-    *,
-    require_json: bool = True,
 ) -> ClaudeAgentPromptResponse:
     """Execute a prompt template with prompt ID and arguments.
 
@@ -43,9 +41,6 @@ def execute_template(
 
     Args:
         request: Claude-specific template request
-        require_json: If True (default), validates output as JSON and emits
-            error comments for non-JSON output. If False, skips JSON validation
-            and allows plain text output.
 
     Returns:
         Claude-specific prompt response
@@ -86,60 +81,46 @@ def execute_template(
         session_id=agent_response.session_id,
     )
 
-    # Handle JSON validation based on require_json parameter
+    # Validate JSON output and emit progress comment
     if response.success and response.output:
         raw_output = response.output.strip()
 
         prompt_label = request.prompt_id.value
-        if require_json:
-            # Use shared parser to sanitize and validate JSON
-            result = parse_and_validate_json(
-                raw_output,
-                AGENT_REQUIRED_FIELDS,
-                step_name=prompt_label,
-            )
-            if result.success:
-                # Emit progress comment with parsed JSON in raw field
-                payload = CommentPayload(
-                    issue_id=request.issue_id,
-                    text=f"Template {prompt_label} completed",
-                    raw={"template": prompt_label, "result": result.data},
-                    source="system",
-                    kind="workflow",
-                    adw_id=request.adw_id,
-                )
-                status, msg = emit_comment_from_payload(payload)
-                logger.debug(msg) if status == "success" else logger.error(msg)
-                logger.debug("Template output parsed as JSON successfully")
-            else:
-                # Emit error progress comment for non-JSON output
-                logger.error("Template output is not valid JSON: %s", result.error)
-                payload = CommentPayload(
-                    issue_id=request.issue_id,
-                    text=f"Template {prompt_label} returned non-JSON output",
-                    raw={
-                        "template": prompt_label,
-                        "error": result.error,
-                        "output": raw_output[:500],
-                    },
-                    source="system",
-                    kind="workflow",
-                    adw_id=request.adw_id,
-                )
-                status, msg = emit_comment_from_payload(payload)
-                logger.debug(msg) if status == "success" else logger.error(msg)
-        else:
-            # Skip JSON validation for plain text output
+        # Use shared parser to sanitize and validate JSON
+        result = parse_and_validate_json(
+            raw_output,
+            AGENT_REQUIRED_FIELDS,
+            step_name=prompt_label,
+        )
+        if result.success:
+            # Emit progress comment with parsed JSON in raw field
             payload = CommentPayload(
                 issue_id=request.issue_id,
                 text=f"Template {prompt_label} completed",
-                raw={"template": prompt_label, "output": raw_output[:500]},
+                raw={"template": prompt_label, "result": result.data},
                 source="system",
                 kind="workflow",
                 adw_id=request.adw_id,
             )
             status, msg = emit_comment_from_payload(payload)
             logger.debug(msg) if status == "success" else logger.error(msg)
-            logger.debug("Template output accepted as plain text (require_json=False)")
+            logger.debug("Template output parsed as JSON successfully")
+        else:
+            # Emit error progress comment for non-JSON output
+            logger.error("Template output is not valid JSON: %s", result.error)
+            payload = CommentPayload(
+                issue_id=request.issue_id,
+                text=f"Template {prompt_label} returned non-JSON output",
+                raw={
+                    "template": prompt_label,
+                    "error": result.error,
+                    "output": raw_output[:500],
+                },
+                source="system",
+                kind="workflow",
+                adw_id=request.adw_id,
+            )
+            status, msg = emit_comment_from_payload(payload)
+            logger.debug(msg) if status == "success" else logger.error(msg)
 
     return response
