@@ -296,7 +296,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
     from rouge.core.workflow.steps.classify_step import ClassifyStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -308,7 +307,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
     )
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.plan_step import PlanStep
-    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
         FetchIssueStep(),
@@ -316,8 +314,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
         ClassifyStep(),
         PlanStep(),
         ImplementStep(plan_step_name="Building implementation plan"),
-        CodeReviewStep(),
-        ReviewFixStep(),
         CodeQualityStep(),
         AcceptanceStep(),
         ComposeRequestStep(),
@@ -331,45 +327,6 @@ def get_default_pipeline() -> List[WorkflowStep]:
         steps.append(GlabPullRequestStep())
 
     return steps
-
-
-def get_code_review_pipeline() -> List[WorkflowStep]:
-    """Create the codereview workflow pipeline.
-
-    The codereview workflow runs an automated review loop on repository changes
-    based on an existing issue. This is now an issue-based workflow that requires
-    an issue_id to be provided.
-
-    Pipeline sequence:
-    1. FetchIssueStep    - Fetch the issue from the database
-    2. GitCheckoutStep   — Check out the branch stored on the issue
-    3. ReviewPlanStep    - Generate a review plan from the issue
-    4. CodeReviewStep    - Generate review of the current changes
-    5. ReviewFixStep     - Address any review feedback
-    6. CodeQualityStep   - Run code quality checks
-    7. ComposeCommitsStep - Compose conventional commits from the changes
-
-    Returns:
-        List of WorkflowStep instances in execution order
-    """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
-    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
-    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
-    from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
-
-    return [
-        FetchIssueStep(),
-        GitCheckoutStep(),
-        ReviewPlanStep(),
-        CodeReviewStep(),
-        ReviewFixStep(),
-        CodeQualityStep(),
-        ComposeCommitsStep(),
-    ]
 
 
 def get_patch_pipeline() -> List[WorkflowStep]:
@@ -406,11 +363,9 @@ def get_patch_pipeline() -> List[WorkflowStep]:
        writes a standard PlanArtifact (no parent issue or plan is referenced)
     3. ImplementStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
-    4. CodeReviewStep - Generate review of the implementation
-    5. ReviewFixStep - Address any review feedback
-    6. CodeQualityStep - Run code quality checks
-    7. AcceptanceStep - Validate patch meets acceptance criteria
-    8. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
+    4. CodeQualityStep - Run code quality checks
+    5. AcceptanceStep - Validate patch meets acceptance criteria
+    6. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
@@ -419,21 +374,17 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
     from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
-    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
         GitCheckoutStep(),
         PatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
-        CodeReviewStep(),
-        ReviewFixStep(),
         CodeQualityStep(),
         AcceptanceStep(),
         ComposeCommitsStep(),
@@ -458,11 +409,9 @@ def get_full_pipeline() -> List[WorkflowStep]:
     2. GitBranchStep - Create and checkout a new branch
     3. ClaudeCodePlanStep - Build implementation plan using the claude-code-plan prompt template
     4. ImplementStep - Execute the plan
-    5. CodeReviewStep - Generate review of the implementation
-    6. ReviewFixStep - Address any review feedback
-    7. CodeQualityStep - Run code quality checks
-    8. ComposeRequestStep - Compose PR/MR description
-    9. GhPullRequestStep/GlabPullRequestStep - Create PR/MR (conditional)
+    5. CodeQualityStep - Run code quality checks
+    6. ComposeRequestStep - Compose PR/MR description
+    7. GhPullRequestStep/GlabPullRequestStep - Create PR/MR (conditional)
 
     Returns:
         List of WorkflowStep instances in execution order
@@ -470,7 +419,6 @@ def get_full_pipeline() -> List[WorkflowStep]:
     # Import here to avoid circular imports
     from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -481,15 +429,12 @@ def get_full_pipeline() -> List[WorkflowStep]:
         GlabPullRequestStep,
     )
     from rouge.core.workflow.steps.implement_step import ImplementStep
-    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
 
     steps: List[WorkflowStep] = [
         FetchIssueStep(),
         GitBranchStep(),
         ClaudeCodePlanStep(),
         ImplementStep(plan_step_name="Building implementation plan"),
-        CodeReviewStep(),
-        ReviewFixStep(),
         CodeQualityStep(),
         ComposeRequestStep(),
     ]

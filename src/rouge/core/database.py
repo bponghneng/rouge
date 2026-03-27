@@ -185,7 +185,7 @@ def fetch_all_issues(
 
     Args:
         limit: Maximum number of issues to return (default: 5)
-        issue_type: Filter by issue type (e.g., 'main', 'patch', 'codereview')
+        issue_type: Filter by issue type (e.g., 'main', 'patch')
         status: Filter by status (e.g., 'pending', 'started', 'completed', 'failed')
 
     Returns:
@@ -411,7 +411,7 @@ def create_issue(
             raise ValueError("Title cannot be empty/whitespace if provided")
 
         # Validate issue_type
-        valid_types = {"main", "patch", "codereview"}
+        valid_types = {"main", "patch"}
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
@@ -523,7 +523,7 @@ def update_issue(
 
     # Validate and add issue_type to updates
     if not isinstance(issue_type, _Unset):
-        valid_types = {"main", "patch", "codereview"}
+        valid_types = {"main", "patch"}
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"

@@ -130,23 +130,6 @@ class StepResult(BaseModel, Generic[T]):
         )
 
 
-class RepoReviewResult(BaseModel):
-    """Per-repo review result."""
-
-    repo_path: str
-    review_text: str = ""
-    is_clean: bool = False
-    rerun_count: int = 0
-
-
-class RepoFixResult(BaseModel):
-    """Per-repo fix result."""
-
-    repo_path: str
-    success: bool
-    message: str = ""
-
-
 class ClassifyData(BaseModel):
     """Data payload for issue classification results.
 
