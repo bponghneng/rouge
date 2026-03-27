@@ -58,7 +58,7 @@ def run_step(
         "main",
         "--workflow-type",
         "-w",
-        help="Workflow type to use for pipeline lookup. Valid values: main, patch, codereview.",
+        help="Workflow type to use for pipeline lookup. Valid values: main, patch.",
     ),
 ) -> None:
     """Run a single workflow step using artifacts for dependencies.

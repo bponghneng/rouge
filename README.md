@@ -55,7 +55,6 @@ uv run rouge-worker --worker-id alleycat-1
 | `rouge new` | `rouge issue create` | Issue creation now under `issue` group |
 | `rouge run` | `rouge workflow run` | Workflow execution now under `workflow` group |
 | N/A | `rouge workflow patch` | New: Execute patch workflow |
-| N/A | `rouge workflow codereview` | New: Execute code review workflow |
 | `rouge step ...` | `rouge step ...` | No change - step commands unchanged |
 | `rouge artifact ...` | `rouge artifact ...` | No change - artifact commands unchanged |
 
@@ -188,7 +187,6 @@ For full options, run `uv run rouge issue --help`.
 Workflows can be executed directly using:
 - `rouge workflow run <issue-id>` - Execute workflow synchronously in foreground
 - `rouge workflow patch <issue-id>` - Execute patch workflow
-- `rouge workflow codereview <issue-id>` - Execute code review workflow
 
 For asynchronous workflow processing, use the worker daemon (see Worker Features below).
 

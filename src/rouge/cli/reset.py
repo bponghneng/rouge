@@ -19,7 +19,6 @@ def reset(
 
     Issue type behavior:
     - main: Clears branch field (set to None)
-    - codereview: Preserves existing branch field
     - patch: Preserves existing branch field
 
     The issue must be in 'failed' or 'pending' status to be reset.
@@ -45,11 +44,11 @@ def reset(
             raise typer.Exit(1)
 
         # Call update_issue with explicit parameters
-        # For main type, clear branch; for codereview and patch types, preserve existing branch
+        # For main type, clear branch; for patch type, preserve existing branch
         if issue.type == "main":
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending", branch=None)
         else:
-            # For codereview and patch types, preserve existing branch
+            # For patch type, preserve existing branch
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending")
 
         # Output issue ID on success for scripting compatibility

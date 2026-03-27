@@ -20,7 +20,7 @@ def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> N
     Args:
         issue_id: The issue ID to process
         adw_id: Optional workflow ID (auto-generated if None or empty)
-        workflow_type: The workflow type identifier (e.g. "main", "patch", "codereview")
+        workflow_type: The workflow type identifier (e.g. "main", "patch")
 
     Raises:
         typer.Exit: On validation failure, execution failure, or unexpected error
@@ -86,25 +86,3 @@ def patch(
         rouge workflow patch 123 --adw-id abc12345
     """
     _run_workflow(issue_id, adw_id, workflow_type="patch")
-
-
-@app.command()
-def codereview(
-    issue_id: int = typer.Argument(..., help="The issue ID to process"),
-    adw_id: Optional[str] = typer.Option(
-        None, help="Workflow ID (auto-generated if not provided)", show_default=True
-    ),
-) -> None:
-    """Execute the code review workflow for an issue.
-
-    The base commit is derived from the issue description by the workflow.
-
-    Args:
-        issue_id: The issue ID to process
-        adw_id: Optional workflow ID for tracking (auto-generated if not provided)
-
-    Example:
-        rouge workflow codereview 123
-        rouge workflow codereview 123 --adw-id abc12345
-    """
-    _run_workflow(issue_id, adw_id, workflow_type="codereview")
