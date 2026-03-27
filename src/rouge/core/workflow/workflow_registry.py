@@ -101,7 +101,6 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     Uses local imports to avoid circular dependencies with pipeline.py.
     """
     from rouge.core.workflow.pipeline import (
-        get_code_review_pipeline,
         get_default_pipeline,
         get_full_pipeline,
         get_patch_pipeline,
@@ -119,13 +118,6 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
             type_id="patch",
             pipeline=get_patch_pipeline,
             description="Patch workflow pipeline",
-        )
-    )
-    registry.register(
-        WorkflowDefinition(
-            type_id="codereview",
-            pipeline=get_code_review_pipeline,
-            description="Automated code review loop for commits",
         )
     )
     registry.register(

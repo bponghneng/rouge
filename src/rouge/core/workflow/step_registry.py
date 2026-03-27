@@ -366,7 +366,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.classify_step import ClassifyStep
     from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.code_review_step import CodeReviewStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
@@ -382,8 +381,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.plan_step import PlanStep
-    from rouge.core.workflow.steps.review_fix_step import ReviewFixStep
-    from rouge.core.workflow.steps.review_plan_step import ReviewPlanStep
 
     # 0. GitBranchStep: requires fetch-issue, produces git-branch artifact
     registry.register(
@@ -439,16 +436,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Build implementation plan for the issue",
     )
 
-    # 3b. ReviewPlanStep: requires fetch-issue, produces plan (alternative to classify+plan)
-    registry.register(
-        ReviewPlanStep,
-        slug="review-plan",
-        dependencies=["fetch-issue"],
-        outputs=["plan"],
-        is_critical=True,
-        description="Review and regenerate plan based on feedback",
-    )
-
     # 4. ImplementStep: requires plan, produces implement artifact
     registry.register(
         ImplementStep,
@@ -458,25 +445,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Execute the implementation plan",
     )
 
-    # 5. CodeReviewStep: requires plan, produces code-review artifact
-    registry.register(
-        CodeReviewStep,
-        slug="code-review",
-        dependencies=["plan"],
-        outputs=["code-review"],
-        description="Generate code review for implementation",
-    )
-
-    # 7. ReviewFixStep: requires code-review, produces review-fix artifact
-    registry.register(
-        ReviewFixStep,
-        slug="review-fix",
-        dependencies=["code-review"],
-        outputs=["review-fix"],
-        description="Address review issues and suggestions",
-    )
-
-    # 8. CodeQualityStep: requires implement (ordering-only), produces code-quality artifact
+    # 5. CodeQualityStep: requires implement (ordering-only), produces code-quality artifact
     registry.register(
         CodeQualityStep,
         slug="code-quality",

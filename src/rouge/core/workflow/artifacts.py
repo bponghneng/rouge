@@ -17,8 +17,6 @@ from rouge.core.workflow.types import (
     ClassifyData,
     ImplementData,
     PlanData,
-    RepoFixResult,
-    RepoReviewResult,
 )
 
 
@@ -36,8 +34,6 @@ ArtifactType = Literal[
     "classify",
     "plan",
     "implement",
-    "code-review",
-    "review-fix",
     "code-quality",
     "acceptance",
     "compose-request",
@@ -127,38 +123,6 @@ class ImplementArtifact(Artifact):
             "and optional session ID for continuation"
         )
     )
-
-
-class CodeReviewArtifact(Artifact):
-    """Artifact containing code review results.
-
-    Attributes:
-        repo_reviews: Per-repo review results
-        is_clean: Aggregate flag — True only if ALL repos are clean
-    """
-
-    artifact_type: Literal["code-review"] = "code-review"
-    repo_reviews: List[RepoReviewResult] = Field(default_factory=list)
-    is_clean: bool = Field(
-        default=False,
-        description="Aggregate: True only if ALL repos are clean",
-    )
-
-
-class ReviewFixArtifact(Artifact):
-    """Artifact indicating review issues have been addressed.
-
-    Attributes:
-        success: Whether review issues were successfully addressed
-        message: Optional message about the resolution
-    """
-
-    artifact_type: Literal["review-fix"] = "review-fix"
-    success: bool = Field(description="Whether all review issues were successfully addressed")
-    message: Optional[str] = Field(
-        default=None, description="Optional details about the resolution process"
-    )
-    repo_fixes: List[RepoFixResult] = Field(default_factory=list)
 
 
 class CodeQualityArtifact(Artifact):
@@ -375,8 +339,6 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "classify": ClassifyArtifact,
     "plan": PlanArtifact,
     "implement": ImplementArtifact,
-    "code-review": CodeReviewArtifact,
-    "review-fix": ReviewFixArtifact,
     "code-quality": CodeQualityArtifact,
     "acceptance": AcceptanceArtifact,
     "compose-request": ComposeRequestArtifact,

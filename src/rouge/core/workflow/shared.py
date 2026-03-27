@@ -14,7 +14,6 @@ AGENT_CLASSIFIER = "issue_classifier"
 AGENT_PLANNER = "sdlc_planner"
 AGENT_PLAN_FINDER = "plan_finder"
 AGENT_PLAN_IMPLEMENTOR = "sdlc_plan_implementor"
-AGENT_REVIEW_IMPLEMENTOR = "sdlc_review_implementor"
 AGENT_VALIDATOR = "sdlc_validator"
 AGENT_CODE_QUALITY_CHECKER = "sdlc_code_quality_checker"
 AGENT_PATCH_PLANNER = "patch_planner"
@@ -23,7 +22,6 @@ AGENT_COMMIT_COMPOSER = "commit_composer"
 
 # Step names
 IMPLEMENT_STEP_NAME = "Implementing solution"
-CODE_REVIEW_STEP_NAME = "Generating CodeRabbit review"
 
 
 def get_repo_paths() -> list[str]:
