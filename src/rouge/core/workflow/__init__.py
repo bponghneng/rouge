@@ -15,7 +15,7 @@ Main components:
 - workflow_registry: Workflow type registry for pipeline routing
 
 Note: Business logic has been moved from top-level modules (classify, plan, implement,
-review, acceptance, address_review) into their respective step classes in steps/.
+acceptance) into their respective step classes in steps/.
 """
 
 # Import and re-export public API

@@ -54,8 +54,8 @@ class WorkflowContext:
         """Return issue_id, raising if it is None.
 
         Use this property in workflow steps that require a valid issue ID
-        (e.g. issue-based pipelines).  Standalone workflows such as
-        Some workflows set ``issue_id=None`` and should not call this.
+        (e.g. issue-based pipelines). Some workflows set ``issue_id=None``
+        and should not call this.
 
         Returns:
             The issue ID as an ``int``.

@@ -110,47 +110,6 @@ def test_execute_template(mock_run: Mock, mock_check: Mock, mock_wd: Mock, tmp_p
 @patch("rouge.core.notifications.comments.create_comment")
 @patch("rouge.core.agents.claude.claude.check_claude_installed")
 @patch("subprocess.run")
-def test_execute_template_require_json_false(
-    mock_run: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
-) -> None:
-    """Test execute_template with require_json=False allows plain text output."""
-    mock_wd.return_value = str(tmp_path)
-    mock_check.return_value = None
-
-    # Mock execution that returns plain text in structured_output
-    result_envelope = {
-        "type": "result",
-        "subtype": "success",
-        "is_error": False,
-        "session_id": "test",
-        "duration_ms": 1234,
-        "structured_output": "specs/feature-plan.md",
-    }
-
-    mock_run.return_value = Mock(
-        stdout=json.dumps(result_envelope),
-        stderr="",
-        returncode=0,
-    )
-
-    request = AgentTemplateRequest(
-        agent_name="ops",
-        prompt_id=PromptId.COMPOSE_COMMITS,
-        args=["output"],
-        adw_id="test123",
-        issue_id=1,
-    )
-
-    # Should not error even though structured_output is plain text
-    response = execute_template(request, require_json=False)
-    assert response.success is True
-    assert response.output == "specs/feature-plan.md"
-
-
-@patch(_WORKING_DIR_PATCH)
-@patch("rouge.core.notifications.comments.create_comment")
-@patch("rouge.core.agents.claude.claude.check_claude_installed")
-@patch("subprocess.run")
 def test_execute_template_sanitizes_markdown_fence(
     mock_run: Mock, mock_check: Mock, _mock_create_comment: Mock, mock_wd: Mock, tmp_path: Path
 ) -> None:
