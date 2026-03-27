@@ -280,7 +280,7 @@ class TestResumeCommandWorkflowInvocation:
             state_artifact = WorkflowStateArtifact(
                 workflow_id="adw-777",
                 pipeline_type="adw",
-                failed_step="code-review",
+                failed_step="code-quality",
             )
             mock_store.read_artifact.return_value = state_artifact
 
@@ -290,7 +290,7 @@ class TestResumeCommandWorkflowInvocation:
             mock_execute_adw.assert_called_once_with(
                 "adw-777",
                 777,
-                resume_from="code-review",
+                resume_from="code-quality",
                 workflow_type="adw",
             )
 
@@ -647,14 +647,14 @@ class TestResumeCommandResumeFromOverride:
             state_artifact = WorkflowStateArtifact(
                 workflow_id="adw-2002",
                 pipeline_type="adw",
-                failed_step="code-review",
+                failed_step="code-quality",
             )
             mock_store.read_artifact.return_value = state_artifact
 
             result = runner.invoke(app, ["resume", "2002", "--resume-from", "plan"])
 
             assert result.exit_code == 0
-            # "plan" (from --resume-from) must be used, not "code-review" (failed_step)
+            # "plan" (from --resume-from) must be used, not "code-quality" (failed_step)
             mock_execute_adw.assert_called_once_with(
                 "adw-2002",
                 2002,

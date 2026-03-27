@@ -59,12 +59,12 @@ class TestWorkflowStateArtifactModel:
         """Test WorkflowStateArtifact with failed_step but no last_completed_step."""
         artifact = WorkflowStateArtifact(
             workflow_id="adw-999",
-            pipeline_type="codereview",
-            failed_step="code-review",
+            pipeline_type="main",
+            failed_step="code-quality",
         )
 
         assert artifact.last_completed_step is None
-        assert artifact.failed_step == "code-review"
+        assert artifact.failed_step == "code-quality"
 
     def test_artifact_type_is_correct(self):
         """Test artifact_type is set to 'workflow-state'."""
@@ -92,9 +92,9 @@ class TestWorkflowStateArtifactModel:
 
         artifact = WorkflowStateArtifact(
             workflow_id="adw-test",
-            pipeline_type="codereview",
+            pipeline_type="full",
         )
-        assert artifact.pipeline_type == "codereview"
+        assert artifact.pipeline_type == "full"
 
     def test_empty_pipeline_type_fails(self):
         """Test that empty pipeline_type fails validation."""
@@ -274,14 +274,14 @@ class TestWorkflowStateArtifactInStore:
             workflow_id="adw-overwrite",
             pipeline_type="adw",
             last_completed_step="implement",
-            failed_step="code-review",
+            failed_step="code-quality",
         )
         store.write_artifact(artifact2)
 
         # Read back should get second version
         restored = store.read_artifact("workflow-state")
         assert restored.last_completed_step == "implement"
-        assert restored.failed_step == "code-review"
+        assert restored.failed_step == "code-quality"
 
     def test_list_artifacts_includes_workflow_state(self, tmp_path):
         """Test list_artifacts includes workflow-state."""
