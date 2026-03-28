@@ -512,9 +512,7 @@ class TestArtifactStore:
         store.write_artifact(FetchIssueArtifact(workflow_id="adw-multiple", issue=issue))
 
         plan_data = PlanData(plan="Test plan", summary="Test summary")
-        store.write_artifact(
-            PlanArtifact(workflow_id="adw-multiple", plan_data=plan_data)
-        )
+        store.write_artifact(PlanArtifact(workflow_id="adw-multiple", plan_data=plan_data))
 
         artifacts = store.list_artifacts()
 

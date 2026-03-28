@@ -46,7 +46,7 @@ def build_plan_from_template(
 
     Args:
         issue: The Rouge issue to plan for.
-        prompt_id: The planning prompt to use (e.g. PromptId.FEATURE_PLAN).
+        prompt_id: The planning prompt to use (e.g. PromptId.PATCH_PLAN).
         adw_id: Workflow ID used for scoped logging.
 
     Returns:
