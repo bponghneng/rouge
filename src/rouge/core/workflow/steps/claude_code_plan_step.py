@@ -1,8 +1,7 @@
 """Claude Code plan building step implementation.
 
-Builds a task-oriented implementation plan without requiring classification.
-Uses a streamlined task-keyed schema (task, output, plan, summary) instead
-with a streamlined task-oriented approach.
+Builds a task-oriented implementation plan without requiring classification,
+using a streamlined task-keyed schema (task, output, plan, summary).
 """
 
 from rouge.core.agent import execute_template
