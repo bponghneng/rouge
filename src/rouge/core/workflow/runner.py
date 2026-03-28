@@ -48,6 +48,10 @@ def execute_workflow(
     Returns:
         True if workflow completed successfully, False otherwise
     """
+    # Normalise legacy pipeline_type value from before the main→full rename.
+    if pipeline_type == "main":
+        pipeline_type = "full"
+
     steps = pipeline if pipeline is not None else get_full_pipeline()
     runner = WorkflowRunner(steps)
     return runner.run(issue_id, adw_id, resume_from=resume_from, pipeline_type=pipeline_type)
