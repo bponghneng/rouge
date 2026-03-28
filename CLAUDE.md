@@ -74,7 +74,7 @@ See `README.md` for the full command reference (issue, workflow, step, artifact 
 - `src/rouge/adw/` - Agent Development Workflow CLI for single issue execution
 - `src/rouge/worker/` - Background daemon for polling and processing issues from Supabase
 - `src/rouge/core/` - Shared foundation: Supabase client, models, utilities, workflow orchestration
-- `src/rouge/core/workflow/` - Workflow pipeline with steps (fetch, classify, plan, implement, review)
+- `src/rouge/core/workflow/` - Workflow pipeline with steps (fetch, plan, implement, code-quality, compose-request)
 - `src/rouge/core/workflow/artifacts.py` - Typed artifacts and filesystem-backed store under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`
 - `src/rouge/core/workflow/step_registry.py` - Step registry with artifact dependencies/outputs
 - `src/rouge/core/agents/` - AI agent integrations (Claude, OpenCode)
