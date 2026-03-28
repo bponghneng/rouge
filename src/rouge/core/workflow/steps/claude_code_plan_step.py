@@ -2,7 +2,7 @@
 
 Builds a task-oriented implementation plan without requiring classification.
 Uses a streamlined task-keyed schema (task, output, plan, summary) instead
-of the type-keyed schema used by PlanStep.
+with a streamlined task-oriented approach.
 """
 
 from rouge.core.agent import execute_template

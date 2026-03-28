@@ -9,8 +9,6 @@ from typing import Any, Dict, Generic, Optional, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
-from rouge.core.prompts.prompt_id import PromptId
-
 # Generic type parameter for StepResult data payload
 T = TypeVar("T")
 
@@ -128,18 +126,6 @@ class StepResult(BaseModel, Generic[T]):
             metadata=metadata,
             rerun_from=rerun_from,
         )
-
-
-class ClassifyData(BaseModel):
-    """Data payload for issue classification results.
-
-    Attributes:
-        command: The prompt ID to execute (e.g., PromptId.FEATURE_PLAN)
-        classification: Normalized classification dict with "type" and "level"
-    """
-
-    command: PromptId
-    classification: Dict[str, str]
 
 
 class PlanData(BaseModel):
