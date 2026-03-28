@@ -30,7 +30,7 @@ class WorkflowContext:
         issue_id: The Rouge issue ID being processed (None for standalone workflows)
         issue: The fetched Issue object (set by FetchIssueStep)
         resume_from: Optional step name to resume workflow execution from
-        pipeline_type: The type of pipeline being executed (default: "main")
+        pipeline_type: The type of pipeline being executed (default: "full")
         repo_paths: List of repository root paths (populated from REPO_PATH env var)
         data: Dictionary to store intermediate step data
     """
@@ -40,7 +40,7 @@ class WorkflowContext:
     issue_id: Optional[int] = None
     issue: Optional[Issue] = None
     resume_from: Optional[str] = None
-    pipeline_type: str = "main"
+    pipeline_type: str = "full"
     repo_paths: List[str] = field(default_factory=get_repo_paths)
     data: Dict[str, Any] = field(default_factory=dict)
     _logger: logging.Logger = field(init=False, repr=False)

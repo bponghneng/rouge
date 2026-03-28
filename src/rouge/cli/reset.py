@@ -18,7 +18,7 @@ def reset(
     the issue type.
 
     Issue type behavior:
-    - main: Clears branch field (set to None)
+    - full: Clears branch field (set to None)
     - patch: Preserves existing branch field
 
     The issue must be in 'failed' or 'pending' status to be reset.
@@ -44,8 +44,8 @@ def reset(
             raise typer.Exit(1)
 
         # Call update_issue with explicit parameters
-        # For main type, clear branch; for patch type, preserve existing branch
-        if issue.type == "main":
+        # For full type, clear branch; for patch type, preserve existing branch
+        if issue.type == "full":
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending", branch=None)
         else:
             # For patch type, preserve existing branch

@@ -14,7 +14,7 @@ class WorkflowDefinition:
     """Definition of a named workflow pipeline.
 
     Attributes:
-        type_id: Unique identifier for this workflow type (e.g., "main", "patch")
+        type_id: Unique identifier for this workflow type (e.g., "full", "patch")
         pipeline: A callable that returns a list of WorkflowStep instances
         description: Human-readable description of the workflow
     """
@@ -101,18 +101,10 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     Uses local imports to avoid circular dependencies with pipeline.py.
     """
     from rouge.core.workflow.pipeline import (
-        get_default_pipeline,
         get_full_pipeline,
         get_patch_pipeline,
     )
 
-    registry.register(
-        WorkflowDefinition(
-            type_id="main",
-            pipeline=get_default_pipeline,
-            description="Default workflow pipeline",
-        )
-    )
     registry.register(
         WorkflowDefinition(
             type_id="patch",
@@ -159,7 +151,7 @@ def get_pipeline_for_type(workflow_type: str) -> List[WorkflowStep]:
     Delegates to the global WorkflowRegistry for resolution.
 
     Args:
-        workflow_type: The workflow type ID (e.g., "main", "patch")
+        workflow_type: The workflow type ID (e.g., "full", "patch")
 
     Returns:
         List of WorkflowStep instances for the requested workflow type

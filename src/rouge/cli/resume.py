@@ -113,7 +113,7 @@ def resume(
                 raise typer.Exit(1)
             resume_from_step = workflow_state.failed_step
 
-        pipeline_type = workflow_state.pipeline_type or "main"
+        pipeline_type = workflow_state.pipeline_type or "full"
 
         # Execute workflow with resume parameters
         try:

@@ -55,10 +55,10 @@ def run_step(
         help="Workflow ID for artifacts (auto-generated for dependency-free steps)",
     ),
     workflow_type: str = typer.Option(
-        "main",
+        "full",
         "--workflow-type",
         "-w",
-        help="Workflow type to use for pipeline lookup. Valid values: main, patch.",
+        help="Workflow type to use for pipeline lookup. Valid values: full, patch.",
     ),
 ) -> None:
     """Run a single workflow step using artifacts for dependencies.
