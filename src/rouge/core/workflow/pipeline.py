@@ -34,7 +34,7 @@ class WorkflowRunner:
         issue_id: int,
         adw_id: str,
         resume_from: Optional[str] = None,
-        pipeline_type: str = "main",
+        pipeline_type: str = "full",
     ) -> bool:
         """Execute all workflow steps in sequence.
 
@@ -42,7 +42,7 @@ class WorkflowRunner:
             issue_id: The Rouge issue ID to process
             adw_id: Workflow ID for tracking
             resume_from: Optional step name to resume workflow execution from
-            pipeline_type: The type of pipeline being executed (default: "main")
+            pipeline_type: The type of pipeline being executed (default: "full")
 
         Returns:
             True if workflow completed successfully, False if a critical step failed
@@ -280,55 +280,6 @@ class WorkflowRunner:
         return True
 
 
-def get_default_pipeline() -> List[WorkflowStep]:
-    """Create the default workflow pipeline.
-
-    The pipeline conditionally includes a PR/MR creation step based on the
-    DEV_SEC_OPS_PLATFORM environment variable:
-    - "github": includes GhPullRequestStep
-    - "gitlab": includes GlabPullRequestStep
-    - unset or other value: no PR/MR step included
-
-    Returns:
-        List of WorkflowStep instances in execution order
-    """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
-    from rouge.core.workflow.steps.classify_step import ClassifyStep
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import (
-        GhPullRequestStep,
-    )
-    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
-    from rouge.core.workflow.steps.glab_pull_request_step import (
-        GlabPullRequestStep,
-    )
-    from rouge.core.workflow.steps.implement_step import ImplementStep
-    from rouge.core.workflow.steps.plan_step import PlanStep
-
-    steps: List[WorkflowStep] = [
-        FetchIssueStep(),
-        GitBranchStep(),
-        ClassifyStep(),
-        PlanStep(),
-        ImplementStep(plan_step_name="Building implementation plan"),
-        CodeQualityStep(),
-        AcceptanceStep(),
-        ComposeRequestStep(),
-    ]
-
-    # Conditionally add PR/MR creation step based on platform
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
-
-
 def get_patch_pipeline() -> List[WorkflowStep]:
     """Create the patch workflow pipeline.
 
@@ -340,7 +291,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     Routing:
     --------
     Worker routing uses the `issues.type` column to determine which pipeline to run:
-    - `type='main'`: Routes to the default pipeline (get_default_pipeline)
+    - `type='full'`: Routes to the full pipeline (get_full_pipeline)
     - `type='patch'`: Routes to this patch pipeline
 
     Patch workflows are represented as issue rows with `type='patch'` rather than
@@ -349,7 +300,6 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 
     Assumptions:
     - SetupStep is NOT needed: The repository is already set up from the main workflow
-    - ClassifyStep is NOT needed: The patch issue description is self-contained
     - PR/MR creation steps are NOT needed: Patch commits are pushed to the
       existing branch and the associated PR/MR updates automatically
 
@@ -364,15 +314,13 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     3. ImplementStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
     4. CodeQualityStep - Run code quality checks
-    5. AcceptanceStep - Validate patch meets acceptance criteria
-    6. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
+    5. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
@@ -386,7 +334,6 @@ def get_patch_pipeline() -> List[WorkflowStep]:
         PatchPlanStep(),
         ImplementStep(plan_step_name="Building patch plan"),
         CodeQualityStep(),
-        AcceptanceStep(),
         ComposeCommitsStep(),
     ]
 
@@ -396,8 +343,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 def get_full_pipeline() -> List[WorkflowStep]:
     """Create the full workflow pipeline with Claude Code planning.
 
-    The full workflow uses ClaudeCodePlanStep instead of ClassifyStep + PlanStep,
-    providing a streamlined task-oriented planning approach. Like the default
+    The full workflow uses ClaudeCodePlanStep for task-oriented planning. Like the default
     pipeline, it conditionally includes a PR/MR creation step based on the
     DEV_SEC_OPS_PLATFORM environment variable:
     - "github": includes GhPullRequestStep

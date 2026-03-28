@@ -1,6 +1,6 @@
-"""Shared plan-building constants and helpers for PlanStep and PatchPlanStep.
+"""Shared plan-building constants and helpers for plan steps.
 
-Both steps produce a PlanArtifact from the same JSON schema; centralising the
+Plan steps produce a PlanArtifact from the same JSON schema; centralising the
 schema and the template-execution logic avoids divergence across copies.
 """
 
@@ -41,7 +41,7 @@ def build_plan_from_template(
 ) -> StepResult[PlanData]:
     """Build an implementation plan by executing *prompt_id* against *issue*.
 
-    Shared by PlanStep and PatchPlanStep so that schema changes and empty-output
+    Shared by plan steps so that schema changes and empty-output
     guards are applied consistently in both paths.
 
     Args:

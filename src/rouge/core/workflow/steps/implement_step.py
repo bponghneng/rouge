@@ -12,7 +12,6 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
-    AcceptanceArtifact,
     ImplementArtifact,
     PlanArtifact,
 )
@@ -146,29 +145,6 @@ class ImplementStep(WorkflowStep):
                 "Cannot implement: no plan available",
                 rerun_from=self.plan_step_name,
             )
-
-        # Check for acceptance feedback from previous iteration
-        if context.artifact_store.artifact_exists("acceptance"):
-            try:
-                acceptance_artifact = context.artifact_store.read_artifact(
-                    "acceptance", AcceptanceArtifact
-                )
-                if acceptance_artifact.unmet_requirements:
-                    logger.info(
-                        "Found %d unmet requirements from previous acceptance check",
-                        len(acceptance_artifact.unmet_requirements),
-                    )
-                    # Format unmet requirements as markdown section
-                    feedback_section = "\n\n## Previous Acceptance Feedback\n\n"
-                    feedback_section += "The following requirements were unmet:\n"
-                    for req in acceptance_artifact.unmet_requirements:
-                        feedback_section += f"- {req}\n"
-                    # Append feedback to plan text
-                    plan_text += feedback_section
-                    logger.debug("Appended acceptance feedback to plan text")
-            except (FileNotFoundError, ValueError) as e:
-                # Non-blocking: log error but continue with original plan
-                logger.warning("Failed to read acceptance feedback, continuing without it: %s", e)
 
         implement_response = self._implement_plan(
             plan_text, context.require_issue_id, context.adw_id

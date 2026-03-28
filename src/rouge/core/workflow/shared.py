@@ -1,20 +1,12 @@
 """Shared constants and helper functions for workflow modules."""
 
-import logging
 import os
 from typing import Dict
 
-from rouge.core.utils import get_logger
-
-# Module-level logger for non-workflow utility functions
-logger = logging.getLogger(__name__)
-
 # Agent names
-AGENT_CLASSIFIER = "issue_classifier"
 AGENT_PLANNER = "sdlc_planner"
 AGENT_PLAN_FINDER = "plan_finder"
 AGENT_PLAN_IMPLEMENTOR = "sdlc_plan_implementor"
-AGENT_VALIDATOR = "sdlc_validator"
 AGENT_CODE_QUALITY_CHECKER = "sdlc_code_quality_checker"
 AGENT_PATCH_PLANNER = "patch_planner"
 AGENT_PULL_REQUEST_BUILDER = "sdlc_pull_request_builder"
@@ -47,37 +39,6 @@ def get_working_dir() -> str:
         Working directory path, defaults to current directory if not set
     """
     return os.getenv("WORKING_DIR", os.getcwd())
-
-
-def get_max_acceptance_iterations(adw_id: str | None = None) -> int:
-    """Get maximum acceptance iterations from environment or use default.
-
-    Args:
-        adw_id: Optional workflow ID for logger retrieval. When called during
-            workflow execution, callers MUST provide adw_id to ensure logs
-            route through the workflow-scoped logger. The None path is only
-            for non-workflow contexts (e.g., standalone utility usage).
-
-    Returns:
-        Maximum number of acceptance iterations, defaults to 3 if not set or invalid
-    """
-    func_logger = get_logger(adw_id) if adw_id else logger
-    env_value = os.getenv("MAX_ACCEPTANCE_ITERATIONS", "3")
-    try:
-        max_iterations = int(env_value)
-        if max_iterations < 1:
-            func_logger.warning(
-                "MAX_ACCEPTANCE_ITERATIONS must be >= 1, got %s. " "Using default value 3.",
-                max_iterations,
-            )
-            return 3
-        return max_iterations
-    except ValueError:
-        func_logger.warning(
-            "Failed to parse MAX_ACCEPTANCE_ITERATIONS='%s' as integer. " "Using default value 3.",
-            env_value,
-        )
-        return 3
 
 
 def derive_paths_from_plan(plan_path: str) -> Dict[str, str]:

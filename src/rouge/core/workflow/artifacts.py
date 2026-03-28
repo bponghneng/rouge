@@ -7,14 +7,13 @@ for persisting workflow step inputs and outputs to disk.
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated, Any, Dict, List, Literal, Optional, Type, TypeVar, cast
+from typing import Any, Dict, List, Literal, Optional, Type, TypeVar, cast
 
 from pydantic import BaseModel, Field
 
 from rouge.core.models import Issue
 from rouge.core.utils import get_logger
 from rouge.core.workflow.types import (
-    ClassifyData,
     ImplementData,
     PlanData,
 )
@@ -31,11 +30,9 @@ T = TypeVar("T", bound="Artifact")
 # Valid artifact type names
 ArtifactType = Literal[
     "fetch-issue",
-    "classify",
     "plan",
     "implement",
     "code-quality",
-    "acceptance",
     "compose-request",
     "gh-pull-request",
     "fetch-patch",
@@ -73,22 +70,6 @@ class FetchIssueArtifact(Artifact):
         description=(
             "The Issue model fetched from the database containing "
             "workflow metadata, status, and assignment information"
-        )
-    )
-
-
-class ClassifyArtifact(Artifact):
-    """Artifact containing issue classification results.
-
-    Attributes:
-        classify_data: The classification result data
-    """
-
-    artifact_type: Literal["classify"] = "classify"
-    classify_data: ClassifyData = Field(
-        description=(
-            "Classification results including the prompt template to execute "
-            "and normalized classification metadata with type and level"
         )
     )
 
@@ -141,34 +122,6 @@ class CodeQualityArtifact(Artifact):
     )
     parsed_data: Optional[Dict[str, Any]] = Field(
         default=None, description="Structured JSON data parsed from tool output"
-    )
-
-
-class AcceptanceArtifact(Artifact):
-    """Artifact containing acceptance validation results.
-
-    Attributes:
-        success: Whether the implementation passed acceptance criteria
-        message: Optional message about the validation result
-        acceptance_status: The acceptance validation status (pass, fail, or partial)
-        unmet_requirements: List of unmet blocking requirements from acceptance validation
-    """
-
-    artifact_type: Literal["acceptance"] = "acceptance"
-    success: bool = Field(description="Whether the implementation satisfies acceptance criteria")
-    message: Optional[str] = Field(default=None, description="Optional validation result details")
-    acceptance_status: Annotated[
-        Literal["", "pass", "fail", "partial"],
-        Field(
-            default="",
-            description="The acceptance validation status: pass, fail, or partial",
-            examples=["pass", "fail", "partial"],
-        ),
-    ] = ""
-    unmet_requirements: List[Annotated[str, Field(min_length=1)]] = Field(
-        default_factory=list,
-        description="List of unmet blocking requirements from acceptance validation",
-        examples=[["Requirement 1", "Requirement 2"]],
     )
 
 
@@ -336,11 +289,9 @@ class WorkflowStateArtifact(Artifact):
 # Mapping from artifact type to model class
 ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "fetch-issue": FetchIssueArtifact,
-    "classify": ClassifyArtifact,
     "plan": PlanArtifact,
     "implement": ImplementArtifact,
     "code-quality": CodeQualityArtifact,
-    "acceptance": AcceptanceArtifact,
     "compose-request": ComposeRequestArtifact,
     "gh-pull-request": GhPullRequestArtifact,
     "fetch-patch": FetchPatchArtifact,

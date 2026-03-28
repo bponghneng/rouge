@@ -362,8 +362,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
         registry: The registry to populate
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.acceptance_step import AcceptanceStep
-    from rouge.core.workflow.steps.classify_step import ClassifyStep
     from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
@@ -380,7 +378,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
     )
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
-    from rouge.core.workflow.steps.plan_step import PlanStep
 
     # 0. GitBranchStep: requires fetch-issue, produces git-branch artifact
     registry.register(
@@ -418,24 +415,6 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Fetch pending patch from Supabase database",
     )
 
-    # 2. ClassifyStep: requires fetch-issue, produces classify artifact
-    registry.register(
-        ClassifyStep,
-        slug="classify",
-        dependencies=["fetch-issue"],
-        outputs=["classify"],
-        description="Classify issue type and complexity",
-    )
-
-    # 3. PlanStep: requires fetch-issue and classify, produces plan
-    registry.register(
-        PlanStep,
-        slug="plan",
-        dependencies=["fetch-issue", "classify"],
-        outputs=["plan"],
-        description="Build implementation plan for the issue",
-    )
-
     # 4. ImplementStep: requires plan, produces implement artifact
     registry.register(
         ImplementStep,
@@ -458,25 +437,16 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependency_kinds={"implement": "ordering-only"},
     )
 
-    # 9. AcceptanceStep: requires plan, produces acceptance
-    registry.register(
-        AcceptanceStep,
-        slug="acceptance",
-        dependencies=["plan"],
-        outputs=["acceptance"],
-        description="Validate implementation against acceptance criteria",
-    )
-
-    # 10. ComposeRequestStep: requires acceptance (ordering-only), produces compose-request artifact
+    # 10. ComposeRequestStep: requires implement (ordering-only), produces compose-request artifact
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
-        dependencies=["acceptance"],
+        dependencies=["implement"],
         outputs=["compose-request"],
         description=(
-            "Prepare pull request metadata and commits. " "Ordering-only dependency on acceptance."
+            "Prepare pull request metadata and commits. " "Ordering-only dependency on implement."
         ),
-        dependency_kinds={"acceptance": "ordering-only"},
+        dependency_kinds={"implement": "ordering-only"},
     )
 
     # 11. GhPullRequestStep: requires compose-request (optional), produces gh-pull-request artifact
@@ -524,7 +494,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
     )
 
-    # 15. ClaudeCodePlanStep: requires fetch-issue, produces plan (alternative to classify+plan)
+    # 15. ClaudeCodePlanStep: requires fetch-issue, produces plan
     registry.register(
         ClaudeCodePlanStep,
         slug="claude-code-plan",
