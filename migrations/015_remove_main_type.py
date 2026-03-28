@@ -33,7 +33,7 @@ step(
     """
     ALTER TABLE issues DROP CONSTRAINT IF EXISTS issues_type_check;
     ALTER TABLE issues ADD CONSTRAINT issues_type_check
-        CHECK (type IN ('main', 'patch'));
+        CHECK (type IN ('main', 'full', 'patch'));
     """,
 )
 
