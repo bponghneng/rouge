@@ -24,7 +24,7 @@ class TestArtifactTypesCommand:
 
         # Check for expected types
         assert "fetch-issue" in result.output
-        assert "classify" in result.output
+        assert "code-quality" in result.output
         assert "plan" in result.output
         assert "implement" in result.output
 

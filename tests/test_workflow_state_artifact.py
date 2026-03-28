@@ -59,7 +59,7 @@ class TestWorkflowStateArtifactModel:
         """Test WorkflowStateArtifact with failed_step but no last_completed_step."""
         artifact = WorkflowStateArtifact(
             workflow_id="adw-999",
-            pipeline_type="main",
+            pipeline_type="full",
             failed_step="code-quality",
         )
 

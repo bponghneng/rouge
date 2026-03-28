@@ -7,10 +7,7 @@ from rouge.core.notifications.comments import (
     emit_artifact_comment,
     emit_comment_from_payload,
 )
-from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import (
-    AcceptanceArtifact,
-    ClassifyArtifact,
     CodeQualityArtifact,
     ComposeCommitsArtifact,
     ComposeRequestArtifact,
@@ -24,7 +21,6 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
 )
 from rouge.core.workflow.types import (
-    ClassifyData,
     ImplementData,
     PlanData,
 )
@@ -78,11 +74,10 @@ class TestEmitArtifactComment:
     def test_emit_artifact_comment_payload_construction(self) -> None:
         """Test that emit_artifact_comment constructs correct payload."""
         # Create a test artifact
-        classify_data = ClassifyData(
-            command=PromptId.FEATURE_PLAN,
-            classification={"type": "feature", "level": "medium"},
+        implement_data = ImplementData(output="Implementation output")
+        artifact = ImplementArtifact(
+            workflow_id="adw-impl-test", implement_data=implement_data
         )
-        artifact = ClassifyArtifact(workflow_id="adw-classify-test", classify_data=classify_data)
 
         # Mock create_comment to capture the payload
         with patch("rouge.core.notifications.comments.create_comment") as mock_create:
@@ -90,19 +85,19 @@ class TestEmitArtifactComment:
                 id=1,
                 issue_id=5,
                 comment="test",
-                adw_id="adw-classify-test",
+                adw_id="adw-impl-test",
             )
 
-            emit_artifact_comment(issue_id=5, adw_id="adw-classify-test", artifact=artifact)
+            emit_artifact_comment(issue_id=5, adw_id="adw-impl-test", artifact=artifact)
 
             # Verify the comment payload
             call_args = mock_create.call_args[0][0]
-            assert call_args.comment == "Artifact saved: classify"
+            assert call_args.comment == "Artifact saved: implement"
             assert call_args.source == "artifact"
-            assert call_args.type == "classify"
-            assert call_args.raw["artifact_type"] == "classify"
+            assert call_args.type == "implement"
+            assert call_args.raw["artifact_type"] == "implement"
             assert "artifact" in call_args.raw
-            assert call_args.raw["artifact"]["workflow_id"] == "adw-classify-test"
+            assert call_args.raw["artifact"]["workflow_id"] == "adw-impl-test"
 
     @patch("rouge.core.notifications.comments.create_comment")
     def test_emit_artifact_comment_with_none_issue_id(self, mock_create_comment) -> None:
@@ -144,15 +139,6 @@ class TestEmitArtifactComment:
                 "fetch-issue",
             ),
             (
-                ClassifyArtifact(
-                    workflow_id="adw-type-test",
-                    classify_data=ClassifyData(
-                        command=PromptId.FEATURE_PLAN, classification={"type": "feature"}
-                    ),
-                ),
-                "classify",
-            ),
-            (
                 PlanArtifact(
                     workflow_id="adw-type-test",
                     plan_data=PlanData(plan="Plan text", summary="Summary"),
@@ -173,10 +159,6 @@ class TestEmitArtifactComment:
                     tools=["ruff"],
                 ),
                 "code-quality",
-            ),
-            (
-                AcceptanceArtifact(workflow_id="adw-type-test", success=True),
-                "acceptance",
             ),
             (
                 ComposeRequestArtifact(
@@ -257,7 +239,10 @@ class TestEmitArtifactComment:
     def test_emit_artifact_comment_database_error_handling(self, mock_create_comment) -> None:
         """Test emit_artifact_comment handles database errors gracefully."""
         # Create a test artifact
-        artifact = AcceptanceArtifact(workflow_id="adw-error-test", success=True)
+        artifact = PlanArtifact(
+            workflow_id="adw-error-test",
+            plan_data=PlanData(plan="Plan", summary="Summary"),
+        )
 
         # Mock create_comment to raise an exception
         mock_create_comment.side_effect = Exception("Database connection failed")

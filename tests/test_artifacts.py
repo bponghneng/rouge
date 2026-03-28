@@ -7,12 +7,9 @@ from unittest.mock import patch
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import (
     ARTIFACT_MODELS,
-    AcceptanceArtifact,
     ArtifactStore,
-    ClassifyArtifact,
     CodeQualityArtifact,
     ComposeRequestArtifact,
     FetchIssueArtifact,
@@ -23,7 +20,6 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
 )
 from rouge.core.workflow.types import (
-    ClassifyData,
     ImplementData,
     PlanData,
 )
@@ -45,21 +41,6 @@ class TestArtifactModels:
         assert artifact.issue.id == 1
         assert artifact.issue.description == "Test issue"
         assert isinstance(artifact.created_at, datetime)
-
-    def test_classification_artifact_creation(self) -> None:
-        """Test ClassifyArtifact can be created with valid data."""
-        classify_data = ClassifyData(
-            command=PromptId.FEATURE_PLAN,
-            classification={"type": "feature", "level": "medium"},
-        )
-        artifact = ClassifyArtifact(
-            workflow_id="adw-123",
-            classify_data=classify_data,
-        )
-
-        assert artifact.artifact_type == "classify"
-        assert artifact.classify_data.command == PromptId.FEATURE_PLAN
-        assert artifact.classify_data.classification["type"] == "feature"
 
     def test_plan_artifact_creation(self) -> None:
         """Test PlanArtifact can be created with valid data."""
@@ -100,18 +81,6 @@ class TestArtifactModels:
         assert artifact.output == "Quality check output"
         assert artifact.tools == ["ruff", "mypy"]
         assert artifact.parsed_data == {"issues": 0}
-
-    def test_acceptance_artifact_creation(self) -> None:
-        """Test AcceptanceArtifact can be created with valid data."""
-        artifact = AcceptanceArtifact(
-            workflow_id="adw-123",
-            success=True,
-            message="Implementation accepted",
-        )
-
-        assert artifact.artifact_type == "acceptance"
-        assert artifact.success is True
-        assert artifact.message == "Implementation accepted"
 
     def test_pr_metadata_artifact_creation(self) -> None:
         """Test ComposeRequestArtifact can be created with valid data."""
@@ -252,11 +221,9 @@ class TestArtifactModels:
         """Test ARTIFACT_MODELS contains all expected types."""
         expected_types = {
             "fetch-issue",
-            "classify",
             "plan",
             "implement",
             "code-quality",
-            "acceptance",
             "compose-request",
             "gh-pull-request",
             "fetch-patch",
@@ -288,23 +255,6 @@ class TestArtifactSerialization:
         assert restored.artifact_type == "fetch-issue"
         assert restored.issue.id == 42
         assert restored.issue.description == "Test issue for round trip"
-
-    def test_classification_artifact_round_trip(self) -> None:
-        """Test ClassifyArtifact can be serialized and deserialized."""
-        classify_data = ClassifyData(
-            command=PromptId.BUG_PLAN,
-            classification={"type": "bug", "level": "high"},
-        )
-        artifact = ClassifyArtifact(
-            workflow_id="adw-test",
-            classify_data=classify_data,
-        )
-
-        json_str = artifact.model_dump_json()
-        restored = ClassifyArtifact.model_validate_json(json_str)
-
-        assert restored.classify_data.command == PromptId.BUG_PLAN
-        assert restored.classify_data.classification["type"] == "bug"
 
     def test_gh_pull_request_artifact_round_trip_empty(self) -> None:
         """Test GhPullRequestArtifact serializes/deserializes with zero entries."""
@@ -561,18 +511,15 @@ class TestArtifactStore:
         issue = Issue(id=1, description="Test")
         store.write_artifact(FetchIssueArtifact(workflow_id="adw-multiple", issue=issue))
 
-        classify_data = ClassifyData(
-            command=PromptId.FEATURE_PLAN,
-            classification={"type": "feature", "level": "low"},
-        )
+        plan_data = PlanData(plan="Test plan", summary="Test summary")
         store.write_artifact(
-            ClassifyArtifact(workflow_id="adw-multiple", classify_data=classify_data)
+            PlanArtifact(workflow_id="adw-multiple", plan_data=plan_data)
         )
 
         artifacts = store.list_artifacts()
 
         assert "fetch-issue" in artifacts
-        assert "classify" in artifacts
+        assert "plan" in artifacts
         assert len(artifacts) == 2
 
     def test_get_artifact_info(self, tmp_path) -> None:
@@ -626,25 +573,22 @@ class TestArtifactStore:
         issue = Issue(id=1, description="Multi-type test")
         store.write_artifact(FetchIssueArtifact(workflow_id="adw-multi-type", issue=issue))
 
-        classify_data = ClassifyData(
-            command=PromptId.CHORE_PLAN,
-            classification={"type": "chore", "level": "small"},
-        )
-        store.write_artifact(
-            ClassifyArtifact(workflow_id="adw-multi-type", classify_data=classify_data)
-        )
-
         plan_data = PlanData(plan="Plan output", summary="Summary")
         store.write_artifact(PlanArtifact(workflow_id="adw-multi-type", plan_data=plan_data))
 
+        implement_data = ImplementData(output="Implementation output")
+        store.write_artifact(
+            ImplementArtifact(workflow_id="adw-multi-type", implement_data=implement_data)
+        )
+
         # Verify all artifacts can be read back
         issue_artifact = store.read_artifact("fetch-issue")
-        classification_artifact = store.read_artifact("classify")
         plan_artifact = store.read_artifact("plan")
+        impl_artifact = store.read_artifact("implement")
 
         assert issue_artifact.issue.id == 1
-        assert classification_artifact.classify_data.command == PromptId.CHORE_PLAN
         assert plan_artifact.plan_data.plan == "Plan output"
+        assert impl_artifact.implement_data.output == "Implementation output"
 
     def test_store_overwrites_existing_artifact(self, tmp_path) -> None:
         """Test writing an artifact overwrites existing one."""
@@ -676,36 +620,26 @@ class TestArtifactStoreIntegration:
         issue = Issue(id=100, description="Full workflow test")
         store.write_artifact(FetchIssueArtifact(workflow_id=workflow_id, issue=issue))
 
-        # 2. Classification artifact
-        classify_data = ClassifyData(
-            command=PromptId.FEATURE_PLAN,
-            classification={"type": "feature", "level": "medium"},
-        )
-        store.write_artifact(ClassifyArtifact(workflow_id=workflow_id, classify_data=classify_data))
-
-        # 3. Plan artifact
+        # 2. Plan artifact
         plan_data = PlanData(
             plan="# Feature Plan\n...", summary="Feature summary", session_id="sess-123"
         )
         store.write_artifact(PlanArtifact(workflow_id=workflow_id, plan_data=plan_data))
 
-        # 4. Implementation artifact
+        # 3. Implementation artifact
         implement_data = ImplementData(output="Implementation complete")
         store.write_artifact(
             ImplementArtifact(workflow_id=workflow_id, implement_data=implement_data)
         )
 
-        # 5. Quality check artifact
+        # 4. Quality check artifact
         store.write_artifact(
             CodeQualityArtifact(
                 workflow_id=workflow_id, output="All checks passed", tools=["ruff", "mypy"]
             )
         )
 
-        # 6. Acceptance artifact
-        store.write_artifact(AcceptanceArtifact(workflow_id=workflow_id, success=True))
-
-        # 7. PR metadata artifact
+        # 5. PR metadata artifact
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id=workflow_id,
@@ -715,7 +649,7 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # 8. Pull request artifact
+        # 6. Pull request artifact
         store.write_artifact(
             GhPullRequestArtifact(
                 workflow_id=workflow_id,
@@ -731,18 +665,16 @@ class TestArtifactStoreIntegration:
             )
         )
 
-        # Verify all 8 artifacts exist
+        # Verify all 6 artifacts exist
         artifacts = store.list_artifacts()
-        assert len(artifacts) == 8
+        assert len(artifacts) == 6
 
         # Verify each type is present
         expected_types = [
             "fetch-issue",
-            "classify",
             "plan",
             "implement",
             "code-quality",
-            "acceptance",
             "compose-request",
             "gh-pull-request",
         ]

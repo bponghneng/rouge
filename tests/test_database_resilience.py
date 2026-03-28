@@ -249,7 +249,7 @@ class TestWorkerRetriesOnTransientError:
             else:
                 # Succeed on 3rd attempt
                 worker.running = False
-                return (123, "Test issue", "pending", "main", None)
+                return (123, "Test issue", "pending", "full", None)
 
         with patch("rouge.worker.worker.read_worker_artifact", return_value=ready_artifact):
             with patch("rouge.worker.worker.get_next_issue", side_effect=mock_get_next_issue):
@@ -261,7 +261,7 @@ class TestWorkerRetriesOnTransientError:
                             # Should have retried and eventually called execute_workflow
                             assert call_count[0] == 3
                             mock_execute.assert_called_once_with(
-                                123, "Test issue", "pending", "main", adw_id=None
+                                123, "Test issue", "pending", "full", adw_id=None
                             )
 
                             # Should have called reset_client before each retry (2 times)
@@ -439,7 +439,7 @@ class TestWorkerContinuesAfterTransientError:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Test issue", "pending", "main", None)
+                return (123, "Test issue", "pending", "full", None)
             else:
                 worker.running = False
                 return None

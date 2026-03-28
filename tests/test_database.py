@@ -620,8 +620,8 @@ def test_delete_issue_with_comments(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_with_explicit_type_main(mock_get_client) -> None:
-    """Test creating issue with explicit type='main'."""
+def test_create_issue_with_explicit_type_full(mock_get_client) -> None:
+    """Test creating issue with explicit type='full'."""
     mock_client = Mock()
     mock_table = Mock()
     mock_insert = Mock()
@@ -634,21 +634,21 @@ def test_create_issue_with_explicit_type_main(mock_get_client) -> None:
             "id": 1,
             "description": "Test issue with type",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "adw_id": "abc12345",
         }
     ]
     mock_insert.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    issue = create_issue("Test issue with type", issue_type="main")
+    issue = create_issue("Test issue with type", issue_type="full")
     assert issue.id == 1
     assert issue.description == "Test issue with type"
-    assert issue.type == "main"
+    assert issue.type == "full"
 
     # Verify the insert data included the type
     insert_call_args = mock_table.insert.call_args[0][0]
-    assert insert_call_args["type"] == "main"
+    assert insert_call_args["type"] == "full"
 
 
 @patch("rouge.core.database.get_client")
@@ -698,7 +698,7 @@ def test_create_issue_with_explicit_adw_id(mock_get_client) -> None:
             "id": 3,
             "description": "Test issue with custom adw_id",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "adw_id": "custom-adw-id",
         }
     ]
@@ -748,8 +748,8 @@ def test_create_issue_with_type_and_adw_id(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_default_type_is_main(mock_get_client) -> None:
-    """Test that issue type defaults to 'main' when not specified."""
+def test_create_issue_default_type_is_full(mock_get_client) -> None:
+    """Test that issue type defaults to 'full' when not specified."""
     mock_client = Mock()
     mock_table = Mock()
     mock_insert = Mock()
@@ -762,7 +762,7 @@ def test_create_issue_default_type_is_main(mock_get_client) -> None:
             "id": 5,
             "description": "Issue without explicit type",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "adw_id": "generated123",
         }
     ]
@@ -770,11 +770,11 @@ def test_create_issue_default_type_is_main(mock_get_client) -> None:
     mock_get_client.return_value = mock_client
 
     issue = create_issue("Issue without explicit type")
-    assert issue.type == "main"
+    assert issue.type == "full"
 
-    # Verify the insert data defaulted to 'main'
+    # Verify the insert data defaulted to 'full'
     insert_call_args = mock_table.insert.call_args[0][0]
-    assert insert_call_args["type"] == "main"
+    assert insert_call_args["type"] == "full"
 
 
 @patch("rouge.core.database.get_client")
@@ -792,7 +792,7 @@ def test_create_issue_auto_generates_adw_id(mock_get_client) -> None:
             "id": 6,
             "description": "Issue with auto-generated adw_id",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "adw_id": "auto1234",
         }
     ]
@@ -830,7 +830,7 @@ def test_create_issue_with_assigned_to(mock_get_client) -> None:
             "id": 7,
             "description": "Issue with assignee",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "adw_id": "test1234",
             "assigned_to": "tydirium-1",
         }
@@ -881,7 +881,7 @@ def test_update_issue_single_field_assigned_to(mock_get_client) -> None:
             "id": 1,
             "description": "Test issue",
             "status": "pending",
-            "type": "main",
+            "type": "full",
             "assigned_to": "tydirium-1",
         }
     ]
@@ -1575,7 +1575,7 @@ def test_update_issue_both_types(mock_get_client) -> None:
     mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
-    for issue_type in ["main", "patch"]:
+    for issue_type in ["full", "patch"]:
         mock_execute_update.data = [
             {
                 "id": 1,

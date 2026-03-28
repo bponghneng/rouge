@@ -65,14 +65,9 @@ class TestPromptId:
     def test_all_expected_members_exist(self) -> None:
         """Every workflow step prompt ID is declared."""
         expected = {
-            "ACCEPTANCE",
-            "BUG_PLAN",
-            "CHORE_PLAN",
-            "CLASSIFY",
             "CLAUDE_CODE_PLAN",
             "CODE_QUALITY",
             "COMPOSE_COMMITS",
-            "FEATURE_PLAN",
             "IMPLEMENT_PLAN",
             "PATCH_PLAN",
             "PULL_REQUEST",
@@ -89,19 +84,19 @@ class TestPromptId:
 
     def test_is_str_subclass(self) -> None:
         """PromptId inherits from str so it serialises cleanly."""
-        assert isinstance(PromptId.CLASSIFY, str)
-        assert PromptId.CLASSIFY == "classify"
+        assert isinstance(PromptId.IMPLEMENT_PLAN, str)
+        assert PromptId.IMPLEMENT_PLAN == "implement-plan"
 
     def test_specific_values(self) -> None:
         """Spot-check a few value mappings."""
-        assert PromptId.CLASSIFY.value == "classify"
-        assert PromptId.FEATURE_PLAN.value == "feature-plan"
+        assert PromptId.CLAUDE_CODE_PLAN.value == "claude-code-plan"
         assert PromptId.IMPLEMENT_PLAN.value == "implement-plan"
         assert PromptId.PATCH_PLAN.value == "patch-plan"
+        assert PromptId.CODE_QUALITY.value == "code-quality"
 
     def test_count(self) -> None:
-        """Exactly 11 prompt IDs are declared."""
-        assert len(list(PromptId)) == 11
+        """Exactly 6 prompt IDs are declared."""
+        assert len(list(PromptId)) == 6
 
 
 # ---------------------------------------------------------------------------
@@ -114,31 +109,31 @@ class TestParseTemplate:
 
     def test_no_front_matter_returns_full_text_as_body(self) -> None:
         text = "# My Prompt\n\nDo something."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description is None
         assert model is None
         assert body == text
 
     def test_extracts_description(self) -> None:
         text = "---\ndescription: Classify an issue.\n---\n\nBody text."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description == "Classify an issue."
         assert model is None
         assert body == "Body text."
 
     def test_extracts_model_sonnet(self) -> None:
         text = "---\nmodel: sonnet\n---\n\nBody."
-        _, model, _ = _parse_template(text, PromptId.CLASSIFY)
+        _, model, _ = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert model == "sonnet"
 
     def test_extracts_model_opus(self) -> None:
         text = "---\nmodel: opus\n---\n\nBody."
-        _, model, _ = _parse_template(text, PromptId.CLASSIFY)
+        _, model, _ = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert model == "opus"
 
     def test_invalid_model_is_ignored(self) -> None:
         text = "---\nmodel: gpt-4\n---\n\nBody."
-        _, model, _ = _parse_template(text, PromptId.CLASSIFY)
+        _, model, _ = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert model is None
 
     def test_invalid_model_logs_warning(self, caplog: pytest.LogCaptureFixture) -> None:
@@ -146,12 +141,12 @@ class TestParseTemplate:
 
         text = "---\nmodel: gpt-4\n---\n\nBody."
         with caplog.at_level(logging.WARNING, logger="rouge.core.prompts.registry"):
-            _parse_template(text, PromptId.CLASSIFY)
+            _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert any("unsupported model" in r.message for r in caplog.records)
 
     def test_thinking_key_is_silently_dropped(self) -> None:
         text = "---\nthinking: extended\ndescription: A prompt.\n---\n\nBody."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         # thinking is not returned; description is still extracted
         assert description == "A prompt."
         assert model is None
@@ -159,30 +154,30 @@ class TestParseTemplate:
 
     def test_unknown_keys_are_silently_dropped(self) -> None:
         text = "---\nunknown_key: some value\ndescription: Kept.\n---\n\nBody."
-        description, _, _ = _parse_template(text, PromptId.CLASSIFY)
+        description, _, _ = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description == "Kept."
 
     def test_both_description_and_model_extracted(self) -> None:
         text = "---\ndescription: Do stuff.\nmodel: opus\n---\n\nBody text here."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description == "Do stuff."
         assert model == "opus"
         assert body == "Body text here."
 
     def test_body_leading_newlines_stripped(self) -> None:
         text = "---\ndescription: X.\n---\n\n\nBody starts here."
-        _, _, body = _parse_template(text, PromptId.CLASSIFY)
+        _, _, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert body == "Body starts here."
 
     def test_unclosed_front_matter_returns_full_text(self) -> None:
         text = "---\ndescription: Missing close\nBody text."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description is None
         assert body == text
 
     def test_empty_front_matter_block(self) -> None:
         text = "---\n---\n\nBody only."
-        description, model, body = _parse_template(text, PromptId.CLASSIFY)
+        description, model, body = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description is None
         assert model is None
         assert body == "Body only."
@@ -190,7 +185,7 @@ class TestParseTemplate:
     def test_description_with_colon_in_value(self) -> None:
         """Values containing colons are preserved correctly."""
         text = "---\ndescription: Foo: bar baz.\n---\n\nBody."
-        description, _, _ = _parse_template(text, PromptId.CLASSIFY)
+        description, _, _ = _parse_template(text, PromptId.IMPLEMENT_PLAN)
         assert description == "Foo: bar baz."
 
 
@@ -204,45 +199,47 @@ class TestPromptRegistryGet:
 
     def test_get_returns_prompt_template(self) -> None:
         registry = PromptRegistry()
-        template = registry.get(PromptId.CLASSIFY)
+        template = registry.get(PromptId.IMPLEMENT_PLAN)
         assert isinstance(template, PromptTemplate)
-        assert template.prompt_id == PromptId.CLASSIFY
+        assert template.prompt_id == PromptId.IMPLEMENT_PLAN
 
     def test_get_caches_result(self) -> None:
         registry = PromptRegistry()
-        t1 = registry.get(PromptId.CLASSIFY)
-        t2 = registry.get(PromptId.CLASSIFY)
+        t1 = registry.get(PromptId.IMPLEMENT_PLAN)
+        t2 = registry.get(PromptId.IMPLEMENT_PLAN)
         assert t1 is t2
 
     def test_get_missing_template_raises_file_not_found(self) -> None:
         registry = PromptRegistry()
         with patch.object(registry, "_load", side_effect=FileNotFoundError("missing")):
             with pytest.raises(FileNotFoundError):
-                registry.get(PromptId.CLASSIFY)
+                registry.get(PromptId.IMPLEMENT_PLAN)
 
     def test_empty_body_raises_value_error(self) -> None:
         """_load raises ValueError when the template body is empty after parsing."""
         registry = PromptRegistry()
         with patch(
             "importlib.resources.files",
-            return_value=_make_fake_package({"classify.md": "---\ndescription: x\n---\n\n   \n"}),
+            return_value=_make_fake_package(
+                {"implement-plan.md": "---\ndescription: x\n---\n\n   \n"}
+            ),
         ):
             with pytest.raises(ValueError, match="empty body"):
-                registry._load(PromptId.CLASSIFY)
+                registry._load(PromptId.IMPLEMENT_PLAN)
 
     def test_whitespace_only_body_raises_value_error(self) -> None:
         """A template whose body is only whitespace is rejected."""
         registry = PromptRegistry()
         with patch(
             "importlib.resources.files",
-            return_value=_make_fake_package({"classify.md": "   \n\t\n"}),
+            return_value=_make_fake_package({"implement-plan.md": "   \n\t\n"}),
         ):
             with pytest.raises(ValueError, match="empty body"):
-                registry._load(PromptId.CLASSIFY)
+                registry._load(PromptId.IMPLEMENT_PLAN)
 
     def test_template_body_is_non_empty(self) -> None:
         registry = PromptRegistry()
-        template = registry.get(PromptId.CLASSIFY)
+        template = registry.get(PromptId.IMPLEMENT_PLAN)
         assert template.body.strip() != ""
 
     def test_template_body_has_no_front_matter_markers(self) -> None:
@@ -254,18 +251,18 @@ class TestPromptRegistryGet:
                 "---"
             ), f"{prompt_id.value} body still contains front matter marker"
 
-    def test_classify_template_has_model_sonnet(self) -> None:
-        """classify.md front matter declares model: sonnet."""
+    def test_implement_plan_template_has_model_opus(self) -> None:
+        """implement-plan.md front matter declares model: opus."""
         registry = PromptRegistry()
-        template = registry.get(PromptId.CLASSIFY)
-        assert template.model == "sonnet"
+        template = registry.get(PromptId.IMPLEMENT_PLAN)
+        assert template.model == "opus"
 
-    def test_templates_without_model_return_none(self) -> None:
-        """Templates that omit 'model' in front matter return model=None."""
+    def test_templates_return_model_from_front_matter(self) -> None:
+        """Templates that declare 'model' in front matter return the correct model."""
         registry = PromptRegistry()
-        # adw-feature-plan has no model key
-        template = registry.get(PromptId.FEATURE_PLAN)
-        assert template.model is None
+        # claude-code-plan.md declares model: opus
+        template = registry.get(PromptId.CLAUDE_CODE_PLAN)
+        assert template.model == "opus"
 
     def test_no_template_contains_thinking_key(self) -> None:
         """Confirm 'thinking' was removed from all migrated templates."""
@@ -297,7 +294,7 @@ class TestPromptRegistryValidate:
         original_load = registry._load
 
         def load_with_one_missing(prompt_id):
-            if prompt_id == PromptId.CLASSIFY:
+            if prompt_id == PromptId.IMPLEMENT_PLAN:
                 raise FileNotFoundError("classify.md")
             return original_load(prompt_id)
 
@@ -311,7 +308,7 @@ class TestPromptRegistryValidate:
         original_load = registry._load
 
         def load_with_empty_body(prompt_id):
-            if prompt_id == PromptId.CLASSIFY:
+            if prompt_id == PromptId.IMPLEMENT_PLAN:
                 raise ValueError("classify.md has an empty body")
             return original_load(prompt_id)
 
@@ -325,20 +322,44 @@ class TestPromptRegistryRender:
 
     def test_render_substitutes_arguments(self) -> None:
         registry = PromptRegistry()
-        result = registry.render(PromptId.CLASSIFY, ["Issue text here"])
+        # Use a synthetic template with a single $ARGUMENTS placeholder
+        fake_template = PromptTemplate(
+            prompt_id=PromptId.IMPLEMENT_PLAN,
+            body="Do this: $ARGUMENTS.",
+            description=None,
+            model=None,
+        )
+        registry._cache[PromptId.IMPLEMENT_PLAN] = fake_template
+        result = registry.render(PromptId.IMPLEMENT_PLAN, ["Issue text here"])
         assert isinstance(result, RenderedPrompt)
         assert "Issue text here" in result.text
         assert "$ARGUMENTS" not in result.text
 
     def test_render_multiple_args_joined_with_newline(self) -> None:
         registry = PromptRegistry()
-        result = registry.render(PromptId.CLASSIFY, ["line one", "line two"])
+        # Use a synthetic template with a single $ARGUMENTS placeholder
+        fake_template = PromptTemplate(
+            prompt_id=PromptId.IMPLEMENT_PLAN,
+            body="Do this: $ARGUMENTS.",
+            description=None,
+            model=None,
+        )
+        registry._cache[PromptId.IMPLEMENT_PLAN] = fake_template
+        result = registry.render(PromptId.IMPLEMENT_PLAN, ["line one", "line two"])
         assert "line one\nline two" in result.text
 
     def test_render_empty_args_with_arguments_placeholder(self) -> None:
         """$ARGUMENTS replaced with empty string when args=[]."""
         registry = PromptRegistry()
-        result = registry.render(PromptId.CLASSIFY, [])
+        # Use a synthetic template with a single $ARGUMENTS placeholder
+        fake_template = PromptTemplate(
+            prompt_id=PromptId.IMPLEMENT_PLAN,
+            body="Do this: $ARGUMENTS.",
+            description=None,
+            model=None,
+        )
+        registry._cache[PromptId.IMPLEMENT_PLAN] = fake_template
+        result = registry.render(PromptId.IMPLEMENT_PLAN, [])
         assert "$ARGUMENTS" not in result.text
 
     def test_render_no_arguments_placeholder_appends_args(self) -> None:
@@ -358,26 +379,26 @@ class TestPromptRegistryRender:
 
     def test_render_returns_model_from_template(self) -> None:
         registry = PromptRegistry()
-        result = registry.render(PromptId.CLASSIFY, ["x"])
-        assert result.model == "sonnet"
+        result = registry.render(PromptId.IMPLEMENT_PLAN, ["x"])
+        assert result.model == "opus"
 
-    def test_render_returns_none_model_when_not_in_front_matter(self) -> None:
+    def test_render_returns_model_for_sonnet_template(self) -> None:
         registry = PromptRegistry()
-        result = registry.render(PromptId.FEATURE_PLAN, ["x"])
-        assert result.model is None
+        result = registry.render(PromptId.CODE_QUALITY, ["x"])
+        assert result.model == "sonnet"
 
     def test_render_only_first_arguments_replaced(self) -> None:
         """Only the first $ARGUMENTS occurrence is substituted."""
         registry = PromptRegistry()
         # Inject a synthetic template with two $ARGUMENTS
         fake_template = PromptTemplate(
-            prompt_id=PromptId.CLASSIFY,
+            prompt_id=PromptId.IMPLEMENT_PLAN,
             body="First: $ARGUMENTS. Second: $ARGUMENTS.",
             description=None,
             model=None,
         )
-        registry._cache[PromptId.CLASSIFY] = fake_template
-        result = registry.render(PromptId.CLASSIFY, ["X"])
+        registry._cache[PromptId.IMPLEMENT_PLAN] = fake_template
+        result = registry.render(PromptId.IMPLEMENT_PLAN, ["X"])
         assert result.text == "First: X. Second: $ARGUMENTS."
 
 
@@ -461,13 +482,13 @@ class TestModuleLevelHelpers:
             _mod._registry = old
 
     def test_render_prompt_returns_rendered_prompt(self) -> None:
-        result = render_prompt(PromptId.CLASSIFY, ["test input"])
+        result = render_prompt(PromptId.IMPLEMENT_PLAN, ["test input"])
         assert isinstance(result, RenderedPrompt)
         assert "test input" in result.text
 
     def test_render_prompt_uses_shared_registry(self) -> None:
         """render_prompt() and get_registry().render() share the same cache."""
         shared = get_registry()
-        _ = render_prompt(PromptId.CLASSIFY, ["x"])
+        _ = render_prompt(PromptId.IMPLEMENT_PLAN, ["x"])
         # Cache populated via render_prompt should be visible in the registry
-        assert PromptId.CLASSIFY in shared._cache
+        assert PromptId.IMPLEMENT_PLAN in shared._cache

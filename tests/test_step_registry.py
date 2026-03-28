@@ -563,7 +563,6 @@ class TestGlobalRegistry:
 
         # Check key steps are registered
         assert any("Fetching" in s for s in steps)
-        assert any("Classifying" in s for s in steps)
         assert any("Building" in s for s in steps)
         assert any("Implementing" in s for s in steps)
 
@@ -603,15 +602,15 @@ class TestGlobalRegistry:
         """Test default steps have correct dependencies configured."""
         registry = get_step_registry()
 
-        # ClassifyStep should depend on fetch-issue
-        classify_meta = None
+        # ImplementStep should depend on plan
+        implement_meta = None
         for name in registry.list_all_steps():
-            if "Classifying" in name:
-                classify_meta = registry.get_step_metadata(name)
+            if "Implementing" in name:
+                implement_meta = registry.get_step_metadata(name)
                 break
 
-        assert classify_meta is not None
-        assert "fetch-issue" in classify_meta.dependencies
+        assert implement_meta is not None
+        assert "plan" in implement_meta.dependencies
 
     def test_default_step_outputs(self):
         """Test default steps have correct outputs configured."""
@@ -773,25 +772,25 @@ class TestRegistryContractConstraints:
     def test_steps_with_no_dependency_kinds_entry_are_treated_as_required(self):
         """Dependencies without a dependency_kinds entry default to 'required'.
 
-        The classify step depends on fetch-issue with no explicit dependency_kinds
-        entry, so fetch-issue is implicitly required.  The registry must not list
-        fetch-issue in dependency_kinds (which would override the default).
+        The implement step depends on plan with no explicit dependency_kinds
+        entry, so plan is implicitly required.  The registry must not list
+        plan in dependency_kinds (which would override the default).
         """
         registry = get_step_registry()
 
-        classify_meta = None
+        implement_meta = None
         for name in registry.list_all_steps():
-            if "Classifying" in name:
-                classify_meta = registry.get_step_metadata(name)
+            if "Implementing" in name:
+                implement_meta = registry.get_step_metadata(name)
                 break
 
-        assert classify_meta is not None, "ClassifyStep must be registered"
+        assert implement_meta is not None, "ImplementStep must be registered"
         assert (
-            "fetch-issue" in classify_meta.dependencies
-        ), "ClassifyStep must declare fetch-issue as a dependency"
-        # fetch-issue must NOT appear in dependency_kinds — absence means 'required'
-        assert "fetch-issue" not in classify_meta.dependency_kinds, (
-            "ClassifyStep's fetch-issue dependency should be implicitly required "
+            "plan" in implement_meta.dependencies
+        ), "ImplementStep must declare plan as a dependency"
+        # plan must NOT appear in dependency_kinds — absence means 'required'
+        assert "plan" not in implement_meta.dependency_kinds, (
+            "ImplementStep's plan dependency should be implicitly required "
             "(not listed in dependency_kinds)"
         )
 
@@ -813,7 +812,7 @@ class TestRegistryContractConstraints:
         Policy assertions:
         - gh-pull-request and glab-pull-request declare compose-request as optional
         - code-quality declares implement as ordering-only
-        - compose-request declares acceptance as ordering-only
+        - compose-request declares implement as ordering-only
         """
         registry = get_step_registry()
 
@@ -838,9 +837,9 @@ class TestRegistryContractConstraints:
             cq_meta.dependency_kinds.get("implement") == "ordering-only"
         ), "code-quality must declare implement as ordering-only"
 
-        # compose-request: acceptance is ordering-only
+        # compose-request: implement is ordering-only
         cr_meta = registry.get_step_metadata_by_slug("compose-request")
         assert cr_meta is not None, "compose-request step must be registered"
         assert (
-            cr_meta.dependency_kinds.get("acceptance") == "ordering-only"
-        ), "compose-request must declare acceptance as ordering-only"
+            cr_meta.dependency_kinds.get("implement") == "ordering-only"
+        ), "compose-request must declare implement as ordering-only"
