@@ -13,7 +13,7 @@ implementations, or run unattended workers against Supabase.
 - `rouge.cli` – Typer CLI (`uv run rouge`) with subcommands for creating issues,
   launching workflows, and managing background processes.
 - `rouge.adw` – Lightweight CLI (`uv run rouge-adw`) that executes the Agent
-  Development Workflow (fetch → classify → plan → implement) for a single issue.
+  Development Workflow (fetch → plan → implement) for a single issue.
 - `rouge.worker` – Long-running daemon (`uv run rouge-worker --worker-id …`) that
   polls Supabase, atomically locks the next pending issue, and shells out to the
   ADW CLI so multiple hosts can process the queue without collisions.
@@ -89,7 +89,7 @@ Create a `.env` file in the directory where you are running the `rouge` commands
 
 ### Provider Configuration
 
-Rouge supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (classification, planning, and implementation) use Claude Code. You can configure a different provider for the implementation step using the `ROUGE_IMPLEMENT_PROVIDER` environment variable.
+Rouge supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (planning and implementation) use Claude Code. You can configure a different provider for the implementation step using the `ROUGE_IMPLEMENT_PROVIDER` environment variable.
 
 **Default behavior (Claude for all steps):**
 ```bash
@@ -106,7 +106,7 @@ npm install -g @opencode/cli
 export ROUGE_IMPLEMENT_PROVIDER=opencode
 export OPENCODE_API_KEY=your-opencode-api-key
 
-# Run workflow - classification and planning use Claude, implementation uses OpenCode
+# Run workflow - planning uses Claude, implementation uses OpenCode
 uv run rouge-adw 123
 ```
 
@@ -196,7 +196,7 @@ Rouge supports typed workflow artifacts that persist step inputs/outputs to disk
 Artifacts are stored under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`, where
 `WORKING_DIR` defaults to the current directory.
 
-**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `classify`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
+**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `plan`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
 
 Artifact-focused commands:
 
@@ -220,7 +220,7 @@ uv run rouge step list
 uv run rouge step run fetch-issue --issue-id 123
 
 # Run a step with dependencies (requires --adw-id)
-uv run rouge step run classify --issue-id 123 --adw-id abc12345
+uv run rouge step run plan --issue-id 123 --adw-id abc12345
 
 # Show what steps must run before implementation
 uv run rouge step deps implement
