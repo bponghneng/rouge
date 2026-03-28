@@ -26,7 +26,7 @@ def issue() -> Issue:
         id=42,
         description="Add dark mode toggle to settings page",
         status="pending",
-        type="main",
+        type="full",
         adw_id="full-abc123",
         branch="feature/dark-mode",
     )

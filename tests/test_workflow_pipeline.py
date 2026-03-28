@@ -3,14 +3,11 @@ from unittest.mock import MagicMock, patch
 
 from rouge.core.workflow.pipeline import (
     WorkflowRunner,
-    get_default_pipeline,
     get_full_pipeline,
     get_patch_pipeline,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps import (
-    AcceptanceStep,
-    ClassifyStep,
     CodeQualityStep,
     ComposeRequestStep,
     FetchIssueStep,
@@ -18,7 +15,6 @@ from rouge.core.workflow.steps import (
     GitBranchStep,
     GitCheckoutStep,
     ImplementStep,
-    PlanStep,
 )
 from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
@@ -307,65 +303,13 @@ class TestWorkflowRunner:
         assert "Rerun requested for unknown step 'NonExistent', ignoring" in caplog.text
 
 
-class TestGetDefaultPipeline:
-    def test_pipeline_structure_no_platform(self, monkeypatch):
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_default_pipeline()
-
-        # Check step count (should be 8 without PR step)
-        assert len(pipeline) == 8
-
-        # Verify order and types
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ClassifyStep,
-            PlanStep,
-            ImplementStep,
-            CodeQualityStep,
-            AcceptanceStep,
-            ComposeRequestStep,
-        ]
-
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-
-        assert pipeline[4].plan_step_name == "Building implementation plan"
-
-        # Verify critical flags
-        assert pipeline[0].is_critical  # Setup
-        assert pipeline[1].is_critical  # Fetch
-        assert pipeline[2].is_critical  # Classify
-        assert pipeline[3].is_critical  # Plan
-        assert pipeline[4].is_critical  # Implement
-        assert not pipeline[5].is_critical  # Quality
-
-    def test_pipeline_structure_github(self, monkeypatch):
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_default_pipeline()
-
-        assert len(pipeline) == 9
-        assert isinstance(pipeline[-1], GhPullRequestStep)
-        assert not pipeline[-1].is_critical  # PR creation is best effort
-
-    def test_pipeline_structure_gitlab(self, monkeypatch):
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_default_pipeline()
-
-        assert len(pipeline) == 9
-        assert isinstance(pipeline[-1], GlabPullRequestStep)
-        assert not pipeline[-1].is_critical
-
-
 class TestGetPatchPipeline:
     def test_patch_pipeline_structure_no_platform(self, monkeypatch):
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        # Check step count (should be 7)
-        assert len(pipeline) == 7
+        # Check step count (should be 6)
+        assert len(pipeline) == 6
 
         # Verify order and types
         expected_types = [
@@ -374,7 +318,6 @@ class TestGetPatchPipeline:
             PatchPlanStep,
             ImplementStep,
             CodeQualityStep,
-            AcceptanceStep,
             ComposeCommitsStep,
         ]
 
@@ -391,8 +334,7 @@ class TestGetPatchPipeline:
         assert pipeline[2].is_critical  # Build patch plan
         assert pipeline[3].is_critical  # Implement
         assert not pipeline[4].is_critical  # Code quality
-        assert not pipeline[5].is_critical  # Validate patch acceptance (best effort)
-        assert not pipeline[6].is_critical  # Update PR commits (best effort)
+        assert not pipeline[5].is_critical  # Update PR commits (best effort)
 
     def test_patch_pipeline_excludes_create_pr_steps(self, monkeypatch):
         """Verify patch pipeline never includes PR creation steps."""
@@ -425,7 +367,6 @@ class TestGetPatchPipeline:
             PatchPlanStep,
             ImplementStep,
             CodeQualityStep,
-            AcceptanceStep,
             ComposeCommitsStep,
         ]
 
@@ -497,24 +438,6 @@ class TestGetFullPipeline:
         assert isinstance(
             pipeline[2], ClaudeCodePlanStep
         ), "ClaudeCodePlanStep should be at index 2"
-
-    def test_classify_step_absent(self, monkeypatch):
-        """Verify ClassifyStep is absent from full pipeline."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_full_pipeline()
-
-        for step in pipeline:
-            assert not isinstance(step, ClassifyStep), "ClassifyStep should not be in full pipeline"
-
-    def test_acceptance_step_absent(self, monkeypatch):
-        """Verify AcceptanceStep is absent from full pipeline."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_full_pipeline()
-
-        for step in pipeline:
-            assert not isinstance(
-                step, AcceptanceStep
-            ), "AcceptanceStep should not be in full pipeline"
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""

@@ -135,7 +135,7 @@ def test_execute_template_sanitizes_markdown_fence(
 
     request = AgentTemplateRequest(
         agent_name="ops",
-        prompt_id=PromptId.CLASSIFY,
+        prompt_id=PromptId.IMPLEMENT_PLAN,
         args=["issue"],
         adw_id="test123",
         issue_id=1,

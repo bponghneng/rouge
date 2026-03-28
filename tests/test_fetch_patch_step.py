@@ -42,7 +42,7 @@ def sample_main_issue() -> Issue:
         id=10,
         description="Original issue",
         status="started",
-        type="main",
+        type="full",
         adw_id="abc12345",
     )
 

@@ -28,7 +28,7 @@ class TestStepListCommand:
 
         # Check for some expected steps
         assert "Fetching" in result.output
-        assert "Classifying" in result.output
+        assert "Implementing" in result.output
 
     def test_step_list_shows_dependencies(self):
         """Test step list command shows step dependencies."""
@@ -64,7 +64,7 @@ class TestStepDepsCommand:
 
     def test_step_deps_shows_dependency_chain(self):
         """Test step deps command shows dependency chain using slug."""
-        result = runner.invoke(app, ["step", "deps", "plan"])
+        result = runner.invoke(app, ["step", "deps", "implement"])
         assert result.exit_code == 0
         assert "Dependency chain" in result.output
 
@@ -144,11 +144,11 @@ class TestStepRunCommand:
         """Test that steps with dependencies require --adw-id using slug."""
         result = runner.invoke(
             app,
-            ["step", "run", "classify", "--issue-id", "1"],
+            ["step", "run", "implement", "--issue-id", "1"],
         )
         assert result.exit_code == 1
         assert "requires dependencies" in result.output
-        assert "issue" in result.output
+        assert "plan" in result.output
         assert "--adw-id" in result.output
 
     def test_step_run_dependency_free_step_no_adw_id(self):
@@ -230,7 +230,7 @@ class TestStepRunCommand:
     def test_step_run_slug_only_invocation_succeeds(self):
         """Test that slug-only invocation works for representative steps."""
         # Test multiple representative step slugs
-        test_slugs = ["classify", "plan", "implement"]
+        test_slugs = ["fetch-issue", "claude-code-plan", "implement"]
 
         for slug in test_slugs:
             result = runner.invoke(
@@ -239,5 +239,5 @@ class TestStepRunCommand:
             )
             # Should pass validation and start running (will fail on execution due to no Supabase)
             assert "Running step" in result.output or "Error" in result.output
-            # Should NOT show "not found" error
-            assert "not found" not in result.output.lower()
+            # Should NOT show slug "not found" validation error
+            assert f"Step slug '{slug}' not found" not in result.output

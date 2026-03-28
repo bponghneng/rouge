@@ -95,17 +95,8 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
     assert "Database error" in msg
 
 
-# REMOVED: Tests for classify_issue function (moved to step class in
-# rouge.core.workflow.steps.classify)
-# These tests tested a top-level function that no longer exists after refactoring.
-# The business logic is now in ClassifyStep.run() method.
-# To test classification logic, test ClassifyStep directly instead.
-
-
-# REMOVED: Tests for build_plan function (moved to step class in rouge.core.workflow.steps.plan)
-# This test tested a top-level function that no longer exists after refactoring.
-# The business logic is now in PlanStep.run() method.
-# To test plan building logic, test PlanStep directly instead.
+# REMOVED: Legacy top-level classify_issue and build_plan functions were
+# refactored into step classes and subsequently removed entirely.
 
 
 # REMOVED: Tests for implement_plan function (moved to step class in
@@ -115,7 +106,7 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
 # To test implementation logic, test ImplementStep directly instead.
 
 
-@patch("rouge.core.workflow.runner.get_default_pipeline")
+@patch("rouge.core.workflow.runner.get_full_pipeline")
 def test_execute_workflow_success(mock_get_pipeline) -> None:
     """Test successful complete workflow execution via pipeline."""
     # Create mock steps that all succeed
@@ -137,7 +128,7 @@ def test_execute_workflow_success(mock_get_pipeline) -> None:
         step.run.assert_called_once()
 
 
-@patch("rouge.core.workflow.runner.get_default_pipeline")
+@patch("rouge.core.workflow.runner.get_full_pipeline")
 def test_execute_workflow_fetch_failure(mock_get_pipeline) -> None:
     """Test workflow handles fetch failure (first step fails)."""
     # Create a mock first step that fails
@@ -152,21 +143,21 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline) -> None:
     assert result is False
 
 
-@patch("rouge.core.workflow.runner.get_default_pipeline")
-def test_execute_workflow_classify_failure(mock_get_pipeline) -> None:
-    """Test workflow handles classification failure (second step fails)."""
+@patch("rouge.core.workflow.runner.get_full_pipeline")
+def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
+    """Test workflow handles second step failure."""
     # Create mock steps where first succeeds, second fails
     mock_fetch_step = Mock()
     mock_fetch_step.name = "Fetch Issue"
     mock_fetch_step.is_critical = True
     mock_fetch_step.run.return_value = StepResult.ok(None)
 
-    mock_classify_step = Mock()
-    mock_classify_step.name = "Classify Issue"
-    mock_classify_step.is_critical = True
-    mock_classify_step.run.return_value = StepResult.fail("Classification failed")
+    mock_second_step = Mock()
+    mock_second_step.name = "Plan Issue"
+    mock_second_step.is_critical = True
+    mock_second_step.run.return_value = StepResult.fail("Planning failed")
 
-    mock_get_pipeline.return_value = [mock_fetch_step, mock_classify_step]
+    mock_get_pipeline.return_value = [mock_fetch_step, mock_second_step]
 
     result = execute_workflow(1, "adw123")
     assert result is False

@@ -227,7 +227,7 @@ def test_issue_failed_status() -> None:
 
 def test_issue_type_validation() -> None:
     """Test that Issue accepts all valid types."""
-    valid_types = ["main", "patch"]
+    valid_types = ["full", "patch"]
     for issue_type in valid_types:
         issue = Issue(id=1, description="Test issue", type=issue_type)
         assert issue.type == issue_type

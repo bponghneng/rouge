@@ -16,9 +16,7 @@ import pytest
 
 from rouge.core.workflow.artifacts import (
     ArtifactStore,
-    ClassifyArtifact,
     ComposeRequestArtifact,
-    FetchIssueArtifact,
 )
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.step_registry import get_step_registry
@@ -48,55 +46,6 @@ def base_context(temp_store: ArtifactStore) -> WorkflowContext:
 
 class TestRequiredDependencies:
     """Test that steps with required dependencies fail when artifact is missing."""
-
-    def test_classify_step_fails_without_fetch_issue(self, base_context: WorkflowContext) -> None:
-        """ClassifyStep requires fetch-issue artifact and fails without it."""
-        from rouge.core.workflow.steps.classify_step import ClassifyStep
-
-        # Verify registry declares fetch-issue as required (no dependency_kinds entry)
-        registry = get_step_registry()
-        metadata = registry.get_step_metadata("Classifying issue")
-        assert metadata is not None
-        assert "fetch-issue" in metadata.dependencies
-        # Required dependencies have no dependency_kinds entry
-        assert "fetch-issue" not in metadata.dependency_kinds
-
-        # Run step without fetch-issue artifact
-        step = ClassifyStep()
-        result = step.run(base_context)
-
-        # Must fail with clear error message
-        assert result.success is False
-        assert result.error is not None
-        assert "issue not fetched" in result.error.lower()
-
-    def test_plan_step_fails_without_required_artifacts(
-        self, base_context: WorkflowContext
-    ) -> None:
-        """PlanStep requires fetch-issue and classify artifacts and fails without them."""
-        from rouge.core.workflow.steps.plan_step import PlanStep
-
-        # Verify registry declares required dependencies
-        registry = get_step_registry()
-        metadata = registry.get_step_metadata("Building implementation plan")
-        assert metadata is not None
-        assert "fetch-issue" in metadata.dependencies
-        assert "classify" in metadata.dependencies
-        # Required dependencies have no dependency_kinds entry
-        assert "fetch-issue" not in metadata.dependency_kinds
-        assert "classify" not in metadata.dependency_kinds
-
-        # Run step without any artifacts
-        step = PlanStep()
-        result = step.run(base_context)
-
-        # Must fail with clear error message
-        assert result.success is False
-        assert result.error is not None
-        # Should mention missing artifact
-        assert any(
-            word in result.error.lower() for word in ["artifact", "issue", "classify", "fetched"]
-        )
 
     def test_implement_step_fails_without_plan(self, base_context: WorkflowContext) -> None:
         """ImplementStep requires plan artifact and fails without it."""
@@ -354,8 +303,7 @@ class TestRegistryCoverage:
 
         # Sample a few steps to demonstrate the pattern
         test_cases = [
-            ("Classifying issue", ["fetch-issue"]),
-            ("Building implementation plan", ["fetch-issue", "classify"]),
+            ("Implementing solution", ["plan"]),
             ("Running code quality checks", ["implement"]),
             ("Creating GitHub pull request", ["compose-request"]),
         ]
@@ -378,34 +326,6 @@ class TestRegistryCoverage:
 
 class TestDependencySemanticsIntegration:
     """Integration tests validating dependency semantics with real artifacts."""
-
-    def test_required_dependency_succeeds_with_artifact(
-        self, base_context: WorkflowContext, temp_store: ArtifactStore
-    ) -> None:
-        """Required dependency succeeds when artifact is present."""
-        from rouge.core.models import Issue
-        from rouge.core.workflow.steps.classify_step import ClassifyStep
-
-        # Create required fetch-issue artifact
-        issue = Issue(id=42, description="Test issue")
-        fetch_artifact = FetchIssueArtifact(
-            workflow_id="test-workflow-123",
-            issue=issue,
-        )
-        temp_store.write_artifact(fetch_artifact)
-
-        # Mock agent execution
-        with patch("rouge.core.workflow.steps.classify_step.execute_template") as mock_exec:
-            mock_response = Mock()
-            mock_response.success = True
-            mock_response.output = '{"output": "classify", "type": "feature", "level": "simple"}'
-            mock_exec.return_value = mock_response
-
-            step = ClassifyStep()
-            result = step.run(base_context)
-
-        # Should succeed with artifact present
-        assert result.success is True
 
     @patch("rouge.core.database.get_client")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
@@ -487,25 +407,6 @@ class TestDependencySemanticsIntegration:
 class TestErrorMessageQuality:
     """Test that error messages clearly identify missing required artifacts."""
 
-    def test_required_artifact_error_identifies_artifact(
-        self, base_context: WorkflowContext
-    ) -> None:
-        """Error message for missing required artifact identifies which artifact is missing."""
-        from rouge.core.workflow.steps.classify_step import ClassifyStep
-
-        step = ClassifyStep()
-        result = step.run(base_context)
-
-        assert result.success is False
-        assert result.error is not None
-
-        # Error should identify the missing artifact or related concept
-        error_lower = result.error.lower()
-        assert any(
-            keyword in error_lower
-            for keyword in ["issue", "fetch", "artifact", "not found", "missing"]
-        )
-
     def test_optional_artifact_skip_has_informative_message(
         self, base_context: WorkflowContext
     ) -> None:
@@ -549,40 +450,3 @@ class TestDeprecatedContextDataUsage:
     context.data should not be used to pass step output data between steps.
     """
 
-    def test_classify_step_stores_artifact_not_just_context(
-        self, base_context: WorkflowContext, temp_store: ArtifactStore
-    ) -> None:
-        """ClassifyStep must write artifact, not rely only on context.data."""
-        from rouge.core.models import Issue
-        from rouge.core.workflow.steps.classify_step import ClassifyStep
-
-        # Create required fetch-issue artifact
-        issue = Issue(id=42, description="Test issue")
-        fetch_artifact = FetchIssueArtifact(
-            workflow_id="test-workflow-123",
-            issue=issue,
-        )
-        temp_store.write_artifact(fetch_artifact)
-
-        # Mock agent execution
-        with patch("rouge.core.workflow.steps.classify_step.execute_template") as mock_exec:
-            mock_response = Mock()
-            mock_response.success = True
-            mock_response.output = '{"output": "classify", "type": "feature", "level": "simple"}'
-            mock_exec.return_value = mock_response
-
-            step = ClassifyStep()
-            result = step.run(base_context)
-
-        assert result.success is True
-
-        # CRITICAL: Must have written classify artifact to store
-        assert temp_store.artifact_exists("classify")
-
-        # Verify artifact content is valid
-        classify_artifact = temp_store.read_artifact("classify", ClassifyArtifact)
-        assert classify_artifact.classify_data is not None
-        assert classify_artifact.classify_data.command is not None
-
-        # Note: context.data["classify_data"] may also exist (legacy), but artifact
-        # is the source of truth per ARTIFACT_POLICY.md

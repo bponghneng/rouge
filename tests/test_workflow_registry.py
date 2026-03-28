@@ -125,15 +125,21 @@ class TestSingleton:
 
         assert first is second
 
-    def test_register_default_workflows_registers_main_and_patch(self) -> None:
+    def test_register_default_workflows_registers_full_and_patch(self) -> None:
         """
-        The default singleton has 'main' and 'patch'
+        The default singleton has 'full' and 'patch'
         workflow types registered.
         """
         registry = get_workflow_registry()
 
-        assert registry.is_registered("main")
+        assert registry.is_registered("full")
         assert registry.is_registered("patch")
+
+    def test_main_is_not_registered(self) -> None:
+        """The 'main' workflow type should NOT be registered."""
+        registry = get_workflow_registry()
+
+        assert not registry.is_registered("main")
 
     def test_register_default_workflows_registers_full(self):
         """
@@ -159,14 +165,6 @@ class TestSingleton:
 
 
 class TestGetPipelineForType:
-    def test_main_returns_default_pipeline(self) -> None:
-        """get_pipeline_for_type('main') returns the default pipeline."""
-        pipeline = get_pipeline_for_type("main")
-
-        assert isinstance(pipeline, list)
-        assert len(pipeline) > 0
-        assert all(isinstance(step, WorkflowStep) for step in pipeline)
-
     def test_patch_returns_patch_pipeline(self) -> None:
         """get_pipeline_for_type('patch') returns the patch pipeline."""
         pipeline = get_pipeline_for_type("patch")
@@ -199,9 +197,9 @@ class TestCLIToRegistryFlow:
     get_pipeline_for_type and passes a valid pipeline to execute_workflow.
     """
 
-    def test_adw_workflow_uses_registry_for_main(self, monkeypatch) -> None:
-        """Calling execute_adw_workflow with workflow_type='main' uses the real
-        get_pipeline_for_type('main') and passes a non-empty WorkflowStep pipeline
+    def test_adw_workflow_uses_registry_for_full(self, monkeypatch) -> None:
+        """Calling execute_adw_workflow with workflow_type='full' uses the real
+        get_pipeline_for_type('full') and passes a non-empty WorkflowStep pipeline
         to execute_workflow.
         """
         from rouge.adw.adw import execute_adw_workflow
@@ -218,7 +216,7 @@ class TestCLIToRegistryFlow:
 
         monkeypatch.setattr("rouge.adw.adw.execute_workflow", fake_execute_workflow)
 
-        success, wf_id = execute_adw_workflow("fixed-adw-id", 42, workflow_type="main")
+        success, wf_id = execute_adw_workflow("fixed-adw-id", 42, workflow_type="full")
 
         assert success is True
         assert wf_id == "fixed-adw-id"

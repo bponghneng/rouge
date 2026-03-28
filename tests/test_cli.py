@@ -153,7 +153,7 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
         id=123,
         description="Test issue",
         status="failed",
-        type="main",
+        type="full",
         assigned_to="local-1",
         branch="feature/test",
     )
@@ -164,7 +164,7 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
         id=123,
         description="Test issue",
         status="pending",
-        type="main",
+        type="full",
         assigned_to=None,
         branch=None,
     )
@@ -191,7 +191,7 @@ def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update
         id=456,
         description="Test pending issue",
         status="pending",
-        type="main",
+        type="full",
         assigned_to="local-2",
         branch="feature/pending-test",
     )
@@ -202,7 +202,7 @@ def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update
         id=456,
         description="Test pending issue",
         status="pending",
-        type="main",
+        type="full",
         assigned_to=None,
         branch=None,
     )
@@ -229,7 +229,7 @@ def test_reset_command_with_non_failed_issue_fails(mock_fetch_issue, mock_update
         id=456,
         description="Test issue",
         status="started",
-        type="main",
+        type="full",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -252,7 +252,7 @@ def test_reset_command_with_started_issue_fails(mock_fetch_issue, mock_update_is
         id=789,
         description="Test issue",
         status="started",
-        type="main",
+        type="full",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -275,7 +275,7 @@ def test_reset_command_with_completed_issue_fails(mock_fetch_issue, mock_update_
         id=321,
         description="Test issue",
         status="completed",
-        type="main",
+        type="full",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -314,7 +314,7 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         id=111,
         description="Test main issue",
         status="failed",
-        type="main",
+        type="full",
         assigned_to="local-1",
         branch="feature/main-branch",
     )
@@ -325,7 +325,7 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         id=111,
         description="Test main issue",
         status="pending",
-        type="main",
+        type="full",
         assigned_to=None,
         branch=None,
     )

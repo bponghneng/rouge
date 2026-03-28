@@ -73,7 +73,7 @@ def test_create_command_description_only(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description="Fix the login bug",
         title="Fix the login bug",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -93,7 +93,7 @@ def test_create_command_description_with_explicit_title(mock_create_issue) -> No
     mock_create_issue.assert_called_once_with(
         description="Fix the login bug in the auth module",
         title="Login fix",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -114,7 +114,7 @@ def test_create_command_spec_file_with_title(mock_create_issue, tmp_path) -> Non
     mock_create_issue.assert_called_once_with(
         description="Detailed spec content from file",
         title="Feature X",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -228,7 +228,7 @@ def test_create_command_long_description_auto_title(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description=long_desc,
         title="One two three four five six seven eight nine ten...",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -256,7 +256,7 @@ def test_create_command_short_title_flag(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description="Some description",
         title="Short Title",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -277,7 +277,7 @@ def test_create_command_short_spec_file_flag(mock_create_issue, tmp_path) -> Non
     mock_create_issue.assert_called_once_with(
         description="File content from short flag",
         title="Title from Short Flags",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to=None,
     )
@@ -295,7 +295,7 @@ def test_create_command_branch_long_flag(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description="Some description",
         title="Some description",
-        issue_type="main",
+        issue_type="full",
         branch="feature/new-flag",
         assigned_to=None,
     )
@@ -313,7 +313,7 @@ def test_create_command_branch_short_flag(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description="Some description",
         title="Some description",
-        issue_type="main",
+        issue_type="full",
         branch="feature/short-flag",
         assigned_to=None,
     )
@@ -333,7 +333,7 @@ def test_create_command_with_assigned_to(mock_create_issue) -> None:
     mock_create_issue.assert_called_once_with(
         description="Task description",
         title="Task description",
-        issue_type="main",
+        issue_type="full",
         branch=None,
         assigned_to="agent-1",
     )
@@ -495,7 +495,7 @@ def test_create_patch_with_nonexistent_parent_issue_id_fails(
     mock_create_issue.assert_not_called()
 
 
-@pytest.mark.parametrize("type_arg", ["main"])
+@pytest.mark.parametrize("type_arg", ["full"])
 @patch("rouge.cli.issue.create_issue")
 def test_create_non_patch_with_parent_issue_id_fails(
     mock_create_issue: MagicMock, type_arg: str
@@ -524,7 +524,7 @@ def test_read_command_success(mock_fetch_issue) -> None:
         title="Test Issue",
         description="This is a test issue description",
         status="pending",
-        type="main",
+        type="full",
         assigned_to="local-1",
         branch="feature/test",
         adw_id="test-adw-123",
@@ -535,7 +535,7 @@ def test_read_command_success(mock_fetch_issue) -> None:
     assert result.exit_code == 0
     assert "Issue #123" in result.output
     assert "Title: Test Issue" in result.output
-    assert "Type: main" in result.output
+    assert "Type: full" in result.output
     assert "Status: ⏳" in result.output
     assert "Assigned to: local-1" in result.output
     assert "Branch: feature/test" in result.output
@@ -559,7 +559,7 @@ def test_read_command_minimal_issue(mock_fetch_issue) -> None:
     assert result.exit_code == 0
     assert "Issue #456" in result.output
     assert "Title: (none)" in result.output
-    assert "Type: main" in result.output
+    assert "Type: full" in result.output
     assert "Status: ⏳" in result.output
     assert "Assigned to: (none)" in result.output
     assert "Minimal issue description" in result.output
@@ -632,7 +632,7 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
         title="Single Issue",
         description="Test description",
         status="pending",
-        type="main",
+        type="full",
     )
     mock_fetch_all_issues.return_value = [mock_issue]
 
@@ -647,7 +647,7 @@ def test_list_command_single_issue(mock_fetch_all_issues) -> None:
     assert "1" in result.output
     assert "Single Issue" in result.output
     assert "⏳" in result.output
-    assert "main" in result.output
+    assert "full" in result.output
     assert "❌" in result.output  # No branch
     assert "(none)" in result.output  # No assignment
     mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
@@ -662,7 +662,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
             title="First Issue",
             description="First description",
             status="pending",
-            type="main",
+            type="full",
             assigned_to="local-1",
         ),
         Issue(
@@ -679,7 +679,7 @@ def test_list_command_multiple_issues(mock_fetch_all_issues) -> None:
             title="Third Issue",
             description="Third description",
             status="completed",
-            type="main",
+            type="full",
         ),
     ]
     mock_fetch_all_issues.return_value = mock_issues
@@ -716,7 +716,7 @@ def test_list_command_json_format(mock_fetch_all_issues) -> None:
             title="JSON Test Issue",
             description="Test description",
             status="pending",
-            type="main",
+            type="full",
         ),
     ]
     mock_fetch_all_issues.return_value = mock_issues
@@ -733,7 +733,7 @@ def test_list_command_json_format(mock_fetch_all_issues) -> None:
     assert issues_data[0]["title"] == "JSON Test Issue"
     assert issues_data[0]["description"] == "Test description"
     assert issues_data[0]["status"] == "pending"
-    assert issues_data[0]["type"] == "main"
+    assert issues_data[0]["type"] == "full"
     mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status=None)
 
 
@@ -762,7 +762,7 @@ def test_list_command_json_format_no_emoji(mock_fetch_all_issues) -> None:
             title="Pending Issue",
             description="Test pending",
             status="pending",
-            type="main",
+            type="full",
         ),
         Issue(
             id=2,
@@ -776,7 +776,7 @@ def test_list_command_json_format_no_emoji(mock_fetch_all_issues) -> None:
             title="Completed Issue",
             description="Test completed",
             status="completed",
-            type="main",
+            type="full",
         ),
         Issue(
             id=4,
@@ -820,7 +820,7 @@ def test_list_command_table_format_explicit(mock_fetch_all_issues) -> None:
         title="Table Test",
         description="Test",
         status="pending",
-        type="main",
+        type="full",
     )
     mock_fetch_all_issues.return_value = [mock_issue]
 
@@ -839,7 +839,7 @@ def test_list_command_short_format_flag(mock_fetch_all_issues) -> None:
         title="Short Flag Test",
         description="Test",
         status="pending",
-        type="main",
+        type="full",
     )
     mock_fetch_all_issues.return_value = [mock_issue]
 
@@ -862,7 +862,7 @@ def test_list_command_truncates_long_title(mock_fetch_all_issues) -> None:
         title=long_title,
         description="Test",
         status="pending",
-        type="main",
+        type="full",
     )
     mock_fetch_all_issues.return_value = [mock_issue]
 
@@ -907,7 +907,7 @@ def test_list_command_default_limit_five(mock_fetch_all_issues) -> None:
             title=f"Issue {i}",
             description=f"Description {i}",
             status="pending",
-            type="main",
+            type="full",
         )
         for i in range(1, 11)
     ]
@@ -936,7 +936,7 @@ def test_list_command_limit_override(mock_fetch_all_issues) -> None:
             title=f"Issue {i}",
             description=f"Description {i}",
             status="pending",
-            type="main",
+            type="full",
         )
         for i in range(1, 26)
     ]
@@ -991,9 +991,9 @@ def test_list_command_filter_by_type_passes_value(mock_fetch_all_issues) -> None
     """Test list command with --type passes the value to fetch_all_issues."""
     mock_fetch_all_issues.return_value = []
 
-    result = runner.invoke(app, ["list", "--type", "main"])
+    result = runner.invoke(app, ["list", "--type", "full"])
     assert result.exit_code == 0
-    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="main", status=None)
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type="full", status=None)
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
@@ -1005,7 +1005,7 @@ def test_list_command_filter_by_status_failed(mock_fetch_all_issues) -> None:
             title="Failed Issue 1",
             description="Failed description",
             status="failed",
-            type="main",
+            type="full",
         ),
         Issue(
             id=2,
@@ -1067,36 +1067,36 @@ def test_list_command_json_format_with_filters(mock_fetch_all_issues) -> None:
             title="Main Issue 1",
             description="Main description",
             status="pending",
-            type="main",
+            type="full",
         ),
         Issue(
             id=2,
             title="Main Issue 2",
             description="Main description",
             status="completed",
-            type="main",
+            type="full",
         ),
         Issue(
             id=3,
             title="Main Issue 3",
             description="Main description",
             status="started",
-            type="main",
+            type="full",
         ),
     ]
     mock_fetch_all_issues.return_value = mock_issues
 
-    result = runner.invoke(app, ["list", "--format", "json", "--limit", "3", "--type", "main"])
+    result = runner.invoke(app, ["list", "--format", "json", "--limit", "3", "--type", "full"])
     assert result.exit_code == 0
     # Verify filters are passed correctly
-    mock_fetch_all_issues.assert_called_once_with(limit=3, issue_type="main", status=None)
+    mock_fetch_all_issues.assert_called_once_with(limit=3, issue_type="full", status=None)
     # Verify JSON output
     import json
 
     issues_data = json.loads(result.output)
     assert isinstance(issues_data, list)
     assert len(issues_data) == 3
-    assert all(issue["type"] == "main" for issue in issues_data)
+    assert all(issue["type"] == "full" for issue in issues_data)
     assert issues_data[0]["title"] == "Main Issue 1"
     assert issues_data[1]["title"] == "Main Issue 2"
     assert issues_data[2]["title"] == "Main Issue 3"
@@ -1252,7 +1252,7 @@ def test_update_command_invalid_type(mock_update_issue) -> None:
     # Error is now caught at CLI validation layer with improved message
     result = runner.invoke(app, ["update", "123", "--type", "invalid"])
     assert result.exit_code == 1
-    assert "Error: Invalid issue type 'invalid'. Must be one of: main, patch" in result.output
+    assert "Error: Invalid issue type 'invalid'. Must be one of: full, patch" in result.output
     # update_issue should not be called since validation fails early
     mock_update_issue.assert_not_called()
 
@@ -1313,43 +1313,43 @@ def test_update_command_unexpected_error(mock_update_issue) -> None:
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_type_main_auto_clears_branch(mock_update_issue) -> None:
-    """Test update command auto-clears branch when changing type to 'main'
+def test_update_command_type_full_auto_clears_branch(mock_update_issue) -> None:
+    """Test update command auto-clears branch when changing type to 'full'
     without explicit --branch.
     """
     mock_issue = Issue(
         id=123,
         description="Test description",
         status="pending",
-        type="main",
+        type="full",
         branch=None,
     )
     mock_update_issue.return_value = mock_issue
 
-    result = runner.invoke(app, ["update", "123", "--type", "main"])
+    result = runner.invoke(app, ["update", "123", "--type", "full"])
     assert result.exit_code == 0
     assert "123" in result.output
-    # Verify that branch=None is passed to update_issue when type changes to main
-    mock_update_issue.assert_called_once_with(123, issue_type="main", branch=None)
+    # Verify that branch=None is passed to update_issue when type changes to full
+    mock_update_issue.assert_called_once_with(123, issue_type="full", branch=None)
 
 
 @patch("rouge.cli.issue.update_issue")
-def test_update_command_type_main_explicit_branch_preserves(mock_update_issue) -> None:
-    """Test update command preserves branch when explicitly provided with --type main."""
+def test_update_command_type_full_explicit_branch_preserves(mock_update_issue) -> None:
+    """Test update command preserves branch when explicitly provided with --type full."""
     mock_issue = Issue(
         id=456,
         description="Test description",
         status="pending",
-        type="main",
+        type="full",
         branch="my-custom-branch",
     )
     mock_update_issue.return_value = mock_issue
 
-    result = runner.invoke(app, ["update", "456", "--type", "main", "--branch", "my-custom-branch"])
+    result = runner.invoke(app, ["update", "456", "--type", "full", "--branch", "my-custom-branch"])
     assert result.exit_code == 0
     assert "456" in result.output
     # Verify that explicit --branch takes precedence over auto-clear
-    mock_update_issue.assert_called_once_with(456, issue_type="main", branch="my-custom-branch")
+    mock_update_issue.assert_called_once_with(456, issue_type="full", branch="my-custom-branch")
 
 
 @patch("rouge.cli.issue.update_issue")
