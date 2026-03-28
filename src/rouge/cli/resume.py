@@ -114,8 +114,6 @@ def resume(
             resume_from_step = workflow_state.failed_step
 
         pipeline_type = workflow_state.pipeline_type or "full"
-        if pipeline_type == "main":
-            pipeline_type = "full"
 
         # Execute workflow with resume parameters
         try:
