@@ -162,6 +162,7 @@ class TestImplementStepRun:
         assert saved_artifact.artifact_type == "implement"
         assert saved_artifact.implement_data == sample_implement_data
 
+
 class TestImplementStepRerunBehavior:
     """Tests for ImplementStep rerun behavior when plan is missing."""
 

@@ -23,16 +23,12 @@ def execute_workflow(
 
     This is the main orchestration function that runs all workflow steps:
     1. Fetch issue from database
-    2. Classify the issue
-    3. Build implementation plan
-    4. Find plan file
-    5. Implement the plan
-    6. Find implemented plan file
-    7. Generate CodeRabbit review
-    8. Address review issues
-    9. Run code quality checks (best-effort)
-    10. Validate plan acceptance
-    11. Prepare pull request (best-effort)
+    2. Git branch setup
+    3. Build plan (ClaudeCodePlan)
+    4. Implement plan
+    5. Code quality checks (best-effort)
+    6. Compose request (best-effort)
+    7. PR/MR creation (conditional, best-effort)
 
     Progress comments are inserted at key points (best-effort, non-blocking).
 

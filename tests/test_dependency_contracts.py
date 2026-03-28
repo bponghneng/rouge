@@ -449,4 +449,3 @@ class TestDeprecatedContextDataUsage:
     These tests verify adherence to ARTIFACT_POLICY.md Policy #1 and #3:
     context.data should not be used to pass step output data between steps.
     """
-

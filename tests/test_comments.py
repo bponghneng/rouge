@@ -75,9 +75,7 @@ class TestEmitArtifactComment:
         """Test that emit_artifact_comment constructs correct payload."""
         # Create a test artifact
         implement_data = ImplementData(output="Implementation output")
-        artifact = ImplementArtifact(
-            workflow_id="adw-impl-test", implement_data=implement_data
-        )
+        artifact = ImplementArtifact(workflow_id="adw-impl-test", implement_data=implement_data)
 
         # Mock create_comment to capture the payload
         with patch("rouge.core.notifications.comments.create_comment") as mock_create:
