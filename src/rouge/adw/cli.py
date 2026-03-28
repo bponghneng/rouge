@@ -26,10 +26,10 @@ def main(
         help="Optional workflow identifier (auto-generated if omitted)",
     ),
     workflow_type: str = typer.Option(
-        "main",
+        "full",
         "--workflow-type",
         "-w",
-        help="Workflow type to execute (e.g. main, patch).",
+        help="Workflow type to execute (e.g. full, patch)",
         show_default=True,
     ),
 ) -> None:

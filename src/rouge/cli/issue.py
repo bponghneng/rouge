@@ -49,7 +49,7 @@ def format_status(status: str) -> str:
 class IssueType(str, Enum):
     """Issue types supported by Rouge."""
 
-    MAIN = "main"
+    FULL = "full"
     PATCH = "patch"
 
 
@@ -89,7 +89,7 @@ def validate_new_args(
     branch: Optional[str] = None,
     assigned_to: Optional[str] = None,
     parent_issue_id: Optional[int] = None,
-    issue_type: IssueType = IssueType.MAIN,
+    issue_type: IssueType = IssueType.FULL,
 ) -> None:
     """Validate arguments for the new command.
 
@@ -103,7 +103,7 @@ def validate_new_args(
         branch: Pre-set branch name for the issue (or None)
         assigned_to: Assignee identifier (or None)
         parent_issue_id: Parent issue ID for patch issues (or None)
-        issue_type: Issue type (main or patch)
+        issue_type: Issue type (full or patch)
 
     Raises:
         typer.Exit: If validation fails
@@ -326,9 +326,9 @@ def create(
         show_default=True,
     ),
     issue_type: IssueType = typer.Option(
-        IssueType.MAIN,
+        IssueType.FULL,
         "--type",
-        help=("Issue type: 'main' for primary issues, 'patch' for patch issues"),
+        help=("Issue type: 'full' for primary issues, 'patch' for patch issues"),
         show_default=True,
     ),
     branch: Optional[str] = typer.Option(
@@ -505,13 +505,13 @@ def list_issues(
 
     Filter Options:
         - limit: Maximum number of issues to return (default: 5)
-        - issue_type: Filter by issue type ('main', 'patch')
+        - issue_type: Filter by issue type ('full', 'patch')
         - status: Filter by status ('pending', 'started', 'completed', 'failed')
 
     Examples:
         rouge issue list
         rouge issue list --limit 10
-        rouge issue list --type main --status pending
+        rouge issue list --type full --status pending
         rouge issue list --format json --limit 20
     """
     # Trim and validate string options
@@ -578,7 +578,7 @@ def update(
         show_default=True,
     ),
     issue_type: Optional[str] = typer.Option(
-        None, "--type", help="Issue type: 'main' or 'patch'", show_default=True
+        None, "--type", help="Issue type: 'full' or 'patch'", show_default=True
     ),
     title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
     description: Optional[str] = typer.Option(
@@ -594,24 +594,24 @@ def update(
     At least one field must be specified for update.
 
     Special behavior:
-    - When changing type to 'main', the branch is automatically cleared (set to None)
+    - When changing type to 'full', the branch is automatically cleared (set to None)
       unless --branch is explicitly provided
 
     Args:
         issue_id: The ID of the issue to update
         assigned_to: Worker ID to assign the issue to
-        issue_type: Issue type ('main' or 'patch')
+        issue_type: Issue type ('full' or 'patch')
         title: New title for the issue
         description: New description for the issue
         branch: Branch name (explicit --branch takes precedence over auto-clear)
 
     Examples:
         rouge issue update 123 --title "New Title"
-        rouge issue update 123 --assigned-to tydirium-1 --type main
+        rouge issue update 123 --assigned-to tydirium-1 --type full
         rouge issue update 123 --description "Updated description"
         rouge issue update 123 --title "Title" --description "Description"
-        rouge issue update 123 --type main  # Auto-clears branch
-        rouge issue update 123 --type main --branch my-branch  # Keeps branch
+        rouge issue update 123 --type full  # Auto-clears branch
+        rouge issue update 123 --type full --branch my-branch  # Keeps branch
     """
     validate_issue_id(issue_id)
     try:
@@ -655,8 +655,8 @@ def update(
                         f"Invalid issue type '{issue_type}'. Must be one of: {valid_types}"
                     )
 
-        # Auto-clear branch when changing to type 'main', unless --branch was explicitly provided
-        if normalized_issue_type == "main" and branch == _UNSET:
+        # Auto-clear branch when changing to type 'full', unless --branch was explicitly provided
+        if normalized_issue_type == "full" and branch == _UNSET:
             # branch was not explicitly provided, so auto-clear it
             branch = None
 

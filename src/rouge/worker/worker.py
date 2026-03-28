@@ -206,7 +206,7 @@ class IssueWorker:
 
         Args:
             issue_id: The ID of the issue to process
-            workflow_type: The workflow type (e.g. "main", "patch")
+            workflow_type: The workflow type (e.g. "full", "patch")
             description: The issue description (used for logging)
             adw_id: Optional pre-assigned ADW ID; if None, a new one is generated
 
@@ -308,19 +308,13 @@ class IssueWorker:
             issue_id: The ID of the issue to process
             description: The issue description
             _status: The issue status (unused, kept for interface compatibility)
-            issue_type: The workflow type (e.g. 'main', 'patch') passed to rouge-adw
+            issue_type: The workflow type (e.g. 'full', 'patch') passed to rouge-adw
             adw_id: Optional pre-assigned ADW ID to forward to _execute_workflow
 
         Returns:
             True if workflow executed successfully, False otherwise
         """
-        # Map 'main' issue type to 'full' workflow type (main is deprecated)
-        if issue_type == "main":
-            workflow_type = "full"
-        else:
-            workflow_type = issue_type
-
-        _, success = self._execute_workflow(issue_id, workflow_type, description, adw_id=adw_id)
+        _, success = self._execute_workflow(issue_id, issue_type, description, adw_id=adw_id)
         return success
 
     def run(self) -> None:

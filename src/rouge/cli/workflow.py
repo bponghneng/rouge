@@ -20,7 +20,7 @@ def _run_workflow(issue_id: int, adw_id: Optional[str], workflow_type: str) -> N
     Args:
         issue_id: The issue ID to process
         adw_id: Optional workflow ID (auto-generated if None or empty)
-        workflow_type: The workflow type identifier (e.g. "main", "patch")
+        workflow_type: The workflow type identifier (e.g. "full", "patch")
 
     Raises:
         typer.Exit: On validation failure, execution failure, or unexpected error
@@ -65,7 +65,7 @@ def run(
         rouge workflow run 123
         rouge workflow run 123 --adw-id abc12345
     """
-    _run_workflow(issue_id, adw_id, workflow_type="main")
+    _run_workflow(issue_id, adw_id, workflow_type="full")
 
 
 @app.command()

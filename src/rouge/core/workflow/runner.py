@@ -6,7 +6,7 @@ pluggable step pipeline architecture.
 
 from typing import TYPE_CHECKING, Optional
 
-from rouge.core.workflow.pipeline import WorkflowRunner, get_default_pipeline
+from rouge.core.workflow.pipeline import WorkflowRunner, get_full_pipeline
 
 if TYPE_CHECKING:
     from rouge.core.workflow.step_base import WorkflowStep
@@ -17,7 +17,7 @@ def execute_workflow(
     adw_id: str,
     pipeline: Optional[list["WorkflowStep"]] = None,
     resume_from: Optional[str] = None,
-    pipeline_type: str = "main",
+    pipeline_type: str = "full",
 ) -> bool:
     """Execute complete workflow for an issue using pluggable step pipeline.
 
@@ -47,11 +47,11 @@ def execute_workflow(
             uses the default pipeline.
         resume_from: Optional step name to resume workflow execution from.
             When provided, all steps before this step will be skipped.
-        pipeline_type: The type of pipeline being executed (default: "main").
+        pipeline_type: The type of pipeline being executed (default: "full").
 
     Returns:
         True if workflow completed successfully, False otherwise
     """
-    steps = pipeline if pipeline is not None else get_default_pipeline()
+    steps = pipeline if pipeline is not None else get_full_pipeline()
     runner = WorkflowRunner(steps)
     return runner.run(issue_id, adw_id, resume_from=resume_from, pipeline_type=pipeline_type)
