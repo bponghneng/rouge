@@ -1,17 +1,16 @@
 """
 Migration 015: Remove 'main' workflow/issue type.
 
-Migrates all existing 'main' issues to 'full', then tightens the schema so
+Deletes all existing 'main' issues, then tightens the schema so
 only 'full' and 'patch' are valid issue types going forward.
 
 Changes:
-  1. UPDATE all rows with type='main' to type='full' (data-preserving).
+  1. DELETE all rows with type='main' (irreversible).
   2. Replace the CHECK constraint on issues.type to allow only ('full', 'patch').
   3. Recreate get_and_lock_next_issue RPC to filter on ('full', 'patch') only.
 
 The rollback steps restore the 'main' type in the constraint and RPC, but
-cannot selectively revert the type conversion (rows previously 'main' will
-remain 'full'). Export any issues that must retain type='main' before applying.
+cannot restore deleted rows.
 """
 
 from yoyo import step
@@ -20,8 +19,8 @@ __depends__ = {"014_remove_codereview_type"}
 
 step(
     """
-    UPDATE issues SET type = 'full' WHERE type = 'main';
-    """,
+    DELETE FROM issues WHERE type = 'main';
+    """
 )
 
 step(
