@@ -114,6 +114,8 @@ def resume(
             resume_from_step = workflow_state.failed_step
 
         pipeline_type = workflow_state.pipeline_type or "full"
+        # Normalise stale on-disk WorkflowStateArtifact files written before
+        # migration 015 renamed the "main" workflow type to "full".
         if pipeline_type == "main":
             pipeline_type = "full"
 
