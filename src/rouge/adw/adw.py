@@ -44,6 +44,8 @@ def execute_adw_workflow(
         raise ValueError(f"issue_id is required for workflow_type={workflow_type!r}")
 
     # Normalise legacy pipeline_type value from before the main→full rename.
+    # Handles stale WorkflowStateArtifact files written before migration 015
+    # renamed the "main" workflow type to "full".
     if workflow_type == "main":
         workflow_type = "full"
 

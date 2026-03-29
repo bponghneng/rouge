@@ -314,6 +314,9 @@ class IssueWorker:
         Returns:
             True if workflow executed successfully, False otherwise
         """
+        # Normalise legacy pipeline_type value from before the main→full rename.
+        if issue_type == "main":
+            issue_type = "full"
         _, success = self._execute_workflow(issue_id, issue_type, description, adw_id=adw_id)
         return success
 
