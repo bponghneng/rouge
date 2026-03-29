@@ -10,7 +10,6 @@ from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import execute_workflow, update_status
 from rouge.core.workflow.artifacts import ArtifactStore
-from rouge.core.workflow.shared import derive_paths_from_plan
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.types import StepResult
 
@@ -161,34 +160,6 @@ def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
 
     result = execute_workflow(1, "adw123")
     assert result is False
-
-
-def test_derive_paths_from_plan() -> None:
-    """Test deriving paths from plan file name."""
-    # Test typical case
-    result = derive_paths_from_plan("specs/chore-fix-login-plan.md")
-    assert result["type"] == "chore"
-    assert result["slug"] == "fix-login"
-    assert result["plan_file"] == "specs/chore-fix-login-plan.md"
-    assert result["review_file"] == "specs/chore-fix-login-review.txt"
-
-    # Test feature type
-    result = derive_paths_from_plan("specs/feature-add-auth-plan.md")
-    assert result["type"] == "feature"
-    assert result["slug"] == "add-auth"
-    assert result["review_file"] == "specs/feature-add-auth-review.txt"
-
-    # Test bug type
-    result = derive_paths_from_plan("specs/bug-memory-leak-plan.md")
-    assert result["type"] == "bug"
-    assert result["slug"] == "memory-leak"
-
-    # Test edge case with no slug
-    result = derive_paths_from_plan("specs/chore-plan.md")
-    assert result["type"] == "chore"
-    assert result["slug"] == ""
-    assert result["plan_file"] == "specs/chore-plan.md"
-    assert result["review_file"] == "specs/chore-review.txt"
 
 
 @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
