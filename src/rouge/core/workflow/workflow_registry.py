@@ -116,7 +116,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
         WorkflowDefinition(
             type_id="full",
             pipeline=get_full_pipeline,
-            description="Streamlined workflow pipeline without classification",
+            description="Full workflow pipeline",
         )
     )
 

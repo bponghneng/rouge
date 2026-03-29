@@ -692,7 +692,10 @@ class TestWorkflowRouting:
             mock_workflow.assert_called_once_with(456, "patch", "Patch issue", adw_id=None)
 
     def test_execute_workflow_passes_through_unknown_type(self, worker) -> None:
-        """Test execute_workflow passes unknown type unchanged to _execute_workflow (registry will reject it)."""
+        """Test execute_workflow passes unknown type unchanged to _execute_workflow.
+
+        Registry will reject it.
+        """
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-789", True)
 
