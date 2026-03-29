@@ -724,8 +724,8 @@ class TestWorkflowRouting:
                 )
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
-    def test_run_loop_routes_main_issue_to_main_workflow(self, worker) -> None:
-        """Test worker run loop routes main type issues to main workflow."""
+    def test_run_loop_routes_full_issue_to_full_workflow(self, worker) -> None:
+        """Test worker run loop routes full type issues to full workflow."""
         worker.running = True
         call_count = [0]
 
