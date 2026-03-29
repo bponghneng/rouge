@@ -71,7 +71,7 @@ def run_step(
 
     Example:
         rouge step run fetch-issue --issue-id 123
-        rouge step run classify --issue-id 123 --adw-id abc12345
+        rouge step run claude-code-plan --issue-id 123 --adw-id abc12345
         rouge step run patch-plan --issue-id 123 --workflow-type patch
     """
     # Query the step registry to check dependencies
