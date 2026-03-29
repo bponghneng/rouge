@@ -196,7 +196,7 @@ Rouge supports typed workflow artifacts that persist step inputs/outputs to disk
 Artifacts are stored under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`, where
 `WORKING_DIR` defaults to the current directory.
 
-**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `plan`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
+**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `claude-code-plan`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
 
 Artifact-focused commands:
 
@@ -220,7 +220,7 @@ uv run rouge step list
 uv run rouge step run fetch-issue --issue-id 123
 
 # Run a step with dependencies (requires --adw-id)
-uv run rouge step run plan --issue-id 123 --adw-id abc12345
+uv run rouge step run claude-code-plan --issue-id 123 --adw-id abc12345
 
 # Show what steps must run before implementation
 uv run rouge step deps implement

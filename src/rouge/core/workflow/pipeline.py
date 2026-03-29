@@ -299,7 +299,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     status-based routing (which used 'pending' vs 'patch pending' statuses).
 
     Assumptions:
-    - SetupStep is NOT needed: The repository is already set up from the main workflow
+    - SetupStep is NOT needed: The repository is already set up from the full workflow
     - PR/MR creation steps are NOT needed: Patch commits are pushed to the
       existing branch and the associated PR/MR updates automatically
 
@@ -343,8 +343,8 @@ def get_patch_pipeline() -> List[WorkflowStep]:
 def get_full_pipeline() -> List[WorkflowStep]:
     """Create the full workflow pipeline with Claude Code planning.
 
-    The full workflow uses ClaudeCodePlanStep for task-oriented planning. Like the default
-    pipeline, it conditionally includes a PR/MR creation step based on the
+    The full workflow uses ClaudeCodePlanStep for task-oriented planning. It
+    conditionally includes a PR/MR creation step based on the
     DEV_SEC_OPS_PLATFORM environment variable:
     - "github": includes GhPullRequestStep
     - "gitlab": includes GlabPullRequestStep

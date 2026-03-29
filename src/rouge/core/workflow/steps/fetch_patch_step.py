@@ -30,8 +30,8 @@ class FetchPatchStep(WorkflowStep):
         """Fetch pending patch issue from database.
 
         Fetches the issue (which should have type='patch') directly from the database.
-        The patch workflow uses a different workflow_id than the main workflow,
-        so artifacts from the main workflow are not accessible here.
+        The patch workflow uses a different workflow_id than the full workflow,
+        so artifacts from the full workflow are not accessible here.
 
         Args:
             context: Workflow context to update
