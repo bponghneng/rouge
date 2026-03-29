@@ -40,7 +40,7 @@ def execute_workflow(
         issue_id: The Rouge issue ID to process
         adw_id: Workflow ID for tracking
         pipeline: Optional custom pipeline of workflow steps. If not provided,
-            uses the default pipeline.
+            uses the full pipeline (``get_full_pipeline``).
         resume_from: Optional step name to resume workflow execution from.
             When provided, all steps before this step will be skipped.
         pipeline_type: The type of pipeline being executed (default: "full").
