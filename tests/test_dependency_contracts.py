@@ -436,16 +436,3 @@ class TestErrorMessageQuality:
                 keyword in message_text or keyword in raw_data
                 for keyword in ["skip", "no pr details", "missing"]
             )
-
-
-# ==============================================================================
-# Test 7: Deprecated Context.data Usage
-# ==============================================================================
-
-
-class TestDeprecatedContextDataUsage:
-    """Test that context.data is not used for required cross-step data transfer.
-
-    These tests verify adherence to ARTIFACT_POLICY.md Policy #1 and #3:
-    context.data should not be used to pass step output data between steps.
-    """
