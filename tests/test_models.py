@@ -231,3 +231,9 @@ def test_issue_type_validation() -> None:
     for issue_type in valid_types:
         issue = Issue(id=1, description="Test issue", type=issue_type)
         assert issue.type == issue_type
+
+
+def test_issue_type_rejects_main() -> None:
+    """Issue.type must reject the removed 'main' type."""
+    with pytest.raises(ValidationError):
+        Issue(id=1, description="Test issue", type="main")
