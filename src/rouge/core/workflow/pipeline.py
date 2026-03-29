@@ -314,7 +314,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     3. ImplementStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
     4. CodeQualityStep - Run code quality checks
-    5. UpdatePRCommitsStep - Push commits to the existing PR/MR branch; detects the
+    5. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
