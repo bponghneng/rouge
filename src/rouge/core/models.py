@@ -52,10 +52,8 @@ class Issue(BaseModel):
     @field_validator("type", mode="before")
     @classmethod
     def default_type(cls, v: Optional[str]) -> str:
-        """Default missing type to full, and remap legacy 'main' to 'full'."""
+        """Default missing type to full."""
         if not v:
-            return "full"
-        if v == "main":
             return "full"
         return v
 

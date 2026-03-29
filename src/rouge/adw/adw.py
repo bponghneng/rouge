@@ -3,7 +3,6 @@
 from typing import Optional
 
 from rouge.core.workflow import execute_workflow
-from rouge.core.workflow.shared import normalize_workflow_type
 from rouge.core.workflow.workflow_registry import get_pipeline_for_type
 
 
@@ -43,11 +42,6 @@ def execute_adw_workflow(
     # Issue-based workflows require a valid issue_id
     if issue_id is None:
         raise ValueError(f"issue_id is required for workflow_type={workflow_type!r}")
-
-    # Normalise legacy pipeline_type value from before the main→full rename.
-    # Handles stale WorkflowStateArtifact files written before migration 015
-    # renamed the "main" workflow type to "full".
-    workflow_type = normalize_workflow_type(workflow_type)
 
     # Get the pipeline for the specified workflow type
     pipeline = get_pipeline_for_type(workflow_type)
