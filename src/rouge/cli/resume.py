@@ -11,7 +11,6 @@ from rouge.core.database import fetch_issue, update_issue
 from rouge.core.paths import RougePaths
 from rouge.core.utils import get_logger, setup_logger
 from rouge.core.workflow.artifacts import ArtifactStore, WorkflowStateArtifact
-from rouge.core.workflow.shared import normalize_workflow_type
 from rouge.worker.worker_artifact import (
     read_worker_artifact,
     transition_worker_artifact,
@@ -115,9 +114,6 @@ def resume(
             resume_from_step = workflow_state.failed_step
 
         pipeline_type = workflow_state.pipeline_type or "full"
-        # Normalise stale on-disk WorkflowStateArtifact files written before
-        # migration 015 renamed the "main" workflow type to "full".
-        pipeline_type = normalize_workflow_type(pipeline_type)
 
         # Execute workflow with resume parameters
         try:
