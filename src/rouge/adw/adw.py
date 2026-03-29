@@ -43,6 +43,10 @@ def execute_adw_workflow(
     if issue_id is None:
         raise ValueError(f"issue_id is required for workflow_type={workflow_type!r}")
 
+    # Normalise legacy pipeline_type value from before the main→full rename.
+    if workflow_type == "main":
+        workflow_type = "full"
+
     # Get the pipeline for the specified workflow type
     pipeline = get_pipeline_for_type(workflow_type)
 
