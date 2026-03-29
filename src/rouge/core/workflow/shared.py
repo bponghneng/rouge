@@ -37,3 +37,21 @@ def get_working_dir() -> str:
         Working directory path, defaults to current directory if not set
     """
     return os.getenv("WORKING_DIR", os.getcwd())
+
+
+def normalize_workflow_type(wt: str) -> str:
+    """Normalise a workflow type string, remapping legacy values.
+
+    Remaps ``"main"`` to ``"full"`` to handle stale values written before
+    migration 015 renamed the ``"main"`` workflow type to ``"full"``.
+    All other values are returned unchanged.
+
+    Args:
+        wt: Workflow type string to normalise.
+
+    Returns:
+        Normalised workflow type string.
+    """
+    if wt == "main":
+        return "full"
+    return wt

@@ -27,6 +27,7 @@ from typing import Literal
 
 from rouge.core.database import init_db_env, reset_client
 from rouge.core.utils import _get_log_level, make_adw_id
+from rouge.core.workflow.shared import normalize_workflow_type
 
 from .config import WorkerConfig
 from .database import get_next_issue, update_issue_status
@@ -315,8 +316,7 @@ class IssueWorker:
             True if workflow executed successfully, False otherwise
         """
         # Normalise legacy pipeline_type value from before the main→full rename.
-        if issue_type == "main":
-            issue_type = "full"
+        issue_type = normalize_workflow_type(issue_type)
         _, success = self._execute_workflow(issue_id, issue_type, description, adw_id=adw_id)
         return success
 
