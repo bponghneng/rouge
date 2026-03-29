@@ -14,8 +14,8 @@ Main components:
 - workflow_io: Shared I/O utilities for steps
 - workflow_registry: Workflow type registry for pipeline routing
 
-Note: Business logic has been moved from top-level modules (classify, plan, implement,
-acceptance) into their respective step classes in steps/.
+Note: Business logic has been moved from top-level modules (plan, implement) into their
+respective step classes in steps/.
 """
 
 # Import and re-export public API
