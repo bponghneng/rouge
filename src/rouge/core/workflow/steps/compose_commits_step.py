@@ -18,7 +18,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _emit_and_log, _sanitize_for_logging
+from rouge.core.workflow.step_utils import emit_and_log, sanitize_for_logging
 from rouge.core.workflow.types import StepResult
 
 # Required fields for compose-commits output JSON
@@ -184,7 +184,7 @@ class ComposeCommitsStep(WorkflowStep):
             if branch_check.returncode != 0:
                 error_msg = f"Cannot push {repo_path}: not on a branch (detached HEAD state)"
                 logger.error(error_msg)
-                _emit_and_log(
+                emit_and_log(
                     issue_id,
                     adw_id,
                     error_msg,
@@ -215,7 +215,7 @@ class ComposeCommitsStep(WorkflowStep):
                     f"{push_result.stderr}"
                 )
                 logger.warning(error_msg)
-                _emit_and_log(
+                emit_and_log(
                     issue_id,
                     adw_id,
                     error_msg,
@@ -229,7 +229,7 @@ class ComposeCommitsStep(WorkflowStep):
         except subprocess.TimeoutExpired:
             error_msg = f"git push timed out after 60 seconds for {repo_path}"
             logger.exception(error_msg)
-            _emit_and_log(
+            emit_and_log(
                 issue_id,
                 adw_id,
                 error_msg,
@@ -239,7 +239,7 @@ class ComposeCommitsStep(WorkflowStep):
         except (OSError, PermissionError, ValueError, subprocess.SubprocessError) as e:
             error_msg = f"Error updating PR/MR with patch commits for {repo_path}: {e}"
             logger.exception(error_msg)
-            _emit_and_log(
+            emit_and_log(
                 issue_id,
                 adw_id,
                 error_msg,
@@ -283,13 +283,13 @@ class ComposeCommitsStep(WorkflowStep):
             response = execute_template(request)
 
             logger.debug("compose_commits response: success=%s", response.success)
-            logger.debug("Compose commits LLM response: %s", _sanitize_for_logging(response.output))
+            logger.debug("Compose commits LLM response: %s", sanitize_for_logging(response.output))
 
             if not response.success:
-                sanitized_output = _sanitize_for_logging(response.output)
+                sanitized_output = sanitize_for_logging(response.output)
                 error_msg = f"Compose commits failed: {sanitized_output}"
                 logger.warning(error_msg)
-                _emit_and_log(
+                emit_and_log(
                     context.require_issue_id,
                     context.adw_id,
                     error_msg,
@@ -305,10 +305,10 @@ class ComposeCommitsStep(WorkflowStep):
             )
             if not parse_result.success:
                 raw_error = parse_result.error or "Compose commits JSON parsing failed"
-                sanitized_error = _sanitize_for_logging(raw_error)
+                sanitized_error = sanitize_for_logging(raw_error)
                 error_msg = sanitized_error or raw_error
                 logger.warning("Compose commits JSON parsing failed: %s", error_msg)
-                _emit_and_log(
+                emit_and_log(
                     context.require_issue_id,
                     context.adw_id,
                     error_msg,
@@ -331,7 +331,7 @@ class ComposeCommitsStep(WorkflowStep):
                 status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
                 log_artifact_comment_status(status, msg)
 
-            _emit_and_log(
+            emit_and_log(
                 context.require_issue_id,
                 context.adw_id,
                 "Commits composed successfully.",
@@ -339,11 +339,11 @@ class ComposeCommitsStep(WorkflowStep):
             )
 
         except Exception as e:
-            sanitized_error = _sanitize_for_logging(str(e))
+            sanitized_error = sanitize_for_logging(str(e))
             error_msg = f"Compose commits failed: {sanitized_error}"
-            tb = _sanitize_for_logging(traceback.format_exc())
+            tb = sanitize_for_logging(traceback.format_exc())
             logger.exception(error_msg)
-            _emit_and_log(
+            emit_and_log(
                 context.require_issue_id,
                 context.adw_id,
                 error_msg,
@@ -363,7 +363,7 @@ class ComposeCommitsStep(WorkflowStep):
             if not platform or not pr_url:
                 warn_msg = f"No existing PR/MR found for {repo_path}, skipping push"
                 logger.warning(warn_msg)
-                _emit_and_log(
+                emit_and_log(
                     issue_id,
                     context.adw_id,
                     warn_msg,
@@ -388,7 +388,7 @@ class ComposeCommitsStep(WorkflowStep):
                     f"{pat_name} environment variable not set"
                 )
                 logger.info(skip_msg)
-                _emit_and_log(
+                emit_and_log(
                     issue_id,
                     context.adw_id,
                     skip_msg,
@@ -405,7 +405,7 @@ class ComposeCommitsStep(WorkflowStep):
             if push_result.success:
                 succeeded.append(repo_path)
                 comment_msg = f"Commits pushed to branch for {repo_path}"
-                _emit_and_log(
+                emit_and_log(
                     issue_id,
                     context.adw_id,
                     comment_msg,
@@ -433,7 +433,7 @@ class ComposeCommitsStep(WorkflowStep):
         combined = "; ".join(errors)
         error_msg = f"All repo pushes failed: {combined}"
         logger.warning(error_msg)
-        _emit_and_log(
+        emit_and_log(
             issue_id,
             context.adw_id,
             error_msg,

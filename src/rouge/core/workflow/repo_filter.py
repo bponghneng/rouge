@@ -12,6 +12,14 @@ from rouge.core.workflow.types import ImplementData
 def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list[str]:
     """Detect which repos have commits ahead of the remote default branch.
 
+    Uses ``git diff --name-only origin/HEAD..HEAD`` to find repos with committed
+    changes relative to the remote default branch.  When ``origin/HEAD`` is not
+    configured the command returns non-zero; in that case a fallback of
+    ``git diff --name-only HEAD`` is attempted and an INFO message is logged.
+
+    See also: ``step_utils.has_commits_ahead_of_base`` which performs a similar
+    check for PR/MR creation gating.
+
     Args:
         repo_paths: List of repository root paths to check
         adw_id: ADW ID used for logger namespacing (defaults to "detect")
@@ -30,8 +38,25 @@ def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list
                 timeout=30,
                 cwd=rp,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                affected.append(rp)
+            if result.returncode == 0:
+                if result.stdout.strip():
+                    affected.append(rp)
+            else:
+                # origin/HEAD is not configured (e.g., no remote or shallow clone).
+                # Fall back to a plain HEAD diff to detect uncommitted/staged changes.
+                logger.info(
+                    "origin/HEAD unavailable for %s; falling back to git diff --name-only HEAD",
+                    rp,
+                )
+                fallback_result = subprocess.run(
+                    ["git", "diff", "--name-only", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=rp,
+                )
+                if fallback_result.returncode == 0 and fallback_result.stdout.strip():
+                    affected.append(rp)
         except (subprocess.TimeoutExpired, OSError) as e:
             logger.debug("Could not detect changes in %s: %s", rp, e)
     return affected

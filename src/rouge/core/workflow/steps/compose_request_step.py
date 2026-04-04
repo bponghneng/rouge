@@ -18,7 +18,7 @@ from rouge.core.workflow.repo_filter import get_affected_repos
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _sanitize_for_logging
+from rouge.core.workflow.step_utils import sanitize_for_logging
 from rouge.core.workflow.types import StepResult
 
 # Required fields for pull request output JSON
@@ -108,7 +108,7 @@ class ComposeRequestStep(WorkflowStep):
             response = execute_template(request)
 
             logger.debug("pull_request response: success=%s", response.success)
-            logger.debug("PR preparation LLM response: %s", _sanitize_for_logging(response.output))
+            logger.debug("PR preparation LLM response: %s", sanitize_for_logging(response.output))
 
             # Emit raw LLM response for debugging visibility
             payload = CommentPayload(

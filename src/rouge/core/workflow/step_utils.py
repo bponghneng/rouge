@@ -13,7 +13,7 @@ from rouge.core.utils import get_logger
 MAX_LOG_LENGTH = 500
 
 
-def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) -> str:
+def sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) -> str:
     """Sanitize text by redacting secrets and truncating to safe length.
 
     Redacts common secret patterns (API keys, tokens, emails) and truncates
@@ -56,8 +56,12 @@ def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
     """Check whether the current branch has commits ahead of origin/HEAD.
 
     Resolves the remote default branch ref via ``git rev-parse --verify origin/HEAD``
-    and counts commits with ``git rev-list --count``.  Falls back to ``HEAD~1`` when
-    origin/HEAD is unavailable (e.g., shallow clones or repos without a remote).
+    and counts commits with ``git rev-list --count``.  When origin/HEAD is unavailable
+    (e.g., shallow clones or repos without a remote), falls back to counting total
+    commits on HEAD — if there is at least one commit the branch is considered ahead.
+
+    See also: ``repo_filter.detect_affected_repos`` which performs a similar check
+    for fallback repo detection during the implement step.
 
     Args:
         repo_path: Absolute path to the git repository.
@@ -75,24 +79,39 @@ def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
             timeout=30,
             cwd=repo_path,
         )
-        base_ref = (
-            base_branch_result.stdout.strip() if base_branch_result.returncode == 0 else "HEAD~1"
-        )
-        ahead_result = subprocess.run(
-            ["git", "rev-list", "--count", f"{base_ref}..HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=repo_path,
-        )
-        ahead_count = int(ahead_result.stdout.strip()) if ahead_result.returncode == 0 else 0
-        return ahead_count > 0
+        if base_branch_result.returncode == 0:
+            base_ref = base_branch_result.stdout.strip()
+            ahead_result = subprocess.run(
+                ["git", "rev-list", "--count", f"{base_ref}..HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=repo_path,
+            )
+            ahead_count = int(ahead_result.stdout.strip()) if ahead_result.returncode == 0 else 0
+            return ahead_count > 0
+        else:
+            # origin/HEAD not configured — fall back to total commit count on this branch.
+            # A single-commit branch (e.g., during tests or shallow clone) should still
+            # trigger PR/MR creation rather than silently skipping.
+            logger.debug(
+                "origin/HEAD unavailable for %s; falling back to total commit count", repo_path
+            )
+            total_result = subprocess.run(
+                ["git", "rev-list", "--count", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=repo_path,
+            )
+            total_count = int(total_result.stdout.strip()) if total_result.returncode == 0 else 0
+            return total_count >= 1
     except (subprocess.TimeoutExpired, OSError, ValueError) as e:
         logger.debug("Delta check failed for %s: %s", repo_path, e)
         return True  # Proceed with PR/MR creation if check fails
 
 
-def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
+def emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
     """Helper to emit comment and log based on status.
 
     Args:
