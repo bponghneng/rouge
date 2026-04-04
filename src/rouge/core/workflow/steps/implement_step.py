@@ -1,7 +1,6 @@
 """Implementation step."""
 
 import os
-import subprocess
 
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
@@ -18,6 +17,7 @@ from rouge.core.workflow.artifacts import (
     ImplementArtifact,
     PlanArtifact,
 )
+from rouge.core.workflow.repo_filter import detect_affected_repos
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, RepoChangeEntry, StepResult
@@ -42,32 +42,6 @@ IMPLEMENT_JSON_SCHEMA = """{
   },
   "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
 }"""
-
-
-def _detect_affected_repos(repo_paths: list[str]) -> list[str]:
-    """Detect which repos have uncommitted/staged changes via git diff.
-
-    Args:
-        repo_paths: List of repository root paths to check
-
-    Returns:
-        List of repo paths that have changes (uncommitted or staged)
-    """
-    affected = []
-    for rp in repo_paths:
-        try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=rp,
-            )
-            if result.returncode == 0 and result.stdout.strip():
-                affected.append(rp)
-        except (subprocess.TimeoutExpired, OSError):
-            pass
-    return affected
 
 
 class ImplementStep(WorkflowStep):
@@ -202,15 +176,20 @@ class ImplementStep(WorkflowStep):
 
         # Derive affected_repos and per-repo entries from files_modified
         repos_map: dict[str, list[str]] = {}
-        for f in implement_response.data.files_modified:
+        for f_raw in implement_response.data.files_modified:
+            f = os.path.normpath(f_raw)
+            # Skip paths that escape their directory via traversal
+            if ".." in f.split(os.sep):
+                logger.debug("Skipping path with traversal component: %s", f_raw)
+                continue
             for rp in sorted(context.repo_paths, key=len, reverse=True):
-                if f.startswith(rp) or os.path.isfile(os.path.join(rp, f)):
+                if f.startswith(rp + os.sep) or os.path.isfile(os.path.join(rp, f)):
                     repos_map.setdefault(rp, []).append(f)
                     break
 
         # Fallback: use git diff detection if files_modified is empty
         if not repos_map and context.repo_paths:
-            detected = _detect_affected_repos(context.repo_paths)
+            detected = detect_affected_repos(context.repo_paths, context.adw_id)
             for rp in detected:
                 repos_map[rp] = []
 
