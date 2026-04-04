@@ -121,15 +121,12 @@ class TestOptionalDependencies:
         # No error should be set for graceful skip
         assert result.error is None or result.error == ""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_optional_dependency_returns_none_not_error(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
         """Optional dependency loading returns None for missing artifact, not error."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
-
-        # Mock emit to avoid database calls
-        mock_emit.return_value = ("success", "ok")
 
         # Artifact store has no compose-request artifact
         step = GhPullRequestStep()
@@ -140,8 +137,9 @@ class TestOptionalDependencies:
 
         # Verify emit was called with skip message
         assert mock_emit.called
-        payload = mock_emit.call_args[0][0]
-        assert "skipped" in payload.text.lower() or "skipped" in str(payload.raw).lower()
+        text_arg = mock_emit.call_args[0][2]
+        raw_arg = mock_emit.call_args[0][3]
+        assert "skipped" in text_arg.lower() or "skipped" in str(raw_arg).lower()
 
 
 # ==============================================================================
@@ -328,7 +326,7 @@ class TestDependencySemanticsIntegration:
     """Integration tests validating dependency semantics with real artifacts."""
 
     @patch("rouge.core.database.get_client")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_optional_dependency_succeeds_with_artifact(
         self,
         mock_emit: Mock,
@@ -338,9 +336,6 @@ class TestDependencySemanticsIntegration:
     ) -> None:
         """Optional dependency succeeds when artifact is present."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
-
-        # Mock emit to avoid database calls
-        mock_emit.return_value = ("success", "ok")
 
         # Mock get_client to avoid database connections
         mock_db_client = Mock()
@@ -413,11 +408,7 @@ class TestErrorMessageQuality:
         """Optional artifact skip should have informative log/comment message."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
-        with patch(
-            "rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload"
-        ) as mock_emit:
-            mock_emit.return_value = ("success", "ok")
-
+        with patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log") as mock_emit:
             step = GhPullRequestStep()
             result = step.run(base_context)
 
@@ -426,11 +417,12 @@ class TestErrorMessageQuality:
 
             # Should emit informative skip message
             assert mock_emit.called
-            payload = mock_emit.call_args[0][0]
+            text_arg = mock_emit.call_args[0][2]
+            raw_arg = mock_emit.call_args[0][3]
 
             # Message should indicate skip reason
-            message_text = payload.text.lower()
-            raw_data = str(payload.raw).lower()
+            message_text = text_arg.lower()
+            raw_data = str(raw_arg).lower()
 
             assert any(
                 keyword in message_text or keyword in raw_data
