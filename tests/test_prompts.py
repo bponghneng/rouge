@@ -372,9 +372,9 @@ class TestPromptRegistryRender:
     def test_render_no_arguments_placeholder_empty_args_no_append(self) -> None:
         """Templates without $ARGUMENTS and empty args produce clean body."""
         registry = PromptRegistry()
-        result = registry.render(PromptId.CODE_QUALITY, [])
+        result = registry.render(PromptId.PULL_REQUEST, [])
         # body unchanged, no trailing whitespace artifact
-        template = registry.get(PromptId.CODE_QUALITY)
+        template = registry.get(PromptId.PULL_REQUEST)
         assert result.text == template.body
 
     def test_render_returns_model_from_template(self) -> None:

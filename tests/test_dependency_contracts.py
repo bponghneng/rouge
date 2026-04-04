@@ -152,42 +152,6 @@ class TestOptionalDependencies:
 class TestOrderingOnlyDependencies:
     """Test that steps with ordering-only dependencies don't read artifacts."""
 
-    def test_code_quality_step_does_not_read_implement_artifact(
-        self, base_context: WorkflowContext
-    ) -> None:
-        """CodeQualityStep has ordering-only implement dependency and doesn't read it."""
-        from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-
-        # Verify registry declares implement as ordering-only
-        registry = get_step_registry()
-        metadata = registry.get_step_metadata("Running code quality checks")
-        assert metadata is not None
-        assert "implement" in metadata.dependencies
-        assert metadata.dependency_kinds.get("implement") == "ordering-only"
-
-        # Mock the artifact store's read_artifact to track calls
-        original_read = base_context.artifact_store.read_artifact
-        read_calls: list[str] = []
-
-        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            # Mock the agent execution to avoid actual code quality checks
-            with patch("rouge.core.workflow.steps.code_quality_step.execute_template") as mock_exec:
-                mock_response = Mock()
-                mock_response.success = True
-                # Include at least one tool to satisfy CodeQualityArtifact validation
-                mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-                mock_exec.return_value = mock_response
-
-                step = CodeQualityStep()
-                step.run(base_context)
-
-        # Assert that read_artifact was NEVER called with "implement"
-        assert "implement" not in read_calls
-
     def test_compose_request_step_does_not_read_acceptance_artifact(
         self, base_context: WorkflowContext
     ) -> None:
@@ -207,6 +171,8 @@ class TestOrderingOnlyDependencies:
             )
         assert metadata.dependency_kinds.get("acceptance") == "ordering-only"
 
+        from rouge.core.workflow.types import ImplementData
+
         # Mock the artifact store's read_artifact to track calls
         original_read = base_context.artifact_store.read_artifact
         read_calls: list[str] = []
@@ -216,35 +182,43 @@ class TestOrderingOnlyDependencies:
             return original_read(artifact_type, model_class)
 
         with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            # Mock the agent execution to avoid actual PR composition
+            # Mock get_affected_repos so the step doesn't skip early
             with patch(
-                "rouge.core.workflow.steps.compose_request_step.execute_template"
-            ) as mock_exec:
-                # Mock database operations to avoid database calls
-                with patch("rouge.core.database.get_client") as mock_client:
-                    # Set up mock client for database operations
-                    mock_db_client = Mock()
-                    mock_db_response = Mock()
-                    mock_db_response.data = [{"id": 42, "status": "completed"}]
-                    select_chain = mock_db_client.table.return_value.select.return_value
-                    select_chain.eq.return_value.execute.return_value = mock_db_response
-                    update_chain = mock_db_client.table.return_value.update.return_value
-                    update_chain.eq.return_value.execute.return_value = mock_db_response
-                    mock_db_client.table.return_value.insert.return_value.execute.return_value = (
-                        mock_db_response
-                    )
-                    mock_client.return_value = mock_db_client
+                "rouge.core.workflow.steps.compose_request_step.get_affected_repos"
+            ) as mock_get_affected:
+                mock_get_affected.return_value = (
+                    ["/fake/repo"],
+                    ImplementData(output="done"),
+                )
+                # Mock the agent execution to avoid actual PR composition
+                with patch(
+                    "rouge.core.workflow.steps.compose_request_step.execute_template"
+                ) as mock_exec:
+                    # Mock database operations to avoid database calls
+                    with patch("rouge.core.database.get_client") as mock_client:
+                        # Set up mock client for database operations
+                        mock_db_client = Mock()
+                        mock_db_response = Mock()
+                        mock_db_response.data = [{"id": 42, "status": "completed"}]
+                        select_chain = mock_db_client.table.return_value.select.return_value
+                        select_chain.eq.return_value.execute.return_value = mock_db_response
+                        update_chain = mock_db_client.table.return_value.update.return_value
+                        update_chain.eq.return_value.execute.return_value = mock_db_response
+                        mock_db_client.table.return_value.insert.return_value.execute.return_value = (
+                            mock_db_response
+                        )
+                        mock_client.return_value = mock_db_client
 
-                    mock_response = Mock()
-                    mock_response.success = True
-                    mock_response.output = (
-                        '{"output": "pull-request", "title": "test", '
-                        '"summary": "test summary", "commits": []}'
-                    )
-                    mock_exec.return_value = mock_response
+                        mock_response = Mock()
+                        mock_response.success = True
+                        mock_response.output = (
+                            '{"output": "pull-request", "title": "test", '
+                            '"summary": "test summary", "commits": []}'
+                        )
+                        mock_exec.return_value = mock_response
 
-                    step = ComposeRequestStep()
-                    step.run(base_context)
+                        step = ComposeRequestStep()
+                        step.run(base_context)
 
         # Assert that read_artifact was NEVER called with "acceptance"
         assert "acceptance" not in read_calls
@@ -305,7 +279,7 @@ class TestRegistryCoverage:
         test_cases = [
             ("Implementing solution", ["plan"]),
             ("Running code quality checks", ["implement"]),
-            ("Creating GitHub pull request", ["compose-request"]),
+            ("Creating GitHub pull request", ["implement", "compose-request"]),
         ]
 
         for step_name, expected_deps in test_cases:
@@ -362,12 +336,23 @@ class TestDependencySemanticsIntegration:
                     "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run"
                 ) as mock_run:
                     mock_which.return_value = "/usr/bin/gh"
-                    # New step makes 4 calls per repo: rev-parse, gh pr list, git push, gh pr create
+                    # Step makes 6 calls per repo:
+                    # rev-parse (branch), gh pr list, origin/HEAD check,
+                    # rev-list (ahead count), git push, gh pr create
                     mock_rev_parse = Mock(returncode=0, stdout="feature-branch\n", stderr="")
                     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+                    mock_origin_head = Mock(returncode=0, stdout="abc123\n", stderr="")
+                    mock_rev_list = Mock(returncode=0, stdout="3\n", stderr="")
                     mock_push = Mock(returncode=0, stdout="", stderr="")
                     mock_pr = Mock(returncode=0, stdout="https://github.com/test/pr/1\n")
-                    mock_run.side_effect = [mock_rev_parse, mock_pr_list, mock_push, mock_pr]
+                    mock_run.side_effect = [
+                        mock_rev_parse,
+                        mock_pr_list,
+                        mock_origin_head,
+                        mock_rev_list,
+                        mock_push,
+                        mock_pr,
+                    ]
 
                     step = GhPullRequestStep()
                     result = step.run(base_context)
@@ -375,28 +360,28 @@ class TestDependencySemanticsIntegration:
         # Should succeed with artifact present
         assert result.success is True
 
-    def test_ordering_only_dependency_works_without_reading(
+    def test_code_quality_skips_when_no_implement_artifact(
         self, base_context: WorkflowContext
     ) -> None:
-        """Ordering-only dependency step succeeds without reading the dependency artifact."""
+        """CodeQualityStep succeeds with skip artifact when implement artifact is missing.
+
+        The step now reads the implement artifact (it's a required dependency),
+        but get_affected_repos handles a missing artifact gracefully by returning
+        ([], None). The step then writes a skip artifact and returns success.
+        """
         from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
-        # Note: No implement artifact is created, but step should not fail because of that
-        # The step only needs ordering (implement must run first), not the artifact data
+        # No implement artifact is created — get_affected_repos returns ([], None)
+        step = CodeQualityStep()
+        result = step.run(base_context)
 
-        # Mock agent execution
-        with patch("rouge.core.workflow.steps.code_quality_step.execute_template") as mock_exec:
-            mock_response = Mock()
-            mock_response.success = True
-            # Include at least one tool to satisfy CodeQualityArtifact validation
-            mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-            mock_exec.return_value = mock_response
-
-            step = CodeQualityStep()
-            result = step.run(base_context)
-
-        # Should succeed even without implement artifact (ordering-only doesn't read it)
+        # Should succeed — the step writes a skip artifact instead of running the LLM
         assert result.success is True
+
+        # Verify a skip artifact was written
+        cq_artifact = base_context.artifact_store.read_artifact("code-quality")
+        assert cq_artifact is not None
+        assert cq_artifact.tools == ["skipped"]
 
 
 # ==============================================================================

@@ -1,8 +1,10 @@
-"""Tests for ComposeRequestStep ordering-only dependency contract.
+"""Tests for ComposeRequestStep behavior.
 
-Focuses on confirming that ComposeRequestStep:
-- Does NOT read the acceptance artifact (ordering-only dependency)
-- Proceeds with its own agent-based logic without reading acceptance data
+Covers:
+- Ordering-only dependency on acceptance artifact (does not read it)
+- Repo filtering via get_affected_repos (skip when no repos affected)
+- Passing affected repos as template args
+- Non-critical step classification
 """
 
 from typing import Any, Optional
@@ -39,8 +41,10 @@ class TestComposeRequestOrderingOnlyDependency:
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
     def test_does_not_read_acceptance_artifact(
         self,
+        mock_get_affected,
         mock_exec,
         _mock_log,
         mock_emit_artifact,
@@ -49,6 +53,13 @@ class TestComposeRequestOrderingOnlyDependency:
         base_context: WorkflowContext,
     ) -> None:
         """ComposeRequestStep never calls read_artifact('acceptance', ...)."""
+        from rouge.core.workflow.types import ImplementData
+
+        mock_get_affected.return_value = (
+            ["/fake/repo"],
+            ImplementData(output="done"),
+        )
+
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
@@ -79,8 +90,10 @@ class TestComposeRequestOrderingOnlyDependency:
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
     def test_succeeds_without_acceptance_artifact(
         self,
+        mock_get_affected,
         mock_exec,
         _mock_log,
         mock_emit_artifact,
@@ -89,6 +102,13 @@ class TestComposeRequestOrderingOnlyDependency:
         base_context: WorkflowContext,
     ) -> None:
         """ComposeRequestStep succeeds even when no acceptance artifact exists."""
+        from rouge.core.workflow.types import ImplementData
+
+        mock_get_affected.return_value = (
+            ["/fake/repo"],
+            ImplementData(output="done"),
+        )
+
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
@@ -108,3 +128,68 @@ class TestComposeRequestOrderingOnlyDependency:
         """ComposeRequestStep is non-critical (best-effort)."""
         step = ComposeRequestStep()
         assert step.is_critical is False
+
+
+class TestComposeRequestAffectedRepos:
+    """Tests for ComposeRequestStep repo filtering behavior."""
+
+    @patch("rouge.core.workflow.steps.compose_request_step.update_status")
+    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
+    def test_passes_affected_repos_as_args(
+        self,
+        mock_get_affected,
+        mock_exec,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit,
+        mock_update_status,
+        base_context: WorkflowContext,
+    ) -> None:
+        """Affected repos are passed as template args."""
+        from rouge.core.workflow.types import ImplementData
+
+        mock_get_affected.return_value = (
+            ["/repo/x"],
+            ImplementData(output="done"),
+        )
+
+        mock_response = Mock()
+        mock_response.success = True
+        mock_response.output = (
+            '{"output": "pull-request", "title": "PR", "summary": "Sum", "commits": []}'
+        )
+        mock_exec.return_value = mock_response
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_update_status.return_value = None
+
+        step = ComposeRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        call_args = mock_exec.call_args[0][0]
+        assert call_args.args == ["/repo/x"]
+
+    @patch("rouge.core.workflow.steps.compose_request_step.update_status")
+    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    def test_writes_skip_artifact_when_no_affected_repos(
+        self,
+        mock_emit,
+        mock_update_status,
+        base_context: WorkflowContext,
+    ) -> None:
+        """Writes skip artifact and finalizes when no repos affected."""
+        mock_emit.return_value = ("success", "ok")
+        mock_update_status.return_value = None
+
+        step = ComposeRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        artifact = base_context.artifact_store.read_artifact("compose-request")
+        assert artifact.title == "No changes"
+        assert artifact.summary == "No repos were affected by implementation"

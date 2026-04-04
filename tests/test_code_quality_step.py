@@ -1,13 +1,12 @@
-"""Tests for CodeQualityStep ordering-only dependency contract.
+"""Tests for CodeQualityStep behavior.
 
-Focuses on confirming that CodeQualityStep:
-- Does NOT read the implement artifact (ordering-only dependency)
-- Succeeds without any implement artifact being present
-- Only reads artifacts from its own execution (writes code-quality artifact)
+Covers:
+- Repo filtering via get_affected_repos (skip when no repos affected)
+- Passing affected repos as template args
+- Non-critical step classification
 """
 
 from pathlib import Path
-from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -34,58 +33,60 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 
 
 class TestCodeQualityOrderingOnlyDependency:
-    """Tests that CodeQualityStep does not read the implement artifact."""
+    """Tests that CodeQualityStep handles missing implement artifact gracefully."""
+
+    def test_succeeds_without_implement_artifact(
+        self,
+        base_context: WorkflowContext,
+    ) -> None:
+        """CodeQualityStep writes a skip artifact when no implement artifact exists.
+
+        get_affected_repos returns ([], None) so the step skips early.
+        """
+        step = CodeQualityStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+
+        # Verify skip artifact was written
+        artifact = base_context.artifact_store.read_artifact("code-quality")
+        assert artifact.tools == ["skipped"]
+        assert artifact.parsed_data == {"skipped": True, "reason": "no affected repos"}
+
+    def test_is_not_critical(self) -> None:
+        """CodeQualityStep is non-critical (best-effort)."""
+        step = CodeQualityStep()
+        assert step.is_critical is False
+
+
+class TestCodeQualityAffectedRepos:
+    """Tests for CodeQualityStep repo filtering behavior."""
 
     @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_quality_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-    def test_does_not_read_implement_artifact(
+    @patch("rouge.core.workflow.steps.code_quality_step.get_affected_repos")
+    def test_passes_affected_repos_as_args(
         self,
+        mock_get_affected,
         mock_exec,
         _mock_log,
         mock_emit_artifact,
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
-        """CodeQualityStep never calls read_artifact('implement', ...)."""
+        """Affected repos are passed as template args."""
+        from rouge.core.workflow.types import ImplementData
+
+        mock_get_affected.return_value = (
+            ["/repo/a", "/repo/b"],
+            ImplementData(output="done"),
+        )
+
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-        mock_exec.return_value = mock_response
-        mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
-
-        read_calls: list[str] = []
-        original_read = base_context.artifact_store.read_artifact
-
-        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            step = CodeQualityStep()
-            step.run(base_context)
-
-        # Assert implement artifact was never read
-        assert "implement" not in read_calls
-
-    @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.code_quality_step.log_artifact_comment_status")
-    @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-    def test_succeeds_without_implement_artifact(
-        self,
-        mock_exec,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit,
-        base_context: WorkflowContext,
-    ) -> None:
-        """CodeQualityStep succeeds even when no implement artifact exists."""
-        mock_response = Mock()
-        mock_response.success = True
-        mock_response.output = '{"output": "code-quality", "tools": ["mypy"], "issues": []}'
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
@@ -94,8 +95,19 @@ class TestCodeQualityOrderingOnlyDependency:
         result = step.run(base_context)
 
         assert result.success is True
+        # Verify args passed to template
+        call_args = mock_exec.call_args[0][0]
+        assert call_args.args == ["/repo/a", "/repo/b"]
 
-    def test_is_not_critical(self) -> None:
-        """CodeQualityStep is non-critical (best-effort)."""
+    def test_writes_skip_artifact_when_no_affected_repos(
+        self, base_context: WorkflowContext
+    ) -> None:
+        """Writes skip artifact when no repos affected."""
         step = CodeQualityStep()
-        assert step.is_critical is False
+        result = step.run(base_context)
+
+        assert result.success is True
+        # Verify skip artifact was written
+        artifact = base_context.artifact_store.read_artifact("code-quality")
+        assert artifact.tools == ["skipped"]
+        assert artifact.parsed_data == {"skipped": True, "reason": "no affected repos"}

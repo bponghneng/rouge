@@ -162,12 +162,14 @@ def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
     assert result is False
 
 
+@patch("rouge.core.workflow.steps.code_quality_step.get_affected_repos")
 @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
+def test_code_quality_step_passes_json_schema(mock_execute, mock_emit, mock_get_affected) -> None:
     """Test code quality step passes strict JSON schema to Claude template request."""
 
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
+    from rouge.core.workflow.types import ImplementData
 
     mock_emit.return_value = ("success", "ok")
     mock_response = Mock()
@@ -176,6 +178,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     mock_execute.return_value = mock_response
 
     context = _make_context()
+    mock_get_affected.return_value = (context.repo_paths, ImplementData(output="done"))
     step = CodeQualityStep()
     result = step.run(context)
 
@@ -202,15 +205,24 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: git rev-parse, gh pr list (empty), git push, gh pr create
+    # Step calls: git rev-parse, gh pr list (empty), delta check (2), git push, gh pr create
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
     mock_pr_result = Mock(
         returncode=0, stdout="https://github.com/owner/repo/pull/123\n", stderr=""
     )
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_pr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -226,16 +238,16 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
 
-    # Verify git push was called third
-    push_call = mock_subprocess.call_args_list[2]
+    # Verify git push was called fifth
+    push_call = mock_subprocess.call_args_list[4]
     assert push_call[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
     assert push_call[1]["cwd"] == "/path/to/repo"
 
-    # Verify gh pr create was called fourth
-    pr_call = mock_subprocess.call_args_list[3]
+    # Verify gh pr create was called sixth
+    pr_call = mock_subprocess.call_args_list[5]
     assert pr_call[0][0][0:3] == ["gh", "pr", "create"]
     assert pr_call[1]["cwd"] == "/path/to/repo"
 
@@ -381,13 +393,22 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: rev-parse, pr list (empty), push (success), pr create (failure)
+    # Step calls: rev-parse, pr list (empty), delta check (2), push (success), pr create (failure)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
     mock_pr_result = Mock(returncode=1, stderr="error: could not create pull request")
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_pr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -504,13 +525,22 @@ def test_create_pr_step_push_failure_continues_to_pr(
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: rev-parse, pr list (empty), push (failure → best-effort), pr create (success)
+    # Step calls: rev-parse, pr list (empty), delta check (2), push (failure → best-effort), pr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=1, stdout="", stderr="error: failed to push some refs")
     mock_pr_result = Mock(returncode=0, stdout="https://github.com/owner/repo/pull/123\n")
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_pr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -527,7 +557,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
     # PR should succeed even if push failed (branch may already exist on remote)
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
@@ -549,14 +579,18 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: rev-parse, pr list (empty), push (timeout → caught, best-effort), pr create
+    # Step calls: rev-parse, pr list (empty), delta check (2), push (timeout → caught, best-effort), pr create
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_pr_result = Mock(returncode=0, stdout="https://github.com/owner/repo/pull/123\n")
 
     mock_subprocess.side_effect = [
         mock_rev_parse,
         mock_pr_list,
+        mock_base_check,
+        mock_ahead_count,
         subprocess.TimeoutExpired(cmd="git", timeout=60),
         mock_pr_result,
     ]
@@ -576,7 +610,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
     # PR should succeed even if push timed out
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
@@ -593,9 +627,11 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     mock_which.return_value = "/usr/bin/gh"
     mock_emit.return_value = ("success", "Comment inserted")
 
-    # Two repos: each needs rev-parse, pr list (empty), push, pr create — 4 calls each = 8 total
+    # Two repos: each needs rev-parse, pr list (empty), delta check (2), push, pr create — 6 calls each = 12 total
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check_a = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count_a = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_a = Mock(returncode=0, stdout="", stderr="")
     mock_pr_create_a = Mock(
         returncode=0, stdout="https://github.com/owner/repo-a/pull/1\n", stderr=""
@@ -603,6 +639,8 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 
     mock_rev_parse_b = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_b = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check_b = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count_b = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_b = Mock(returncode=0, stdout="", stderr="")
     mock_pr_create_b = Mock(
         returncode=0, stdout="https://github.com/owner/repo-b/pull/2\n", stderr=""
@@ -611,10 +649,14 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     mock_subprocess.side_effect = [
         mock_rev_parse_a,
         mock_pr_list_a,
+        mock_base_check_a,
+        mock_ahead_count_a,
         mock_push_a,
         mock_pr_create_a,
         mock_rev_parse_b,
         mock_pr_list_b,
+        mock_base_check_b,
+        mock_ahead_count_b,
         mock_push_b,
         mock_pr_create_b,
     ]
@@ -630,23 +672,23 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     result = step.run(context)
 
     assert result.success is True
-    # Subprocess called 4 times per repo = 8 total
-    assert mock_subprocess.call_count == 8
+    # Subprocess called 6 times per repo = 12 total
+    assert mock_subprocess.call_count == 12
 
     # Verify each repo's push and pr-create used the correct cwd
-    push_call_a = mock_subprocess.call_args_list[2]
+    push_call_a = mock_subprocess.call_args_list[4]
     assert push_call_a[1]["cwd"] == "/repo/a"
     assert push_call_a[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
 
-    pr_create_call_a = mock_subprocess.call_args_list[3]
+    pr_create_call_a = mock_subprocess.call_args_list[5]
     assert pr_create_call_a[1]["cwd"] == "/repo/a"
     assert pr_create_call_a[0][0][0:3] == ["gh", "pr", "create"]
 
-    push_call_b = mock_subprocess.call_args_list[6]
+    push_call_b = mock_subprocess.call_args_list[10]
     assert push_call_b[1]["cwd"] == "/repo/b"
     assert push_call_b[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
 
-    pr_create_call_b = mock_subprocess.call_args_list[7]
+    pr_create_call_b = mock_subprocess.call_args_list[11]
     assert pr_create_call_b[1]["cwd"] == "/repo/b"
     assert pr_create_call_b[0][0][0:3] == ["gh", "pr", "create"]
 
@@ -674,25 +716,33 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     mock_which.return_value = "/usr/bin/gh"
     mock_emit.return_value = ("success", "Comment inserted")
 
-    # Two repos: each needs rev-parse, pr list (empty), push, pr create (fail)
-    # — 4 calls each = 8 total
+    # Two repos: each needs rev-parse, pr list (empty), delta check (2), push, pr create (fail)
+    # — 6 calls each = 12 total
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check_a = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count_a = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_a = Mock(returncode=0, stdout="", stderr="")
     mock_pr_fail_a = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-a")
 
     mock_rev_parse_b = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_b = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check_b = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count_b = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_b = Mock(returncode=0, stdout="", stderr="")
     mock_pr_fail_b = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-b")
 
     mock_subprocess.side_effect = [
         mock_rev_parse_a,
         mock_pr_list_a,
+        mock_base_check_a,
+        mock_ahead_count_a,
         mock_push_a,
         mock_pr_fail_a,
         mock_rev_parse_b,
         mock_pr_list_b,
+        mock_base_check_b,
+        mock_ahead_count_b,
         mock_push_b,
         mock_pr_fail_b,
     ]
@@ -709,14 +759,14 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
 
     # Step is best-effort: returns success even when all repos fail
     assert result.success is True
-    # Subprocess called 4 times per repo = 8 total (loop continues on per-repo failure)
-    assert mock_subprocess.call_count == 8
+    # Subprocess called 6 times per repo = 12 total (loop continues on per-repo failure)
+    assert mock_subprocess.call_count == 12
 
     # Verify the step attempted both repos (push cwd per repo)
-    push_call_a = mock_subprocess.call_args_list[2]
+    push_call_a = mock_subprocess.call_args_list[4]
     assert push_call_a[1]["cwd"] == "/repo/a"
 
-    push_call_b = mock_subprocess.call_args_list[6]
+    push_call_b = mock_subprocess.call_args_list[10]
     assert push_call_b[1]["cwd"] == "/repo/b"
 
     # emit_comment_from_payload called once per failing repo = 2 total
@@ -766,15 +816,24 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: git rev-parse, glab mr list (empty), git push, glab mr create
+    # Step calls: git rev-parse, glab mr list (empty), delta check (2), git push, glab mr create
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
     mock_mr_result = Mock(
         returncode=0, stdout="https://gitlab.com/owner/repo/-/merge_requests/123\n"
     )
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_mr_list, mock_push_result, mock_mr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_mr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -790,16 +849,16 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
 
-    # Verify git push was called third
-    push_call = mock_subprocess.call_args_list[2]
+    # Verify git push was called fifth
+    push_call = mock_subprocess.call_args_list[4]
     assert push_call[0][0] == ["git", "push", "--set-upstream", "origin", "HEAD"]
     assert push_call[1]["cwd"] == "/path/to/repo"
 
-    # Verify glab mr create was called fourth
-    mr_call = mock_subprocess.call_args_list[3]
+    # Verify glab mr create was called sixth
+    mr_call = mock_subprocess.call_args_list[5]
     assert mr_call[0][0][0:3] == ["glab", "mr", "create"]
     assert mr_call[1]["cwd"] == "/path/to/repo"
 
@@ -917,13 +976,22 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
 
-    # Step calls: rev-parse, mr list (empty), push (success), glab mr create (failure)
+    # Step calls: rev-parse, mr list (empty), delta check (2), push (success), glab mr create (failure)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
     mock_mr_result = Mock(returncode=1, stderr="error: could not create merge request")
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_mr_list, mock_push_result, mock_mr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_mr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -959,14 +1027,18 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
 
-    # Step calls: rev-parse, mr list (empty), push, glab mr create (timeout caught per-repo)
+    # Step calls: rev-parse, mr list (empty), delta check (2), push, glab mr create (timeout caught per-repo)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=0, stdout="", stderr="")
 
     mock_subprocess.side_effect = [
         mock_rev_parse,
         mock_mr_list,
+        mock_base_check,
+        mock_ahead_count,
         mock_push_result,
         subprocess.TimeoutExpired(cmd="glab", timeout=120),
     ]
@@ -1044,15 +1116,24 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: rev-parse, mr list (empty), push (failure → best-effort), glab mr create (success)
+    # Step calls: rev-parse, mr list (empty), delta check (2), push (failure → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_push_result = Mock(returncode=1, stdout="", stderr="error: failed to push some refs")
     mock_mr_result = Mock(
         returncode=0, stdout="https://gitlab.com/owner/repo/-/merge_requests/123\n"
     )
 
-    mock_subprocess.side_effect = [mock_rev_parse, mock_mr_list, mock_push_result, mock_mr_result]
+    mock_subprocess.side_effect = [
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_check,
+        mock_ahead_count,
+        mock_push_result,
+        mock_mr_result,
+    ]
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -1069,7 +1150,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 
     # MR should succeed even if push failed (branch may already exist on remote)
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
@@ -1083,9 +1164,11 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: rev-parse, mr list (empty), push (timeout → best-effort), glab mr create (success)
+    # Step calls: rev-parse, mr list (empty), delta check (2), push (timeout → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
+    mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
+    mock_ahead_count = Mock(returncode=0, stdout="1\n", stderr="")
     mock_mr_result = Mock(
         returncode=0, stdout="https://gitlab.com/owner/repo/-/merge_requests/123\n"
     )
@@ -1093,6 +1176,8 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
     mock_subprocess.side_effect = [
         mock_rev_parse,
         mock_mr_list,
+        mock_base_check,
+        mock_ahead_count,
         subprocess.TimeoutExpired(cmd="git", timeout=60),
         mock_mr_result,
     ]
@@ -1112,7 +1197,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
 
     # MR should succeed even if push timed out
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 6
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
@@ -1178,15 +1263,17 @@ def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
     assert context.data["pr_details"]["commits"] == []
 
 
+@patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
 @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
 @patch("rouge.core.workflow.steps.compose_request_step.update_status")
 def test_prepare_pr_step_emits_raw_llm_response(
-    mock_update_status, mock_execute, mock_emit
+    mock_update_status, mock_execute, mock_emit, mock_get_affected
 ) -> None:
     """Test ComposeRequestStep emits raw LLM response for debugging."""
 
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.types import ImplementData
 
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
@@ -1203,6 +1290,7 @@ def test_prepare_pr_step_emits_raw_llm_response(
     mock_execute.return_value = mock_response
 
     context = _make_context()
+    mock_get_affected.return_value = (context.repo_paths, ImplementData(output="done"))
     step = ComposeRequestStep()
     result = step.run(context)
 

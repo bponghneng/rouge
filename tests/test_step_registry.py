@@ -810,36 +810,51 @@ class TestRegistryContractConstraints:
         """Steps with optional/ordering-only deps must have them explicitly declared.
 
         Policy assertions:
-        - gh-pull-request and glab-pull-request declare compose-request as optional
-        - code-quality declares implement as ordering-only
-        - compose-request declares implement as ordering-only
+        - gh-pull-request declares compose-request and implement as optional
+        - glab-pull-request declares compose-request and implement as optional
+        - code-quality declares implement as required (no dependency_kinds entry)
+        - compose-request declares implement as required (no dependency_kinds entry)
         """
         registry = get_step_registry()
 
-        # gh-pull-request: compose-request is optional
+        # gh-pull-request: compose-request and implement are optional
         gh_meta = registry.get_step_metadata_by_slug("gh-pull-request")
         assert gh_meta is not None, "gh-pull-request step must be registered"
         assert (
             gh_meta.dependency_kinds.get("compose-request") == "optional"
         ), "gh-pull-request must declare compose-request as optional"
+        assert (
+            gh_meta.dependency_kinds.get("implement") == "optional"
+        ), "gh-pull-request must declare implement as optional"
 
-        # glab-pull-request: compose-request is optional
+        # glab-pull-request: compose-request and implement are optional
         glab_meta = registry.get_step_metadata_by_slug("glab-pull-request")
         assert glab_meta is not None, "glab-pull-request step must be registered"
         assert (
             glab_meta.dependency_kinds.get("compose-request") == "optional"
         ), "glab-pull-request must declare compose-request as optional"
+        assert (
+            glab_meta.dependency_kinds.get("implement") == "optional"
+        ), "glab-pull-request must declare implement as optional"
 
-        # code-quality: implement is ordering-only
+        # code-quality: implement is now required (no dependency_kinds entry)
         cq_meta = registry.get_step_metadata_by_slug("code-quality")
         assert cq_meta is not None, "code-quality step must be registered"
         assert (
-            cq_meta.dependency_kinds.get("implement") == "ordering-only"
-        ), "code-quality must declare implement as ordering-only"
+            "implement" in cq_meta.dependencies
+        ), "code-quality must declare implement as a dependency"
+        assert "implement" not in cq_meta.dependency_kinds, (
+            "code-quality implement dependency should be implicitly required "
+            "(not listed in dependency_kinds)"
+        )
 
-        # compose-request: implement is ordering-only
+        # compose-request: implement is now required (no dependency_kinds entry)
         cr_meta = registry.get_step_metadata_by_slug("compose-request")
         assert cr_meta is not None, "compose-request step must be registered"
         assert (
-            cr_meta.dependency_kinds.get("implement") == "ordering-only"
-        ), "compose-request must declare implement as ordering-only"
+            "implement" in cr_meta.dependencies
+        ), "compose-request must declare implement as a dependency"
+        assert "implement" not in cr_meta.dependency_kinds, (
+            "compose-request implement dependency should be implicitly required "
+            "(not listed in dependency_kinds)"
+        )
