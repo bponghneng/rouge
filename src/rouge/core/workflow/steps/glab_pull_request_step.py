@@ -17,7 +17,7 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.repo_filter import get_affected_repos
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _emit_and_log
+from rouge.core.workflow.step_utils import _emit_and_log, has_commits_ahead_of_base
 from rouge.core.workflow.types import StepResult
 
 
@@ -110,7 +110,7 @@ class GlabPullRequestStep(WorkflowStep):
 
             # Filter repos to affected ones if implement artifact is available
             affected_repos, _implement_data = get_affected_repos(context)
-            target_repos = affected_repos if affected_repos else context.repo_paths
+            target_repos = affected_repos if _implement_data is not None else context.repo_paths
 
             for repo_path in target_repos:
                 repo_name = os.path.basename(os.path.normpath(repo_path))
@@ -202,37 +202,12 @@ class GlabPullRequestStep(WorkflowStep):
                         logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
 
                 # Check if branch has meaningful delta vs base
-                try:
-                    base_branch_result = subprocess.run(
-                        ["git", "rev-parse", "--verify", "--quiet", "origin/HEAD"],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=repo_path,
+                if not has_commits_ahead_of_base(repo_path, logger):
+                    logger.info(
+                        "Skipping PR/MR creation for %s: no commits ahead of base",
+                        repo_name,
                     )
-                    base_ref = (
-                        base_branch_result.stdout.strip()
-                        if base_branch_result.returncode == 0
-                        else "HEAD~1"
-                    )
-                    ahead_result = subprocess.run(
-                        ["git", "rev-list", "--count", f"{base_ref}..HEAD"],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=repo_path,
-                    )
-                    ahead_count = (
-                        int(ahead_result.stdout.strip()) if ahead_result.returncode == 0 else 0
-                    )
-                    if ahead_count == 0:
-                        logger.info(
-                            "Skipping PR/MR creation for %s: no commits ahead of base",
-                            repo_name,
-                        )
-                        continue
-                except (subprocess.TimeoutExpired, OSError, ValueError):
-                    pass  # Proceed with PR/MR creation if check fails
+                    continue
 
                 # Layer 3: Push + create new MR
                 push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]

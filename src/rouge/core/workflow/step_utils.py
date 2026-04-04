@@ -1,6 +1,8 @@
 """Shared utility helpers for workflow step implementations."""
 
+import logging
 import re
+import subprocess
 from typing import Any, Optional
 
 from rouge.core.models import CommentPayload
@@ -48,6 +50,46 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
     if len(sanitized) > max_length:
         return sanitized[:max_length] + "..."
     return sanitized
+
+
+def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
+    """Check whether the current branch has commits ahead of origin/HEAD.
+
+    Resolves the remote default branch ref via ``git rev-parse --verify origin/HEAD``
+    and counts commits with ``git rev-list --count``.  Falls back to ``HEAD~1`` when
+    origin/HEAD is unavailable (e.g., shallow clones or repos without a remote).
+
+    Args:
+        repo_path: Absolute path to the git repository.
+        logger: Logger instance for debug output.
+
+    Returns:
+        True if the branch has at least one commit ahead of the base ref,
+        False if it is even with the base or the check cannot be completed.
+    """
+    try:
+        base_branch_result = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "origin/HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_path,
+        )
+        base_ref = (
+            base_branch_result.stdout.strip() if base_branch_result.returncode == 0 else "HEAD~1"
+        )
+        ahead_result = subprocess.run(
+            ["git", "rev-list", "--count", f"{base_ref}..HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            cwd=repo_path,
+        )
+        ahead_count = int(ahead_result.stdout.strip()) if ahead_result.returncode == 0 else 0
+        return ahead_count > 0
+    except (subprocess.TimeoutExpired, OSError, ValueError) as e:
+        logger.debug("Delta check failed for %s: %s", repo_path, e)
+        return True  # Proceed with PR/MR creation if check fails
 
 
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
