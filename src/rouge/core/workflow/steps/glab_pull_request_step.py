@@ -350,9 +350,10 @@ class GlabPullRequestStep(WorkflowStep):
                 except (FileNotFoundError, ValueError) as e:
                     logger.debug("Could not load existing glab-pull-request artifact: %s", e)
 
-            # Filter repos to affected ones if implement artifact is available
+            # Use affected_repos from implement artifact; skip MR creation when empty
+            # (empty means implementation touched no repos — no fallback to all repos)
             affected_repos, _implement_data = get_affected_repos(context)
-            target_repos = affected_repos if _implement_data is not None else context.repo_paths
+            target_repos = affected_repos
 
             # Iterate — delegate per-repo work to _process_repo
             for repo_path in target_repos:
