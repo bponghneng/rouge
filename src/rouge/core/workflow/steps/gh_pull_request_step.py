@@ -373,16 +373,6 @@ class GhPullRequestStep(WorkflowStep):
 
             return StepResult.ok(None)
 
-        except subprocess.TimeoutExpired:
-            error_msg = "gh pr create timed out after 120 seconds"
-            logger.warning(error_msg)
-            emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                error_msg,
-                {"output": "pull-request-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating pull request: {e}"
             logger.exception(error_msg)

@@ -176,13 +176,18 @@ class TestComposeRequestAffectedRepos:
 
     @patch("rouge.core.workflow.steps.compose_request_step.update_status")
     @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
     def test_writes_skip_artifact_when_no_affected_repos(
         self,
+        mock_get_affected,
         mock_emit,
         mock_update_status,
         base_context: WorkflowContext,
     ) -> None:
         """Writes skip artifact and finalizes when no repos affected."""
+        from rouge.core.workflow.types import ImplementData
+
+        mock_get_affected.return_value = ([], ImplementData(output="done"))
         mock_emit.return_value = ("success", "ok")
         mock_update_status.return_value = None
 

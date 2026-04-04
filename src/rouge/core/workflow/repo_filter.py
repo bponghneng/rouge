@@ -1,7 +1,6 @@
 """Shared helper for filtering repositories to those affected by implementation."""
 
 import subprocess
-from typing import Optional, Tuple
 
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ImplementArtifact
@@ -72,13 +71,13 @@ def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list
 
 def get_affected_repos(
     context: WorkflowContext,
-) -> Tuple[list[str], Optional[ImplementData]]:
+) -> tuple[list[str], ImplementData]:
     """Load ImplementArtifact and return filtered repo list.
 
     Returns:
         Tuple of (affected_repo_paths, implement_data).
-        If implement artifact is missing, returns ([], None).
         If artifact exists but no repos match, returns ([], implement_data).
+        Raises StepInputError if the implement artifact is missing.
 
     The returned repo list preserves the order from context.repo_paths,
     filtered to only repos present in implement_data.affected_repos.
@@ -86,16 +85,12 @@ def get_affected_repos(
     """
     logger = get_logger(context.adw_id)
 
-    implement_data = context.load_optional_artifact(
+    implement_data = context.load_required_artifact(
         "implement_data",
         "implement",
         ImplementArtifact,
         lambda a: a.implement_data,
     )
-
-    if implement_data is None:
-        logger.debug("No implement artifact found; returning empty affected repos")
-        return [], None
 
     affected_set = set(implement_data.affected_repos)
 

@@ -175,7 +175,7 @@ def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
 
 
 @patch("rouge.core.workflow.steps.code_quality_step.get_affected_repos")
-@patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
 def test_code_quality_step_passes_json_schema(mock_execute, mock_emit, mock_get_affected) -> None:
     """Test code quality step passes strict JSON schema to Claude template request."""
@@ -1048,7 +1048,9 @@ def test_create_gitlab_mr_step_glab_command_failure(
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit, mock_which) -> None:
+def test_create_gitlab_mr_step_timeout(
+    mock_subprocess, mock_get_logger, mock_emit, mock_which
+) -> None:
     """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
     import subprocess
 
@@ -1102,7 +1104,9 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit, mock_which) -> None:
+def test_create_gitlab_mr_step_glab_not_found(
+    mock_subprocess, mock_get_logger, mock_emit, mock_which
+) -> None:
     """Test MR creation handles glab CLI not found (propagates to outer
     FileNotFoundError handler)."""
 
@@ -1149,7 +1153,9 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit, mock_which) -> None:
+def test_create_gitlab_mr_step_push_failure_continues_to_mr(
+    mock_subprocess, mock_emit, mock_which
+) -> None:
     """Test MR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1200,7 +1206,9 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit, mock_which) -> None:
+def test_create_gitlab_mr_step_push_timeout_continues_to_mr(
+    mock_subprocess, mock_emit, mock_which
+) -> None:
     """Test MR creation continues even when git push times out."""
     import subprocess
 

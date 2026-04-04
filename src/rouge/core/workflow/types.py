@@ -149,6 +149,8 @@ class RepoChangeEntry(BaseModel):
 
     repo_path: str
     files_modified: List[str] = []
+    # TODO: git_diff_stat is not yet populated per-repo by implement_step;
+    # it is always an empty string. Populate it or remove it in a future pass.
     git_diff_stat: str = ""
 
 

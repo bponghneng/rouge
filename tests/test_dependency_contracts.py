@@ -17,9 +17,11 @@ import pytest
 from rouge.core.workflow.artifacts import (
     ArtifactStore,
     ComposeRequestArtifact,
+    ImplementArtifact,
 )
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.step_registry import get_step_registry
+from rouge.core.workflow.types import ImplementData
 
 
 @pytest.fixture
@@ -319,6 +321,16 @@ class TestDependencySemanticsIntegration:
         mock_db_client = Mock()
         mock_get_client.return_value = mock_db_client
 
+        # Create required implement artifact
+        implement_artifact = ImplementArtifact(
+            workflow_id="test-workflow-123",
+            implement_data=ImplementData(
+                output="done",
+                affected_repos=["/fake/repo"],
+            ),
+        )
+        temp_store.write_artifact(implement_artifact)
+
         # Create optional compose-request artifact
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-workflow-123",
@@ -359,28 +371,23 @@ class TestDependencySemanticsIntegration:
         # Should succeed with artifact present
         assert result.success is True
 
-    def test_code_quality_skips_when_no_implement_artifact(
+    def test_code_quality_raises_when_no_implement_artifact(
         self, base_context: WorkflowContext
     ) -> None:
-        """CodeQualityStep succeeds with skip artifact when implement artifact is missing.
+        """CodeQualityStep raises StepInputError when implement artifact is missing.
 
-        The step now reads the implement artifact (it's a required dependency),
-        but get_affected_repos handles a missing artifact gracefully by returning
-        ([], None). The step then writes a skip artifact and returns success.
+        The implement dependency is declared as required in the step registry.
+        The pipeline framework handles non-critical steps that raise StepInputError
+        without aborting the workflow.
         """
+        import pytest
+
+        from rouge.core.workflow.step_base import StepInputError
         from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
-        # No implement artifact is created — get_affected_repos returns ([], None)
         step = CodeQualityStep()
-        result = step.run(base_context)
-
-        # Should succeed — the step writes a skip artifact instead of running the LLM
-        assert result.success is True
-
-        # Verify a skip artifact was written
-        cq_artifact = base_context.artifact_store.read_artifact("code-quality")
-        assert cq_artifact is not None
-        assert cq_artifact.tools == ["skipped"]
+        with pytest.raises(StepInputError, match="Required artifact 'implement' not found"):
+            step.run(base_context)
 
 
 # ==============================================================================

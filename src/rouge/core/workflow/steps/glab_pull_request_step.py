@@ -386,16 +386,6 @@ class GlabPullRequestStep(WorkflowStep):
 
             return StepResult.ok(None)
 
-        except subprocess.TimeoutExpired:
-            error_msg = "glab mr create timed out after 120 seconds"
-            logger.exception(error_msg)
-            emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                error_msg,
-                {"output": "merge-request-failed", "error": error_msg},
-            )
-            return StepResult.fail(error_msg)
         except FileNotFoundError:
             error_msg = "glab CLI not found, skipping MR creation"
             logger.exception(error_msg)

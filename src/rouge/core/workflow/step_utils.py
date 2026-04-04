@@ -95,8 +95,8 @@ def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
         logger: Logger instance for debug output.
 
     Returns:
-        True if the branch has at least one commit ahead of the base ref,
-        False if it is even with the base or the check cannot be completed.
+        True if at least one commit ahead of the base ref, or if the check fails
+        (fail-open to avoid skipping PR creation). False if even with base.
     """
     try:
         base_ref = resolve_base_ref(repo_path, logger)

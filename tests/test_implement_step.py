@@ -205,9 +205,7 @@ class TestImplementStepRerunBehavior:
         mock_context.artifact_store.artifact_exists.return_value = False
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
-            with patch(
-                "rouge.core.workflow.step_utils.emit_comment_from_payload"
-            ) as mock_e:
+            with patch("rouge.core.workflow.step_utils.emit_comment_from_payload") as mock_e:
                 with patch(
                     "rouge.core.workflow.steps.implement_step.emit_artifact_comment"
                 ) as mock_emit_artifact:

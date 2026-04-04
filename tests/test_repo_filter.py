@@ -6,7 +6,7 @@ import pytest
 
 from rouge.core.workflow.artifacts import ArtifactStore, ImplementArtifact
 from rouge.core.workflow.repo_filter import get_affected_repos
-from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.step_base import StepInputError, WorkflowContext
 from rouge.core.workflow.types import ImplementData
 
 
@@ -30,11 +30,10 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 class TestGetAffectedRepos:
     """Tests for get_affected_repos helper."""
 
-    def test_returns_empty_when_no_implement_artifact(self, base_context: WorkflowContext) -> None:
-        """Returns empty list and None when implement artifact is missing."""
-        repos, data = get_affected_repos(base_context)
-        assert repos == []
-        assert data is None
+    def test_raises_when_no_implement_artifact(self, base_context: WorkflowContext) -> None:
+        """Raises StepInputError when implement artifact is missing."""
+        with pytest.raises(StepInputError, match="Required artifact 'implement' not found"):
+            get_affected_repos(base_context)
 
     def test_returns_filtered_repos_in_order(
         self, base_context: WorkflowContext, store: ArtifactStore
