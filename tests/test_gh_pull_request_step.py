@@ -6,13 +6,36 @@ Focuses on:
 - Loading PR details from artifact when present
 """
 
-from unittest.mock import patch
+from typing import Any
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from rouge.core.workflow.artifacts import ArtifactStore, ComposeRequestArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+
+
+def _gh_subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
+    """Simulate subprocess calls for gh PR creation flow."""
+    result = MagicMock()
+    if cmd[0] == "git" and cmd[1] == "rev-parse":
+        result.returncode = 0
+        result.stdout = "feature-branch"
+    elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+        result.returncode = 0
+        result.stdout = "[]"
+    elif cmd[0] == "git" and cmd[1] == "push":
+        result.returncode = 0
+        result.stdout = ""
+        result.stderr = ""
+    elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+        result.returncode = 0
+        result.stdout = "https://github.com/org/repo/pull/42"
+    else:
+        result.returncode = 0
+        result.stdout = ""
+    return result
 
 
 @pytest.fixture
@@ -181,30 +204,7 @@ class TestGhPullRequestStepDraftFlag:
             pipeline_type="thin",
         )
 
-        # Simulate subprocess calls: git rev-parse, gh pr list, git push, gh pr create
-        from unittest.mock import MagicMock
-
-        def run_side_effect(cmd, **kwargs):
-            result = MagicMock()
-            if cmd[0] == "git" and cmd[1] == "rev-parse":
-                result.returncode = 0
-                result.stdout = "feature-branch"
-            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
-                result.returncode = 0
-                result.stdout = "[]"
-            elif cmd[0] == "git" and cmd[1] == "push":
-                result.returncode = 0
-                result.stdout = ""
-                result.stderr = ""
-            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
-                result.returncode = 0
-                result.stdout = "https://github.com/org/repo/pull/42"
-            else:
-                result.returncode = 0
-                result.stdout = ""
-            return result
-
-        mock_run.side_effect = run_side_effect
+        mock_run.side_effect = _gh_subprocess_side_effect
 
         step = GhPullRequestStep()
         result = step.run(context)
@@ -260,29 +260,7 @@ class TestGhPullRequestStepDraftFlag:
             pipeline_type="full",
         )
 
-        from unittest.mock import MagicMock
-
-        def run_side_effect(cmd, **kwargs):
-            result = MagicMock()
-            if cmd[0] == "git" and cmd[1] == "rev-parse":
-                result.returncode = 0
-                result.stdout = "feature-branch"
-            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
-                result.returncode = 0
-                result.stdout = "[]"
-            elif cmd[0] == "git" and cmd[1] == "push":
-                result.returncode = 0
-                result.stdout = ""
-                result.stderr = ""
-            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
-                result.returncode = 0
-                result.stdout = "https://github.com/org/repo/pull/42"
-            else:
-                result.returncode = 0
-                result.stdout = ""
-            return result
-
-        mock_run.side_effect = run_side_effect
+        mock_run.side_effect = _gh_subprocess_side_effect
 
         step = GhPullRequestStep()
         result = step.run(context)
