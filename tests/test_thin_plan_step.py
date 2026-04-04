@@ -66,10 +66,10 @@ class TestThinPlanStepLoadsFromArtifact:
 
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
-    @patch.object(ThinPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_loads_issue_from_fetch_issue_artifact(
         self,
-        mock_build,
+        mock_build_template,
         mock_emit_artifact,
         mock_emit,
         context_with_artifact,
@@ -80,7 +80,7 @@ class TestThinPlanStepLoadsFromArtifact:
             plan="## Thin Plan\nAdd utility function",
             summary="Plan for adding string sanitization utility",
         )
-        mock_build.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
+        mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
@@ -88,8 +88,8 @@ class TestThinPlanStepLoadsFromArtifact:
         result = step.run(context_with_artifact)
 
         assert result.success is True
-        # Verify _build_plan was called with the issue from the artifact
-        mock_build.assert_called_once_with(
+        # Verify build_plan_from_template was called with the issue from the artifact
+        mock_build_template.assert_called_once_with(
             issue,
             PromptId.THIN_PLAN,
             context_with_artifact.adw_id,
@@ -125,9 +125,7 @@ class TestThinPlanStepLoadsFromArtifact:
             plan="## Thin Plan\nImplement feature",
             summary="Summary",
         )
-        mock_build_template.return_value = StepResult.ok(
-            plan_data, metadata={"parsed_data": {}}
-        )
+        mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
@@ -141,18 +139,14 @@ class TestThinPlanStepLoadsFromArtifact:
             context_with_artifact.adw_id,
         )
 
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
-    @patch.object(ThinPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_fails_when_build_plan_fails(
         self,
-        mock_build,
-        _mock_emit_artifact,
-        _mock_emit,
+        mock_build_template,
         context_with_artifact,
     ) -> None:
-        """Step returns failure when _build_plan returns a failed StepResult."""
-        mock_build.return_value = StepResult.fail("Template execution error")
+        """Step returns failure when build_plan_from_template returns a failed StepResult."""
+        mock_build_template.return_value = StepResult.fail("Template execution error")
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
@@ -160,6 +154,23 @@ class TestThinPlanStepLoadsFromArtifact:
         assert result.success is False
         assert result.error is not None
         assert "Error building thin plan" in result.error
+
+    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
+    def test_fails_when_plan_data_is_none(
+        self,
+        mock_build_template,
+        context_with_artifact,
+    ) -> None:
+        """Step fails when plan succeeds but returns None data (no artifact written)."""
+        mock_build_template.return_value = StepResult.ok(None, metadata={"parsed_data": {}})
+
+        step = ThinPlanStep()
+        result = step.run(context_with_artifact)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "no plan data" in result.error
+        assert not context_with_artifact.artifact_store.artifact_exists("plan")
 
 
 class TestThinPlanStepProperties:

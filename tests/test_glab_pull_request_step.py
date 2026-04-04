@@ -5,6 +5,8 @@ Focuses on:
 - Omitting --draft flag when pipeline_type is 'full' or 'patch'
 """
 
+from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -15,12 +17,12 @@ from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store."""
     return ArtifactStore(workflow_id="test-glab-mr", base_path=tmp_path)
 
 
-def _subprocess_side_effect(cmd, **kwargs):
+def _subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
     """Simulate subprocess calls for glab MR creation flow."""
     result = MagicMock()
     if cmd[0] == "git" and cmd[1] == "rev-parse":
@@ -61,16 +63,16 @@ def _make_context(store: ArtifactStore, pipeline_type: str) -> WorkflowContext:
     )
 
 
-def _find_glab_create_cmd(mock_run) -> list[str]:
+def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
     """Extract the glab mr create command from mock_run call history."""
     glab_create_calls = [
         call
         for call in mock_run.call_args_list
         if call[0][0][0] == "glab" and call[0][0][2] == "create"
     ]
-    assert len(glab_create_calls) == 1, (
-        f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
-    )
+    assert (
+        len(glab_create_calls) == 1
+    ), f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
     return glab_create_calls[0][0][0]
 
 
