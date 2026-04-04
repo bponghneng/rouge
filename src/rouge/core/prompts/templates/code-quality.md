@@ -11,6 +11,12 @@ Discover the available code quality tools in each repository present in the work
 
 ## Instructions
 
+### 0. Scope
+
+If repository paths are provided as arguments (`$ARGUMENTS`), restrict all discovery and tool execution to ONLY those directories. Do not scan for additional repositories outside the provided set.
+
+If no arguments are provided, fall back to the current behavior: discover all repositories by locating `.git` folders.
+
 ### 1. Discover Repositories and Their Tools
 
 Before running anything, survey the working environment:
