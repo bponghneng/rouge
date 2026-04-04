@@ -21,7 +21,7 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.steps.pr_attachment import render_attachment_markdown
+from rouge.core.workflow.step_utils import render_attachment_markdown
 from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
@@ -46,7 +46,7 @@ def _post_gh_attachment_comment(
         "--json",
         "comments",
         "--jq",
-        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .id',
+        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .databaseId',
     ]
     result = subprocess.run(
         list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
@@ -68,14 +68,30 @@ def _post_gh_attachment_comment(
             "-f",
             f"body={tagged_body}",
         ]
-        subprocess.run(
+        update_result = subprocess.run(
             update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
         )
-        _logger.info("Updated review-context comment on PR #%d", pr_number)
+        if update_result.returncode != 0:
+            _logger.warning(
+                "Failed to update review-context comment on PR #%d: %s",
+                pr_number,
+                update_result.stderr,
+            )
+        else:
+            _logger.info("Updated review-context comment on PR #%d", pr_number)
     else:
         cmd = ["gh", "pr", "comment", str(pr_number), "--body", tagged_body]
-        subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30)
-        _logger.info("Posted review-context comment on PR #%d", pr_number)
+        create_result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if create_result.returncode != 0:
+            _logger.warning(
+                "Failed to post review-context comment on PR #%d: %s",
+                pr_number,
+                create_result.stderr,
+            )
+        else:
+            _logger.info("Posted review-context comment on PR #%d", pr_number)
 
 
 class GhPullRequestStep(WorkflowStep):

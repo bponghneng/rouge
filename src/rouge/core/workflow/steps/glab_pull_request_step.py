@@ -18,8 +18,7 @@ from rouge.core.workflow.artifacts import (
     PullRequestEntry,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _emit_and_log
-from rouge.core.workflow.steps.pr_attachment import render_attachment_markdown
+from rouge.core.workflow.step_utils import _emit_and_log, render_attachment_markdown
 from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
@@ -38,7 +37,7 @@ def _post_glab_attachment_note(
     list_cmd = [
         "glab",
         "api",
-        f"projects/:id/merge_requests/{mr_number}/notes",
+        f"projects/:id/merge_requests/{mr_number}/notes?per_page=100",
     ]
     result = subprocess.run(
         list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
@@ -65,14 +64,30 @@ def _post_glab_attachment_note(
             "-f",
             f"body={tagged_body}",
         ]
-        subprocess.run(
+        update_result = subprocess.run(
             update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
         )
-        _logger.info("Updated review-context note on MR !%d", mr_number)
+        if update_result.returncode != 0:
+            _logger.warning(
+                "Failed to update review-context note on MR !%d: %s",
+                mr_number,
+                update_result.stderr,
+            )
+        else:
+            _logger.info("Updated review-context note on MR !%d", mr_number)
     else:
         cmd = ["glab", "mr", "note", "create", str(mr_number), "--message", tagged_body]
-        subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30)
-        _logger.info("Posted review-context note on MR !%d", mr_number)
+        create_result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if create_result.returncode != 0:
+            _logger.warning(
+                "Failed to post review-context note on MR !%d: %s",
+                mr_number,
+                create_result.stderr,
+            )
+        else:
+            _logger.info("Posted review-context note on MR !%d", mr_number)
 
 
 class GlabPullRequestStep(WorkflowStep):

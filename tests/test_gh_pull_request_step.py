@@ -615,7 +615,7 @@ class TestGhPullRequestStepAttachment:
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         # Existing comment ID returned by gh pr view
-        mock_subprocess.side_effect = _make_subprocess_side_effect(existing_comment_id="IC_abc123")
+        mock_subprocess.side_effect = _make_subprocess_side_effect(existing_comment_id="12345678")
 
         step = GhPullRequestStep()
         result = step.run(base_context)
@@ -631,7 +631,7 @@ class TestGhPullRequestStepAttachment:
         assert len(patch_calls) == 1
         patch_cmd = patch_calls[0][0][0]
         # Should reference the existing comment ID
-        assert any("IC_abc123" in arg for arg in patch_cmd)
+        assert any("12345678" in arg for arg in patch_cmd)
 
         # Should NOT have a gh pr comment call (new comment)
         new_comment_calls = [

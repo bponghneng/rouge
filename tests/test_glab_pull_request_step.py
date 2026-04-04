@@ -353,7 +353,8 @@ class TestGlabPullRequestStepAttachment:
         base_context: WorkflowContext,
         store: ArtifactStore,
     ) -> None:
-        """When fetch-issue and plan artifacts exist, glab mr note create is called after MR create."""
+        """When fetch-issue and plan artifacts exist, glab mr note create is called
+        after MR create."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
             ComposeRequestArtifact(
