@@ -22,6 +22,7 @@ def mock_context():
     context.adw_id = "test-adw-impl"
     context.data = {}
     context.artifact_store = Mock()
+    context.repo_paths = []
     return context
 
 
