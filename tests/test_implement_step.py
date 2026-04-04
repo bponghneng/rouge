@@ -14,7 +14,7 @@ from rouge.core.workflow.types import (
 
 
 @pytest.fixture
-def mock_context():
+def mock_context() -> WorkflowContext:
     """Create a mock workflow context."""
     context = Mock(spec=WorkflowContext)
     context.issue_id = 10
@@ -44,7 +44,7 @@ def mock_load_required_artifact(mock_context) -> WorkflowContext:
 
 
 @pytest.fixture
-def sample_plan_data():
+def sample_plan_data() -> PlanData:
     """Create a sample PlanData."""
     return PlanData(
         plan="## Plan\n\n### Step 1\nImplement feature X",
@@ -54,7 +54,7 @@ def sample_plan_data():
 
 
 @pytest.fixture
-def sample_implement_data():
+def sample_implement_data() -> ImplementData:
     """Create a sample ImplementData."""
     return ImplementData(
         output="Implementation completed successfully. Files modified: README.md",
