@@ -110,7 +110,7 @@ def save_prompt(
     os.makedirs(str(prompt_dir), exist_ok=True)
 
     # Use label as the filename stem so that different prompts executed by the
-    # same agent (e.g. AGENT_PLANNER used for classify, plan, review-plan, ...)
+    # same agent (e.g. AGENT_PLANNER used for classify, plan, implement, ...)
     # each get their own file instead of overwriting one another.
     filename = label if label else agent_name
     prompt_file = prompt_dir / f"{filename}.txt"
