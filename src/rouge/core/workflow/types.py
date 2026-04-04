@@ -5,7 +5,7 @@ replacing various patterns (tuples, booleans, response objects) with
 a unified StepResult[T] generic type.
 """
 
-from typing import Any, Dict, Generic, Optional, TypeVar
+from typing import Any, Dict, Generic, List, Optional, TypeVar
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -144,13 +144,31 @@ class PlanData(BaseModel):
     pr_number: Optional[int] = Field(default=None, gt=0)
 
 
+class RepoChangeEntry(BaseModel):
+    """Per-repo change summary from implementation."""
+
+    repo_path: str
+    files_modified: List[str] = []
+    git_diff_stat: str = ""
+
+
 class ImplementData(BaseModel):
     """Data payload for implementation results.
 
     Attributes:
         output: The implementation output text
         session_id: Optional session ID for continuation
+        affected_repos: List of repository paths affected by the implementation
+        repos: Per-repo change summaries
+        files_modified: Flat list of all modified file paths
+        git_diff_stat: Aggregate diff stat across all repos
+        summary: Human-readable summary of the implementation
     """
 
     output: str
     session_id: Optional[str] = None
+    affected_repos: List[str] = []
+    repos: List[RepoChangeEntry] = []
+    files_modified: List[str] = []
+    git_diff_stat: str = ""
+    summary: str = ""
