@@ -22,7 +22,7 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.repo_filter import get_affected_repos
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import has_commits_ahead_of_base
+from rouge.core.workflow.step_utils import emit_and_log, has_commits_ahead_of_base
 from rouge.core.workflow.types import StepResult
 
 
@@ -54,19 +54,12 @@ class GhPullRequestStep(WorkflowStep):
 
         def _skip(msg: str) -> StepResult:
             logger.info(msg)
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text=msg,
-                raw={"output": "pull-request-skipped", "reason": msg},
-                source="system",
-                kind="workflow",
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                msg,
+                {"output": "pull-request-skipped", "reason": msg},
             )
-            status, comment_msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(comment_msg)
-            else:
-                logger.error(comment_msg)
             return StepResult.ok(None)
 
         pr_details = context.load_optional_artifact(
@@ -342,9 +335,10 @@ class GhPullRequestStep(WorkflowStep):
                 except (FileNotFoundError, ValueError) as e:
                     logger.debug("Could not load existing gh-pull-request artifact: %s", e)
 
-            # Filter repos to affected ones if implement artifact is available
+            # Use affected_repos from implement artifact; skip PR creation when empty
+            # (empty means implementation touched no repos — no fallback to all repos)
             affected_repos, _implement_data = get_affected_repos(context)
-            target_repos = affected_repos if _implement_data is not None else context.repo_paths
+            target_repos = affected_repos
 
             # Iterate — delegate per-repo work to _process_repo
             for repo_path in target_repos:
