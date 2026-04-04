@@ -424,54 +424,50 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Execute the implementation plan",
     )
 
-    # 5. CodeQualityStep: requires implement (ordering-only), produces code-quality artifact
+    # 5. CodeQualityStep: requires implement, produces code-quality artifact
     registry.register(
         CodeQualityStep,
         slug="code-quality",
         dependencies=["implement"],
         outputs=["code-quality"],
-        description=(
-            "Run code quality checks (linting, type checking). "
-            "Ordering-only dependency on implement."
-        ),
-        dependency_kinds={"implement": "ordering-only"},
+        description="Run code quality checks on repos affected by implementation",
     )
 
-    # 10. ComposeRequestStep: requires implement (ordering-only), produces compose-request artifact
+    # 10. ComposeRequestStep: requires implement, produces compose-request artifact
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
         dependencies=["implement"],
         outputs=["compose-request"],
-        description=(
-            "Prepare pull request metadata and commits. " "Ordering-only dependency on implement."
-        ),
-        dependency_kinds={"implement": "ordering-only"},
+        description="Prepare pull request metadata for repos affected by implementation",
     )
 
-    # 11. GhPullRequestStep: requires compose-request (optional), produces gh-pull-request artifact
+    # 11. GhPullRequestStep: requires implement and compose-request (both optional),
+    # produces gh-pull-request artifact
     registry.register(
         GhPullRequestStep,
         slug="gh-pull-request",
-        dependencies=["compose-request"],
+        dependencies=["implement", "compose-request"],
         outputs=["gh-pull-request"],
         description=(
-            "Create GitHub pull request via gh CLI. " "Optional dependency on compose-request."
+            "Create GitHub pull request via gh CLI. "
+            "Optional dependencies on implement and compose-request."
         ),
-        dependency_kinds={"compose-request": "optional"},
+        dependency_kinds={"implement": "optional", "compose-request": "optional"},
     )
 
-    # 12. GlabPullRequestStep: requires compose-request (optional),
+    # 12. GlabPullRequestStep: requires implement and compose-request (both optional),
     # produces glab-pull-request artifact
     registry.register(
         GlabPullRequestStep,
         slug="glab-pull-request",
-        dependencies=["compose-request"],
+        dependencies=["implement", "compose-request"],
         outputs=["glab-pull-request"],
         description=(
-            "Create GitLab merge request via glab CLI. " "Optional dependency on compose-request."
+            "Create GitLab merge request via glab CLI. "
+            "Optional dependencies on implement and compose-request."
         ),
-        dependency_kinds={"compose-request": "optional"},
+        dependency_kinds={"implement": "optional", "compose-request": "optional"},
     )
 
     # 13. PatchPlanStep: requires fetch-patch, produces plan
