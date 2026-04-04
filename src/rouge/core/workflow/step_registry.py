@@ -450,29 +450,40 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependency_kinds={"implement": "ordering-only"},
     )
 
-    # 11. GhPullRequestStep: requires compose-request (optional), produces gh-pull-request artifact
+    # 11. GhPullRequestStep: requires compose-request, fetch-issue, plan (all optional),
+    # produces gh-pull-request artifact
     registry.register(
         GhPullRequestStep,
         slug="gh-pull-request",
-        dependencies=["compose-request"],
+        dependencies=["compose-request", "fetch-issue", "plan"],
         outputs=["gh-pull-request"],
         description=(
-            "Create GitHub pull request via gh CLI. " "Optional dependency on compose-request."
+            "Create GitHub pull request via gh CLI. "
+            "Optional dependency on compose-request, fetch-issue, plan."
         ),
-        dependency_kinds={"compose-request": "optional"},
+        dependency_kinds={
+            "compose-request": "optional",
+            "fetch-issue": "optional",
+            "plan": "optional",
+        },
     )
 
-    # 12. GlabPullRequestStep: requires compose-request (optional),
+    # 12. GlabPullRequestStep: requires compose-request, fetch-issue, plan (all optional),
     # produces glab-pull-request artifact
     registry.register(
         GlabPullRequestStep,
         slug="glab-pull-request",
-        dependencies=["compose-request"],
+        dependencies=["compose-request", "fetch-issue", "plan"],
         outputs=["glab-pull-request"],
         description=(
-            "Create GitLab merge request via glab CLI. " "Optional dependency on compose-request."
+            "Create GitLab merge request via glab CLI. "
+            "Optional dependency on compose-request, fetch-issue, plan."
         ),
-        dependency_kinds={"compose-request": "optional"},
+        dependency_kinds={
+            "compose-request": "optional",
+            "fetch-issue": "optional",
+            "plan": "optional",
+        },
     )
 
     # 13. PatchPlanStep: requires fetch-patch, produces plan
