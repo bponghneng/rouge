@@ -1,6 +1,7 @@
 """Create GitLab merge request step implementation."""
 
 import json
+import logging
 import os
 import re
 import subprocess
@@ -100,6 +101,304 @@ class GlabPullRequestStep(WorkflowStep):
         # MR creation is best-effort - workflow continues on failure
         return False
 
+    def _check_preconditions(
+        self,
+        context: WorkflowContext,
+        pr_details: dict | None,
+        logger: logging.Logger,
+    ) -> StepResult | None:
+        """Validate preconditions for MR creation.
+
+        Returns a StepResult if a precondition fails (caller should return it),
+        or None if all checks pass.
+        """
+        if not pr_details:
+            skip_msg = "MR creation skipped: no PR details in context"
+            logger.info(skip_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
+            )
+            return StepResult.ok(None)
+
+        title = pr_details.get("title", "")
+
+        if not title:
+            skip_msg = "MR creation skipped: MR title is empty"
+            logger.info(skip_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
+            )
+            return StepResult.ok(None)
+
+        # Check for GITLAB_PAT environment variable
+        if not os.environ.get("GITLAB_PAT"):
+            skip_msg = "MR creation skipped: GITLAB_PAT environment variable not set"
+            logger.info(skip_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": "merge-request-skipped", "reason": skip_msg},
+            )
+            return StepResult.ok(None)
+
+        return None
+
+    def _process_repo(
+        self,
+        context: WorkflowContext,
+        repo_path: str,
+        title: str,
+        summary: str,
+        pull_requests: list[PullRequestEntry],
+        env: dict[str, str],
+        attachment_md: str | None,
+        logger: logging.Logger,
+    ) -> None:
+        """Process a single repository for MR creation.
+
+        Checks for existing MRs, pushes the branch, and creates a new MR.
+        Mutates *pull_requests* in-place when an MR is adopted or created.
+        """
+        repo_name = os.path.basename(os.path.normpath(repo_path))
+
+        # Layer 1: Already done check — skip if this repo_path is already recorded
+        already_done = any(entry.repo_path == repo_path for entry in pull_requests)
+        if already_done:
+            logger.info(
+                "MR for repo %s (%s) already recorded, skipping",
+                repo_name,
+                repo_path,
+            )
+            return
+
+        # Determine the current branch name for this repo
+        try:
+            branch_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                cwd=repo_path,
+            )
+            branch_name = branch_result.stdout.strip() if branch_result.returncode == 0 else ""
+        except subprocess.TimeoutExpired:
+            logger.warning("git rev-parse timed out for %s, skipping branch detection", repo_name)
+            branch_name = ""
+
+        # Layer 2: Adopt existing remote MR if one already exists for this branch
+        if branch_name:
+            list_cmd = [
+                "glab",
+                "mr",
+                "list",
+                "--source-branch",
+                branch_name,
+                "--output",
+                "json",
+            ]
+            logger.debug("Checking for existing MR: %s (cwd=%s)", " ".join(list_cmd), repo_path)
+            try:
+                list_result = subprocess.run(
+                    list_cmd,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    timeout=60,
+                    cwd=repo_path,
+                )
+                if list_result.returncode == 0 and list_result.stdout.strip():
+                    mr_list = json.loads(list_result.stdout.strip())
+                    if mr_list:
+                        existing_mr = mr_list[0]
+                        mr_url = existing_mr.get("web_url", "")
+                        mr_number = existing_mr.get("iid")
+                        if mr_url:
+                            logger.info(
+                                "Adopting existing MR for repo %s: %s",
+                                repo_name,
+                                mr_url,
+                            )
+                            entry = PullRequestEntry(
+                                repo=repo_name,
+                                repo_path=repo_path,
+                                url=mr_url,
+                                number=mr_number,
+                                adopted=True,
+                            )
+                            pull_requests.append(entry)
+                            context.artifact_store.write_artifact(
+                                GlabPullRequestArtifact(
+                                    workflow_id=context.adw_id,
+                                    pull_requests=pull_requests,
+                                    platform="gitlab",
+                                )
+                            )
+                            logger.debug(
+                                "Saved glab-pull-request artifact after adopting MR for %s",
+                                repo_name,
+                            )
+                            if attachment_md and entry.number:
+                                try:
+                                    _post_glab_attachment_note(
+                                        repo_path=repo_path,
+                                        mr_number=entry.number,
+                                        body=attachment_md,
+                                        env=env,
+                                    )
+                                except (
+                                    subprocess.TimeoutExpired,
+                                    OSError,
+                                ) as exc:
+                                    logger.warning(
+                                        "Failed to post attachment note on MR !%d: %s",
+                                        entry.number,
+                                        exc,
+                                    )
+                            return
+            except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+                logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
+
+        # Layer 3: Push + create new MR
+        push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]
+        logger.debug("Pushing current branch to origin in %s...", repo_path)
+        try:
+            push_result = subprocess.run(
+                push_cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=60,
+                cwd=repo_path,
+            )
+            if push_result.returncode == 0:
+                logger.debug("Branch pushed successfully for %s", repo_name)
+            else:
+                logger.debug(
+                    "git push failed for %s (exit code %d): %s",
+                    repo_name,
+                    push_result.returncode,
+                    push_result.stderr,
+                )
+        except subprocess.TimeoutExpired:
+            logger.debug("git push timed out for %s, continuing to MR creation", repo_name)
+        except OSError as e:
+            logger.exception("git push failed for %s: %s", repo_name, e)
+            raise
+
+        cmd = [
+            "glab",
+            "mr",
+            "create",
+            "--title",
+            title,
+            "--description",
+            summary,
+        ]
+
+        if context.pipeline_type == "thin":
+            cmd.append("--draft")
+
+        logger.debug("Executing: %s (cwd=%s)", " ".join(cmd), repo_path)
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120,
+                cwd=repo_path,
+            )
+        except subprocess.TimeoutExpired:
+            error_msg = f"glab mr create timed out for {repo_name} after 120 seconds"
+            logger.warning(error_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "merge-request-failed", "error": error_msg},
+            )
+            return
+
+        if result.returncode != 0:
+            error_msg = (
+                f"glab mr create failed for {repo_name} "
+                f"(exit code {result.returncode}): {result.stderr}"
+            )
+            logger.warning(
+                "glab mr create failed for %s (exit code %d): %s",
+                repo_name,
+                result.returncode,
+                result.stderr,
+            )
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "merge-request-failed", "error": error_msg},
+            )
+            # Continue to next repo; partial progress is already saved
+            return
+
+        # Parse MR URL from output (glab mr create outputs the URL)
+        url_match = re.search(r"https?://\S+/merge_requests/\d+", result.stdout)
+        if not url_match:
+            logger.error(
+                "Could not parse MR URL from glab output for %s: %r",
+                repo_name,
+                result.stdout,
+            )
+            return
+
+        mr_url = url_match.group(0)
+        logger.info("Merge request created for %s: %s", repo_name, mr_url)
+
+        # Extract MR number from URL
+        mr_number = None
+        number_match = re.search(r"/merge_requests/(\d+)", mr_url)
+        if number_match:
+            mr_number = int(number_match.group(1))
+
+        entry = PullRequestEntry(
+            repo=repo_name,
+            repo_path=repo_path,
+            url=mr_url,
+            number=mr_number,
+            adopted=False,
+        )
+        pull_requests.append(entry)
+
+        # Write artifact after each repo so partial progress survives failures
+        artifact = GlabPullRequestArtifact(
+            workflow_id=context.adw_id,
+            pull_requests=pull_requests,
+            platform="gitlab",
+        )
+        context.artifact_store.write_artifact(artifact)
+        logger.debug("Saved glab-pull-request artifact after creating MR for %s", repo_name)
+
+        if attachment_md and entry.number:
+            try:
+                _post_glab_attachment_note(
+                    repo_path=repo_path,
+                    mr_number=entry.number,
+                    body=attachment_md,
+                    env=env,
+                )
+            except (subprocess.TimeoutExpired, OSError) as exc:
+                logger.warning(
+                    "Failed to post attachment note on MR !%d: %s",
+                    entry.number,
+                    exc,
+                )
+
     def run(self, context: WorkflowContext) -> StepResult:
         """Create GitLab merge request using glab CLI.
 
@@ -121,44 +420,15 @@ class GlabPullRequestStep(WorkflowStep):
 
         attachment_md = load_and_render_attachment(context)
 
-        if not pr_details:
-            skip_msg = "MR creation skipped: no PR details in context"
-            logger.info(skip_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                skip_msg,
-                {"output": "merge-request-skipped", "reason": skip_msg},
-            )
-            return StepResult.ok(None)
+        if result := self._check_preconditions(context, pr_details, logger):
+            return result
 
+        # pr_details is guaranteed non-None after preconditions pass
+        assert pr_details is not None
         title = pr_details.get("title", "")
         summary = pr_details.get("summary", "")
         commits = pr_details.get("commits", [])
-
-        if not title:
-            skip_msg = "MR creation skipped: MR title is empty"
-            logger.info(skip_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                skip_msg,
-                {"output": "merge-request-skipped", "reason": skip_msg},
-            )
-            return StepResult.ok(None)
-
-        # Check for GITLAB_PAT environment variable
-        gitlab_pat = os.environ.get("GITLAB_PAT")
-        if not gitlab_pat:
-            skip_msg = "MR creation skipped: GITLAB_PAT environment variable not set"
-            logger.info(skip_msg)
-            _emit_and_log(
-                context.require_issue_id,
-                context.adw_id,
-                skip_msg,
-                {"output": "merge-request-skipped", "reason": skip_msg},
-            )
-            return StepResult.ok(None)
+        gitlab_pat = os.environ.get("GITLAB_PAT", "")
 
         try:
             # Execute with GITLAB_TOKEN environment variable (glab uses GITLAB_TOKEN)
@@ -178,243 +448,9 @@ class GlabPullRequestStep(WorkflowStep):
                     logger.debug("Could not load existing glab-pull-request artifact: %s", e)
 
             for repo_path in context.repo_paths:
-                repo_name = os.path.basename(os.path.normpath(repo_path))
-
-                # Layer 1: Already done check — skip if this repo_path is already recorded
-                already_done = any(entry.repo_path == repo_path for entry in pull_requests)
-                if already_done:
-                    logger.info(
-                        "MR for repo %s (%s) already recorded, skipping",
-                        repo_name,
-                        repo_path,
-                    )
-                    continue
-
-                # Determine the current branch name for this repo
-                try:
-                    branch_result = subprocess.run(
-                        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                        capture_output=True,
-                        text=True,
-                        timeout=30,
-                        cwd=repo_path,
-                    )
-                    branch_name = (
-                        branch_result.stdout.strip() if branch_result.returncode == 0 else ""
-                    )
-                except subprocess.TimeoutExpired:
-                    logger.warning(
-                        "git rev-parse timed out for %s, skipping branch detection", repo_name
-                    )
-                    branch_name = ""
-
-                # Layer 2: Adopt existing remote MR if one already exists for this branch
-                if branch_name:
-                    list_cmd = [
-                        "glab",
-                        "mr",
-                        "list",
-                        "--source-branch",
-                        branch_name,
-                        "--output",
-                        "json",
-                    ]
-                    logger.debug(
-                        "Checking for existing MR: %s (cwd=%s)", " ".join(list_cmd), repo_path
-                    )
-                    try:
-                        list_result = subprocess.run(
-                            list_cmd,
-                            capture_output=True,
-                            text=True,
-                            env=env,
-                            timeout=60,
-                            cwd=repo_path,
-                        )
-                        if list_result.returncode == 0 and list_result.stdout.strip():
-                            mr_list = json.loads(list_result.stdout.strip())
-                            if mr_list:
-                                existing_mr = mr_list[0]
-                                mr_url = existing_mr.get("web_url", "")
-                                mr_number = existing_mr.get("iid")
-                                if mr_url:
-                                    logger.info(
-                                        "Adopting existing MR for repo %s: %s",
-                                        repo_name,
-                                        mr_url,
-                                    )
-                                    entry = PullRequestEntry(
-                                        repo=repo_name,
-                                        repo_path=repo_path,
-                                        url=mr_url,
-                                        number=mr_number,
-                                        adopted=True,
-                                    )
-                                    pull_requests.append(entry)
-                                    context.artifact_store.write_artifact(
-                                        GlabPullRequestArtifact(
-                                            workflow_id=context.adw_id,
-                                            pull_requests=pull_requests,
-                                            platform="gitlab",
-                                        )
-                                    )
-                                    logger.debug(
-                                        "Saved glab-pull-request artifact after adopting MR for %s",
-                                        repo_name,
-                                    )
-                                    if attachment_md and entry.number:
-                                        try:
-                                            _post_glab_attachment_note(
-                                                repo_path=repo_path,
-                                                mr_number=entry.number,
-                                                body=attachment_md,
-                                                env=env,
-                                            )
-                                        except (
-                                            subprocess.TimeoutExpired,
-                                            OSError,
-                                        ) as exc:
-                                            logger.warning(
-                                                "Failed to post attachment note on MR !%d: %s",
-                                                entry.number,
-                                                exc,
-                                            )
-                                    continue
-                    except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
-                        logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
-
-                # Layer 3: Push + create new MR
-                push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]
-                logger.debug("Pushing current branch to origin in %s...", repo_path)
-                try:
-                    push_result = subprocess.run(
-                        push_cmd,
-                        capture_output=True,
-                        text=True,
-                        env=env,
-                        timeout=60,
-                        cwd=repo_path,
-                    )
-                    if push_result.returncode == 0:
-                        logger.debug("Branch pushed successfully for %s", repo_name)
-                    else:
-                        logger.debug(
-                            "git push failed for %s (exit code %d): %s",
-                            repo_name,
-                            push_result.returncode,
-                            push_result.stderr,
-                        )
-                except subprocess.TimeoutExpired:
-                    logger.debug("git push timed out for %s, continuing to MR creation", repo_name)
-                except OSError as e:
-                    logger.exception("git push failed for %s: %s", repo_name, e)
-                    raise
-
-                cmd = [
-                    "glab",
-                    "mr",
-                    "create",
-                    "--title",
-                    title,
-                    "--description",
-                    summary,
-                ]
-
-                if context.pipeline_type == "thin":
-                    cmd.append("--draft")
-
-                logger.debug("Executing: %s (cwd=%s)", " ".join(cmd), repo_path)
-
-                try:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        env=env,
-                        timeout=120,
-                        cwd=repo_path,
-                    )
-                except subprocess.TimeoutExpired:
-                    error_msg = f"glab mr create timed out for {repo_name} after 120 seconds"
-                    logger.warning(error_msg)
-                    _emit_and_log(
-                        context.require_issue_id,
-                        context.adw_id,
-                        error_msg,
-                        {"output": "merge-request-failed", "error": error_msg},
-                    )
-                    continue
-
-                if result.returncode != 0:
-                    error_msg = (
-                        f"glab mr create failed for {repo_name} "
-                        f"(exit code {result.returncode}): {result.stderr}"
-                    )
-                    logger.warning(
-                        "glab mr create failed for %s (exit code %d): %s",
-                        repo_name,
-                        result.returncode,
-                        result.stderr,
-                    )
-                    _emit_and_log(
-                        context.require_issue_id,
-                        context.adw_id,
-                        error_msg,
-                        {"output": "merge-request-failed", "error": error_msg},
-                    )
-                    # Continue to next repo; partial progress is already saved
-                    continue
-
-                # Parse MR URL from output (glab mr create outputs the URL)
-                url_match = re.search(r"https?://\S+/merge_requests/\d+", result.stdout)
-                if not url_match:
-                    logger.error(
-                        "Could not parse MR URL from glab output for %s: %r",
-                        repo_name,
-                        result.stdout,
-                    )
-                    continue
-                mr_url = url_match.group(0)
-                logger.info("Merge request created for %s: %s", repo_name, mr_url)
-
-                # Extract MR number from URL
-                mr_number = None
-                number_match = re.search(r"/merge_requests/(\d+)", mr_url)
-                if number_match:
-                    mr_number = int(number_match.group(1))
-
-                entry = PullRequestEntry(
-                    repo=repo_name,
-                    repo_path=repo_path,
-                    url=mr_url,
-                    number=mr_number,
-                    adopted=False,
+                self._process_repo(
+                    context, repo_path, title, summary, pull_requests, env, attachment_md, logger
                 )
-                pull_requests.append(entry)
-
-                # Write artifact after each repo so partial progress survives failures
-                artifact = GlabPullRequestArtifact(
-                    workflow_id=context.adw_id,
-                    pull_requests=pull_requests,
-                    platform="gitlab",
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved glab-pull-request artifact after creating MR for %s", repo_name)
-
-                if attachment_md and entry.number:
-                    try:
-                        _post_glab_attachment_note(
-                            repo_path=repo_path,
-                            mr_number=entry.number,
-                            body=attachment_md,
-                            env=env,
-                        )
-                    except (subprocess.TimeoutExpired, OSError) as exc:
-                        logger.warning(
-                            "Failed to post attachment note on MR !%d: %s",
-                            entry.number,
-                            exc,
-                        )
 
             # Emit artifact comment and progress comment after all repos are processed
             if pull_requests:
