@@ -305,7 +305,7 @@ class TestRegistryCoverage:
         test_cases = [
             ("Implementing solution", ["plan"]),
             ("Running code quality checks", ["implement"]),
-            ("Creating GitHub pull request", ["compose-request"]),
+            ("Creating GitHub pull request", ["compose-request", "fetch-issue", "plan"]),
         ]
 
         for step_name, expected_deps in test_cases:
