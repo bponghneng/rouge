@@ -715,8 +715,8 @@ def test_create_issue_with_explicit_adw_id(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_create_issue_with_type_and_adw_id(mock_get_client) -> None:
-    """Test creating issue with both explicit type and adw_id."""
+def test_create_issue_with_thin_type_and_adw_id(mock_get_client) -> None:
+    """Test creating issue with explicit thin type and adw_id."""
     mock_client = Mock()
     mock_table = Mock()
     mock_insert = Mock()
@@ -727,24 +727,24 @@ def test_create_issue_with_type_and_adw_id(mock_get_client) -> None:
     mock_execute.data = [
         {
             "id": 4,
-            "description": "Patch issue with custom ID",
+            "description": "Thin issue with custom ID",
             "status": "pending",
-            "type": "patch",
-            "adw_id": "patch-adw-123",
+            "type": "thin",
+            "adw_id": "thin-adw-123",
         }
     ]
     mock_insert.execute.return_value = mock_execute
     mock_get_client.return_value = mock_client
 
-    issue = create_issue("Patch issue with custom ID", issue_type="patch", adw_id="patch-adw-123")
+    issue = create_issue("Thin issue with custom ID", issue_type="thin", adw_id="thin-adw-123")
     assert issue.id == 4
-    assert issue.type == "patch"
-    assert issue.adw_id == "patch-adw-123"
+    assert issue.type == "thin"
+    assert issue.adw_id == "thin-adw-123"
 
     # Verify both type and adw_id were included in insert data
     insert_call_args = mock_table.insert.call_args[0][0]
-    assert insert_call_args["type"] == "patch"
-    assert insert_call_args["adw_id"] == "patch-adw-123"
+    assert insert_call_args["type"] == "thin"
+    assert insert_call_args["adw_id"] == "thin-adw-123"
 
 
 @patch("rouge.core.database.get_client")
@@ -1162,8 +1162,8 @@ def test_update_issue_all_fields(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
-def test_update_issue_partial_with_unset(mock_get_client) -> None:
-    """Test partial update with UNSET - omitted fields remain unchanged."""
+def test_update_issue_partial_with_unset_accepts_thin(mock_get_client) -> None:
+    """Test partial update with UNSET while updating issue type to thin."""
     mock_client = Mock()
     mock_table = Mock()
 
@@ -1184,7 +1184,7 @@ def test_update_issue_partial_with_unset(mock_get_client) -> None:
             "id": 1,
             "description": "Unchanged description",
             "status": "pending",
-            "type": "patch",
+            "type": "thin",
             "title": "Unchanged title",
         }
     ]
@@ -1197,11 +1197,11 @@ def test_update_issue_partial_with_unset(mock_get_client) -> None:
     mock_get_client.return_value = mock_client
 
     # Only update issue_type, leave others as UNSET (default)
-    issue = update_issue(1, issue_type="patch")
+    issue = update_issue(1, issue_type="thin")
     assert issue.id == 1
-    assert issue.type == "patch"
+    assert issue.type == "thin"
     # Only type should be in the update dict
-    mock_table.update.assert_called_once_with({"type": "patch"})
+    mock_table.update.assert_called_once_with({"type": "thin"})
 
 
 @patch("rouge.core.database.get_client")
