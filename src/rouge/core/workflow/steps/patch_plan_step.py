@@ -102,9 +102,11 @@ class PatchPlanStep(WorkflowStep):
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
             log_artifact_comment_status(status, msg)
+        else:
+            return StepResult.fail("Plan step succeeded but produced no plan data")
 
         # Build progress comment from parsed plan data
-        parsed_data = plan_response.metadata.get("parsed_data", {})
+        parsed_data = (plan_response.metadata or {}).get("parsed_data", {})
         # Extract title from one of: chore, bug, feature keys
         title = (
             parsed_data.get("chore")
