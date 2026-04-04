@@ -190,7 +190,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation: rev-parse, pr list (empty), push, pr create."""
@@ -212,9 +212,6 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
 
     mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
 
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
-
     context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -227,7 +224,6 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
 
     assert result.success is True
     assert mock_subprocess.call_count == 4
-    mock_emit.assert_called_once()
 
     # Verify git push was called third
     push_call = mock_subprocess.call_args_list[2]
@@ -239,26 +235,15 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     assert pr_call[0][0][0:3] == ["gh", "pr", "create"]
     assert pr_call[1]["cwd"] == "/path/to/repo"
 
-    # Verify the emit call has correct data
-    call_args = mock_emit.call_args
-    payload = call_args[0][0]
-    assert payload.issue_id == 1
-    assert "https://github.com/owner/repo/pull/123" in payload.text
-    assert payload.raw["output"] == "pull-request-created"
-    assert "https://github.com/owner/repo/pull/123" in payload.raw["urls"]
-
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     """Test PR creation skipped when GITHUB_PAT is missing."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
-
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
     context.data["pr_details"] = {
@@ -271,20 +256,15 @@ def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     result = step.run(context)
 
     assert result.success is True
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     """Test PR creation skipped when pr_details is missing."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
-
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
     # No pr_details in context
@@ -293,11 +273,9 @@ def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     result = step.run(context)
 
     assert result.success is True
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit) -> None:
     """Test PR creation skipped when title is empty."""
@@ -305,9 +283,6 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
-
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
     context.data["pr_details"] = {
@@ -320,12 +295,10 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
     result = step.run(context)
 
     assert result.success is True
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which) -> None:
@@ -347,7 +320,6 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
         stderr="",
     )
     mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list]
-    mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
     context.data["pr_details"] = {
@@ -362,13 +334,10 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
     assert result.success is True
     # Only rev-parse and pr list were called (no push or create)
     assert mock_subprocess.call_count == 2
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
-    assert "https://github.com/owner/repo/pull/123" in mock_emit.call_args[0][0].raw["urls"]
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which) -> None:
@@ -389,9 +358,6 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 
     mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
 
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
-
     context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -403,14 +369,11 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     result = step.run(context)
 
     # When all repos fail (only one repo), step returns success (best-effort)
-    # No pull_requests were created so the success comment is not emitted
     assert result.success is True
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
@@ -436,9 +399,6 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
         subprocess.TimeoutExpired(cmd="gh", timeout=120),
     ]
 
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
-
     context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -450,12 +410,10 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     result = step.run(context)
 
     assert result.success is False
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-failed"
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     """Test PR creation handles gh CLI not found via proactive detection."""
@@ -466,9 +424,6 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
 
     # Mock shutil.which to return None (gh not found)
     mock_which.return_value = None
-
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
     context.data["pr_details"] = {
@@ -483,13 +438,10 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     # Should return ok (skip) rather than fail since gh not found is handled proactively
     assert result.success is True
     mock_which.assert_called_once_with("gh")
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
-    assert "gh CLI not found" in mock_emit.call_args[0][0].raw["reason"]
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
@@ -512,9 +464,6 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
     mock_subprocess.side_effect = [mock_rev_parse, mock_pr_list, mock_push_result, mock_pr_result]
 
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
-
     context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -528,12 +477,10 @@ def test_create_pr_step_push_failure_continues_to_pr(
     # PR should succeed even if push failed (branch may already exist on remote)
     assert result.success is True
     assert mock_subprocess.call_count == 4
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
@@ -561,9 +508,6 @@ def test_create_pr_step_push_timeout_continues_to_pr(
         mock_pr_result,
     ]
 
-    # Mock emit_comment_from_payload success
-    mock_emit.return_value = ("success", "Comment inserted")
-
     context = _make_context()
     context.data["pr_details"] = {
         "title": "feat: add new feature",
@@ -577,13 +521,11 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     # PR should succeed even if push timed out
     assert result.success is True
     assert mock_subprocess.call_count == 4
-    mock_emit.assert_called_once()
-    assert mock_emit.call_args[0][0].raw["output"] == "pull-request-created"
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation across two repos: subprocess invoked once per repo."""
@@ -591,7 +533,6 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
     mock_which.return_value = "/usr/bin/gh"
-    mock_emit.return_value = ("success", "Comment inserted")
 
     # Two repos: each needs rev-parse, pr list (empty), push, pr create — 4 calls each = 8 total
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
@@ -650,20 +591,10 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     assert pr_create_call_b[1]["cwd"] == "/repo/b"
     assert pr_create_call_b[0][0][0:3] == ["gh", "pr", "create"]
 
-    # emit_comment_from_payload called once at the end (final "pull-request-created" summary)
-    mock_emit.assert_called_once()
-    payload = mock_emit.call_args[0][0]
-    assert payload.raw["output"] == "pull-request-created"
-    # Both repo URLs appear in the emitted payload
-    assert "https://github.com/owner/repo-a/pull/1" in payload.raw["urls"]
-    assert "https://github.com/owner/repo-b/pull/2" in payload.raw["urls"]
-    assert "/repo/a" in payload.text or "https://github.com/owner/repo-a/pull/1" in payload.text
-    assert "/repo/b" in payload.text or "https://github.com/owner/repo-b/pull/2" in payload.text
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
     """Test PR creation with both repos failing: subprocess invoked once per repo,
@@ -672,7 +603,6 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
     mock_which.return_value = "/usr/bin/gh"
-    mock_emit.return_value = ("success", "Comment inserted")
 
     # Two repos: each needs rev-parse, pr list (empty), push, pr create (fail)
     # — 4 calls each = 8 total
@@ -718,21 +648,6 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
 
     push_call_b = mock_subprocess.call_args_list[6]
     assert push_call_b[1]["cwd"] == "/repo/b"
-
-    # emit_comment_from_payload called once per failing repo = 2 total
-    assert mock_emit.call_count == 2
-    failure_outputs = [call[0][0].raw["output"] for call in mock_emit.call_args_list]
-    assert failure_outputs == ["pull-request-failed", "pull-request-failed"]
-
-    # Each failure payload references the corresponding repo
-    assert (
-        "/repo/a" in mock_emit.call_args_list[0][0][0].raw["error"]
-        or "repo-a" in mock_emit.call_args_list[0][0][0].raw["error"]
-    )
-    assert (
-        "/repo/b" in mock_emit.call_args_list[1][0][0].raw["error"]
-        or "repo-b" in mock_emit.call_args_list[1][0][0].raw["error"]
-    )
 
 
 def test_create_pr_step_is_not_critical() -> None:

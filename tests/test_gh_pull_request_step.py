@@ -67,12 +67,11 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 class TestGhPullRequestStepOptionalDependency:
     """Tests verifying GhPullRequestStep handles absent compose-request artifact gracefully."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_succeeds_when_compose_request_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
         """Step returns success when compose-request artifact is missing (optional dep)."""
-        mock_emit.return_value = ("success", "ok")
 
         step = GhPullRequestStep()
         result = step.run(base_context)
@@ -81,28 +80,26 @@ class TestGhPullRequestStepOptionalDependency:
         assert result.success is True
         assert result.error is None
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_emits_skip_comment_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
         """Step emits an informative skip comment when compose-request artifact is missing."""
-        mock_emit.return_value = ("success", "ok")
 
         step = GhPullRequestStep()
         result = step.run(base_context)
 
         assert result.success is True
         assert mock_emit.called
-        payload = mock_emit.call_args[0][0]
+        text = mock_emit.call_args[0][2]
         # Message should indicate skip reason
-        assert "skip" in payload.text.lower() or "no pr details" in payload.text.lower()
+        assert "skip" in text.lower() or "no pr details" in text.lower()
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_loads_pr_details_via_optional_artifact(
         self, mock_emit, base_context: WorkflowContext, store: ArtifactStore
     ) -> None:
         """load_optional_artifact is used (not a guard-and-fail pattern)."""
-        mock_emit.return_value = ("success", "ok")
 
         # Track read calls to confirm artifact loading is attempted
         read_calls: list[str] = []
@@ -120,12 +117,11 @@ class TestGhPullRequestStepOptionalDependency:
         # Artifact loading was attempted for compose-request
         assert "compose-request" in read_calls
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_does_not_raise_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
         """No exception is raised when compose-request artifact is absent."""
-        mock_emit.return_value = ("success", "ok")
 
         step = GhPullRequestStep()
         # Should not raise
@@ -136,7 +132,7 @@ class TestGhPullRequestStepOptionalDependency:
 class TestGhPullRequestStepWithArtifact:
     """Tests verifying GhPullRequestStep uses compose-request artifact when present."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
@@ -159,7 +155,6 @@ class TestGhPullRequestStepWithArtifact:
         )
         store.write_artifact(compose_artifact)
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = None  # gh CLI not found → graceful skip
 
@@ -173,7 +168,7 @@ class TestGhPullRequestStepWithArtifact:
 class TestGhPullRequestStepDraftFlag:
     """Tests verifying GhPullRequestStep adds --draft flag based on pipeline_type."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
@@ -193,7 +188,6 @@ class TestGhPullRequestStepDraftFlag:
         mock_environ["GITHUB_PAT"] = "fake-token"
         mock_environ["PATH"] = "/usr/bin"
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
         # Write compose-request artifact so the step proceeds to PR creation
@@ -230,7 +224,7 @@ class TestGhPullRequestStepDraftFlag:
         cmd_args = gh_create_calls[0][0][0]
         assert "--draft" in cmd_args
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
@@ -250,7 +244,6 @@ class TestGhPullRequestStepDraftFlag:
         mock_environ["GITHUB_PAT"] = "fake-token"
         mock_environ["PATH"] = "/usr/bin"
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
         compose_artifact = ComposeRequestArtifact(
@@ -395,7 +388,7 @@ def _make_subprocess_side_effect(
 # Shared patch decorator stack for attachment tests — patches external
 # helpers and env so the step reaches the PR-creation / adopt path.
 _ATTACHMENT_PATCHES = [
-    "rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload",
+    "rouge.core.workflow.steps.gh_pull_request_step._emit_and_log",
     "rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment",
     "rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status",
     "rouge.core.workflow.steps.gh_pull_request_step.shutil.which",
@@ -433,7 +426,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect()
@@ -482,7 +474,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
 
@@ -563,7 +554,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect()
@@ -611,7 +601,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         # Existing comment ID returned by gh pr view
@@ -666,7 +655,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect(
