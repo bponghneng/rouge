@@ -103,6 +103,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     from rouge.core.workflow.pipeline import (
         get_full_pipeline,
         get_patch_pipeline,
+        get_thin_pipeline,
     )
 
     registry.register(
@@ -117,6 +118,13 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
             type_id="full",
             pipeline=get_full_pipeline,
             description="Full workflow pipeline",
+        )
+    )
+    registry.register(
+        WorkflowDefinition(
+            type_id="thin",
+            pipeline=get_thin_pipeline,
+            description="Thin workflow pipeline for straightforward issues",
         )
     )
 
