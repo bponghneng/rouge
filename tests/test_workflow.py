@@ -831,14 +831,16 @@ def test_create_pr_step_name() -> None:
 # === GlabPullRequestStep Tests ===
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
+def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful MR creation: rev-parse, mr list (empty), push, mr create."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Step calls: git rev-parse, glab mr list (empty), delta check (2), git push, glab mr create
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
@@ -985,17 +987,19 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_command_failure(
-    mock_subprocess, mock_get_logger, mock_emit
+    mock_subprocess, mock_get_logger, mock_emit, mock_which
 ) -> None:
     """Test MR creation handles glab command failure (best-effort: returns success)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Mock the logger instance returned by get_logger
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
@@ -1039,16 +1043,18 @@ def test_create_gitlab_mr_step_glab_command_failure(
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit) -> None:
+def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit, mock_which) -> None:
     """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
     import subprocess
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Mock the logger instance returned by get_logger
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
@@ -1091,16 +1097,18 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.get_logger")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit) -> None:
+def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit, mock_which) -> None:
     """Test MR creation handles glab CLI not found (propagates to outer
     FileNotFoundError handler)."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Mock the logger instance returned by get_logger
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
@@ -1137,14 +1145,16 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit) -> None:
+def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit, mock_which) -> None:
     """Test MR creation continues even when git push fails."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Step calls: rev-parse, mr list (empty), delta check (2),
     # push (failure → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
@@ -1186,15 +1196,17 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
+@patch("rouge.core.workflow.steps.glab_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.glab_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
-def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit) -> None:
+def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit, mock_which) -> None:
     """Test MR creation continues even when git push times out."""
     import subprocess
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
+    mock_which.return_value = "/usr/bin/glab"
     # Step calls: rev-parse, mr list (empty), delta check (2),
     # push (timeout → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
