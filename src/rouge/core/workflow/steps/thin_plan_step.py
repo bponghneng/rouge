@@ -5,7 +5,7 @@ thin-plan prompt template.  The resulting PlanArtifact is compatible with
 ImplementStep, so downstream steps work identically to other plan pipelines.
 """
 
-from rouge.core.models import CommentPayload, Issue
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
     emit_comment_from_payload,
@@ -16,7 +16,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.plan_common import build_plan_from_template
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import PlanData, StepResult
+from rouge.core.workflow.types import StepResult
 
 
 class ThinPlanStep(WorkflowStep):
@@ -37,24 +37,6 @@ class ThinPlanStep(WorkflowStep):
     def is_critical(self) -> bool:
         """Thin planning is critical - workflow cannot proceed without it."""
         return True
-
-    def _build_plan(
-        self,
-        issue: Issue,
-        prompt_id: PromptId,
-        adw_id: str,
-    ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using the specified prompt.
-
-        Args:
-            issue: The Rouge issue to plan for
-            prompt_id: The planning prompt to use (PromptId.THIN_PLAN)
-            adw_id: Workflow ID for tracking
-
-        Returns:
-            StepResult with PlanData containing output and optional session_id
-        """
-        return build_plan_from_template(issue, prompt_id, adw_id)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Build thin plan for issue and store in context.
@@ -82,7 +64,7 @@ class ThinPlanStep(WorkflowStep):
             return StepResult.fail(f"Cannot build thin plan: {e}")
 
         # Build plan from issue description using thin-plan prompt
-        plan_response = self._build_plan(issue, PromptId.THIN_PLAN, context.adw_id)
+        plan_response = build_plan_from_template(issue, PromptId.THIN_PLAN, context.adw_id)
 
         if not plan_response.success:
             logger.error("Error building thin plan: %s", plan_response.error)
@@ -102,9 +84,11 @@ class ThinPlanStep(WorkflowStep):
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
             log_artifact_comment_status(status, msg)
+        else:
+            return StepResult.fail("Plan step succeeded but produced no plan data")
 
         # Build progress comment from parsed plan data
-        parsed_data = plan_response.metadata.get("parsed_data", {})
+        parsed_data = (plan_response.metadata or {}).get("parsed_data", {})
         # Extract title from one of: chore, bug, feature keys
         title = (
             parsed_data.get("chore")
