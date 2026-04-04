@@ -268,6 +268,9 @@ class GhPullRequestStep(WorkflowStep):
                     summary,
                 ]
 
+                if context.pipeline_type == "thin":
+                    cmd.append("--draft")
+
                 logger.debug("Executing: %s (cwd=%s)", " ".join(cmd), repo_path)
 
                 result = subprocess.run(
