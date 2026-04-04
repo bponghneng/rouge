@@ -121,7 +121,7 @@ class TestOptionalDependencies:
         # No error should be set for graceful skip
         assert result.error is None or result.error == ""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_optional_dependency_returns_none_not_error(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -397,9 +397,7 @@ class TestErrorMessageQuality:
         """Optional artifact skip should have informative log/comment message."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
-        with patch(
-            "rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload"
-        ) as mock_emit:
+        with patch("rouge.core.workflow.step_utils.emit_comment_from_payload") as mock_emit:
             mock_emit.return_value = ("success", "ok")
 
             step = GhPullRequestStep()

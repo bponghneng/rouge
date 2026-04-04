@@ -9,9 +9,9 @@ import pytest
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import execute_workflow, update_status
-from rouge.core.workflow.artifacts import ArtifactStore
+from rouge.core.workflow.artifacts import ArtifactStore, ImplementArtifact
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.types import StepResult
+from rouge.core.workflow.types import ImplementData, StepResult
 
 
 def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> WorkflowContext:
@@ -22,6 +22,18 @@ def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> Workfl
     context = WorkflowContext(issue_id=issue_id, adw_id=adw_id, artifact_store=store, **kwargs)
     context._tmp_dir = tmp_dir  # type: ignore[attr-defined]  # keeps dir alive until context is GC'd
     return context
+
+
+def _write_implement_artifact(
+    context: WorkflowContext, repo_paths: list[str] | None = None
+) -> None:
+    """Write an implement artifact so PR steps iterate the given repos."""
+    affected = repo_paths if repo_paths is not None else context.repo_paths
+    artifact = ImplementArtifact(
+        workflow_id=context.adw_id,
+        implement_data=ImplementData(output="done", affected_repos=affected),
+    )
+    context.artifact_store.write_artifact(artifact)
 
 
 @pytest.fixture
@@ -228,6 +240,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -261,7 +274,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     """Test PR creation skipped when GITHUB_PAT is missing."""
 
@@ -287,7 +300,7 @@ def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     """Test PR creation skipped when pr_details is missing."""
 
@@ -309,7 +322,7 @@ def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     assert mock_emit.call_args[0][0].raw["output"] == "pull-request-skipped"
 
 
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit) -> None:
     """Test PR creation skipped when title is empty."""
@@ -362,6 +375,7 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -414,6 +428,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -461,6 +476,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -476,7 +492,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     """Test PR creation handles gh CLI not found via proactive detection."""
@@ -547,6 +563,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -601,6 +618,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This PR adds a new feature.",
@@ -665,6 +683,7 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
+    _write_implement_artifact(context, ["/repo/a", "/repo/b"])
     context.data["pr_details"] = {
         "title": "feat: multi-repo feature",
         "summary": "This PR spans two repos.",
@@ -751,6 +770,7 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
+    _write_implement_artifact(context, ["/repo/a", "/repo/b"])
     context.data["pr_details"] = {
         "title": "feat: multi-repo feature",
         "summary": "This PR spans two repos.",
@@ -842,6 +862,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1001,6 +1022,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1052,6 +1074,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1098,6 +1121,7 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1145,6 +1169,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",
@@ -1193,6 +1218,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
     mock_emit.return_value = ("success", "Comment inserted")
 
     context = _make_context()
+    _write_implement_artifact(context)
     context.data["pr_details"] = {
         "title": "feat: add new feature",
         "summary": "This MR adds a new feature.",

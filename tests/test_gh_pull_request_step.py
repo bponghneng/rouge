@@ -35,7 +35,7 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 class TestGhPullRequestStepOptionalDependency:
     """Tests verifying GhPullRequestStep handles absent compose-request artifact gracefully."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_succeeds_when_compose_request_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -49,7 +49,7 @@ class TestGhPullRequestStepOptionalDependency:
         assert result.success is True
         assert result.error is None
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_emits_skip_comment_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -65,7 +65,7 @@ class TestGhPullRequestStepOptionalDependency:
         # Message should indicate skip reason
         assert "skip" in payload.text.lower() or "no pr details" in payload.text.lower()
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_loads_pr_details_via_optional_artifact(
         self, mock_emit, base_context: WorkflowContext, store: ArtifactStore
     ) -> None:
@@ -88,7 +88,7 @@ class TestGhPullRequestStepOptionalDependency:
         # Artifact loading was attempted for compose-request
         assert "compose-request" in read_calls
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_does_not_raise_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -104,7 +104,7 @@ class TestGhPullRequestStepOptionalDependency:
 class TestGhPullRequestStepWithArtifact:
     """Tests verifying GhPullRequestStep uses compose-request artifact when present."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
