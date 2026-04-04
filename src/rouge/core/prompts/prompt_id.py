@@ -16,3 +16,4 @@ class PromptId(str, Enum):
     IMPLEMENT_PLAN = "implement-plan"
     PATCH_PLAN = "patch-plan"
     PULL_REQUEST = "pull-request"
+    THIN_PLAN = "thin-plan"
