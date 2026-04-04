@@ -86,3 +86,23 @@ def patch(
         rouge workflow patch 123 --adw-id abc12345
     """
     _run_workflow(issue_id, adw_id, workflow_type="patch")
+
+
+@app.command()
+def thin(
+    issue_id: int,
+    adw_id: Optional[str] = typer.Option(
+        None, help="Workflow ID (auto-generated if not provided)", show_default=True
+    ),
+) -> None:
+    """Execute the thin workflow for a straightforward issue.
+
+    Args:
+        issue_id: The issue ID to process
+        adw_id: Optional workflow ID for tracking (auto-generated if not provided)
+
+    Example:
+        rouge workflow thin 123
+        rouge workflow thin 123 --adw-id abc12345
+    """
+    _run_workflow(issue_id, adw_id, workflow_type="thin")

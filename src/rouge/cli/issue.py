@@ -51,6 +51,7 @@ class IssueType(str, Enum):
 
     FULL = "full"
     PATCH = "patch"
+    THIN = "thin"
 
 
 class OutputFormat(str, Enum):
@@ -103,7 +104,7 @@ def validate_new_args(
         branch: Pre-set branch name for the issue (or None)
         assigned_to: Assignee identifier (or None)
         parent_issue_id: Parent issue ID for patch issues (or None)
-        issue_type: Issue type (full or patch)
+        issue_type: Issue type (full, patch, or thin)
 
     Raises:
         typer.Exit: If validation fails
@@ -328,7 +329,10 @@ def create(
     issue_type: IssueType = typer.Option(
         IssueType.FULL,
         "--type",
-        help=("Issue type: 'full' for primary issues, 'patch' for patch issues"),
+        help=(
+            "Issue type: 'full' for primary issues,"
+            " 'patch' for patch issues, 'thin' for thin issues"
+        ),
         show_default=True,
     ),
     branch: Optional[str] = typer.Option(
@@ -505,7 +509,7 @@ def list_issues(
 
     Filter Options:
         - limit: Maximum number of issues to return (default: 5)
-        - issue_type: Filter by issue type ('full', 'patch')
+        - issue_type: Filter by issue type ('full', 'patch', 'thin')
         - status: Filter by status ('pending', 'started', 'completed', 'failed')
 
     Examples:
@@ -578,7 +582,7 @@ def update(
         show_default=True,
     ),
     issue_type: Optional[str] = typer.Option(
-        None, "--type", help="Issue type: 'full' or 'patch'", show_default=True
+        None, "--type", help="Issue type: 'full', 'patch', or 'thin'", show_default=True
     ),
     title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
     description: Optional[str] = typer.Option(
