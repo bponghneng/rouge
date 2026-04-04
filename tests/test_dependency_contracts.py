@@ -301,7 +301,7 @@ class TestDependencySemanticsIntegration:
     """Integration tests validating dependency semantics with real artifacts."""
 
     @patch("rouge.core.database.get_client")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_optional_dependency_succeeds_with_artifact(
         self,
         mock_emit: Mock,

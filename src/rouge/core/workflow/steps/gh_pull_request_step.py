@@ -8,10 +8,8 @@ import shutil
 import subprocess
 from typing import Optional
 
-from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
-    emit_comment_from_payload,
     log_artifact_comment_status,
 )
 from rouge.core.utils import get_logger
@@ -231,14 +229,25 @@ class GhPullRequestStep(WorkflowStep):
 
         logger.debug("Executing: %s (cwd=%s)", " ".join(cmd), repo_path)
 
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=120,
-            cwd=repo_path,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=120,
+                cwd=repo_path,
+            )
+        except subprocess.TimeoutExpired:
+            error_msg = f"gh pr create timed out for {repo_name} after 120 seconds"
+            logger.warning(error_msg)
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "pull-request-failed", "error": error_msg},
+            )
+            return
 
         if result.returncode != 0:
             error_msg = (
@@ -251,19 +260,12 @@ class GhPullRequestStep(WorkflowStep):
                 result.returncode,
                 result.stderr,
             )
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text=error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
-                source="system",
-                kind="workflow",
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "pull-request-failed", "error": error_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             return
 
         # Parse PR URL from output (gh pr create outputs the URL)
@@ -362,53 +364,32 @@ class GhPullRequestStep(WorkflowStep):
                     "output": "pull-request-created",
                     "urls": pr_urls,
                 }
-                payload = CommentPayload(
-                    issue_id=context.require_issue_id,
-                    adw_id=context.adw_id,
-                    text=f"Pull request(s) created: {', '.join(pr_urls)}",
-                    raw=comment_data,
-                    source="system",
-                    kind="workflow",
+                emit_and_log(
+                    context.require_issue_id,
+                    context.adw_id,
+                    f"Pull request(s) created: {', '.join(pr_urls)}",
+                    comment_data,
                 )
-                status, msg = emit_comment_from_payload(payload)
-                if status == "success":
-                    logger.debug(msg)
-                else:
-                    logger.error(msg)
 
             return StepResult.ok(None)
 
         except subprocess.TimeoutExpired:
             error_msg = "gh pr create timed out after 120 seconds"
             logger.warning(error_msg)
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text=error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
-                source="system",
-                kind="workflow",
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "pull-request-failed", "error": error_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.exception(msg)
             return StepResult.fail(error_msg)
         except Exception as e:
             error_msg = f"Error creating pull request: {e}"
             logger.exception(error_msg)
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text=error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
-                source="system",
-                kind="workflow",
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "pull-request-failed", "error": error_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             return StepResult.fail(error_msg)

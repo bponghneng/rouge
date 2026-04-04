@@ -5,10 +5,8 @@ from typing import Any, Dict
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
-    emit_comment_from_payload,
     log_artifact_comment_status,
 )
 from rouge.core.prompts import PromptId
@@ -18,7 +16,7 @@ from rouge.core.workflow.repo_filter import get_affected_repos
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import sanitize_for_logging
+from rouge.core.workflow.step_utils import emit_and_log, sanitize_for_logging
 from rouge.core.workflow.types import StepResult
 
 # Required fields for pull request output JSON
@@ -111,22 +109,15 @@ class ComposeRequestStep(WorkflowStep):
             logger.debug("PR preparation LLM response: %s", sanitize_for_logging(response.output))
 
             # Emit raw LLM response for debugging visibility
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text="PR preparation LLM response received",
-                raw={
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                "PR preparation LLM response received",
+                {
                     "output": "pr-preparation-response",
                     "llm_response": response.output[:500] if response.output else "",
                 },
-                source="system",
-                kind="workflow",
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
 
             if not response.success:
                 logger.warning("Pull request preparation failed: %s", response.output)
@@ -152,19 +143,12 @@ class ComposeRequestStep(WorkflowStep):
                 self._store_pr_details(parse_result.data, context)
 
             # Insert progress comment - best-effort, non-blocking
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text="Pull request prepared.",
-                raw={"text": "Pull request prepared.", "result": parse_result.data},
-                source="system",
-                kind="workflow",
+            emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                "Pull request prepared.",
+                {"text": "Pull request prepared.", "result": parse_result.data},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
 
             # Finalize workflow
             self._finalize_workflow(context)
@@ -183,24 +167,16 @@ class ComposeRequestStep(WorkflowStep):
         Args:
             context: Workflow context
         """
-        logger = get_logger(context.adw_id)
         # Update status to "completed" - best-effort, non-blocking
         update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
 
         # Insert progress comment - best-effort, non-blocking
-        payload = CommentPayload(
-            issue_id=context.require_issue_id,
-            adw_id=context.adw_id,
-            text="Solution implemented successfully",
-            raw={"text": "Solution implemented successfully."},
-            source="system",
-            kind="workflow",
+        emit_and_log(
+            context.require_issue_id,
+            context.adw_id,
+            "Solution implemented successfully",
+            {"text": "Solution implemented successfully."},
         )
-        status, msg = emit_comment_from_payload(payload)
-        if status == "success":
-            logger.debug(msg)
-        else:
-            logger.error(msg)
 
     def _store_pr_details(self, pr_data: Dict[str, Any], context: WorkflowContext) -> None:
         """Store validated PR details in context for CreatePullRequestStep.

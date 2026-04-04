@@ -46,20 +46,25 @@ def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list
                     affected.append(rp)
             else:
                 # origin/HEAD is not configured (e.g., no remote or shallow clone).
-                # Fall back to a plain HEAD diff to detect uncommitted/staged changes.
+                # Fall back to counting total commits on HEAD — consistent with
+                # has_commits_ahead_of_base which uses the same approach.
+                # Unlike git diff --name-only HEAD, this detects committed changes too.
                 logger.info(
-                    "origin/HEAD unavailable for %s; falling back to git diff --name-only HEAD",
+                    "origin/HEAD unavailable for %s; falling back to git rev-list --count HEAD",
                     rp,
                 )
                 fallback_result = subprocess.run(
-                    ["git", "diff", "--name-only", "HEAD"],
+                    ["git", "rev-list", "--count", "HEAD"],
                     capture_output=True,
                     text=True,
                     timeout=30,
                     cwd=rp,
                 )
-                if fallback_result.returncode == 0 and fallback_result.stdout.strip():
-                    affected.append(rp)
+                try:
+                    if fallback_result.returncode == 0 and int(fallback_result.stdout.strip()) >= 1:
+                        affected.append(rp)
+                except ValueError:
+                    pass
         except (subprocess.TimeoutExpired, OSError) as e:
             logger.debug("Could not detect changes in %s: %s", rp, e)
     return affected

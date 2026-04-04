@@ -205,7 +205,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit, mock_get_
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation: rev-parse, pr list (empty), push, pr create."""
@@ -350,7 +350,7 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which) -> None:
@@ -394,7 +394,7 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which) -> None:
@@ -446,7 +446,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
@@ -526,7 +526,7 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
@@ -581,7 +581,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
@@ -637,7 +637,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation across two repos: subprocess invoked once per repo."""
@@ -727,7 +727,7 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-@patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
     """Test PR creation with both repos failing: subprocess invoked once per repo,
@@ -1297,7 +1297,7 @@ def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
 
 
 @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repos")
-@patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+@patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
 @patch("rouge.core.workflow.steps.compose_request_step.update_status")
 def test_prepare_pr_step_emits_raw_llm_response(

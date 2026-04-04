@@ -5,10 +5,8 @@ import os
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
-from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
-    emit_comment_from_payload,
     log_artifact_comment_status,
 )
 from rouge.core.prompts import PromptId
@@ -20,6 +18,7 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.repo_filter import detect_affected_repos
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import emit_and_log
 from rouge.core.workflow.types import ImplementData, RepoChangeEntry, StepResult
 
 # Required fields for implement output JSON
@@ -226,18 +225,11 @@ class ImplementStep(WorkflowStep):
         log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
-        payload = CommentPayload(
-            issue_id=context.require_issue_id,
-            adw_id=context.adw_id,
-            text="Implementation complete.",
-            raw={"text": "Implementation complete."},
-            source="system",
-            kind="workflow",
+        emit_and_log(
+            context.require_issue_id,
+            context.adw_id,
+            "Implementation complete.",
+            {"text": "Implementation complete."},
         )
-        status, msg = emit_comment_from_payload(payload)
-        if status == "success":
-            logger.debug(msg)
-        else:
-            logger.error(msg)
 
         return StepResult.ok(None)

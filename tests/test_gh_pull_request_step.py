@@ -6,6 +6,7 @@ Focuses on:
 - Loading PR details from artifact when present
 """
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -76,7 +77,7 @@ class TestGhPullRequestStepOptionalDependency:
         read_calls: list[str] = []
         original_read = store.read_artifact
 
-        def tracking_read(artifact_type, model_class=None):
+        def tracking_read(artifact_type: str, model_class: Any = None) -> Any:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 

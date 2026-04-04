@@ -37,7 +37,7 @@ class TestComposeRequestOrderingOnlyDependency:
     """Tests that ComposeRequestStep does not read the acceptance artifact."""
 
     @patch("rouge.core.workflow.steps.compose_request_step.update_status")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
@@ -86,7 +86,7 @@ class TestComposeRequestOrderingOnlyDependency:
         assert "acceptance" not in read_calls
 
     @patch("rouge.core.workflow.steps.compose_request_step.update_status")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
@@ -134,7 +134,7 @@ class TestComposeRequestAffectedRepos:
     """Tests for ComposeRequestStep repo filtering behavior."""
 
     @patch("rouge.core.workflow.steps.compose_request_step.update_status")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
@@ -175,7 +175,7 @@ class TestComposeRequestAffectedRepos:
         assert call_args.args == ["/repo/x"]
 
     @patch("rouge.core.workflow.steps.compose_request_step.update_status")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     def test_writes_skip_artifact_when_no_affected_repos(
         self,
         mock_emit,

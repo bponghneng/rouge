@@ -45,7 +45,7 @@ def mock_load_required_artifact(mock_context) -> WorkflowContext:
 
 
 @pytest.fixture
-def sample_plan_data():
+def sample_plan_data() -> PlanData:
     """Create a sample PlanData."""
     return PlanData(
         plan="## Plan\n\n### Step 1\nImplement feature X",
@@ -55,7 +55,7 @@ def sample_plan_data():
 
 
 @pytest.fixture
-def sample_implement_data():
+def sample_implement_data() -> ImplementData:
     """Create a sample ImplementData."""
     return ImplementData(
         output="Implementation completed successfully. Files modified: README.md",
@@ -67,7 +67,7 @@ class TestImplementStepRun:
     """Tests for ImplementStep.run method."""
 
     @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_success_with_plan(
         self,
@@ -108,7 +108,7 @@ class TestImplementStepRun:
         assert result.success is False
         assert "no plan available" in result.error
 
-    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_fails_when__implement_plan_fails(
         self,
@@ -132,7 +132,7 @@ class TestImplementStepRun:
         _mock_emit.assert_not_called()
 
     @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
     @patch.object(ImplementStep, "_implement_plan")
     def test_run_saves_artifact(
         self,
@@ -206,7 +206,7 @@ class TestImplementStepRerunBehavior:
 
         with patch.object(ImplementStep, "_implement_plan") as mock_impl:
             with patch(
-                "rouge.core.workflow.steps.implement_step.emit_comment_from_payload"
+                "rouge.core.workflow.step_utils.emit_comment_from_payload"
             ) as mock_e:
                 with patch(
                     "rouge.core.workflow.steps.implement_step.emit_artifact_comment"
