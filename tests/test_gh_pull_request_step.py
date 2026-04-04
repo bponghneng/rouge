@@ -136,3 +136,165 @@ class TestGhPullRequestStepWithArtifact:
 
         # Step should succeed (either skip due to missing gh or GITHUB_PAT)
         assert result.success is True
+
+
+class TestGhPullRequestStepDraftFlag:
+    """Tests verifying GhPullRequestStep adds --draft flag based on pipeline_type."""
+
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.os.environ", new_callable=dict)
+    def test_thin_pipeline_includes_draft_flag(
+        self,
+        mock_environ,
+        mock_run,
+        mock_which,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit,
+        store: ArtifactStore,
+    ) -> None:
+        """When pipeline_type is 'thin', gh pr create command includes --draft."""
+        mock_environ["GITHUB_PAT"] = "fake-token"
+        mock_environ["PATH"] = "/usr/bin"
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        # Write compose-request artifact so the step proceeds to PR creation
+        compose_artifact = ComposeRequestArtifact(
+            workflow_id="test-gh-pr",
+            title="Draft PR",
+            summary="Summary",
+            commits=[],
+        )
+        store.write_artifact(compose_artifact)
+
+        context = WorkflowContext(
+            adw_id="test-gh-pr",
+            issue_id=42,
+            artifact_store=store,
+            repo_paths=["/path/to/repo"],
+            pipeline_type="thin",
+        )
+
+        # Simulate subprocess calls: git rev-parse, gh pr list, git push, gh pr create
+        from unittest.mock import MagicMock
+
+        def run_side_effect(cmd, **kwargs):
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+                result.returncode = 0
+                result.stdout = "https://github.com/org/repo/pull/42"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = run_side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(context)
+
+        assert result.success is True
+
+        # Find the gh pr create call and verify --draft is present
+        gh_create_calls = [
+            call
+            for call in mock_run.call_args_list
+            if call[0][0][0] == "gh" and call[0][0][2] == "create"
+        ]
+        assert len(gh_create_calls) == 1
+        cmd_args = gh_create_calls[0][0][0]
+        assert "--draft" in cmd_args
+
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.os.environ", new_callable=dict)
+    def test_full_pipeline_omits_draft_flag(
+        self,
+        mock_environ,
+        mock_run,
+        mock_which,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit,
+        store: ArtifactStore,
+    ) -> None:
+        """When pipeline_type is 'full', gh pr create command does not include --draft."""
+        mock_environ["GITHUB_PAT"] = "fake-token"
+        mock_environ["PATH"] = "/usr/bin"
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        compose_artifact = ComposeRequestArtifact(
+            workflow_id="test-gh-pr",
+            title="Full PR",
+            summary="Summary",
+            commits=[],
+        )
+        store.write_artifact(compose_artifact)
+
+        context = WorkflowContext(
+            adw_id="test-gh-pr",
+            issue_id=42,
+            artifact_store=store,
+            repo_paths=["/path/to/repo"],
+            pipeline_type="full",
+        )
+
+        from unittest.mock import MagicMock
+
+        def run_side_effect(cmd, **kwargs):
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+                result.returncode = 0
+                result.stdout = "https://github.com/org/repo/pull/42"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = run_side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(context)
+
+        assert result.success is True
+
+        # Find the gh pr create call and verify --draft is NOT present
+        gh_create_calls = [
+            call
+            for call in mock_run.call_args_list
+            if call[0][0][0] == "gh" and call[0][0][2] == "create"
+        ]
+        assert len(gh_create_calls) == 1
+        cmd_args = gh_create_calls[0][0][0]
+        assert "--draft" not in cmd_args

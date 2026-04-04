@@ -233,6 +233,18 @@ def test_issue_type_validation() -> None:
         assert issue.type == issue_type
 
 
+def test_issue_type_thin_validates() -> None:
+    """Test that Issue accepts 'thin' type."""
+    issue = Issue(id=1, description="Test issue", type="thin")
+    assert issue.type == "thin"
+
+
+def test_issue_type_rejects_invalid() -> None:
+    """Test that Issue rejects an invalid type value."""
+    with pytest.raises(ValidationError):
+        Issue(id=1, description="Test issue", type="invalid")
+
+
 def test_issue_type_rejects_main() -> None:
     """Issue.type must reject the removed 'main' type."""
     with pytest.raises(ValidationError):

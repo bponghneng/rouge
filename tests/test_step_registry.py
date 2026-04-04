@@ -697,6 +697,16 @@ class TestGlobalRegistry:
         assert metadata.outputs == ["compose-commits"]
         assert metadata.is_critical is False
 
+    def test_thin_plan_step_registration(self):
+        """Test ThinPlanStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        metadata = registry.get_step_metadata_by_slug("thin-plan")
+        assert metadata is not None, "ThinPlanStep should be registered with slug 'thin-plan'"
+        assert metadata.dependencies == ["fetch-issue"]
+        assert metadata.outputs == ["plan"]
+        assert metadata.is_critical is True
+
     def test_validate_registry_passes(self):
         """Test that validate_registry passes with no issues."""
         registry = get_step_registry()
