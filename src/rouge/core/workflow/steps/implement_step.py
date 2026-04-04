@@ -178,7 +178,13 @@ class ImplementStep(WorkflowStep):
         repos_map: dict[str, list[str]] = {}
         for f_raw in implement_response.data.files_modified:
             f = os.path.normpath(f_raw)
-            # Skip paths that escape their directory via traversal
+            # Reject absolute paths — normpath resolves '..' so an LLM-supplied path
+            # like /repo/alpha/../../../etc/passwd becomes /etc/passwd (no '..' left).
+            # Rejecting absolute paths after normpath catches all such traversals.
+            if os.path.isabs(f):
+                logger.debug("Skipping absolute path: %s", f_raw)
+                continue
+            # Skip relative paths that still escape via traversal (e.g., ../foo)
             if ".." in f.split(os.sep):
                 logger.debug("Skipping path with traversal component: %s", f_raw)
                 continue
