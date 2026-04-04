@@ -12,13 +12,11 @@ from rouge.core.notifications.comments import (
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ComposeRequestArtifact,
-    FetchIssueArtifact,
     GlabPullRequestArtifact,
-    PlanArtifact,
     PullRequestEntry,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _emit_and_log, render_attachment_markdown
+from rouge.core.workflow.step_utils import _emit_and_log, load_and_render_attachment
 from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
@@ -121,28 +119,7 @@ class GlabPullRequestStep(WorkflowStep):
             lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
         )
 
-        # Load spec text from fetch-issue artifact
-        issue_data = context.load_optional_artifact(
-            "issue_data",
-            "fetch-issue",
-            FetchIssueArtifact,
-            lambda a: {"description": a.issue.description},
-        )
-
-        # Load plan from plan artifact
-        plan_data = context.load_optional_artifact(
-            "plan_data",
-            "plan",
-            PlanArtifact,
-            lambda a: {"plan": a.plan_data.plan, "summary": a.plan_data.summary},
-        )
-
-        # Render attachment (None if both missing)
-        attachment_md = render_attachment_markdown(
-            spec_text=issue_data["description"] if issue_data else None,
-            plan_text=plan_data["plan"] if plan_data else None,
-            plan_summary=plan_data["summary"] if plan_data else None,
-        )
+        attachment_md = load_and_render_attachment(context)
 
         if not pr_details:
             skip_msg = "MR creation skipped: no PR details in context"
