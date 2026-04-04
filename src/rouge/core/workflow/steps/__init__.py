@@ -16,6 +16,7 @@ from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.steps.implement_step import ImplementStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
 __all__ = [
     "FetchIssueStep",
@@ -30,4 +31,5 @@ __all__ = [
     "GitBranchStep",
     "GitCheckoutStep",
     "GlabPullRequestStep",
+    "ThinPlanStep",
 ]
