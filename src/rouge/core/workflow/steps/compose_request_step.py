@@ -14,6 +14,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
+from rouge.core.workflow.repo_filter import get_affected_repos
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
@@ -73,11 +74,26 @@ class ComposeRequestStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
 
+        # Filter repos to only those affected by implementation
+        affected_repos, _implement_data = get_affected_repos(context)
+
+        if not affected_repos:
+            logger.info("No repos affected by implementation; skipping PR preparation")
+            skip_artifact = ComposeRequestArtifact(
+                workflow_id=context.adw_id,
+                title="No changes",
+                summary="No repos were affected by implementation",
+                commits=[],
+            )
+            context.artifact_store.write_artifact(skip_artifact)
+            self._finalize_workflow(context)
+            return StepResult.ok(None)
+
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 prompt_id=PromptId.PULL_REQUEST,
-                args=context.repo_paths,
+                args=affected_repos,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
