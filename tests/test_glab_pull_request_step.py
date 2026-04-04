@@ -100,7 +100,7 @@ def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store for attachment tests."""
     return ArtifactStore(workflow_id="test-glab-pr", base_path=tmp_path)
 
