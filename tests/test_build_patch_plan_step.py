@@ -66,7 +66,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_artifact_comment")
-    @patch.object(PatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.build_plan_from_template")
     def test_loads_issue_from_fetch_patch_artifact(
         self,
         mock_build,
@@ -88,7 +88,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
         result = step.run(context_with_artifact)
 
         assert result.success is True
-        # Verify _build_plan was called with the issue from the artifact
+        # Verify build_plan_from_template was called with the issue from the artifact
         mock_build.assert_called_once_with(
             patch_issue,
             PromptId.PATCH_PLAN,
@@ -97,7 +97,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_artifact_comment")
-    @patch.object(PatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.build_plan_from_template")
     def test_succeeds_when_context_issue_is_none_but_artifact_present(
         self,
         mock_build,
@@ -130,7 +130,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_artifact_comment")
-    @patch.object(PatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.build_plan_from_template")
     def test_saves_plan_artifact_not_patch_plan_artifact(
         self,
         mock_build,
@@ -157,7 +157,7 @@ class TestBuildPatchPlanStepLoadsFromArtifact:
 
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.patch_plan_step.emit_artifact_comment")
-    @patch.object(PatchPlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.patch_plan_step.build_plan_from_template")
     def test_does_not_read_other_artifacts(
         self,
         mock_build,
