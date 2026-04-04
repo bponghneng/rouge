@@ -525,7 +525,8 @@ def test_create_pr_step_push_failure_continues_to_pr(
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: rev-parse, pr list (empty), delta check (2), push (failure → best-effort), pr create (success)
+    # Step calls: rev-parse, pr list (empty), delta check (2),
+    # push (failure → best-effort), pr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -579,7 +580,8 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     # Mock shutil.which to indicate gh CLI is available
     mock_which.return_value = "/usr/bin/gh"
 
-    # Step calls: rev-parse, pr list (empty), delta check (2), push (timeout → caught, best-effort), pr create
+    # Step calls: rev-parse, pr list (empty), delta check (2),
+    # push (timeout → caught, best-effort), pr create
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -627,7 +629,8 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     mock_which.return_value = "/usr/bin/gh"
     mock_emit.return_value = ("success", "Comment inserted")
 
-    # Two repos: each needs rev-parse, pr list (empty), delta check (2), push, pr create — 6 calls each = 12 total
+    # Two repos: each needs rev-parse, pr list (empty), delta check (2),
+    # push, pr create — 6 calls each = 12 total
     mock_rev_parse_a = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_pr_list_a = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check_a = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -976,7 +979,8 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
 
-    # Step calls: rev-parse, mr list (empty), delta check (2), push (success), glab mr create (failure)
+    # Step calls: rev-parse, mr list (empty), delta check (2),
+    # push (success), glab mr create (failure)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -1027,7 +1031,8 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     mock_logger = MagicMock()
     mock_get_logger.return_value = mock_logger
 
-    # Step calls: rev-parse, mr list (empty), delta check (2), push, glab mr create (timeout caught per-repo)
+    # Step calls: rev-parse, mr list (empty), delta check (2),
+    # push, glab mr create (timeout caught per-repo)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -1116,7 +1121,8 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: rev-parse, mr list (empty), delta check (2), push (failure → best-effort), glab mr create (success)
+    # Step calls: rev-parse, mr list (empty), delta check (2),
+    # push (failure → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")
@@ -1164,7 +1170,8 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
-    # Step calls: rev-parse, mr list (empty), delta check (2), push (timeout → best-effort), glab mr create (success)
+    # Step calls: rev-parse, mr list (empty), delta check (2),
+    # push (timeout → best-effort), glab mr create (success)
     mock_rev_parse = Mock(returncode=0, stdout="my-branch\n", stderr="")
     mock_mr_list = Mock(returncode=0, stdout="[]", stderr="")
     mock_base_check = Mock(returncode=0, stdout="origin/HEAD\n", stderr="")

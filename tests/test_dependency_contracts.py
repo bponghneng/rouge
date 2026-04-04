@@ -204,9 +204,8 @@ class TestOrderingOnlyDependencies:
                         select_chain.eq.return_value.execute.return_value = mock_db_response
                         update_chain = mock_db_client.table.return_value.update.return_value
                         update_chain.eq.return_value.execute.return_value = mock_db_response
-                        mock_db_client.table.return_value.insert.return_value.execute.return_value = (
-                            mock_db_response
-                        )
+                        insert_chain = mock_db_client.table.return_value.insert.return_value
+                        insert_chain.execute.return_value = mock_db_response
                         mock_client.return_value = mock_db_client
 
                         mock_response = Mock()
