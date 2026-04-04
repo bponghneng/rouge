@@ -499,7 +499,7 @@ class TestGetFullPipeline:
 
 
 class TestGetThinPipeline:
-    def test_thin_pipeline_structure_no_platform(self, monkeypatch):
+    def test_thin_pipeline_structure_no_platform(self, monkeypatch) -> None:
         """Test thin pipeline structure without platform set."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_thin_pipeline()
@@ -524,7 +524,7 @@ class TestGetThinPipeline:
         # Verify ImplementStep is configured with correct plan_step_name
         assert pipeline[3].plan_step_name == "Building thin implementation plan"
 
-    def test_thin_pipeline_no_code_quality_step(self, monkeypatch):
+    def test_thin_pipeline_no_code_quality_step(self, monkeypatch) -> None:
         """Verify thin pipeline does not include CodeQualityStep."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_thin_pipeline()
@@ -534,7 +534,7 @@ class TestGetThinPipeline:
                 step, CodeQualityStep
             ), "Thin pipeline should not include CodeQualityStep"
 
-    def test_thin_pipeline_structure_github(self, monkeypatch):
+    def test_thin_pipeline_structure_github(self, monkeypatch) -> None:
         """Test thin pipeline structure with GitHub platform."""
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         pipeline = get_thin_pipeline()
@@ -543,7 +543,7 @@ class TestGetThinPipeline:
         assert len(pipeline) == 6
         assert isinstance(pipeline[-1], GhPullRequestStep)
 
-    def test_thin_pipeline_structure_gitlab(self, monkeypatch):
+    def test_thin_pipeline_structure_gitlab(self, monkeypatch) -> None:
         """Test thin pipeline structure with GitLab platform."""
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
         pipeline = get_thin_pipeline()

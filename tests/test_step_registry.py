@@ -697,7 +697,7 @@ class TestGlobalRegistry:
         assert metadata.outputs == ["compose-commits"]
         assert metadata.is_critical is False
 
-    def test_thin_plan_step_registration(self):
+    def test_thin_plan_step_registration(self) -> None:
         """Test ThinPlanStep is registered with correct metadata."""
         registry = get_step_registry()
 
