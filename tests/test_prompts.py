@@ -71,6 +71,7 @@ class TestPromptId:
             "IMPLEMENT_PLAN",
             "PATCH_PLAN",
             "PULL_REQUEST",
+            "THIN_PLAN",
         }
         actual = {m.name for m in PromptId}
         assert actual == expected
@@ -95,8 +96,8 @@ class TestPromptId:
         assert PromptId.CODE_QUALITY.value == "code-quality"
 
     def test_count(self) -> None:
-        """Exactly 6 prompt IDs are declared."""
-        assert len(list(PromptId)) == 6
+        """Exactly 7 prompt IDs are declared."""
+        assert len(list(PromptId)) == 7
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,7 @@ from rouge.core.workflow.pipeline import (
     WorkflowRunner,
     get_full_pipeline,
     get_patch_pipeline,
+    get_thin_pipeline,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps import (
@@ -21,6 +22,7 @@ from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 from rouge.core.workflow.types import StepResult
 
 _WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
@@ -494,3 +496,58 @@ class TestGetFullPipeline:
             assert isinstance(
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+
+
+class TestGetThinPipeline:
+    def test_thin_pipeline_structure_no_platform(self, monkeypatch):
+        """Test thin pipeline structure without platform set."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_thin_pipeline()
+
+        # Check step count (should be 5 without PR step)
+        assert len(pipeline) == 5
+
+        # Verify order and types
+        expected_types = [
+            FetchIssueStep,
+            GitBranchStep,
+            ThinPlanStep,
+            ImplementStep,
+            ComposeRequestStep,
+        ]
+
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+
+        # Verify ImplementStep is configured with correct plan_step_name
+        assert pipeline[3].plan_step_name == "Building thin implementation plan"
+
+    def test_thin_pipeline_no_code_quality_step(self, monkeypatch):
+        """Verify thin pipeline does not include CodeQualityStep."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_thin_pipeline()
+
+        for step in pipeline:
+            assert not isinstance(
+                step, CodeQualityStep
+            ), "Thin pipeline should not include CodeQualityStep"
+
+    def test_thin_pipeline_structure_github(self, monkeypatch):
+        """Test thin pipeline structure with GitHub platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_thin_pipeline()
+
+        # Check step count (should be 6 with GitHub PR step)
+        assert len(pipeline) == 6
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+
+    def test_thin_pipeline_structure_gitlab(self, monkeypatch):
+        """Test thin pipeline structure with GitLab platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_thin_pipeline()
+
+        # Check step count (should be 6 with GitLab MR step)
+        assert len(pipeline) == 6
+        assert isinstance(pipeline[-1], GlabPullRequestStep)

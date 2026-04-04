@@ -186,6 +186,14 @@ class TestGetPipelineForType:
         assert len(pipeline) > 0
         assert all(isinstance(step, WorkflowStep) for step in pipeline)
 
+    def test_thin_returns_thin_pipeline(self) -> None:
+        """get_pipeline_for_type('thin') returns the thin pipeline."""
+        pipeline = get_pipeline_for_type("thin")
+
+        assert isinstance(pipeline, list)
+        assert len(pipeline) > 0
+        assert all(isinstance(step, WorkflowStep) for step in pipeline)
+
 
 # ---------------------------------------------------------------------------
 # TestCLIToRegistryFlow — integration tests for execute_adw_workflow routing
