@@ -52,11 +52,38 @@ def sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH) 
     return sanitized
 
 
+def resolve_base_ref(repo_path: str, logger: logging.Logger) -> Optional[str]:
+    """Resolve the remote default branch ref (origin/HEAD) for a repository.
+
+    Used by both ``has_commits_ahead_of_base`` and ``repo_filter.detect_affected_repos``
+    to share origin/HEAD resolution logic and keep fallback behaviour consistent.
+
+    Args:
+        repo_path: Absolute path to the git repository.
+        logger: Logger instance for debug output.
+
+    Returns:
+        The resolved ref string (e.g. a SHA or symbolic ref) when origin/HEAD is
+        available, or None when it is not configured (shallow clone, no remote, etc.).
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "origin/HEAD"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        cwd=repo_path,
+    )
+    if result.returncode == 0:
+        return result.stdout.strip()
+    logger.debug("origin/HEAD unavailable for %s", repo_path)
+    return None
+
+
 def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
     """Check whether the current branch has commits ahead of origin/HEAD.
 
-    Resolves the remote default branch ref via ``git rev-parse --verify origin/HEAD``
-    and counts commits with ``git rev-list --count``.  When origin/HEAD is unavailable
+    Resolves the remote default branch ref via ``resolve_base_ref`` and counts
+    commits with ``git rev-list --count``.  When origin/HEAD is unavailable
     (e.g., shallow clones or repos without a remote), falls back to counting total
     commits on HEAD — if there is at least one commit the branch is considered ahead.
 
@@ -72,15 +99,8 @@ def has_commits_ahead_of_base(repo_path: str, logger: logging.Logger) -> bool:
         False if it is even with the base or the check cannot be completed.
     """
     try:
-        base_branch_result = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", "origin/HEAD"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            cwd=repo_path,
-        )
-        if base_branch_result.returncode == 0:
-            base_ref = base_branch_result.stdout.strip()
+        base_ref = resolve_base_ref(repo_path, logger)
+        if base_ref is not None:
             ahead_result = subprocess.run(
                 ["git", "rev-list", "--count", f"{base_ref}..HEAD"],
                 capture_output=True,

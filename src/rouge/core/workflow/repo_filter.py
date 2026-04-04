@@ -6,19 +6,21 @@ from typing import Optional, Tuple
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ImplementArtifact
 from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.step_utils import resolve_base_ref
 from rouge.core.workflow.types import ImplementData
 
 
 def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list[str]:
     """Detect which repos have commits ahead of the remote default branch.
 
-    Uses ``git diff --name-only origin/HEAD..HEAD`` to find repos with committed
+    Uses ``git diff --name-only <base_ref>..HEAD`` to find repos with committed
     changes relative to the remote default branch.  When ``origin/HEAD`` is not
-    configured the command returns non-zero; in that case a fallback of
-    ``git diff --name-only HEAD`` is attempted and an INFO message is logged.
+    configured, ``resolve_base_ref`` returns None and a fallback of
+    ``git diff --name-only HEAD`` is attempted with an INFO log.
 
     See also: ``step_utils.has_commits_ahead_of_base`` which performs a similar
-    check for PR/MR creation gating.
+    check for PR/MR creation gating. Both share ``resolve_base_ref`` for consistent
+    origin/HEAD resolution.
 
     Args:
         repo_paths: List of repository root paths to check
@@ -31,15 +33,16 @@ def detect_affected_repos(repo_paths: list[str], adw_id: str = "detect") -> list
     affected = []
     for rp in repo_paths:
         try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", "origin/HEAD..HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=30,
-                cwd=rp,
-            )
-            if result.returncode == 0:
-                if result.stdout.strip():
+            base_ref = resolve_base_ref(rp, logger)
+            if base_ref is not None:
+                result = subprocess.run(
+                    ["git", "diff", "--name-only", f"{base_ref}..HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                    cwd=rp,
+                )
+                if result.returncode == 0 and result.stdout.strip():
                     affected.append(rp)
             else:
                 # origin/HEAD is not configured (e.g., no remote or shallow clone).
