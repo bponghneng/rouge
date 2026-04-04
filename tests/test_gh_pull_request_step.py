@@ -8,6 +8,7 @@ Focuses on:
 - Attachment comment posting, updating, and error handling
 """
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -48,7 +49,7 @@ def _gh_subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store."""
     return ArtifactStore(workflow_id="test-gh-pr", base_path=tmp_path)
 
