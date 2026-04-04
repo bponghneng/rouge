@@ -340,6 +340,45 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     return steps
 
 
+def get_thin_pipeline() -> List[WorkflowStep]:
+    """Create the thin workflow pipeline for straightforward issues.
+
+    Omits CodeQualityStep. Uses ThinPlanStep for lightweight planning.
+    PR/MR steps create draft PRs/MRs (controlled by pipeline_type in the step).
+
+    Pipeline sequence:
+    1. FetchIssueStep
+    2. GitBranchStep
+    3. ThinPlanStep
+    4. ImplementStep (plan_step_name="Building thin implementation plan")
+    5. ComposeRequestStep
+    6. GhPullRequestStep/GlabPullRequestStep (conditional, creates draft)
+    """
+    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
+    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
+
+    steps: List[WorkflowStep] = [
+        FetchIssueStep(),
+        GitBranchStep(),
+        ThinPlanStep(),
+        ImplementStep(plan_step_name="Building thin implementation plan"),
+        ComposeRequestStep(),
+    ]
+
+    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
+    if platform == "github":
+        steps.append(GhPullRequestStep())
+    elif platform == "gitlab":
+        steps.append(GlabPullRequestStep())
+
+    return steps
+
+
 def get_full_pipeline() -> List[WorkflowStep]:
     """Create the full workflow pipeline with Claude Code planning.
 

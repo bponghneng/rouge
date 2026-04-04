@@ -378,6 +378,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     )
     from rouge.core.workflow.steps.implement_step import ImplementStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+    from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
     # 0. GitBranchStep: requires fetch-issue, produces git-branch artifact
     registry.register(
@@ -502,6 +503,16 @@ def _register_default_steps(registry: StepRegistry) -> None:
         outputs=["plan"],
         is_critical=True,
         description="Build task-oriented implementation plan without classification",
+    )
+
+    # 16. ThinPlanStep: requires fetch-issue, produces plan
+    registry.register(
+        ThinPlanStep,
+        slug="thin-plan",
+        dependencies=["fetch-issue"],
+        outputs=["plan"],
+        is_critical=True,
+        description="Build a lightweight implementation plan with minimal agent interaction",
     )
 
 
