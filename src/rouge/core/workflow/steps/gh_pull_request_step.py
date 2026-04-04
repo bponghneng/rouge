@@ -15,11 +15,67 @@ from rouge.core.notifications.comments import (
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     ComposeRequestArtifact,
+    FetchIssueArtifact,
     GhPullRequestArtifact,
+    PlanArtifact,
     PullRequestEntry,
 )
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.steps.pr_attachment import render_attachment_markdown
 from rouge.core.workflow.types import StepResult
+
+_logger = get_logger(__name__)
+
+
+def _post_gh_attachment_comment(
+    repo_path: str,
+    pr_number: int,
+    body: str,
+    env: dict[str, str],
+) -> None:
+    """Post or update the Rouge review-context comment on a GitHub PR."""
+    marker = "<!-- rouge-review-context -->"
+    tagged_body = f"{marker}\n{body}"
+
+    # List existing comments and find one with our marker
+    list_cmd = [
+        "gh",
+        "pr",
+        "view",
+        str(pr_number),
+        "--json",
+        "comments",
+        "--jq",
+        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .id',
+    ]
+    result = subprocess.run(
+        list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+    )
+
+    existing_comment_id = (
+        result.stdout.strip().split("\n")[0]
+        if result.returncode == 0 and result.stdout.strip()
+        else None
+    )
+
+    if existing_comment_id:
+        update_cmd = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"/repos/{{owner}}/{{repo}}/issues/comments/{existing_comment_id}",
+            "-f",
+            f"body={tagged_body}",
+        ]
+        subprocess.run(
+            update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        _logger.info("Updated review-context comment on PR #%d", pr_number)
+    else:
+        cmd = ["gh", "pr", "comment", str(pr_number), "--body", tagged_body]
+        subprocess.run(cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30)
+        _logger.info("Posted review-context comment on PR #%d", pr_number)
 
 
 class GhPullRequestStep(WorkflowStep):
@@ -51,6 +107,29 @@ class GhPullRequestStep(WorkflowStep):
             "compose-request",
             ComposeRequestArtifact,
             lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
+        )
+
+        # Load spec text from fetch-issue artifact
+        issue_data = context.load_optional_artifact(
+            "issue_data",
+            "fetch-issue",
+            FetchIssueArtifact,
+            lambda a: {"description": a.issue.description},
+        )
+
+        # Load plan from plan artifact
+        plan_data = context.load_optional_artifact(
+            "plan_data",
+            "plan",
+            PlanArtifact,
+            lambda a: {"plan": a.plan_data.plan, "summary": a.plan_data.summary},
+        )
+
+        # Render attachment (None if both missing)
+        attachment_md = render_attachment_markdown(
+            spec_text=issue_data["description"] if issue_data else None,
+            plan_text=plan_data["plan"] if plan_data else None,
+            plan_summary=plan_data["summary"] if plan_data else None,
         )
 
         if not pr_details:
@@ -227,6 +306,23 @@ class GhPullRequestStep(WorkflowStep):
                                         "Saved gh-pull-request artifact after adopting PR for %s",
                                         repo_name,
                                     )
+                                    if attachment_md and entry.number:
+                                        try:
+                                            _post_gh_attachment_comment(
+                                                repo_path=repo_path,
+                                                pr_number=entry.number,
+                                                body=attachment_md,
+                                                env=env,
+                                            )
+                                        except (
+                                            subprocess.TimeoutExpired,
+                                            OSError,
+                                        ) as exc:
+                                            logger.warning(
+                                                "Failed to post attachment comment on PR #%d: %s",
+                                                entry.number,
+                                                exc,
+                                            )
                                     continue
                     except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
                         logger.debug("Could not check for existing PR in %s: %s", repo_path, e)
@@ -336,6 +432,21 @@ class GhPullRequestStep(WorkflowStep):
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved gh-pull-request artifact after creating PR for %s", repo_name)
+
+                if attachment_md and entry.number:
+                    try:
+                        _post_gh_attachment_comment(
+                            repo_path=repo_path,
+                            pr_number=entry.number,
+                            body=attachment_md,
+                            env=env,
+                        )
+                    except (subprocess.TimeoutExpired, OSError) as exc:
+                        logger.warning(
+                            "Failed to post attachment comment on PR #%d: %s",
+                            entry.number,
+                            exc,
+                        )
 
             # Emit artifact comment and progress comment after all repos are processed
             if pull_requests:
