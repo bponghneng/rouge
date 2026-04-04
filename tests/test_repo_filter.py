@@ -73,7 +73,7 @@ class TestGetAffectedRepos:
         assert data is not None
 
     def test_warns_on_unknown_repos(
-        self, base_context: WorkflowContext, store: ArtifactStore, caplog
+        self, base_context: WorkflowContext, store: ArtifactStore, caplog: pytest.LogCaptureFixture
     ) -> None:
         """Logs warning when affected_repos contains paths not in context.repo_paths."""
         implement_data = ImplementData(
