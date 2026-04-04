@@ -5,7 +5,7 @@ contains its own description and does not depend on any parent workflow
 artifacts (original issue or original plan).
 """
 
-from rouge.core.models import CommentPayload, Issue
+from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
     emit_comment_from_payload,
@@ -16,7 +16,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
 from rouge.core.workflow.plan_common import build_plan_from_template
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import PlanData, StepResult
+from rouge.core.workflow.types import StepResult
 
 
 class PatchPlanStep(WorkflowStep):
@@ -37,24 +37,6 @@ class PatchPlanStep(WorkflowStep):
     def is_critical(self) -> bool:
         """Patch planning is critical - workflow cannot proceed without it."""
         return True
-
-    def _build_plan(
-        self,
-        issue: Issue,
-        prompt_id: PromptId,
-        adw_id: str,
-    ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using the specified prompt.
-
-        Args:
-            issue: The Rouge issue to plan for
-            prompt_id: The planning prompt to use (e.g., PromptId.PATCH_PLAN)
-            adw_id: Workflow ID for tracking
-
-        Returns:
-            StepResult with PlanData containing output and optional session_id
-        """
-        return build_plan_from_template(issue, prompt_id, adw_id)
 
     def run(self, context: WorkflowContext) -> StepResult:
         """Build standalone plan for patch issue and store in context.
@@ -82,7 +64,7 @@ class PatchPlanStep(WorkflowStep):
             return StepResult.fail(f"Cannot build patch plan: {e}")
 
         # Build standalone plan from patch issue description
-        plan_response = self._build_plan(issue, PromptId.PATCH_PLAN, context.adw_id)
+        plan_response = build_plan_from_template(issue, PromptId.PATCH_PLAN, context.adw_id)
 
         if not plan_response.success:
             logger.error("Error building patch plan: %s", plan_response.error)
