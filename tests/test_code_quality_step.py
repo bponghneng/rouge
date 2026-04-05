@@ -1,13 +1,12 @@
-"""Tests for CodeQualityStep ordering-only dependency contract.
+"""Tests for CodeQualityStep optional dependency contract.
 
 Focuses on confirming that CodeQualityStep:
-- Does NOT read the implement artifact (ordering-only dependency)
-- Succeeds without any implement artifact being present
-- Only reads artifacts from its own execution (writes code-quality artifact)
+- Reads the implement artifact to get affected repo paths (optional dependency)
+- Succeeds without any implement artifact being present (falls back to all repos)
+- Skips when no affected repos are found
 """
 
 from pathlib import Path
-from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
@@ -33,14 +32,14 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
     )
 
 
-class TestCodeQualityOrderingOnlyDependency:
-    """Tests that CodeQualityStep does not read the implement artifact."""
+class TestCodeQualityOptionalDependency:
+    """Tests that CodeQualityStep reads the implement artifact as optional."""
 
     @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_quality_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-    def test_does_not_read_implement_artifact(
+    def test_reads_implement_artifact_for_affected_repos(
         self,
         mock_exec,
         _mock_log,
@@ -48,7 +47,7 @@ class TestCodeQualityOrderingOnlyDependency:
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
-        """CodeQualityStep never calls read_artifact('implement', ...)."""
+        """CodeQualityStep reads implement artifact to get affected repos."""
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
@@ -56,19 +55,14 @@ class TestCodeQualityOrderingOnlyDependency:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        read_calls: list[str] = []
-        original_read = base_context.artifact_store.read_artifact
+        step = CodeQualityStep()
+        result = step.run(base_context)
 
-        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            step = CodeQualityStep()
-            step.run(base_context)
-
-        # Assert implement artifact was never read
-        assert "implement" not in read_calls
+        # Step succeeds, and passes affected repos (falls back to all repos)
+        assert result.success is True
+        # Verify args were passed to the template request
+        call_args = mock_exec.call_args[0][0]
+        assert call_args.args == list(base_context.repo_paths)
 
     @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
@@ -94,6 +88,23 @@ class TestCodeQualityOrderingOnlyDependency:
         result = step.run(base_context)
 
         assert result.success is True
+
+    @patch("rouge.core.workflow.steps.code_quality_step.get_affected_repo_paths")
+    def test_skips_when_zero_affected_repos(
+        self,
+        mock_get_affected,
+        base_context: WorkflowContext,
+    ) -> None:
+        """CodeQualityStep skips gracefully when get_affected_repo_paths returns []."""
+        mock_get_affected.return_value = []
+
+        step = CodeQualityStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        # Verify a "skipped" artifact was written
+        artifact = base_context.artifact_store.read_artifact("code-quality")
+        assert artifact.output == "skipped"
 
     def test_is_not_critical(self) -> None:
         """CodeQualityStep is non-critical (best-effort)."""

@@ -22,6 +22,7 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.types import (
     ImplementData,
     PlanData,
+    RepoChangeDetail,
 )
 
 
@@ -67,6 +68,34 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "implement"
         assert artifact.implement_data.output == "Implementation output"
+
+    def test_implement_data_empty_affected_repos_backward_compat(self) -> None:
+        """ImplementData without affected_repos defaults to empty list (backward compat)."""
+        data = ImplementData(output="Some output")
+
+        assert data.affected_repos == []
+
+    def test_implement_data_with_populated_affected_repos(self) -> None:
+        """ImplementData accepts a populated affected_repos list."""
+        detail = RepoChangeDetail(
+            repo_path="/path/to/repo",
+            files_modified=["src/foo.py", "tests/test_foo.py"],
+            git_diff_stat="2 files changed, 10 insertions(+), 3 deletions(-)",
+        )
+        data = ImplementData(output="Done", affected_repos=[detail])
+
+        assert len(data.affected_repos) == 1
+        assert data.affected_repos[0].repo_path == "/path/to/repo"
+        assert data.affected_repos[0].files_modified == ["src/foo.py", "tests/test_foo.py"]
+        assert "2 files changed" in data.affected_repos[0].git_diff_stat
+
+    def test_repo_change_detail_field_defaults(self) -> None:
+        """RepoChangeDetail has sensible defaults for optional fields."""
+        detail = RepoChangeDetail(repo_path="/repo")
+
+        assert detail.repo_path == "/repo"
+        assert detail.files_modified == []
+        assert detail.git_diff_stat == ""
 
     def test_quality_check_artifact_creation(self) -> None:
         """Test CodeQualityArtifact can be created with valid data."""
@@ -380,6 +409,41 @@ class TestArtifactSerialization:
 
         assert len(restored.pull_requests) == 2
         assert restored.pull_requests[1].adopted is True
+
+    def test_implement_artifact_round_trip_with_affected_repos(self) -> None:
+        """ImplementArtifact with affected_repos survives JSON round-trip."""
+        details = [
+            RepoChangeDetail(
+                repo_path="/path/a",
+                files_modified=["a.py"],
+                git_diff_stat="1 file changed",
+            ),
+            RepoChangeDetail(repo_path="/path/b"),
+        ]
+        data = ImplementData(output="done", session_id="s1", affected_repos=details)
+        artifact = ImplementArtifact(workflow_id="adw-rt", implement_data=data)
+
+        json_str = artifact.model_dump_json()
+        restored = ImplementArtifact.model_validate_json(json_str)
+
+        assert restored.artifact_type == "implement"
+        assert restored.implement_data.output == "done"
+        assert restored.implement_data.session_id == "s1"
+        assert len(restored.implement_data.affected_repos) == 2
+        assert restored.implement_data.affected_repos[0].repo_path == "/path/a"
+        assert restored.implement_data.affected_repos[0].files_modified == ["a.py"]
+        assert restored.implement_data.affected_repos[1].repo_path == "/path/b"
+        assert restored.implement_data.affected_repos[1].files_modified == []
+
+    def test_implement_artifact_round_trip_empty_affected_repos(self) -> None:
+        """ImplementArtifact with no affected_repos survives JSON round-trip."""
+        data = ImplementData(output="legacy output")
+        artifact = ImplementArtifact(workflow_id="adw-rt", implement_data=data)
+
+        json_str = artifact.model_dump_json()
+        restored = ImplementArtifact.model_validate_json(json_str)
+
+        assert restored.implement_data.affected_repos == []
 
     def test_artifact_json_is_valid(self) -> None:
         """Test artifact JSON is valid and human-readable."""

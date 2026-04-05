@@ -28,7 +28,6 @@ from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.types import PlanData
 
-
 # ---------------------------------------------------------------------------
 # Fixtures and helpers for draft-flag tests
 # ---------------------------------------------------------------------------
@@ -246,6 +245,141 @@ _ATTACHMENT_PATCHES = [
 # ---------------------------------------------------------------------------
 # Test classes
 # ---------------------------------------------------------------------------
+
+
+class TestGlabPullRequestStepAffectedRepos:
+    """Tests for GlabPullRequestStep affected-repos filtering and branch-delta guard."""
+
+    @patch(f"{_STEP_MODULE}._emit_and_log")
+    @patch(f"{_STEP_MODULE}.emit_artifact_comment")
+    @patch(f"{_STEP_MODULE}.log_artifact_comment_status")
+    @patch(f"{_STEP_MODULE}.subprocess.run")
+    @patch(f"{_STEP_MODULE}.get_affected_repo_paths")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_only_affected_repos_are_iterated(
+        self,
+        mock_get_affected: MagicMock,
+        mock_run: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Only repos returned by get_affected_repo_paths are processed."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                title="Test MR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        # Context has two repos, but only one is affected
+        base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+        mock_get_affected.return_value = ["/path/to/repo-b"]
+        mock_run.side_effect = _subprocess_side_effect
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        # All subprocess calls should use repo-b, not repo-a
+        for call in mock_run.call_args_list:
+            cwd = call[1].get("cwd", "")
+            assert "repo-a" not in str(cwd)
+
+    @patch(f"{_STEP_MODULE}._emit_and_log")
+    @patch(f"{_STEP_MODULE}.get_affected_repo_paths")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_skips_when_zero_affected_repos(
+        self,
+        mock_get_affected: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Step returns success and writes empty artifact when no repos are affected."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                title="Test MR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_get_affected.return_value = []
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        artifact = store.read_artifact("glab-pull-request")
+        assert artifact.pull_requests == []
+
+    @patch(f"{_STEP_MODULE}._emit_and_log")
+    @patch(f"{_STEP_MODULE}.emit_artifact_comment")
+    @patch(f"{_STEP_MODULE}.log_artifact_comment_status")
+    @patch(f"{_STEP_MODULE}.subprocess.run")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_branch_delta_guard_prevents_empty_mr(
+        self,
+        mock_run: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """When branch has zero commits ahead of base, MR creation is skipped."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                title="Test MR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _delta_guard_side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and "rev-parse" in cmd:
+                if "--abbrev-ref" in cmd and "origin/HEAD" in cmd:
+                    result.returncode = 0
+                    result.stdout = "origin/main\n"
+                else:
+                    result.returncode = 0
+                    result.stdout = "feature-branch\n"
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and "rev-list" in cmd:
+                # Zero commits ahead
+                result.returncode = 0
+                result.stdout = "0\n"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _delta_guard_side_effect
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        # No glab mr create call should have been made
+        glab_create_calls = [
+            c
+            for c in mock_run.call_args_list
+            if len(c[0][0]) >= 3 and c[0][0][0] == "glab" and c[0][0][2] == "create"
+        ]
+        assert len(glab_create_calls) == 0
 
 
 class TestGlabPullRequestStepDraftFlag:

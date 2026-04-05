@@ -121,6 +121,22 @@ class TestOptionalDependencies:
         # No error should be set for graceful skip
         assert result.error is None or result.error == ""
 
+    def test_gh_pull_request_step_has_implement_as_optional(self) -> None:
+        """GhPullRequestStep declares implement as optional dependency."""
+        registry = get_step_registry()
+        metadata = registry.get_step_metadata("Creating GitHub pull request")
+        assert metadata is not None
+        assert "implement" in metadata.dependencies
+        assert metadata.dependency_kinds.get("implement") == "optional"
+
+    def test_glab_pull_request_step_has_implement_as_optional(self) -> None:
+        """GlabPullRequestStep declares implement as optional dependency."""
+        registry = get_step_registry()
+        metadata = registry.get_step_metadata("Creating GitLab merge request")
+        assert metadata is not None
+        assert "implement" in metadata.dependencies
+        assert metadata.dependency_kinds.get("implement") == "optional"
+
     @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_optional_dependency_returns_none_not_error(
         self, mock_emit, base_context: WorkflowContext
@@ -150,41 +166,16 @@ class TestOptionalDependencies:
 class TestOrderingOnlyDependencies:
     """Test that steps with ordering-only dependencies don't read artifacts."""
 
-    def test_code_quality_step_does_not_read_implement_artifact(
+    def test_code_quality_step_has_optional_implement_dependency(
         self, base_context: WorkflowContext
     ) -> None:
-        """CodeQualityStep has ordering-only implement dependency and doesn't read it."""
-        from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-
-        # Verify registry declares implement as ordering-only
+        """CodeQualityStep has optional implement dependency for affected repo paths."""
+        # Verify registry declares implement as optional
         registry = get_step_registry()
         metadata = registry.get_step_metadata("Running code quality checks")
         assert metadata is not None
         assert "implement" in metadata.dependencies
-        assert metadata.dependency_kinds.get("implement") == "ordering-only"
-
-        # Mock the artifact store's read_artifact to track calls
-        original_read = base_context.artifact_store.read_artifact
-        read_calls: list[str] = []
-
-        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            # Mock the agent execution to avoid actual code quality checks
-            with patch("rouge.core.workflow.steps.code_quality_step.execute_template") as mock_exec:
-                mock_response = Mock()
-                mock_response.success = True
-                # Include at least one tool to satisfy CodeQualityArtifact validation
-                mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
-                mock_exec.return_value = mock_response
-
-                step = CodeQualityStep()
-                step.run(base_context)
-
-        # Assert that read_artifact was NEVER called with "implement"
-        assert "implement" not in read_calls
+        assert metadata.dependency_kinds.get("implement") == "optional"
 
     def test_compose_request_step_does_not_read_acceptance_artifact(
         self, base_context: WorkflowContext
@@ -303,7 +294,10 @@ class TestRegistryCoverage:
         test_cases = [
             ("Implementing solution", ["plan"]),
             ("Running code quality checks", ["implement"]),
-            ("Creating GitHub pull request", ["compose-request", "fetch-issue", "plan"]),
+            (
+                "Creating GitHub pull request",
+                ["compose-request", "fetch-issue", "plan", "implement"],
+            ),
         ]
 
         for step_name, expected_deps in test_cases:
@@ -357,12 +351,19 @@ class TestDependencySemanticsIntegration:
                     "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run"
                 ) as mock_run:
                     mock_which.return_value = "/usr/bin/gh"
-                    # New step makes 4 calls per repo: rev-parse, gh pr list, git push, gh pr create
+                    # Step calls per repo: rev-parse (branch), gh pr list,
+                    # rev-parse (base branch), rev-list (delta), git push, gh pr create
                     mock_rev_parse = Mock(returncode=0, stdout="feature-branch\n", stderr="")
                     mock_pr_list = Mock(returncode=0, stdout="[]", stderr="")
+                    mock_base_branch = Mock(returncode=0, stdout="origin/main\n", stderr="")
+                    mock_delta = Mock(returncode=0, stdout="1\n", stderr="")
                     mock_push = Mock(returncode=0, stdout="", stderr="")
                     mock_pr = Mock(returncode=0, stdout="https://github.com/test/pr/1\n")
-                    mock_run.side_effect = [mock_rev_parse, mock_pr_list, mock_push, mock_pr]
+                    mock_run.side_effect = [
+                        mock_rev_parse, mock_pr_list,
+                        mock_base_branch, mock_delta,
+                        mock_push, mock_pr,
+                    ]
 
                     step = GhPullRequestStep()
                     result = step.run(base_context)
