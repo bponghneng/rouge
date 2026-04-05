@@ -106,6 +106,7 @@ class ImplementArtifact(Artifact):
         )
     )
 
+
 class ImplementDirectArtifact(Artifact):
     """Artifact containing direct implementation results.
 
