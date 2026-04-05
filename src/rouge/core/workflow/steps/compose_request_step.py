@@ -14,7 +14,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
-from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
+from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _sanitize_for_logging
@@ -74,10 +74,22 @@ class ComposeRequestStep(WorkflowStep):
         logger = get_logger(context.adw_id)
 
         try:
+            affected_repos = get_affected_repo_paths(context)
+            if not affected_repos:
+                logger.info("No affected repos — skipping compose request")
+                artifact = ComposeRequestArtifact(
+                    workflow_id=context.adw_id,
+                    title="No changes",
+                    summary="No changes to compose",
+                    commits=[],
+                )
+                context.artifact_store.write_artifact(artifact)
+                return StepResult.ok(None)
+
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 prompt_id=PromptId.PULL_REQUEST,
-                args=context.repo_paths,
+                args=affected_repos,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
