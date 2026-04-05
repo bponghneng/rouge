@@ -150,6 +150,94 @@ class GlabPullRequestStep(WorkflowStep):
 
         return None
 
+    def _try_adopt_existing(
+        self,
+        context: WorkflowContext,
+        repo_path: str,
+        branch_name: str,
+        pull_requests: list[PullRequestEntry],
+        env: dict[str, str],
+        attachment_md: str | None,
+    ) -> bool:
+        """Check for and adopt an existing GitLab MR for branch_name in repo_path.
+
+        Returns True if an existing MR was adopted (caller should skip Layer 3),
+        False otherwise.
+        """
+        logger = get_logger(context.adw_id)
+        repo_name = os.path.basename(os.path.normpath(repo_path))
+        list_cmd = [
+            "glab",
+            "mr",
+            "list",
+            "--source-branch",
+            branch_name,
+            "--output",
+            "json",
+        ]
+        logger.debug("Checking for existing MR: %s (cwd=%s)", " ".join(list_cmd), repo_path)
+        try:
+            list_result = subprocess.run(
+                list_cmd,
+                capture_output=True,
+                text=True,
+                env=env,
+                timeout=60,
+                cwd=repo_path,
+            )
+            if list_result.returncode == 0 and list_result.stdout.strip():
+                mr_list = json.loads(list_result.stdout.strip())
+                if mr_list:
+                    existing_mr = mr_list[0]
+                    mr_url = existing_mr.get("web_url", "")
+                    mr_number = existing_mr.get("iid")
+                    if mr_url:
+                        logger.info(
+                            "Adopting existing MR for repo %s: %s",
+                            repo_name,
+                            mr_url,
+                        )
+                        entry = PullRequestEntry(
+                            repo=repo_name,
+                            repo_path=repo_path,
+                            url=mr_url,
+                            number=mr_number,
+                            adopted=True,
+                        )
+                        pull_requests.append(entry)
+                        context.artifact_store.write_artifact(
+                            GlabPullRequestArtifact(
+                                workflow_id=context.adw_id,
+                                pull_requests=pull_requests,
+                                platform="gitlab",
+                            )
+                        )
+                        logger.debug(
+                            "Saved glab-pull-request artifact after adopting MR for %s",
+                            repo_name,
+                        )
+                        if attachment_md and entry.number:
+                            try:
+                                _post_glab_attachment_note(
+                                    repo_path=repo_path,
+                                    mr_number=entry.number,
+                                    body=attachment_md,
+                                    env=env,
+                                )
+                            except (
+                                subprocess.TimeoutExpired,
+                                OSError,
+                            ) as exc:
+                                logger.warning(
+                                    "Failed to post attachment note on MR !%d: %s",
+                                    entry.number,
+                                    exc,
+                                )
+                        return True
+        except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+            logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
+        return False
+
     def _process_repo(
         self,
         context: WorkflowContext,
@@ -159,13 +247,13 @@ class GlabPullRequestStep(WorkflowStep):
         pull_requests: list[PullRequestEntry],
         env: dict[str, str],
         attachment_md: str | None,
-        logger: logging.Logger,
     ) -> None:
         """Process a single repository for MR creation.
 
         Checks for existing MRs, pushes the branch, and creates a new MR.
         Mutates *pull_requests* in-place when an MR is adopted or created.
         """
+        logger = get_logger(context.adw_id)
         repo_name = os.path.basename(os.path.normpath(repo_path))
 
         # Layer 1: Already done check — skip if this repo_path is already recorded
@@ -193,77 +281,10 @@ class GlabPullRequestStep(WorkflowStep):
             branch_name = ""
 
         # Layer 2: Adopt existing remote MR if one already exists for this branch
-        if branch_name:
-            list_cmd = [
-                "glab",
-                "mr",
-                "list",
-                "--source-branch",
-                branch_name,
-                "--output",
-                "json",
-            ]
-            logger.debug("Checking for existing MR: %s (cwd=%s)", " ".join(list_cmd), repo_path)
-            try:
-                list_result = subprocess.run(
-                    list_cmd,
-                    capture_output=True,
-                    text=True,
-                    env=env,
-                    timeout=60,
-                    cwd=repo_path,
-                )
-                if list_result.returncode == 0 and list_result.stdout.strip():
-                    mr_list = json.loads(list_result.stdout.strip())
-                    if mr_list:
-                        existing_mr = mr_list[0]
-                        mr_url = existing_mr.get("web_url", "")
-                        mr_number = existing_mr.get("iid")
-                        if mr_url:
-                            logger.info(
-                                "Adopting existing MR for repo %s: %s",
-                                repo_name,
-                                mr_url,
-                            )
-                            entry = PullRequestEntry(
-                                repo=repo_name,
-                                repo_path=repo_path,
-                                url=mr_url,
-                                number=mr_number,
-                                adopted=True,
-                            )
-                            pull_requests.append(entry)
-                            context.artifact_store.write_artifact(
-                                GlabPullRequestArtifact(
-                                    workflow_id=context.adw_id,
-                                    pull_requests=pull_requests,
-                                    platform="gitlab",
-                                )
-                            )
-                            logger.debug(
-                                "Saved glab-pull-request artifact after adopting MR for %s",
-                                repo_name,
-                            )
-                            if attachment_md and entry.number:
-                                try:
-                                    _post_glab_attachment_note(
-                                        repo_path=repo_path,
-                                        mr_number=entry.number,
-                                        body=attachment_md,
-                                        env=env,
-                                    )
-                                except (
-                                    subprocess.TimeoutExpired,
-                                    OSError,
-                                ) as exc:
-                                    logger.warning(
-                                        "Failed to post attachment note on MR !%d: %s",
-                                        entry.number,
-                                        exc,
-                                    )
-                            return
-            except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
-                logger.debug("Could not check for existing MR in %s: %s", repo_path, e)
+        if branch_name and self._try_adopt_existing(
+            context, repo_path, branch_name, pull_requests, env, attachment_md
+        ):
+            return
 
         # Layer 3: Push + create new MR
         push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]
@@ -449,7 +470,7 @@ class GlabPullRequestStep(WorkflowStep):
 
             for repo_path in context.repo_paths:
                 self._process_repo(
-                    context, repo_path, title, summary, pull_requests, env, attachment_md, logger
+                    context, repo_path, title, summary, pull_requests, env, attachment_md
                 )
 
             # Emit artifact comment and progress comment after all repos are processed
