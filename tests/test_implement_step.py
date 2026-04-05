@@ -348,7 +348,6 @@ class TestImplementDirectStepRun:
         payload = mock_emit.call_args[0][0]
         assert payload.text == "Solution implemented successfully"
 
-
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.implement_direct_step.update_status")
@@ -399,10 +398,7 @@ class TestImplementDirectStepRun:
         assert result.success is False
         assert "no issue available" in result.error
 
-
-    def test_run_fails_when_issue_description_is_whitespace_only(
-        self, direct_mock_context
-    ) -> None:
+    def test_run_fails_when_issue_description_is_whitespace_only(self, direct_mock_context) -> None:
         """Test that whitespace-only issue descriptions are rejected."""
         issue_mock = Mock()
         issue_mock.description = "   \n\t  "
