@@ -1435,9 +1435,7 @@ def test_update_command_status_with_other_fields(mock_update_issue) -> None:
     )
     mock_update_issue.return_value = mock_issue
 
-    result = runner.invoke(
-        app, ["update", "123", "--status", "completed", "--title", "Done"]
-    )
+    result = runner.invoke(app, ["update", "123", "--status", "completed", "--title", "Done"])
     assert result.exit_code == 0
     assert "123" in result.output
     mock_update_issue.assert_called_once_with(123, status="completed", title="Done")

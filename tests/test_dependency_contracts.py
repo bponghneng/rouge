@@ -137,6 +137,16 @@ class TestOptionalDependencies:
         assert "implement" in metadata.dependencies
         assert metadata.dependency_kinds.get("implement") == "optional"
 
+    def test_code_quality_step_has_optional_implement_dependency(
+        self, base_context: WorkflowContext
+    ) -> None:
+        """CodeQualityStep has optional implement dependency for affected repo paths."""
+        registry = get_step_registry()
+        metadata = registry.get_step_metadata("Running code quality checks")
+        assert metadata is not None
+        assert "implement" in metadata.dependencies
+        assert metadata.dependency_kinds.get("implement") == "optional"
+
     @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
     def test_optional_dependency_returns_none_not_error(
         self, mock_emit, base_context: WorkflowContext
@@ -165,17 +175,6 @@ class TestOptionalDependencies:
 
 class TestOrderingOnlyDependencies:
     """Test that steps with ordering-only dependencies don't read artifacts."""
-
-    def test_code_quality_step_has_optional_implement_dependency(
-        self, base_context: WorkflowContext
-    ) -> None:
-        """CodeQualityStep has optional implement dependency for affected repo paths."""
-        # Verify registry declares implement as optional
-        registry = get_step_registry()
-        metadata = registry.get_step_metadata("Running code quality checks")
-        assert metadata is not None
-        assert "implement" in metadata.dependencies
-        assert metadata.dependency_kinds.get("implement") == "optional"
 
     def test_compose_request_step_does_not_read_acceptance_artifact(
         self, base_context: WorkflowContext

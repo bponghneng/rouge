@@ -238,10 +238,12 @@ class TestLoadAndRenderAttachment:
     def test_both_issue_and_plan_in_cache(self) -> None:
         """Both issue data dict and PlanData model produce full output."""
         plan = PlanData(plan="The plan body", summary="Short summary")
-        ctx = _make_context({
-            "issue_data": {"description": "The spec text"},
-            "plan_data": plan,
-        })
+        ctx = _make_context(
+            {
+                "issue_data": {"description": "The spec text"},
+                "plan_data": plan,
+            }
+        )
 
         result = load_and_render_attachment(ctx)
 
@@ -265,9 +267,7 @@ class TestLoadAndRenderAttachment:
 
         ctx = _make_context()
 
-        def _read_artifact(
-            artifact_type: str, artifact_class: type
-        ) -> FetchIssueArtifact:
+        def _read_artifact(artifact_type: str, artifact_class: type) -> FetchIssueArtifact:
             if artifact_type == "fetch-issue":
                 return fetch_artifact
             raise FileNotFoundError
