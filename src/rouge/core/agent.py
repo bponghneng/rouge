@@ -8,6 +8,7 @@ For new code, prefer importing from rouge.core.agents directly:
 """
 
 import logging
+from typing import Optional
 
 from rouge.core.agents import (
     AgentExecuteRequest,
@@ -119,6 +120,81 @@ def execute_template(
                 source="system",
                 kind="workflow",
                 adw_id=request.adw_id,
+            )
+            status, msg = emit_comment_from_payload(payload)
+            logger.debug(msg) if status == "success" else logger.error(msg)
+
+    return response
+
+
+def execute_prompt_raw(
+    prompt: str,
+    issue_id: int,
+    adw_id: str,
+    agent_name: str,
+    model: str = "opus",
+    json_schema: Optional[str] = None,
+    prompt_label: str = "raw-prompt",
+) -> ClaudeAgentPromptResponse:
+    """Execute a raw prompt string without the template registry.
+
+    Identical execution path to execute_template() but skips render_prompt().
+    Use when the full prompt is already known (e.g., direct workflow issues).
+    """
+    provider_options: dict[str, object] = {"dangerously_skip_permissions": True}
+    if json_schema:
+        provider_options["json_schema"] = json_schema
+
+    agent_request = AgentExecuteRequest(
+        prompt=prompt,
+        issue_id=issue_id,
+        adw_id=adw_id,
+        agent_name=agent_name,
+        prompt_label=prompt_label,
+        model=model,
+        provider_options=provider_options,
+    )
+
+    agent = get_agent("claude")
+    agent_response = agent.execute_prompt(agent_request)
+
+    response = ClaudeAgentPromptResponse(
+        output=agent_response.output,
+        success=agent_response.success,
+        session_id=agent_response.session_id,
+    )
+
+    if response.success and response.output:
+        raw_output = response.output.strip()
+        result = parse_and_validate_json(
+            raw_output,
+            AGENT_REQUIRED_FIELDS,
+            step_name=prompt_label,
+        )
+        if result.success:
+            payload = CommentPayload(
+                issue_id=issue_id,
+                text=f"Prompt {prompt_label} completed",
+                raw={"prompt_label": prompt_label, "result": result.data},
+                source="system",
+                kind="workflow",
+                adw_id=adw_id,
+            )
+            status, msg = emit_comment_from_payload(payload)
+            logger.debug(msg) if status == "success" else logger.error(msg)
+        else:
+            logger.error("Prompt output is not valid JSON: %s", result.error)
+            payload = CommentPayload(
+                issue_id=issue_id,
+                text=f"Prompt {prompt_label} returned non-JSON output",
+                raw={
+                    "prompt_label": prompt_label,
+                    "error": result.error,
+                    "output": raw_output[:500],
+                },
+                source="system",
+                kind="workflow",
+                adw_id=adw_id,
             )
             status, msg = emit_comment_from_payload(payload)
             logger.debug(msg) if status == "success" else logger.error(msg)
