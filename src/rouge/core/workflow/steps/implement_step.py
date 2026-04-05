@@ -52,10 +52,10 @@ IMPLEMENT_JSON_SCHEMA = """{
     }
   },
   "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
-}
+}"""
 # Note: "affected_repos" is intentionally omitted from "required" to maintain
 # backward compatibility with older agent outputs. When absent, downstream steps
-# fall back to context.repo_paths via get_affected_repo_paths()."""
+# fall back to context.repo_paths via get_affected_repo_paths().
 
 
 class ImplementStep(WorkflowStep):
