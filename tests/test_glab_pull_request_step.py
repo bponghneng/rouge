@@ -234,7 +234,7 @@ def _make_subprocess_side_effect(
 
 # Shared patch targets for attachment tests.
 _STEP_MODULE = "rouge.core.workflow.steps.glab_pull_request_step"
-_BASE_MODULE = "rouge.core.workflow.steps.pull_request_step_base"
+_BASE_MODULE = "rouge.core.workflow.pull_request_step_base"
 _ATTACHMENT_PATCHES = [
     f"{_BASE_MODULE}._emit_and_log",
     f"{_BASE_MODULE}.emit_artifact_comment",
@@ -386,11 +386,11 @@ class TestGlabPullRequestStepAffectedRepos:
 class TestGlabPullRequestStepDraftFlag:
     """Tests verifying GlabPullRequestStep adds --draft flag based on pipeline_type."""
 
-    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.os.environ", new_callable=dict)
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_thin_pipeline_includes_draft_flag(
         self,
         mock_environ,
@@ -414,11 +414,11 @@ class TestGlabPullRequestStepDraftFlag:
         cmd_args = _find_glab_create_cmd(mock_run)
         assert "--draft" in cmd_args
 
-    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.os.environ", new_callable=dict)
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_full_pipeline_omits_draft_flag(
         self,
         mock_environ,
@@ -442,11 +442,11 @@ class TestGlabPullRequestStepDraftFlag:
         cmd_args = _find_glab_create_cmd(mock_run)
         assert "--draft" not in cmd_args
 
-    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-    @patch("rouge.core.workflow.steps.pull_request_step_base.os.environ", new_callable=dict)
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_patch_pipeline_omits_draft_flag(
         self,
         mock_environ,

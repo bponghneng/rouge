@@ -221,7 +221,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                         )
                         pull_requests.append(entry)
                         context.artifact_store.write_artifact(
-                            self.artifact_class(
+                            self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
                                 workflow_id=context.adw_id,
                                 pull_requests=pull_requests,
                                 platform=self.platform,
@@ -433,7 +433,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         pull_requests.append(entry)
 
         # Write artifact after each repo so partial progress survives failures
-        artifact = self.artifact_class(
+        artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
             workflow_id=context.adw_id,
             pull_requests=pull_requests,
             platform=self.platform,
@@ -526,7 +526,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 # Seeded entries from a prior run are intentionally discarded here.
                 # When no repos are affected, there is nothing to publish and the
                 # artifact is written as an empty skip record.
-                artifact = self.artifact_class(
+                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
                     workflow_id=context.adw_id,
                     pull_requests=[],
                     platform=self.platform,
@@ -541,7 +541,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
             # Emit artifact comment and progress comment after all repos are processed
             if pull_requests:
-                artifact = self.artifact_class(
+                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
                     workflow_id=context.adw_id,
                     pull_requests=pull_requests,
                     platform=self.platform,
