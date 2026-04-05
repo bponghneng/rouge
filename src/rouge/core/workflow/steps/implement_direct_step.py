@@ -13,7 +13,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     FetchIssueArtifact,
-    ImplementDirectArtifact,
+    ImplementArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
 from rouge.core.workflow.status import update_status
@@ -152,7 +152,7 @@ class ImplementDirectStep(WorkflowStep):
         context.data["implement_data"] = implement_response.data
 
         # Save artifact
-        artifact = ImplementDirectArtifact(
+        artifact = ImplementArtifact(
             workflow_id=context.adw_id,
             implement_data=implement_response.data,
         )
