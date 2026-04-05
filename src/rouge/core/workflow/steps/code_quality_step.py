@@ -12,7 +12,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeQualityArtifact
-from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
+from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -66,10 +66,22 @@ class CodeQualityStep(WorkflowStep):
         logger = get_logger(context.adw_id)
 
         try:
+            affected_repos = get_affected_repo_paths(context)
+            if not affected_repos:
+                logger.info("No affected repos — skipping code quality")
+                artifact = CodeQualityArtifact(
+                    workflow_id=context.adw_id,
+                    output="skipped",
+                    tools=["none"],
+                    parsed_data={"skipped": True, "reason": "no affected repos"},
+                )
+                context.artifact_store.write_artifact(artifact)
+                return StepResult.ok(None)
+
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
                 prompt_id=PromptId.CODE_QUALITY,
-                args=[],
+                args=affected_repos,
                 adw_id=context.adw_id,
                 issue_id=context.issue_id,
                 model="sonnet",

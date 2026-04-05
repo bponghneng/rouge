@@ -11,6 +11,8 @@ Discover the available code quality tools in each repository present in the work
 
 ## Instructions
 
+If repository paths are provided as arguments, operate **only** on those repositories instead of discovering all `.git` directories. When no arguments are provided, fall back to discovering repositories as described below.
+
 ### 1. Discover Repositories and Their Tools
 
 Before running anything, survey the working environment:
