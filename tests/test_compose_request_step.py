@@ -5,6 +5,7 @@ Focuses on confirming that ComposeRequestStep:
 - Proceeds with its own agent-based logic without reading acceptance data
 """
 
+from pathlib import Path
 from typing import Any, Optional
 from unittest.mock import Mock, patch
 
@@ -16,7 +17,7 @@ from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
+def store(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store with no acceptance artifact."""
     return ArtifactStore(workflow_id="test-compose-request", base_path=tmp_path)
 
