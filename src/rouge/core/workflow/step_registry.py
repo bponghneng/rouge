@@ -527,22 +527,23 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Build a lightweight implementation plan with minimal agent interaction",
     )
 
-    # 17. ImplementDirectStep: requires fetch-issue, produces implement
+    # 17. ImplementDirectStep: ordered after git preparation, produces direct-only output
     registry.register(
         ImplementDirectStep,
         slug="implement-direct",
-        dependencies=["fetch-issue"],
-        outputs=["implement"],
+        dependencies=["git-branch", "fetch-issue"],
+        outputs=["implement:direct"],
         is_critical=True,
         description="Implement directly from the issue description without a plan",
+        dependency_kinds={"git-branch": "ordering-only"},
     )
 
-    # 18. GitPrepareStep: requires fetch-issue, produces git-branch
+    # 18. GitPrepareStep: requires fetch-issue, produces either git-branch or git-checkout
     registry.register(
         GitPrepareStep,
         slug="git-prepare",
         dependencies=["fetch-issue"],
-        outputs=["git-branch"],
+        outputs=["git-branch", "git-checkout"],
         is_critical=True,
         description="Branch-aware git workspace preparation (creates or checks out branch)",
     )

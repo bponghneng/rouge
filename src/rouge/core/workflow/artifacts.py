@@ -32,6 +32,7 @@ ArtifactType = Literal[
     "fetch-issue",
     "plan",
     "implement",
+    "implement:direct",
     "code-quality",
     "compose-request",
     "gh-pull-request",
