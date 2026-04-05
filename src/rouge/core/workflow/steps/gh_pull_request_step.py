@@ -359,19 +359,12 @@ class GhPullRequestStep(WorkflowStep):
                 result.returncode,
                 result.stderr,
             )
-            payload = CommentPayload(
-                issue_id=context.require_issue_id,
-                adw_id=context.adw_id,
-                text=error_msg,
-                raw={"output": "pull-request-failed", "error": error_msg},
-                source="system",
-                kind="workflow",
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                error_msg,
+                {"output": "pull-request-failed", "error": error_msg},
             )
-            status, msg = emit_comment_from_payload(payload)
-            if status == "success":
-                logger.debug(msg)
-            else:
-                logger.error(msg)
             # Continue to next repo; partial progress is already saved
             return
 
