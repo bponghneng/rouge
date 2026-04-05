@@ -189,8 +189,8 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation: rev-parse, pr list (empty), push, pr create."""
@@ -247,7 +247,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
 
 
 @patch.dict("os.environ", {}, clear=True)
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     """Test PR creation skipped when GITHUB_PAT is missing."""
 
@@ -268,7 +268,7 @@ def test_create_pr_step_missing_github_pat(mock_emit) -> None:
     assert result.success is True
 
 
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     """Test PR creation skipped when pr_details is missing."""
 
@@ -285,7 +285,7 @@ def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     assert result.success is True
 
 
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_empty_title(mock_emit) -> None:
     """Test PR creation skipped when title is empty."""
@@ -308,8 +308,8 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation is idempotent when gh pr list returns an existing PR (Layer 2 adopt)."""
@@ -347,8 +347,8 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation handles gh command failure."""
@@ -393,8 +393,8 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     """Test PR creation handles timeout on gh pr create (caught per-repo, best-effort)."""
@@ -439,7 +439,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     """Test PR creation handles gh CLI not found via proactive detection."""
@@ -467,8 +467,8 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_failure_continues_to_pr(
     mock_subprocess, mock_emit, mock_which
@@ -516,8 +516,8 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_push_timeout_continues_to_pr(
     mock_subprocess, mock_emit, mock_which
@@ -565,8 +565,8 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_which) -> None:
     """Test successful PR creation across two repos: subprocess invoked once per repo."""
@@ -643,8 +643,8 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
-@patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
     """Test PR creation with both repos failing: subprocess invoked once per repo,
@@ -731,7 +731,7 @@ def test_create_pr_step_name() -> None:
 # === GlabPullRequestStep Tests ===
 
 
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
@@ -797,7 +797,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
 
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
 def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when GITLAB_PAT is missing."""
 
@@ -829,7 +829,7 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) ->
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when pr_details is missing."""
 
@@ -855,7 +855,7 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) ->
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
     """Test MR creation skipped when title is empty."""
@@ -886,8 +886,8 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_command_failure(
     mock_subprocess, mock_get_logger, mock_emit
@@ -939,8 +939,8 @@ def test_create_gitlab_mr_step_glab_command_failure(
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit) -> None:
     """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
@@ -990,8 +990,8 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.get_logger")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.get_logger")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, mock_emit) -> None:
     """Test MR creation handles glab CLI not found (propagates to outer
@@ -1032,7 +1032,7 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, mock_emit) -> None:
     """Test MR creation continues even when git push fails."""
@@ -1080,7 +1080,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
-@patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+@patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, mock_emit) -> None:
     """Test MR creation continues even when git push times out."""

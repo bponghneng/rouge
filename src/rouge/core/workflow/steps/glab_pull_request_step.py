@@ -11,7 +11,7 @@ from rouge.core.workflow.artifacts import (
     GlabPullRequestArtifact,
     PullRequestArtifactBase,
 )
-from rouge.core.workflow.steps.pull_request_step_base import PullRequestStepBase
+from rouge.core.workflow.pull_request_step_base import PullRequestStepBase
 
 _logger = get_logger(__name__)
 
