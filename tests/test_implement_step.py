@@ -1,11 +1,12 @@
-"""Tests for ImplementStep workflow step."""
+"""Tests for ImplementPlanStep and ImplementDirectStep workflow steps."""
 
 from unittest.mock import Mock, patch
 
 import pytest
 
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext
-from rouge.core.workflow.steps.implement_step import ImplementStep
+from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
+from rouge.core.workflow.steps.implement_step import ImplementPlanStep
 from rouge.core.workflow.types import (
     ImplementData,
     PlanData,
@@ -62,12 +63,12 @@ def sample_implement_data() -> ImplementData:
     )
 
 
-class TestImplementStepRun:
-    """Tests for ImplementStep.run method."""
+class TestImplementPlanStepRun:
+    """Tests for ImplementPlanStep.run method."""
 
     @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
-    @patch.object(ImplementStep, "_implement_plan")
+    @patch.object(ImplementPlanStep, "_implement_plan")
     def test_run_success_with_plan(
         self,
         mock__implement_plan,
@@ -86,7 +87,7 @@ class TestImplementStepRun:
         mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(mock_context)
 
         assert result.success is True
@@ -101,14 +102,14 @@ class TestImplementStepRun:
         mock_context = mock_load_required_artifact
         mock_context.data = {}
 
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(mock_context)
 
         assert result.success is False
         assert "no plan available" in result.error
 
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
-    @patch.object(ImplementStep, "_implement_plan")
+    @patch.object(ImplementPlanStep, "_implement_plan")
     def test_run_fails_when__implement_plan_fails(
         self,
         mock__implement_plan,
@@ -123,7 +124,7 @@ class TestImplementStepRun:
 
         mock__implement_plan.return_value = StepResult.fail("Implementation failed")
 
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(mock_context)
 
         assert result.success is False
@@ -132,7 +133,7 @@ class TestImplementStepRun:
 
     @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
-    @patch.object(ImplementStep, "_implement_plan")
+    @patch.object(ImplementPlanStep, "_implement_plan")
     def test_run_saves_artifact(
         self,
         mock__implement_plan,
@@ -151,7 +152,7 @@ class TestImplementStepRun:
         mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(mock_context)
 
         assert result.success is True
@@ -163,17 +164,17 @@ class TestImplementStepRun:
         assert saved_artifact.implement_data == sample_implement_data
 
 
-class TestImplementStepRerunBehavior:
-    """Tests for ImplementStep rerun behavior when plan is missing."""
+class TestImplementPlanStepRerunBehavior:
+    """Tests for ImplementPlanStep rerun behavior when plan is missing."""
 
     def test_rerun_from_building_implementation_plan_when_no_plan(
         self, mock_load_required_artifact
     ) -> None:
-        """Test ImplementStep requests rerun from default plan step when plan is missing."""
+        """Test ImplementPlanStep requests rerun from default plan step when plan is missing."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
 
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(mock_context)
 
         assert result.success is False
@@ -181,11 +182,11 @@ class TestImplementStepRerunBehavior:
         assert result.rerun_from == "Building implementation plan"
 
     def test_rerun_from_custom_plan_step_when_no_plan(self, mock_load_required_artifact) -> None:
-        """Test ImplementStep requests rerun from custom plan step name when plan is missing."""
+        """Test ImplementPlanStep requests rerun from custom plan step name when plan is missing."""
         mock_context = mock_load_required_artifact
         mock_context.data = {}
 
-        step = ImplementStep(plan_step_name="Building patch plan")
+        step = ImplementPlanStep(plan_step_name="Building patch plan")
         result = step.run(mock_context)
 
         assert result.success is False
@@ -198,12 +199,12 @@ class TestImplementStepRerunBehavior:
         sample_plan_data,
         sample_implement_data,
     ) -> None:
-        """Test that ImplementStep does not set rerun_from when plan is available."""
+        """Test that ImplementPlanStep does not set rerun_from when plan is available."""
         mock_context = mock_load_required_artifact
         mock_context.data = {"plan_data": sample_plan_data}
         mock_context.artifact_store.artifact_exists.return_value = False
 
-        with patch.object(ImplementStep, "_implement_plan") as mock_impl:
+        with patch.object(ImplementPlanStep, "_implement_plan") as mock_impl:
             with patch(
                 "rouge.core.workflow.steps.implement_step.emit_comment_from_payload"
             ) as mock_e:
@@ -214,22 +215,199 @@ class TestImplementStepRerunBehavior:
                     mock_e.return_value = ("success", "ok")
                     mock_emit_artifact.return_value = ("success", "ok")
 
-                    step = ImplementStep()
+                    step = ImplementPlanStep()
                     result = step.run(mock_context)
 
                     assert result.success is True
                     assert result.rerun_from is None
 
 
-class TestImplementStepProperties:
-    """Tests for ImplementStep properties."""
+class TestImplementPlanStepProperties:
+    """Tests for ImplementPlanStep properties."""
 
     def test_step_name(self) -> None:
-        """Test that ImplementStep has correct name."""
-        step = ImplementStep()
-        assert step.name == "Implementing solution"
+        """Test that ImplementPlanStep has correct name."""
+        step = ImplementPlanStep()
+        assert step.name == "Implementing plan-based solution"
 
     def test_step_is_critical(self) -> None:
-        """Test that ImplementStep is critical by default."""
-        step = ImplementStep()
+        """Test that ImplementPlanStep is critical by default."""
+        step = ImplementPlanStep()
         assert step.is_critical is True
+
+
+class TestImplementDirectStepProperties:
+    """Tests for ImplementDirectStep properties."""
+
+    def test_step_name(self) -> None:
+        """Test that ImplementDirectStep has correct name."""
+        step = ImplementDirectStep()
+        assert step.name == "Implementing direct solution"
+
+    def test_step_is_critical(self) -> None:
+        """Test that ImplementDirectStep is critical."""
+        step = ImplementDirectStep()
+        assert step.is_critical is True
+
+
+class TestImplementDirectStepRun:
+    """Tests for ImplementDirectStep.run method."""
+
+    @pytest.fixture
+    def direct_mock_context(self) -> WorkflowContext:
+        """Create a mock workflow context for direct implementation tests."""
+        context = Mock(spec=WorkflowContext)
+        context.issue_id = 10
+        context.require_issue_id = 10
+        context.adw_id = "test-adw-direct"
+        context.data = {}
+        context.artifact_store = Mock()
+        return context
+
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
+    @patch.object(ImplementDirectStep, "_implement_direct")
+    def test_run_success(
+        self,
+        mock_implement_direct,
+        mock_emit,
+        mock_emit_artifact,
+        direct_mock_context,
+    ) -> None:
+        """Test successful direct implementation."""
+        issue_mock = Mock()
+        issue_mock.description = "Implement feature X directly"
+        direct_mock_context.issue = issue_mock
+
+        sample_data = ImplementData(
+            output="Implementation completed successfully.",
+            session_id="direct-session-789",
+        )
+
+        def _load(context_key, _artifact_type, _artifact_class, extract_fn):
+            return issue_mock
+
+        direct_mock_context.load_required_artifact = _load
+
+        mock_implement_direct.return_value = StepResult.ok(sample_data)
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit.return_value = ("success", "Comment inserted")
+
+        step = ImplementDirectStep()
+        result = step.run(direct_mock_context)
+
+        assert result.success is True
+        mock_implement_direct.assert_called_once_with(
+            issue_mock.description,
+            direct_mock_context.require_issue_id,
+            direct_mock_context.adw_id,
+        )
+
+    def test_run_fails_when_no_fetch_issue_artifact(self, direct_mock_context) -> None:
+        """Test that run fails when fetch-issue artifact is missing."""
+
+        def _load(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            raise StepInputError("Required artifact 'fetch-issue' not found")
+
+        direct_mock_context.load_required_artifact = _load
+
+        step = ImplementDirectStep()
+        result = step.run(direct_mock_context)
+
+        assert result.success is False
+        assert "no issue available" in result.error
+
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
+    @patch.object(ImplementDirectStep, "_implement_direct")
+    def test_run_fails_when_implement_direct_fails(
+        self,
+        mock_implement_direct,
+        _mock_emit,
+        _mock_emit_artifact,
+        direct_mock_context,
+    ) -> None:
+        """Test that run fails when _implement_direct fails."""
+        issue_mock = Mock()
+        issue_mock.description = "Implement feature X"
+
+        def _load(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            return issue_mock
+
+        direct_mock_context.load_required_artifact = _load
+
+        mock_implement_direct.return_value = StepResult.fail("Direct implementation failed")
+
+        step = ImplementDirectStep()
+        result = step.run(direct_mock_context)
+
+        assert result.success is False
+        assert (
+            "implementing solution" in result.error.lower()
+            or "Direct implementation failed" in result.error
+        )
+
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
+    @patch.object(ImplementDirectStep, "_implement_direct")
+    def test_run_fails_when_empty_output(
+        self,
+        mock_implement_direct,
+        _mock_emit,
+        _mock_emit_artifact,
+        direct_mock_context,
+    ) -> None:
+        """Test that run fails when _implement_direct returns None data."""
+        issue_mock = Mock()
+        issue_mock.description = "Implement feature X"
+
+        def _load(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            return issue_mock
+
+        direct_mock_context.load_required_artifact = _load
+
+        # success=True but data=None
+        mock_implement_direct.return_value = StepResult.ok(None)
+
+        step = ImplementDirectStep()
+        result = step.run(direct_mock_context)
+
+        assert result.success is False
+        assert "missing" in result.error.lower() or "Implementation data" in result.error
+
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
+    @patch.object(ImplementDirectStep, "_implement_direct")
+    def test_run_saves_artifact(
+        self,
+        mock_implement_direct,
+        mock_emit,
+        mock_emit_artifact,
+        direct_mock_context,
+    ) -> None:
+        """Test that implementation artifact is saved on success."""
+        issue_mock = Mock()
+        issue_mock.description = "Implement feature X directly"
+
+        def _load(_context_key, _artifact_type, _artifact_class, _extract_fn):
+            return issue_mock
+
+        direct_mock_context.load_required_artifact = _load
+
+        sample_data = ImplementData(
+            output="Implementation completed successfully.",
+            session_id="direct-session-789",
+        )
+        mock_implement_direct.return_value = StepResult.ok(sample_data)
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit.return_value = ("success", "Comment inserted")
+
+        step = ImplementDirectStep()
+        result = step.run(direct_mock_context)
+
+        assert result.success is True
+        direct_mock_context.artifact_store.write_artifact.assert_called_once()
+
+        saved_artifact = direct_mock_context.artifact_store.write_artifact.call_args[0][0]
+        assert saved_artifact.artifact_type == "implement"
+        assert saved_artifact.implement_data == sample_data

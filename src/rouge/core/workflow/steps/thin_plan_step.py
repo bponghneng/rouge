@@ -2,7 +2,7 @@
 
 Builds a lightweight implementation plan from the issue description using the
 thin-plan prompt template.  The resulting PlanArtifact is compatible with
-ImplementStep, so downstream steps work identically to other plan pipelines.
+ImplementPlanStep, so downstream steps work identically to other plan pipelines.
 """
 
 from rouge.core.models import CommentPayload
