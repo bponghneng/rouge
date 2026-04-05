@@ -821,8 +821,8 @@ class TestRegistryContractConstraints:
 
         Policy assertions:
         - gh-pull-request and glab-pull-request declare compose-request as optional
-        - code-quality declares implement as ordering-only
-        - compose-request declares implement as ordering-only
+        - code-quality declares implement as optional
+        - compose-request declares implement as optional
         """
         registry = get_step_registry()
 
@@ -840,16 +840,16 @@ class TestRegistryContractConstraints:
             glab_meta.dependency_kinds.get("compose-request") == "optional"
         ), "glab-pull-request must declare compose-request as optional"
 
-        # code-quality: implement is ordering-only
+        # code-quality: implement is optional (reads affected repos from implement artifact)
         cq_meta = registry.get_step_metadata_by_slug("code-quality")
         assert cq_meta is not None, "code-quality step must be registered"
         assert (
-            cq_meta.dependency_kinds.get("implement") == "ordering-only"
-        ), "code-quality must declare implement as ordering-only"
+            cq_meta.dependency_kinds.get("implement") == "optional"
+        ), "code-quality must declare implement as optional"
 
-        # compose-request: implement is ordering-only
+        # compose-request: implement is optional
         cr_meta = registry.get_step_metadata_by_slug("compose-request")
         assert cr_meta is not None, "compose-request step must be registered"
         assert (
-            cr_meta.dependency_kinds.get("implement") == "ordering-only"
-        ), "compose-request must declare implement as ordering-only"
+            cr_meta.dependency_kinds.get("implement") == "optional"
+        ), "compose-request must declare implement as optional"

@@ -1,8 +1,12 @@
 """Unit tests for rouge.core.workflow.shared helper functions."""
 
 import os
+from pathlib import Path
 
-from rouge.core.workflow.shared import get_repo_paths
+from rouge.core.workflow.artifacts import ArtifactStore, ImplementArtifact
+from rouge.core.workflow.shared import get_affected_repo_paths, get_repo_paths
+from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.types import ImplementData, RepoChangeDetail
 
 
 class TestGetRepoPaths:
@@ -87,3 +91,99 @@ class TestGetRepoPaths:
         result = get_repo_paths()
 
         assert result == ["/a", "/b", "/c"]
+
+
+def _make_context(tmp_path: Path, repo_paths: list[str]) -> WorkflowContext:
+    """Create a WorkflowContext with the given repo_paths."""
+    store = ArtifactStore(workflow_id="test-shared", base_path=tmp_path)
+    return WorkflowContext(
+        adw_id="test-shared",
+        issue_id=1,
+        artifact_store=store,
+        repo_paths=repo_paths,
+    )
+
+
+class TestGetAffectedRepoPaths:
+    """Tests for the get_affected_repo_paths() helper function."""
+
+    def test_returns_all_repo_paths_when_implement_artifact_missing(
+        self, tmp_path: Path
+    ) -> None:
+        """Falls back to full context.repo_paths when implement artifact is absent."""
+        context = _make_context(tmp_path, ["/repo/a", "/repo/b"])
+
+        result = get_affected_repo_paths(context)
+
+        assert result == ["/repo/a", "/repo/b"]
+
+    def test_returns_all_repo_paths_when_affected_repos_empty(
+        self, tmp_path: Path
+    ) -> None:
+        """Falls back to full context.repo_paths when affected_repos is empty list."""
+        context = _make_context(tmp_path, ["/repo/a", "/repo/b"])
+        # Write implement artifact with empty affected_repos
+        data = ImplementData(output="done", affected_repos=[])
+        context.artifact_store.write_artifact(
+            ImplementArtifact(workflow_id="test-shared", implement_data=data)
+        )
+
+        result = get_affected_repo_paths(context)
+
+        assert result == ["/repo/a", "/repo/b"]
+
+    def test_returns_filtered_subset_when_affected_repos_populated(
+        self, tmp_path: Path
+    ) -> None:
+        """Returns only repos that appear in both affected_repos and context.repo_paths."""
+        context = _make_context(tmp_path, ["/repo/a", "/repo/b", "/repo/c"])
+        data = ImplementData(
+            output="done",
+            affected_repos=[
+                RepoChangeDetail(repo_path="/repo/a"),
+                RepoChangeDetail(repo_path="/repo/c"),
+            ],
+        )
+        context.artifact_store.write_artifact(
+            ImplementArtifact(workflow_id="test-shared", implement_data=data)
+        )
+
+        result = get_affected_repo_paths(context)
+
+        assert result == ["/repo/a", "/repo/c"]
+
+    def test_preserves_original_repo_paths_ordering(self, tmp_path: Path) -> None:
+        """Filtered result preserves the order from context.repo_paths, not affected_repos."""
+        context = _make_context(tmp_path, ["/repo/z", "/repo/a", "/repo/m"])
+        data = ImplementData(
+            output="done",
+            affected_repos=[
+                RepoChangeDetail(repo_path="/repo/m"),
+                RepoChangeDetail(repo_path="/repo/z"),
+            ],
+        )
+        context.artifact_store.write_artifact(
+            ImplementArtifact(workflow_id="test-shared", implement_data=data)
+        )
+
+        result = get_affected_repo_paths(context)
+
+        assert result == ["/repo/z", "/repo/m"]
+
+    def test_ignores_affected_repos_not_in_context(self, tmp_path: Path) -> None:
+        """affected_repos entries not present in context.repo_paths are ignored."""
+        context = _make_context(tmp_path, ["/repo/a"])
+        data = ImplementData(
+            output="done",
+            affected_repos=[
+                RepoChangeDetail(repo_path="/repo/a"),
+                RepoChangeDetail(repo_path="/repo/unknown"),
+            ],
+        )
+        context.artifact_store.write_artifact(
+            ImplementArtifact(workflow_id="test-shared", implement_data=data)
+        )
+
+        result = get_affected_repo_paths(context)
+
+        assert result == ["/repo/a"]

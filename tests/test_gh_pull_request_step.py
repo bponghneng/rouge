@@ -281,6 +281,149 @@ class TestGhPullRequestStepDraftFlag:
         assert "--draft" not in cmd_args
 
 
+class TestGhPullRequestStepAffectedRepos:
+    """Tests for GhPullRequestStep affected-repos filtering and branch-delta guard."""
+
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.get_affected_repo_paths")
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_only_affected_repos_are_iterated(
+        self,
+        mock_get_affected: MagicMock,
+        mock_run: MagicMock,
+        mock_which: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Only repos returned by get_affected_repo_paths are processed."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                title="Test PR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        # Context has two repos, but only one is affected
+        base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+        mock_get_affected.return_value = ["/path/to/repo-b"]
+        mock_run.side_effect = _gh_subprocess_side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        # All subprocess calls should use repo-b, not repo-a
+        for call in mock_run.call_args_list:
+            cwd = call[1].get("cwd", "")
+            assert "repo-a" not in str(cwd)
+
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.get_affected_repo_paths")
+    def test_skips_when_zero_affected_repos(
+        self,
+        mock_get_affected: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Step returns success and writes empty artifact when no repos are affected."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                title="Test PR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_get_affected.return_value = []
+
+        with patch.dict("os.environ", {"GITHUB_PAT": "tok"}, clear=False):
+            with patch(
+                "rouge.core.workflow.steps.gh_pull_request_step.shutil.which"
+            ) as mock_which:
+                mock_which.return_value = "/usr/bin/gh"
+                step = GhPullRequestStep()
+                result = step.run(base_context)
+
+        assert result.success is True
+        artifact = store.read_artifact("gh-pull-request")
+        assert artifact.pull_requests == []
+
+    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_branch_delta_guard_prevents_empty_pr(
+        self,
+        mock_run: MagicMock,
+        mock_which: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """When branch has zero commits ahead of base, PR creation is skipped."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                title="Test PR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _delta_guard_side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and "rev-parse" in cmd:
+                if "--abbrev-ref" in cmd and "origin/HEAD" in cmd:
+                    result.returncode = 0
+                    result.stdout = "origin/main\n"
+                else:
+                    result.returncode = 0
+                    result.stdout = "feature-branch\n"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and "rev-list" in cmd:
+                # Zero commits ahead
+                result.returncode = 0
+                result.stdout = "0\n"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _delta_guard_side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        # No gh pr create call should have been made
+        gh_create_calls = [
+            c
+            for c in mock_run.call_args_list
+            if len(c[0][0]) >= 3 and c[0][0][0] == "gh" and c[0][0][2] == "create"
+        ]
+        assert len(gh_create_calls) == 0
+
+
 def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
     """Write fetch-issue and plan artifacts to the store for attachment tests."""
     issue = Issue(
