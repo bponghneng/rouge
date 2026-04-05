@@ -158,7 +158,11 @@ class ImplementData(BaseModel):
     Attributes:
         output: The implementation output text
         session_id: Optional session ID for continuation
-        affected_repos: Per-repository change details from implementation
+        affected_repos: Per-repository change details from implementation.
+            Per-repo files and diff stats are accessed by iterating this list.
+            A top-level ``files_by_repo`` mapping and flattened ``files_modified``
+            aggregate are intentionally omitted; no current consumer needs them,
+            and they can be derived from ``affected_repos`` if needed later.
     """
 
     output: str

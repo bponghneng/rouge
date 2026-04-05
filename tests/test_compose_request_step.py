@@ -134,8 +134,7 @@ class TestComposeRequestAffectedRepos:
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", '
-            '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")

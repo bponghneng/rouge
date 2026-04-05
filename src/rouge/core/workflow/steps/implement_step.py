@@ -1,5 +1,7 @@
 """Implementation step."""
 
+from pydantic import ValidationError
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -50,7 +52,10 @@ IMPLEMENT_JSON_SCHEMA = """{
     }
   },
   "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
-}"""
+}
+# Note: "affected_repos" is intentionally omitted from "required" to maintain
+# backward compatibility with older agent outputs. When absent, downstream steps
+# fall back to context.repo_paths via get_affected_repo_paths()."""
 
 
 class ImplementStep(WorkflowStep):
@@ -120,7 +125,13 @@ class ImplementStep(WorkflowStep):
             return StepResult.fail(parse_result.error or "JSON parsing failed")
 
         raw_repos = (parse_result.data or {}).get("affected_repos", [])
-        repo_details = [RepoChangeDetail(**r) for r in raw_repos] if raw_repos else []
+        try:
+            repo_details = [RepoChangeDetail(**r) for r in raw_repos] if raw_repos else []
+        except (ValidationError, TypeError):
+            logger.warning(
+                "Could not parse affected_repos from LLM output, continuing without repo details"
+            )
+            repo_details = []
 
         return StepResult.ok(
             ImplementData(
