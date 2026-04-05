@@ -1,6 +1,7 @@
 """Contract tests for workflow step dependency semantics.
 
-This module tests the three dependency kinds defined in ARTIFACT_POLICY.md:
+This module tests the three dependency kinds defined in the repository-root
+ARTIFACT_POLICY.md:
 1. Required dependencies: Step fails when artifact is missing
 2. Optional dependencies: Step skips gracefully when artifact is missing
 3. Ordering-only dependencies: Step doesn't read artifact at all

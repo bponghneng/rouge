@@ -1,276 +1,214 @@
-# Rouge Application Suite
+# Rouge
 
-## Overview
+Rouge is a Python workflow runner for software-development issues stored in
+Supabase. It gives you:
 
-The `rouge/` package is the installable bundle for Rouge's workflow automation
-stack. It combines Typer CLIs and the automated worker daemon on top of a shared
-`rouge.core` foundation (Supabase models, workflow orchestration, logging
-utilities). Use it to create issues, generate plans, launch Claude-based
-implementations, or run unattended workers against Supabase.
+- `rouge`: the main CLI for issue management, workflow execution, comments,
+  steps, and artifacts
+- `rouge-adw`: a single-issue workflow runner
+- `rouge-worker`: a queue worker that continuously polls for assigned work
 
-## Components
+Rouge's supported coding agent is **Claude Code**. Workflow planning,
+implementation, and code-quality/PR composition all run through Claude Code.
 
-- `rouge.cli` – Typer CLI (`uv run rouge`) with subcommands for creating issues,
-  launching workflows, and managing background processes.
-- `rouge.adw` – Lightweight CLI (`uv run rouge-adw`) that executes the Agent
-  Development Workflow (fetch → plan → implement) for a single issue.
-- `rouge.worker` – Long-running daemon (`uv run rouge-worker --worker-id …`) that
-  polls Supabase, atomically locks the next pending issue, and shells out to the
-  ADW CLI so multiple hosts can process the queue without collisions.
-- `rouge.core` – Shared Supabase client, pydantic models, workflow orchestration,
-  and logging utilities used by every entry point.
+## What Rouge does
 
-## Quick Start
+Rouge executes issue-driven workflows against one or more local repositories.
+The built-in workflow types are:
+
+- `full`: fetch issue, prepare a branch, build a plan, implement it, run code
+  quality, compose a PR/MR, and optionally create one
+- `thin`: a lighter workflow for straightforward work; skips code-quality and
+  creates a draft PR/MR when publishing is enabled
+- `patch`: check out an existing branch, build a patch plan, implement it, run
+  code quality, and push commits to an existing PR/MR
+
+Workflow state is persisted as typed artifacts under
+`<WORKING_DIR>/.rouge/workflows/<workflow-id>/`.
+
+## Install
 
 ```bash
 cd rouge
 uv sync
-
-# Show CLI help
 uv run rouge --help
+```
 
-# Create a new issue
-uv run rouge issue create "Fix authentication bug"
+## Required environment
 
-# Execute a workflow from the CLI
+Rouge loads a `.env` file from the current directory when available, otherwise
+from the parent directory, or directly from the shell environment.
+
+Required to talk to Supabase:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Required to execute Claude-driven workflow steps:
+
+- `ANTHROPIC_API_KEY`
+
+Required for workflows that create/reset local branches:
+
+- `ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true`
+
+That flag is intentionally explicit because the git setup step uses destructive
+operations such as `git reset --hard` and branch deletion. Run Rouge in a clean,
+disposable, or dedicated working tree.
+
+## Common optional environment
+
+- `WORKING_DIR`: base directory for runtime state; defaults to the current
+  directory
+- `REPO_PATH`: comma-separated repo roots; defaults to the current directory
+- `DEFAULT_GIT_BRANCH`: default branch used by git setup; defaults to `main`
+- `CLAUDE_CODE_PATH`: Claude Code CLI path; defaults to `claude`
+- `ROUGE_PROMPT_TIMEOUT`: timeout in seconds for a single Claude Code call;
+  defaults to `1800`
+- `ROUGE_WORKFLOW_TIMEOUT_SECONDS`: timeout in seconds for a workflow run;
+  defaults to `3600`
+- `DEV_SEC_OPS_PLATFORM`: set to `github` or `gitlab` to enable PR/MR creation
+- `GITHUB_PAT`: required for automatic GitHub PR creation; requires `gh`
+- `GITLAB_PAT`: required for automatic GitLab MR creation or patch updates;
+  requires `glab`
+
+## Quick start
+
+```bash
+# Create a full issue
+uv run rouge issue create "Fix the authentication bug in the login flow"
+
+# Run a full workflow
 uv run rouge workflow run 123
 
-# Run the headless ADW command
-uv run rouge-adw 123
+# Run a thin workflow
+uv run rouge workflow thin 123
 
-# Start a background worker
+# Run a patch workflow
+uv run rouge workflow patch 123
+
+# Run the single-issue ADW entrypoint directly
+uv run rouge-adw 123 --workflow-type full
+
+# Start a worker
 uv run rouge-worker --worker-id alleycat-1
 ```
 
-> **Note:** The worker shells out to `uv run rouge-adw`. All runtime data is stored
-> under `<WORKING_DIR>/.rouge/`, where `WORKING_DIR` defaults to the current
-> directory and can be overridden via the `WORKING_DIR` environment variable.
+## CLI surface
 
-## Breaking Changes - Command Restructure
+Main command groups:
 
-**If you're upgrading from a previous version**, the CLI commands have been reorganized into logical groups. Update your scripts and workflows as follows:
+- `rouge issue`: `create`, `read`, `list`, `update`, `delete`, `reset`
+- `rouge workflow`: `run`, `patch`, `thin`
+- `rouge comment`: `list`, `read`
+- `rouge step`: `list`, `run`, `deps`, `validate`
+- `rouge artifact`: `list`, `show`, `delete`, `types`, `path`
+- `rouge resume`: resume a failed workflow from its saved workflow state
 
-| Old Command | New Command | Notes |
-|-------------|-------------|-------|
-| `rouge new` | `rouge issue create` | Issue creation now under `issue` group |
-| `rouge run` | `rouge workflow run` | Workflow execution now under `workflow` group |
-| N/A | `rouge workflow patch` | New: Execute patch workflow |
-| `rouge step ...` | `rouge step ...` | No change - step commands unchanged |
-| `rouge artifact ...` | `rouge artifact ...` | No change - artifact commands unchanged |
+Use `uv run rouge <group> --help` for full arguments and options.
 
-**Additional issue commands** available under `rouge issue`:
-- `rouge issue create` - Create new issues
-- `rouge issue read` - Read issue details
-- `rouge issue list` - List all issues
-- `rouge issue update` - Update issue fields
-- `rouge issue delete` - Delete issues
+## Issues and workflows
 
-Run `rouge --help` or `rouge <group> --help` for complete command documentation.
+Issue types:
 
-## Environment & Configuration
+- `full`
+- `patch`
+- `thin`
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `SUPABASE_URL` | ✅ | Supabase project URL. |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key used by the CLI/worker. |
-| `ANTHROPIC_API_KEY` | ✅ for workflow execution | Allows the workflow to call Claude via the local CLI. |
-| `ROUGE_IMPLEMENT_PROVIDER` | optional | Provider for `/implement` step: `"claude"` (default) or `"opencode"`. |
-| `WORKING_DIR` | optional | Base directory for all runtime data under `.rouge/` (defaults to current directory). |
-| `OPENCODE_PATH` | optional | Path to OpenCode CLI (defaults to `"opencode"`). |
-| `OPENCODE_API_KEY` | optional | API key for OpenCode provider. |
-| `GITHUB_PAT` | optional | Personal access token for GitHub (repo scope). Required for automatic PR creation. Requires `gh` CLI. |
-| `GITLAB_PAT` | optional | Personal access token for GitLab (api scope). Required for automatic MR creation when `DEV_SEC_OPS_PLATFORM=gitlab`. Requires `glab` CLI. |
-| `DEV_SEC_OPS_PLATFORM` | optional | Platform for PR/MR creation: `"github"` or `"gitlab"`. If not set, PR/MR creation step is skipped. |
-| `ROUGE_PROMPT_TIMEOUT` | optional | Agent prompt execution timeout in seconds (default: 1800 = 30 minutes). Controls timeout for individual Claude Code CLI calls. |
-| `ROUGE_WORKFLOW_TIMEOUT_SECONDS` | optional | Workflow execution timeout in seconds (default: 3600). |
-| `CODERABBIT_TIMEOUT_SECONDS` | optional | Timeout for CodeRabbit review generation in seconds (default: 600). |
-
-Create a `.env` file in the directory where you are running the `rouge` commands from, or set the variables directly in your shell environment.
-
-### Provider Configuration
-
-Rouge supports multiple AI coding agent providers for the implementation step. By default, all workflow steps (planning and implementation) use Claude Code. You can configure a different provider for the implementation step using the `ROUGE_IMPLEMENT_PROVIDER` environment variable.
-
-**Default behavior (Claude for all steps):**
-```bash
-# No configuration needed - Claude is the default
-uv run rouge-adw 123
-```
-
-**Using OpenCode for implementation:**
-```bash
-# Install OpenCode CLI first
-npm install -g @opencode/cli
-
-# Configure environment
-export ROUGE_IMPLEMENT_PROVIDER=opencode
-export OPENCODE_API_KEY=your-opencode-api-key
-
-# Run workflow - planning uses Claude, implementation uses OpenCode
-uv run rouge-adw 123
-```
-
-**Provider selection priority:**
-1. `ROUGE_IMPLEMENT_PROVIDER` - Most specific, controls only the implementation step
-2. `ROUGE_AGENT_PROVIDER` - Fallback for general provider selection
-3. Default: `"claude"` if neither is set
-
-**Supported providers:**
-- `claude` - Claude Code CLI (default, requires `ANTHROPIC_API_KEY`)
-- `opencode` - OpenCode CLI (requires `OPENCODE_API_KEY`)
-
-## Worker Operation
-
-The `rouge-worker` daemon is designed to run in the background, processing issues from Supabase. It can be installed globally or run from the project directory.
-
-### Global Installation
-
-To install `rouge` and its CLI commands globally using `uv tool`, making `rouge-worker` available from any directory:
+Examples:
 
 ```bash
-cd rouge
-uv tool install .
-```
-*   **Note:** If you update the `rouge` package source, run `uv tool upgrade rouge` to apply the changes to your global installation.
-
-### Manual Run (Local or Global)
-
-You can run the worker directly. If installed globally, omit `uv run`.
-
-**From project directory (development):**
-```bash
-cd rouge
-uv run rouge-worker --worker-id alleycat-1 \
-  --poll-interval 10 \
-  --log-level INFO
-```
-
-**After global installation:**
-
-```bash
-rouge-worker --worker-id alleycat-1 \
-  --poll-interval 10 \
-  --log-level INFO
-```
-
-Required flag:
-
-- `--worker-id` – human-friendly identifier (e.g., `alleycat-1`, `tydirium-1`).
-
-Optional flags:
-
-- `--poll-interval` – seconds between Supabase polls (default `10`).
-- `--log-level` – `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` (default `INFO`).
-- `--workflow-timeout` – workflow execution timeout in seconds (default `3600`).
-
-## CLI Commands
-
-### Creating Issues
-
-Use `rouge issue create` to create issues with multiple input patterns:
-
-```bash
-# Description only (title auto-generated from description)
+# Description only; title is auto-generated
 uv run rouge issue create "Fix the login button styling on mobile"
 
-# Description with explicit title
-uv run rouge issue create "Fix the login button styling on mobile" --title "Mobile login button fix"
+# Explicit title
+uv run rouge issue create "Fix the login button styling on mobile" \
+  --title "Mobile login button fix"
 
-# From spec file with title
+# From a spec file
 uv run rouge issue create --spec-file spec.md --title "Implement feature X"
+
+# Patch issue targeting an existing branch
+uv run rouge issue create "Apply follow-up fixes" \
+  --type patch \
+  --branch feature/my-branch
 ```
 
-For full options, run `uv run rouge issue --help`.
+Patch issues can also inherit a branch from a parent issue via
+`--parent-issue-id`.
 
-### Running Workflows
+## Artifacts and step inspection
 
-Workflows can be executed directly using:
-- `rouge workflow run <issue-id>` - Execute workflow synchronously in foreground
-- `rouge workflow patch <issue-id>` - Execute patch workflow
+Rouge persists step outputs to typed artifacts so workflows can be inspected,
+resumed, and rerun step-by-step.
 
-For asynchronous workflow processing, use the worker daemon (see Worker Features below).
-
-## Artifact-Based Workflow
-
-Rouge supports typed workflow artifacts that persist step inputs/outputs to disk.
-Artifacts are stored under `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`, where
-`WORKING_DIR` defaults to the current directory.
-
-**Step Identification**: All step commands use **slugs** (stable, machine-friendly identifiers like `fetch-issue`, `claude-code-plan`, `implement`) rather than display names. Slugs remain constant across versions, while display names are for human readability in command output. Use `rouge step list` to see all available slugs.
-
-Artifact-focused commands:
-
-- `rouge step list` - List registered workflow steps with slugs and dependencies.
-- `rouge step run <step-slug> --issue-id <id> --adw-id <workflow-id>` - Run a single step using stored artifacts.
-- `rouge step deps <step-slug>` - Show dependency chain for a step.
-- `rouge step validate` - Validate step registry for missing producers or cycles.
-- `rouge artifact list <workflow-id>` - List artifacts for a workflow.
-- `rouge artifact show <workflow-id> <artifact-type>` - Display artifact JSON.
-- `rouge artifact delete <workflow-id> <artifact-type>` - Remove a stored artifact.
-- `rouge artifact types` - List available artifact types.
-- `rouge artifact path <workflow-id>` - Show the artifact directory path.
-
-**Examples**:
+Useful commands:
 
 ```bash
-# List all steps with their slugs
+# See step slugs and dependencies
 uv run rouge step list
 
-# Run a single step (no dependencies)
+# Show the dependency chain for a step
+uv run rouge step deps implement
+
+# Run a single dependency-free step
 uv run rouge step run fetch-issue --issue-id 123
 
-# Run a step with dependencies (requires --adw-id)
+# Run a step that depends on existing artifacts
 uv run rouge step run claude-code-plan --issue-id 123 --adw-id abc12345
 
-# Show what steps must run before implementation
-uv run rouge step deps implement
+# Inspect artifacts for a workflow
+uv run rouge artifact list abc12345
+uv run rouge artifact show abc12345 plan
 ```
 
-Single-step execution requires artifacts from a prior run (or manually created
-files in the workflow directory). Full workflow execution (`rouge workflow run`,
-`rouge-adw`, `rouge-worker`) always enables artifacts; use the step/artifact
-commands to inspect or modify artifacts after a run.
+Single-step execution with dependencies requires an existing workflow artifact
+directory.
 
-## Worker Features
+## Worker operation
 
-- Atomically locks the next pending issue via the `get_and_lock_next_issue` RPC function, which uses `FOR UPDATE SKIP LOCKED` to prevent race conditions when multiple workers poll simultaneously.
-- Spawns `uv run rouge-adw <issue-id> --adw-id <workflow-id>` with clear logging
-  so you can tail progress or read log files directly.
-- Supports multiple concurrent instances with unique `--worker-id` values.
-- Logs to `.rouge/logs/agents/{workflow_id}/adw_plan_build/execution.log` for
-  tracking workflow progress.
+`rouge-worker` polls Supabase for assigned pending issues, locks work
+atomically, and shells out to `rouge-adw`.
 
-## Database Requirements
+Common options:
 
-All executables expect the standard Supabase schema. The worker requires the
-`get_and_lock_next_issue` RPC function for atomic issue locking (see migration
-`008_restore_lock_rpc`):
+- `--worker-id`: required unique identifier
+- `--poll-interval`: seconds between polls; defaults to `10`
+- `--log-level`: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+- `--workflow-timeout`: workflow timeout override in seconds
 
-```sql
-get_and_lock_next_issue(p_worker_id worker_id)
-  RETURNS TABLE(issue_id INT, issue_description TEXT, issue_status TEXT, issue_type TEXT)
-```
-
-Uses `FOR UPDATE SKIP LOCKED` to prevent race conditions when multiple workers
-poll simultaneously. Only returns issues assigned to the specified worker.
-
-## Tests
+The worker also supports:
 
 ```bash
-cd rouge
+uv run rouge-worker reset alleycat-1
+```
+
+to reset a failed worker artifact back to `ready`.
+
+## Runtime layout
+
+Rouge stores runtime state under `<WORKING_DIR>/.rouge/`, including:
+
+- `workflows/<workflow-id>/`: workflow artifacts
+- `workers/<worker-id>/`: worker state artifacts
+- `agents/logs/<workflow-id>/`: saved prompts and agent logs
+
+## Development
+
+```bash
+uv run ruff check src/
+uv run mypy
 uv run pytest tests/ -v
 ```
 
-## Project Layout
+## Repository layout
 
+```text
+src/rouge/cli/      Main Typer CLI
+src/rouge/adw/      Single-issue workflow runner
+src/rouge/worker/   Queue worker and worker state handling
+src/rouge/core/     Shared models, database access, agents, and workflow logic
+tests/              Unit tests
 ```
-rouge/
-├── pyproject.toml        # unified build configuration
-├── src/rouge/            # Python packages (core, cli, adw, worker)
-└── tests/                # consolidated unit tests
-```
 
-See [src/rouge/core/workflow/ARTIFACT_POLICY.md](src/rouge/core/workflow/ARTIFACT_POLICY.md) for artifact dependency policy.
-
-For the broader methodology, specs, and AI-agent prompts, see the workspace
-README (`../README.md`).
+See `ARTIFACT_POLICY.md` for artifact-system rules.
