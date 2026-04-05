@@ -72,7 +72,7 @@ class CodeQualityStep(WorkflowStep):
                 artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
                     output="skipped",
-                    tools=["none"],
+                    tools=[],
                     parsed_data={"skipped": True, "reason": "no affected repos"},
                 )
                 context.artifact_store.write_artifact(artifact)

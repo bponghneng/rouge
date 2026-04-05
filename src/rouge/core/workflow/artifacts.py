@@ -118,7 +118,8 @@ class CodeQualityArtifact(Artifact):
     artifact_type: Literal["code-quality"] = "code-quality"
     output: str = Field(description="Raw output text from code quality tools", min_length=1)
     tools: List[str] = Field(
-        description="List of quality tool names that were executed", min_length=1
+        default_factory=list,
+        description="List of quality tool names that were executed",
     )
     parsed_data: Optional[Dict[str, Any]] = Field(
         default=None, description="Structured JSON data parsed from tool output"
