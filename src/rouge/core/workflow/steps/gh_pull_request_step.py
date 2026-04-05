@@ -13,9 +13,9 @@ from rouge.core.workflow.artifacts import (
     GhPullRequestArtifact,
     PullRequestArtifactBase,
 )
+from rouge.core.workflow.pull_request_step_base import PullRequestStepBase
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.step_utils import _emit_and_log
-from rouge.core.workflow.steps.pull_request_step_base import PullRequestStepBase
 from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
@@ -138,6 +138,8 @@ class GhPullRequestStep(PullRequestStepBase):
 
     def _parse_create_output(self, stdout: str) -> tuple[str, int | None] | None:
         url = stdout.strip()
+        if not url:
+            return None
         number: int | None = None
         match = re.search(r".*/pull/(\d+)", url)
         if match:
