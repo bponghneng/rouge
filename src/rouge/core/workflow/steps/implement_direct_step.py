@@ -19,8 +19,8 @@ from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
 from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.implement_step import (
-    IMPLEMENT_JSON_SCHEMA,
-    IMPLEMENT_REQUIRED_FIELDS,
+    IMPLEMENT_DIRECT_JSON_SCHEMA,
+    IMPLEMENT_DIRECT_REQUIRED_FIELDS,
 )
 from rouge.core.workflow.types import ImplementData, RepoChangeDetail, StepResult
 
@@ -58,7 +58,7 @@ class ImplementDirectStep(WorkflowStep):
             adw_id=adw_id,
             agent_name=AGENT_PLAN_IMPLEMENTOR,
             model="opus",
-            json_schema=IMPLEMENT_JSON_SCHEMA,
+            json_schema=IMPLEMENT_DIRECT_JSON_SCHEMA,
             prompt_label="implement-direct",
         )
 
@@ -76,7 +76,7 @@ class ImplementDirectStep(WorkflowStep):
             return StepResult.fail("Implement-direct step returned empty output")
 
         parse_result = parse_and_validate_json(
-            response.output, IMPLEMENT_REQUIRED_FIELDS, step_name="implement-direct"
+            response.output, IMPLEMENT_DIRECT_REQUIRED_FIELDS, step_name="implement-direct"
         )
         if not parse_result.success:
             return StepResult.fail(parse_result.error or "JSON parsing failed")
@@ -125,7 +125,7 @@ class ImplementDirectStep(WorkflowStep):
                 rerun_from="Fetching issue",
             )
 
-        if issue is None or not issue.description:
+        if issue is None or not issue.description or not issue.description.strip():
             logger.error("Cannot implement: issue has no description")
             return StepResult.fail(
                 "Cannot implement: issue has no description",
@@ -168,7 +168,16 @@ class ImplementDirectStep(WorkflowStep):
 
     def _finalize_workflow(self, context: WorkflowContext) -> None:
         logger = get_logger(context.adw_id)
-        update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
+        try:
+            update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
+        except Exception as exc:
+            logger.error(
+                "Failed to persist workflow completion status for issue_id=%s adw_id=%s: %s. "
+                "The implementation completed successfully; retry workflow bookkeeping if needed.",
+                context.require_issue_id,
+                context.adw_id,
+                exc,
+            )
         payload = CommentPayload(
             issue_id=context.require_issue_id,
             adw_id=context.adw_id,

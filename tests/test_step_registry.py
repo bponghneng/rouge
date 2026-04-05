@@ -602,12 +602,7 @@ class TestGlobalRegistry:
         """Test default steps have correct dependencies configured."""
         registry = get_step_registry()
 
-        # ImplementPlanStep should depend on plan
-        implement_meta = None
-        for name in registry.list_all_steps():
-            if "Implementing" in name:
-                implement_meta = registry.get_step_metadata(name)
-                break
+        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
 
         assert implement_meta is not None
         assert "plan" in implement_meta.dependencies
@@ -635,16 +630,10 @@ class TestGlobalRegistry:
         """
         registry = get_step_registry()
 
-        # Find the implement step
-        implement_step_name = None
-        for name in registry.list_all_steps():
-            if "Implementing" in name:
-                implement_step_name = name
-                break
+        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
+        assert implement_meta is not None
 
-        assert implement_step_name is not None
-
-        deps = registry.resolve_dependencies(implement_step_name)
+        deps = registry.resolve_dependencies(implement_meta.step_class().name)
 
         # Should have at least a fetch step and a plan-building step
         assert len(deps) >= 2
@@ -727,8 +716,9 @@ class TestGlobalRegistry:
         assert (
             metadata is not None
         ), "ImplementDirectStep should be registered with slug 'implement-direct'"
-        assert metadata.dependencies == ["fetch-issue"]
-        assert metadata.outputs == ["implement"]
+        assert metadata.dependencies == ["git-branch", "fetch-issue"]
+        assert metadata.outputs == ["implement:direct"]
+        assert metadata.dependency_kinds == {"git-branch": "ordering-only"}
         assert metadata.is_critical is True
 
     def test_git_prepare_step_registration(self) -> None:
@@ -738,6 +728,7 @@ class TestGlobalRegistry:
         metadata = registry.get_step_metadata_by_slug("git-prepare")
         assert metadata is not None, "GitPrepareStep should be registered with slug 'git-prepare'"
         assert metadata.dependencies == ["fetch-issue"]
+        assert metadata.outputs == ["git-branch", "git-checkout"]
         assert metadata.is_critical is True
 
     def test_validate_registry_passes(self):
@@ -821,11 +812,7 @@ class TestRegistryContractConstraints:
         """
         registry = get_step_registry()
 
-        implement_meta = None
-        for name in registry.list_all_steps():
-            if "Implementing" in name:
-                implement_meta = registry.get_step_metadata(name)
-                break
+        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
 
         assert implement_meta is not None, "ImplementPlanStep must be registered"
         assert (

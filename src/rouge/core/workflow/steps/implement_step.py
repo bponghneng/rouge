@@ -58,6 +58,33 @@ IMPLEMENT_JSON_SCHEMA = """{
 # fall back to context.repo_paths via get_affected_repo_paths().
 
 
+IMPLEMENT_DIRECT_REQUIRED_FIELDS = IMPLEMENT_REQUIRED_FIELDS
+
+IMPLEMENT_DIRECT_JSON_SCHEMA = """{
+  "type": "object",
+  "properties": {
+    "files_modified": { "type": "array", "items": { "type": "string" } },
+    "git_diff_stat": { "type": "string" },
+    "output": { "type": "string", "enum": ["implement-direct"] },
+    "status": { "type": "string" },
+    "summary": { "type": "string" },
+    "affected_repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "repo_path": { "type": "string" },
+          "files_modified": { "type": "array", "items": { "type": "string" } },
+          "git_diff_stat": { "type": "string" }
+        },
+        "required": ["repo_path"]
+      }
+    }
+  },
+  "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
+}"""
+
+
 class ImplementPlanStep(WorkflowStep):
     """Execute plan-based implementation."""
 
