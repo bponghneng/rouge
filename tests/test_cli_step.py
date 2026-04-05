@@ -64,7 +64,7 @@ class TestStepDepsCommand:
 
     def test_step_deps_shows_dependency_chain(self):
         """Test step deps command shows dependency chain using slug."""
-        result = runner.invoke(app, ["step", "deps", "implement"])
+        result = runner.invoke(app, ["step", "deps", "implement-plan"])
         assert result.exit_code == 0
         assert "Dependency chain" in result.output
 
@@ -144,7 +144,7 @@ class TestStepRunCommand:
         """Test that steps with dependencies require --adw-id using slug."""
         result = runner.invoke(
             app,
-            ["step", "run", "implement", "--issue-id", "1"],
+            ["step", "run", "implement-plan", "--issue-id", "1"],
         )
         assert result.exit_code == 1
         assert "requires dependencies" in result.output
@@ -230,7 +230,7 @@ class TestStepRunCommand:
     def test_step_run_slug_only_invocation_succeeds(self):
         """Test that slug-only invocation works for representative steps."""
         # Test multiple representative step slugs
-        test_slugs = ["fetch-issue", "claude-code-plan", "implement"]
+        test_slugs = ["fetch-issue", "claude-code-plan", "implement-plan"]
 
         for slug in test_slugs:
             result = runner.invoke(

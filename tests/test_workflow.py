@@ -101,8 +101,8 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
 # REMOVED: Tests for implement_plan function (moved to step class in
 # rouge.core.workflow.steps.implement)
 # This test tested a top-level function that no longer exists after refactoring.
-# The business logic is now in ImplementStep.run() method.
-# To test implementation logic, test ImplementStep directly instead.
+# The business logic is now in ImplementPlanStep.run() method.
+# To test implementation logic, test ImplementPlanStep directly instead.
 
 
 @patch("rouge.core.workflow.runner.get_full_pipeline")

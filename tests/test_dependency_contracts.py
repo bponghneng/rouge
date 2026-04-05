@@ -49,19 +49,19 @@ class TestRequiredDependencies:
     """Test that steps with required dependencies fail when artifact is missing."""
 
     def test_implement_step_fails_without_plan(self, base_context: WorkflowContext) -> None:
-        """ImplementStep requires plan artifact and fails without it."""
-        from rouge.core.workflow.steps.implement_step import ImplementStep
+        """ImplementPlanStep requires plan artifact and fails without it."""
+        from rouge.core.workflow.steps.implement_step import ImplementPlanStep
 
         # Verify registry declares plan as required
         registry = get_step_registry()
-        metadata = registry.get_step_metadata("Implementing solution")
+        metadata = registry.get_step_metadata("Implementing plan-based solution")
         assert metadata is not None
         assert "plan" in metadata.dependencies
         # Required dependency has no dependency_kinds entry
         assert "plan" not in metadata.dependency_kinds
 
         # Run step without plan artifact
-        step = ImplementStep()
+        step = ImplementPlanStep()
         result = step.run(base_context)
 
         # Must fail with clear error message
@@ -292,7 +292,7 @@ class TestRegistryCoverage:
 
         # Sample a few steps to demonstrate the pattern
         test_cases = [
-            ("Implementing solution", ["plan"]),
+            ("Implementing plan-based solution", ["plan"]),
             ("Running code quality checks", ["implement"]),
             (
                 "Creating GitHub pull request",

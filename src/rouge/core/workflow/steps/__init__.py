@@ -13,8 +13,10 @@ from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.steps.git_branch_step import GitBranchStep
 from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
+from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
-from rouge.core.workflow.steps.implement_step import ImplementStep
+from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
+from rouge.core.workflow.steps.implement_step import ImplementPlanStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
@@ -23,13 +25,15 @@ __all__ = [
     "FetchPatchStep",
     "ClaudeCodePlanStep",
     "PatchPlanStep",
-    "ImplementStep",
+    "ImplementDirectStep",
+    "ImplementPlanStep",
     "CodeQualityStep",
     "ComposeCommitsStep",
     "ComposeRequestStep",
     "GhPullRequestStep",
     "GitBranchStep",
     "GitCheckoutStep",
+    "GitPrepareStep",
     "GlabPullRequestStep",
     "ThinPlanStep",
 ]

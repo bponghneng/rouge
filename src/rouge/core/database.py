@@ -411,7 +411,7 @@ def create_issue(
             raise ValueError("Title cannot be empty/whitespace if provided")
 
         # Validate issue_type
-        valid_types = ("full", "patch", "thin")
+        valid_types = ("full", "patch", "thin", "direct")
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
@@ -523,7 +523,7 @@ def update_issue(
 
     # Validate and add issue_type to updates
     if not isinstance(issue_type, _Unset):
-        valid_types = ("full", "patch", "thin")
+        valid_types = ("full", "patch", "thin", "direct")
         if issue_type not in valid_types:
             raise ValueError(
                 f"Invalid issue_type '{issue_type}'. Must be one of: {', '.join(valid_types)}"
