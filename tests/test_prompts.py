@@ -68,7 +68,6 @@ class TestPromptId:
             "CLAUDE_CODE_PLAN",
             "CODE_QUALITY",
             "COMPOSE_COMMITS",
-            "IMPLEMENT_DIRECT",
             "IMPLEMENT_PLAN",
             "PATCH_PLAN",
             "PULL_REQUEST",
@@ -97,8 +96,8 @@ class TestPromptId:
         assert PromptId.CODE_QUALITY.value == "code-quality"
 
     def test_count(self) -> None:
-        """Exactly 8 prompt IDs are declared."""
-        assert len(list(PromptId)) == 8
+        """Exactly 7 prompt IDs are declared."""
+        assert len(list(PromptId)) == 7
 
 
 # ---------------------------------------------------------------------------
