@@ -16,6 +16,7 @@ from rouge.core.workflow.artifacts import (
     GlabPullRequestArtifact,
     PullRequestEntry,
 )
+from rouge.core.workflow.shared import get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _emit_and_log, load_and_render_attachment
 from rouge.core.workflow.types import StepResult
@@ -286,6 +287,37 @@ class GlabPullRequestStep(WorkflowStep):
         ):
             return
 
+        # Layer 2.5: Branch-delta guard — skip MR creation if no commits ahead of base
+        try:
+            base_branch_result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+                timeout=30,
+            )
+            base_branch = (
+                base_branch_result.stdout.strip().replace("origin/", "")
+                if base_branch_result.returncode == 0
+                else "main"
+            )
+            delta_result = subprocess.run(
+                ["git", "rev-list", "--count", f"HEAD...origin/{base_branch}"],
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+                timeout=30,
+            )
+            if delta_result.returncode == 0 and delta_result.stdout.strip() == "0":
+                logger.info("No commits ahead of base in %s — skipping MR creation", repo_path)
+                return
+        except (subprocess.TimeoutExpired, OSError) as e:
+            logger.debug(
+                "Branch-delta check failed for %s: %s, continuing with MR creation",
+                repo_path,
+                e,
+            )
+
         # Layer 3: Push + create new MR
         push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]
         logger.debug("Pushing current branch to origin in %s...", repo_path)
@@ -468,7 +500,18 @@ class GlabPullRequestStep(WorkflowStep):
                 except Exception as e:
                     logger.debug("Could not load existing glab-pull-request artifact: %s", e)
 
-            for repo_path in context.repo_paths:
+            affected_repos = get_affected_repo_paths(context)
+            if not affected_repos:
+                logger.info("No affected repos — skipping MR creation")
+                artifact = GlabPullRequestArtifact(
+                    workflow_id=context.adw_id,
+                    pull_requests=[],
+                    platform="gitlab",
+                )
+                context.artifact_store.write_artifact(artifact)
+                return StepResult.ok(None)
+
+            for repo_path in affected_repos:
                 self._process_repo(
                     context, repo_path, title, summary, pull_requests, env, attachment_md
                 )
