@@ -106,3 +106,23 @@ def thin(
         rouge workflow thin 123 --adw-id abc12345
     """
     _run_workflow(issue_id, adw_id, workflow_type="thin")
+
+
+@app.command()
+def direct(
+    issue_id: int,
+    adw_id: Optional[str] = typer.Option(
+        None, help="Workflow ID (auto-generated if not provided)", show_default=True
+    ),
+) -> None:
+    """Execute the direct workflow for a straightforward issue.
+
+    Args:
+        issue_id: The issue ID to process
+        adw_id: Optional workflow ID for tracking (auto-generated if not provided)
+
+    Example:
+        rouge workflow direct 123
+        rouge workflow direct 123 --adw-id abc12345
+    """
+    _run_workflow(issue_id, adw_id, workflow_type="direct")

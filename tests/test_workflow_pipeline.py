@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from rouge.core.workflow.pipeline import (
     WorkflowRunner,
+    get_direct_pipeline,
     get_full_pipeline,
     get_patch_pipeline,
     get_thin_pipeline,
@@ -15,12 +16,14 @@ from rouge.core.workflow.steps import (
     FetchPatchStep,
     GitBranchStep,
     GitCheckoutStep,
-    ImplementStep,
+    GitPrepareStep,
+    ImplementPlanStep,
 )
 from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
 from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 from rouge.core.workflow.types import StepResult
@@ -318,7 +321,7 @@ class TestGetPatchPipeline:
             FetchPatchStep,
             GitCheckoutStep,
             PatchPlanStep,
-            ImplementStep,
+            ImplementPlanStep,
             CodeQualityStep,
             ComposeCommitsStep,
         ]
@@ -367,7 +370,7 @@ class TestGetPatchPipeline:
             FetchPatchStep,
             GitCheckoutStep,
             PatchPlanStep,
-            ImplementStep,
+            ImplementPlanStep,
             CodeQualityStep,
             ComposeCommitsStep,
         ]
@@ -392,7 +395,7 @@ class TestGetFullPipeline:
             FetchIssueStep,
             GitBranchStep,
             ClaudeCodePlanStep,
-            ImplementStep,
+            ImplementPlanStep,
             CodeQualityStep,
             ComposeRequestStep,
         ]
@@ -402,14 +405,14 @@ class TestGetFullPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-        # Verify ImplementStep is configured with correct plan_step_name
+        # Verify ImplementPlanStep is configured with correct plan_step_name
         assert pipeline[3].plan_step_name == "Building implementation plan"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # FetchIssueStep
         assert pipeline[1].is_critical  # GitBranchStep
         assert pipeline[2].is_critical  # ClaudeCodePlanStep
-        assert pipeline[3].is_critical  # ImplementStep
+        assert pipeline[3].is_critical  # ImplementPlanStep
         assert not pipeline[4].is_critical  # CodeQualityStep
 
     def test_pipeline_structure_github(self, monkeypatch):
@@ -485,7 +488,7 @@ class TestGetFullPipeline:
             FetchIssueStep,
             GitBranchStep,
             ClaudeCodePlanStep,
-            ImplementStep,
+            ImplementPlanStep,
             CodeQualityStep,
             ComposeRequestStep,
         ]
@@ -512,7 +515,7 @@ class TestGetThinPipeline:
             FetchIssueStep,
             GitBranchStep,
             ThinPlanStep,
-            ImplementStep,
+            ImplementPlanStep,
             ComposeRequestStep,
         ]
 
@@ -521,7 +524,7 @@ class TestGetThinPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-        # Verify ImplementStep is configured with correct plan_step_name
+        # Verify ImplementPlanStep is configured with correct plan_step_name
         assert pipeline[3].plan_step_name == "Building thin implementation plan"
 
     def test_thin_pipeline_no_code_quality_step(self, monkeypatch) -> None:
@@ -551,3 +554,108 @@ class TestGetThinPipeline:
         # Check step count (should be 6 with GitLab MR step)
         assert len(pipeline) == 6
         assert isinstance(pipeline[-1], GlabPullRequestStep)
+
+
+class TestGetDirectPipeline:
+    def test_direct_pipeline_structure_no_platform(self, monkeypatch) -> None:
+        """Test direct pipeline structure without platform set."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_direct_pipeline()
+
+        # Check step count (should be 4 without PR step)
+        assert len(pipeline) == 4
+
+        # Verify order and types
+        expected_types = [
+            FetchIssueStep,
+            GitPrepareStep,
+            ImplementDirectStep,
+            ComposeRequestStep,
+        ]
+
+        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
+            assert isinstance(
+                step, expected_type
+            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+
+    def test_direct_pipeline_structure_github(self, monkeypatch) -> None:
+        """Test direct pipeline structure with GitHub platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_direct_pipeline()
+
+        # Check step count (should be 5 with GitHub PR step)
+        assert len(pipeline) == 5
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+        assert not pipeline[-1].is_critical  # PR creation is best effort
+
+    def test_direct_pipeline_structure_gitlab(self, monkeypatch) -> None:
+        """Test direct pipeline structure with GitLab platform."""
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_direct_pipeline()
+
+        # Check step count (should be 5 with GitLab MR step)
+        assert len(pipeline) == 5
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
+        assert not pipeline[-1].is_critical  # MR creation is best effort
+
+    def test_direct_pipeline_no_code_quality_step(self, monkeypatch) -> None:
+        """Verify direct pipeline does not include CodeQualityStep."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_direct_pipeline()
+
+        for step in pipeline:
+            assert not isinstance(
+                step, CodeQualityStep
+            ), "Direct pipeline should not include CodeQualityStep"
+
+    def test_direct_pipeline_no_plan_step(self, monkeypatch) -> None:
+        """Verify direct pipeline does not include any plan step."""
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_direct_pipeline()
+
+        plan_step_types = (ClaudeCodePlanStep, ThinPlanStep, PatchPlanStep)
+        for step in pipeline:
+            assert not isinstance(
+                step, plan_step_types
+            ), "Direct pipeline should not include any plan step"
+
+        # Also verify no ImplementPlanStep (uses ImplementDirectStep instead)
+        for step in pipeline:
+            assert not isinstance(
+                step, ImplementPlanStep
+            ), "Direct pipeline should use ImplementDirectStep, not ImplementPlanStep"
+
+    def test_conditional_pr_step_logic(self, monkeypatch) -> None:
+        """Verify conditional PR/MR step logic across all platforms."""
+        # Test with no platform set
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+        pipeline = get_direct_pipeline()
+        assert len(pipeline) == 4
+        pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
+        for step in pipeline:
+            assert not isinstance(
+                step, pr_step_types
+            ), "No PR/MR step should be present without platform set"
+
+        # Test with GitHub
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        pipeline = get_direct_pipeline()
+        assert len(pipeline) == 5
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+        assert not any(isinstance(s, GlabPullRequestStep) for s in pipeline)
+
+        # Test with GitLab
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        pipeline = get_direct_pipeline()
+        assert len(pipeline) == 5
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
+        assert not any(isinstance(s, GhPullRequestStep) for s in pipeline)
+
+        # Test with unsupported platform value
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
+        pipeline = get_direct_pipeline()
+        assert len(pipeline) == 4
+        for step in pipeline:
+            assert not isinstance(
+                step, pr_step_types
+            ), "No PR/MR step should be present with unsupported platform"

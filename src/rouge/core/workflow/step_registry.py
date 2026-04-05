@@ -373,10 +373,12 @@ def _register_default_steps(registry: StepRegistry) -> None:
     )
     from rouge.core.workflow.steps.git_branch_step import GitBranchStep
     from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
+    from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
     from rouge.core.workflow.steps.glab_pull_request_step import (
         GlabPullRequestStep,
     )
-    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
+    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
@@ -416,13 +418,13 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Fetch pending patch from Supabase database",
     )
 
-    # 4. ImplementStep: requires plan, produces implement artifact
+    # 4. ImplementPlanStep: requires plan, produces implement artifact
     registry.register(
-        ImplementStep,
-        slug="implement",
+        ImplementPlanStep,
+        slug="implement-plan",
         dependencies=["plan"],
         outputs=["implement"],
-        description="Execute the implementation plan",
+        description="Execute the plan-based implementation",
     )
 
     # 5. CodeQualityStep: requires implement (optional), produces code-quality artifact
@@ -523,6 +525,26 @@ def _register_default_steps(registry: StepRegistry) -> None:
         outputs=["plan"],
         is_critical=True,
         description="Build a lightweight implementation plan with minimal agent interaction",
+    )
+
+    # 17. ImplementDirectStep: requires fetch-issue, produces implement
+    registry.register(
+        ImplementDirectStep,
+        slug="implement-direct",
+        dependencies=["fetch-issue"],
+        outputs=["implement"],
+        is_critical=True,
+        description="Implement directly from the issue description without a plan",
+    )
+
+    # 18. GitPrepareStep: requires fetch-issue, produces git-branch
+    registry.register(
+        GitPrepareStep,
+        slug="git-prepare",
+        dependencies=["fetch-issue"],
+        outputs=["git-branch"],
+        is_critical=True,
+        description="Branch-aware git workspace preparation (creates or checks out branch)",
     )
 
 

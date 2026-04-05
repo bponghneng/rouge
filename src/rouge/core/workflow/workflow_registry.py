@@ -101,6 +101,7 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     Uses local imports to avoid circular dependencies with pipeline.py.
     """
     from rouge.core.workflow.pipeline import (
+        get_direct_pipeline,
         get_full_pipeline,
         get_patch_pipeline,
         get_thin_pipeline,
@@ -125,6 +126,13 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
             type_id="thin",
             pipeline=get_thin_pipeline,
             description="Thin workflow pipeline for straightforward issues",
+        )
+    )
+    registry.register(
+        WorkflowDefinition(
+            type_id="direct",
+            pipeline=get_direct_pipeline,
+            description="Direct workflow — implements from issue description without planning",
         )
     )
 

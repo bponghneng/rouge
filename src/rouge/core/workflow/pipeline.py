@@ -311,7 +311,7 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
     2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
        writes a standard PlanArtifact (no parent issue or plan is referenced)
-    3. ImplementStep - Implement the plan by loading PlanArtifact from the current
+    3. ImplementPlanStep - Implement the plan by loading PlanArtifact from the current
        patch workflow's artifact directory
     4. CodeQualityStep - Run code quality checks
     5. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
@@ -325,14 +325,14 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
     from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
-    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
 
     steps: List[WorkflowStep] = [
         FetchPatchStep(),
         GitCheckoutStep(),
         PatchPlanStep(),
-        ImplementStep(plan_step_name="Building patch plan"),
+        ImplementPlanStep(plan_step_name="Building patch plan"),
         CodeQualityStep(),
         ComposeCommitsStep(),
     ]
@@ -359,14 +359,50 @@ def get_thin_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
     from rouge.core.workflow.steps.git_branch_step import GitBranchStep
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
-    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
     from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
     steps: List[WorkflowStep] = [
         FetchIssueStep(),
         GitBranchStep(),
         ThinPlanStep(),
-        ImplementStep(plan_step_name="Building thin implementation plan"),
+        ImplementPlanStep(plan_step_name="Building thin implementation plan"),
+        ComposeRequestStep(),
+    ]
+
+    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
+    if platform == "github":
+        steps.append(GhPullRequestStep())
+    elif platform == "gitlab":
+        steps.append(GlabPullRequestStep())
+
+    return steps
+
+
+def get_direct_pipeline() -> List[WorkflowStep]:
+    """Create the direct workflow pipeline for straightforward issues.
+
+    Skips planning and implements directly from the issue description.
+    Uses GitPrepareStep for branch-aware git setup.
+
+    Pipeline sequence:
+    1. FetchIssueStep
+    2. GitPrepareStep (branch-aware: creates or checks out branch)
+    3. ImplementDirectStep
+    4. ComposeRequestStep
+    5. GhPullRequestStep/GlabPullRequestStep (conditional, creates draft)
+    """
+    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
+    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
+    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+    from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
+    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+    from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
+
+    steps: List[WorkflowStep] = [
+        FetchIssueStep(),
+        GitPrepareStep(),
+        ImplementDirectStep(),
         ComposeRequestStep(),
     ]
 
@@ -393,7 +429,7 @@ def get_full_pipeline() -> List[WorkflowStep]:
     1. FetchIssueStep - Fetch the issue from the database
     2. GitBranchStep - Create and checkout a new branch
     3. ClaudeCodePlanStep - Build implementation plan using the claude-code-plan prompt template
-    4. ImplementStep - Execute the plan
+    4. ImplementPlanStep - Execute the plan
     5. CodeQualityStep - Run code quality checks
     6. ComposeRequestStep - Compose PR/MR description
     7. GhPullRequestStep/GlabPullRequestStep - Create PR/MR (conditional)
@@ -413,13 +449,13 @@ def get_full_pipeline() -> List[WorkflowStep]:
     from rouge.core.workflow.steps.glab_pull_request_step import (
         GlabPullRequestStep,
     )
-    from rouge.core.workflow.steps.implement_step import ImplementStep
+    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
 
     steps: List[WorkflowStep] = [
         FetchIssueStep(),
         GitBranchStep(),
         ClaudeCodePlanStep(),
-        ImplementStep(plan_step_name="Building implementation plan"),
+        ImplementPlanStep(plan_step_name="Building implementation plan"),
         CodeQualityStep(),
         ComposeRequestStep(),
     ]

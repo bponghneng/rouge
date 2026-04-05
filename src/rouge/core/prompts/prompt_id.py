@@ -13,6 +13,7 @@ class PromptId(str, Enum):
     CLAUDE_CODE_PLAN = "claude-code-plan"
     CODE_QUALITY = "code-quality"
     COMPOSE_COMMITS = "compose-commits"
+    IMPLEMENT_DIRECT = "implement-direct-md"
     IMPLEMENT_PLAN = "implement-plan"
     PATCH_PLAN = "patch-plan"
     PULL_REQUEST = "pull-request"

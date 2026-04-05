@@ -602,7 +602,7 @@ class TestGlobalRegistry:
         """Test default steps have correct dependencies configured."""
         registry = get_step_registry()
 
-        # ImplementStep should depend on plan
+        # ImplementPlanStep should depend on plan
         implement_meta = None
         for name in registry.list_all_steps():
             if "Implementing" in name:
@@ -629,7 +629,7 @@ class TestGlobalRegistry:
     def test_dependency_chain_resolution(self):
         """Test resolving full dependency chain for late step.
 
-        ImplementStep depends on "plan", which can be produced by either
+        ImplementPlanStep depends on "plan", which can be produced by either
         PlanStep (main) or PatchPlanStep (patch). The resolver
         picks one valid chain.
         """
@@ -705,6 +705,39 @@ class TestGlobalRegistry:
         assert metadata is not None, "ThinPlanStep should be registered with slug 'thin-plan'"
         assert metadata.dependencies == ["fetch-issue"]
         assert metadata.outputs == ["plan"]
+        assert metadata.is_critical is True
+
+    def test_implement_plan_step_registration(self) -> None:
+        """Test ImplementPlanStep is registered with slug 'implement-plan'."""
+        registry = get_step_registry()
+
+        metadata = registry.get_step_metadata_by_slug("implement-plan")
+        assert (
+            metadata is not None
+        ), "ImplementPlanStep should be registered with slug 'implement-plan'"
+        assert metadata.dependencies == ["plan"]
+        assert metadata.outputs == ["implement"]
+        assert metadata.is_critical is True
+
+    def test_implement_direct_step_registration(self) -> None:
+        """Test ImplementDirectStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        metadata = registry.get_step_metadata_by_slug("implement-direct")
+        assert (
+            metadata is not None
+        ), "ImplementDirectStep should be registered with slug 'implement-direct'"
+        assert metadata.dependencies == ["fetch-issue"]
+        assert metadata.outputs == ["implement"]
+        assert metadata.is_critical is True
+
+    def test_git_prepare_step_registration(self) -> None:
+        """Test GitPrepareStep is registered with correct metadata."""
+        registry = get_step_registry()
+
+        metadata = registry.get_step_metadata_by_slug("git-prepare")
+        assert metadata is not None, "GitPrepareStep should be registered with slug 'git-prepare'"
+        assert metadata.dependencies == ["fetch-issue"]
         assert metadata.is_critical is True
 
     def test_validate_registry_passes(self):
@@ -794,13 +827,13 @@ class TestRegistryContractConstraints:
                 implement_meta = registry.get_step_metadata(name)
                 break
 
-        assert implement_meta is not None, "ImplementStep must be registered"
+        assert implement_meta is not None, "ImplementPlanStep must be registered"
         assert (
             "plan" in implement_meta.dependencies
-        ), "ImplementStep must declare plan as a dependency"
+        ), "ImplementPlanStep must declare plan as a dependency"
         # plan must NOT appear in dependency_kinds — absence means 'required'
         assert "plan" not in implement_meta.dependency_kinds, (
-            "ImplementStep's plan dependency should be implicitly required "
+            "ImplementPlanStep's plan dependency should be implicitly required "
             "(not listed in dependency_kinds)"
         )
 

@@ -52,6 +52,7 @@ class IssueType(str, Enum):
     FULL = "full"
     PATCH = "patch"
     THIN = "thin"
+    DIRECT = "direct"
 
 
 class IssueStatus(str, Enum):
@@ -340,7 +341,8 @@ def create(
         "--type",
         help=(
             "Issue type: 'full' for primary issues,"
-            " 'patch' for patch issues, 'thin' for thin issues"
+            " 'patch' for patch issues, 'thin' for thin issues,"
+            " 'direct' for direct issues"
         ),
         show_default=True,
     ),
@@ -591,7 +593,7 @@ def update(
         show_default=True,
     ),
     issue_type: Optional[str] = typer.Option(
-        None, "--type", help="Issue type: 'full', 'patch', or 'thin'", show_default=True
+        None, "--type", help="Issue type: 'full', 'patch', 'thin', or 'direct'", show_default=True
     ),
     title: Optional[str] = typer.Option(None, "--title", help="Issue title", show_default=True),
     description: Optional[str] = typer.Option(
