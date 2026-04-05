@@ -557,20 +557,18 @@ class TestGetThinPipeline:
 
 
 class TestGetDirectPipeline:
-    def test_direct_pipeline_structure_no_platform(self, monkeypatch) -> None:
-        """Test direct pipeline structure without platform set."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+    def test_direct_pipeline_structure_no_platform(self) -> None:
+        """Test direct pipeline structure (no platform branching)."""
         pipeline = get_direct_pipeline()
 
-        # Check step count (should be 4 without PR step)
-        assert len(pipeline) == 4
+        # Check step count (should be 3)
+        assert len(pipeline) == 3
 
         # Verify order and types
         expected_types = [
             FetchIssueStep,
             GitPrepareStep,
             ImplementDirectStep,
-            ComposeRequestStep,
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
@@ -578,29 +576,8 @@ class TestGetDirectPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-    def test_direct_pipeline_structure_github(self, monkeypatch) -> None:
-        """Test direct pipeline structure with GitHub platform."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_direct_pipeline()
-
-        # Check step count (should be 5 with GitHub PR step)
-        assert len(pipeline) == 5
-        assert isinstance(pipeline[-1], GhPullRequestStep)
-        assert not pipeline[-1].is_critical  # PR creation is best effort
-
-    def test_direct_pipeline_structure_gitlab(self, monkeypatch) -> None:
-        """Test direct pipeline structure with GitLab platform."""
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_direct_pipeline()
-
-        # Check step count (should be 5 with GitLab MR step)
-        assert len(pipeline) == 5
-        assert isinstance(pipeline[-1], GlabPullRequestStep)
-        assert not pipeline[-1].is_critical  # MR creation is best effort
-
-    def test_direct_pipeline_no_code_quality_step(self, monkeypatch) -> None:
+    def test_direct_pipeline_no_code_quality_step(self) -> None:
         """Verify direct pipeline does not include CodeQualityStep."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_direct_pipeline()
 
         for step in pipeline:
@@ -608,9 +585,8 @@ class TestGetDirectPipeline:
                 step, CodeQualityStep
             ), "Direct pipeline should not include CodeQualityStep"
 
-    def test_direct_pipeline_no_plan_step(self, monkeypatch) -> None:
+    def test_direct_pipeline_no_plan_step(self) -> None:
         """Verify direct pipeline does not include any plan step."""
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_direct_pipeline()
 
         plan_step_types = (ClaudeCodePlanStep, ThinPlanStep, PatchPlanStep)
@@ -624,38 +600,3 @@ class TestGetDirectPipeline:
             assert not isinstance(
                 step, ImplementPlanStep
             ), "Direct pipeline should use ImplementDirectStep, not ImplementPlanStep"
-
-    def test_conditional_pr_step_logic(self, monkeypatch) -> None:
-        """Verify conditional PR/MR step logic across all platforms."""
-        # Test with no platform set
-        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        pipeline = get_direct_pipeline()
-        assert len(pipeline) == 4
-        pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
-        for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "No PR/MR step should be present without platform set"
-
-        # Test with GitHub
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        pipeline = get_direct_pipeline()
-        assert len(pipeline) == 5
-        assert isinstance(pipeline[-1], GhPullRequestStep)
-        assert not any(isinstance(s, GlabPullRequestStep) for s in pipeline)
-
-        # Test with GitLab
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        pipeline = get_direct_pipeline()
-        assert len(pipeline) == 5
-        assert isinstance(pipeline[-1], GlabPullRequestStep)
-        assert not any(isinstance(s, GhPullRequestStep) for s in pipeline)
-
-        # Test with unsupported platform value
-        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
-        pipeline = get_direct_pipeline()
-        assert len(pipeline) == 4
-        for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "No PR/MR step should be present with unsupported platform"
