@@ -106,6 +106,21 @@ class ImplementArtifact(Artifact):
         )
     )
 
+class ImplementDirectArtifact(Artifact):
+    """Artifact containing direct implementation results.
+
+    Attributes:
+        implement_data: The implementation output data
+    """
+
+    artifact_type: Literal["implement:direct"] = "implement:direct"
+    implement_data: ImplementData = Field(
+        description=(
+            "Direct implementation output data containing execution results "
+            "and optional session ID for continuation"
+        )
+    )
+
 
 class CodeQualityArtifact(Artifact):
     """Artifact containing code quality check results.
@@ -293,6 +308,7 @@ ARTIFACT_MODELS: Dict[ArtifactType, Type[Artifact]] = {
     "fetch-issue": FetchIssueArtifact,
     "plan": PlanArtifact,
     "implement": ImplementArtifact,
+    "implement:direct": ImplementDirectArtifact,
     "code-quality": CodeQualityArtifact,
     "compose-request": ComposeRequestArtifact,
     "gh-pull-request": GhPullRequestArtifact,

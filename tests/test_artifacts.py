@@ -16,6 +16,7 @@ from rouge.core.workflow.artifacts import (
     GhPullRequestArtifact,
     GlabPullRequestArtifact,
     ImplementArtifact,
+    ImplementDirectArtifact,
     PlanArtifact,
     PullRequestEntry,
 )
@@ -68,6 +69,17 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "implement"
         assert artifact.implement_data.output == "Implementation output"
+
+    def test_direct_implementation_artifact_creation(self) -> None:
+        """Test ImplementDirectArtifact can be created with valid data."""
+        implement_data = ImplementData(output="Direct implementation output")
+        artifact = ImplementDirectArtifact(
+            workflow_id="adw-123",
+            implement_data=implement_data,
+        )
+
+        assert artifact.artifact_type == "implement:direct"
+        assert artifact.implement_data.output == "Direct implementation output"
 
     def test_implement_data_empty_affected_repos_backward_compat(self) -> None:
         """ImplementData without affected_repos defaults to empty list (backward compat)."""
@@ -252,6 +264,7 @@ class TestArtifactModels:
             "fetch-issue",
             "plan",
             "implement",
+            "implement:direct",
             "code-quality",
             "compose-request",
             "gh-pull-request",
