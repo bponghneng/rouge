@@ -17,7 +17,7 @@ from rouge.core.workflow.artifacts import (
     ImplementArtifact,
     PlanArtifact,
 )
-from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
+from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_PLAN_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, RepoChangeDetail, StepResult
 
@@ -58,11 +58,11 @@ IMPLEMENT_JSON_SCHEMA = """{
 # fall back to context.repo_paths via get_affected_repo_paths().
 
 
-class ImplementStep(WorkflowStep):
-    """Execute implementation of the plan."""
+class ImplementPlanStep(WorkflowStep):
+    """Execute plan-based implementation."""
 
     def __init__(self, plan_step_name: str | None = None) -> None:
-        """Initialize ImplementStep.
+        """Initialize ImplementPlanStep.
 
         Args:
             plan_step_name: Name of the preceding plan step for rerun messages.
@@ -72,7 +72,7 @@ class ImplementStep(WorkflowStep):
 
     @property
     def name(self) -> str:
-        return IMPLEMENT_STEP_NAME
+        return IMPLEMENT_PLAN_STEP_NAME
 
     def _implement_plan(
         self, plan_content: str, issue_id: int, adw_id: str

@@ -19,7 +19,7 @@ AGENT_PULL_REQUEST_BUILDER = "sdlc_pull_request_builder"
 AGENT_COMMIT_COMPOSER = "commit_composer"
 
 # Step names
-IMPLEMENT_STEP_NAME = "Implementing solution"
+IMPLEMENT_PLAN_STEP_NAME = "Implementing plan-based solution"
 
 
 def get_repo_paths() -> list[str]:
