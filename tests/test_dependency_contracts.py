@@ -360,9 +360,12 @@ class TestDependencySemanticsIntegration:
                     mock_push = Mock(returncode=0, stdout="", stderr="")
                     mock_pr = Mock(returncode=0, stdout="https://github.com/test/pr/1\n")
                     mock_run.side_effect = [
-                        mock_rev_parse, mock_pr_list,
-                        mock_base_branch, mock_delta,
-                        mock_push, mock_pr,
+                        mock_rev_parse,
+                        mock_pr_list,
+                        mock_base_branch,
+                        mock_delta,
+                        mock_push,
+                        mock_pr,
                     ]
 
                     step = GhPullRequestStep()

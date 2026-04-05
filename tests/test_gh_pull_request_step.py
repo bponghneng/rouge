@@ -349,9 +349,7 @@ class TestGhPullRequestStepAffectedRepos:
         mock_get_affected.return_value = []
 
         with patch.dict("os.environ", {"GITHUB_PAT": "tok"}, clear=False):
-            with patch(
-                "rouge.core.workflow.steps.gh_pull_request_step.shutil.which"
-            ) as mock_which:
+            with patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which") as mock_which:
                 mock_which.return_value = "/usr/bin/gh"
                 step = GhPullRequestStep()
                 result = step.run(base_context)

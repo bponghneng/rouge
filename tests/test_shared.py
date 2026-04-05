@@ -107,9 +107,7 @@ def _make_context(tmp_path: Path, repo_paths: list[str]) -> WorkflowContext:
 class TestGetAffectedRepoPaths:
     """Tests for the get_affected_repo_paths() helper function."""
 
-    def test_returns_all_repo_paths_when_implement_artifact_missing(
-        self, tmp_path: Path
-    ) -> None:
+    def test_returns_all_repo_paths_when_implement_artifact_missing(self, tmp_path: Path) -> None:
         """Falls back to full context.repo_paths when implement artifact is absent."""
         context = _make_context(tmp_path, ["/repo/a", "/repo/b"])
 
@@ -117,9 +115,7 @@ class TestGetAffectedRepoPaths:
 
         assert result == ["/repo/a", "/repo/b"]
 
-    def test_returns_all_repo_paths_when_affected_repos_empty(
-        self, tmp_path: Path
-    ) -> None:
+    def test_returns_all_repo_paths_when_affected_repos_empty(self, tmp_path: Path) -> None:
         """Falls back to full context.repo_paths when affected_repos is empty list."""
         context = _make_context(tmp_path, ["/repo/a", "/repo/b"])
         # Write implement artifact with empty affected_repos
@@ -132,9 +128,7 @@ class TestGetAffectedRepoPaths:
 
         assert result == ["/repo/a", "/repo/b"]
 
-    def test_returns_filtered_subset_when_affected_repos_populated(
-        self, tmp_path: Path
-    ) -> None:
+    def test_returns_filtered_subset_when_affected_repos_populated(self, tmp_path: Path) -> None:
         """Returns only repos that appear in both affected_repos and context.repo_paths."""
         context = _make_context(tmp_path, ["/repo/a", "/repo/b", "/repo/c"])
         data = ImplementData(

@@ -214,9 +214,12 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     )
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_pr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_pr_result,
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_pr_result,
     ]
 
     context = _make_context()
@@ -367,9 +370,12 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     mock_pr_result = Mock(returncode=1, stderr="error: could not create pull request")
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_pr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_pr_result,
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_pr_result,
     ]
 
     context = _make_context()
@@ -485,9 +491,12 @@ def test_create_pr_step_push_failure_continues_to_pr(
     mock_pr_result = Mock(returncode=0, stdout="https://github.com/owner/repo/pull/123\n")
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_pr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_pr_result,
+        mock_rev_parse,
+        mock_pr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_pr_result,
     ]
 
     context = _make_context()
@@ -586,10 +595,18 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     )
 
     mock_subprocess.side_effect = [
-        mock_rev_parse_a, mock_pr_list_a, mock_base_a, mock_delta_a,
-        mock_push_a, mock_pr_create_a,
-        mock_rev_parse_b, mock_pr_list_b, mock_base_b, mock_delta_b,
-        mock_push_b, mock_pr_create_b,
+        mock_rev_parse_a,
+        mock_pr_list_a,
+        mock_base_a,
+        mock_delta_a,
+        mock_push_a,
+        mock_pr_create_a,
+        mock_rev_parse_b,
+        mock_pr_list_b,
+        mock_base_b,
+        mock_delta_b,
+        mock_push_b,
+        mock_pr_create_b,
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
@@ -653,10 +670,18 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     mock_pr_fail_b = Mock(returncode=1, stdout="", stderr="error: could not create PR for repo-b")
 
     mock_subprocess.side_effect = [
-        mock_rev_parse_a, mock_pr_list_a, mock_base_a, mock_delta_a,
-        mock_push_a, mock_pr_fail_a,
-        mock_rev_parse_b, mock_pr_list_b, mock_base_b, mock_delta_b,
-        mock_push_b, mock_pr_fail_b,
+        mock_rev_parse_a,
+        mock_pr_list_a,
+        mock_base_a,
+        mock_delta_a,
+        mock_push_a,
+        mock_pr_fail_a,
+        mock_rev_parse_b,
+        mock_pr_list_b,
+        mock_base_b,
+        mock_delta_b,
+        mock_push_b,
+        mock_pr_fail_b,
     ]
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
@@ -725,9 +750,12 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     )
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_mr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_mr_result,
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_mr_result,
     ]
 
     # Mock emit_comment_from_payload success
@@ -881,9 +909,12 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_mr_result = Mock(returncode=1, stderr="error: could not create merge request")
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_mr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_mr_result,
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_mr_result,
     ]
 
     # Mock emit_comment_from_payload success
@@ -1019,9 +1050,12 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
     )
 
     mock_subprocess.side_effect = [
-        mock_rev_parse, mock_mr_list,
-        mock_base_branch, mock_delta,
-        mock_push_result, mock_mr_result,
+        mock_rev_parse,
+        mock_mr_list,
+        mock_base_branch,
+        mock_delta,
+        mock_push_result,
+        mock_mr_result,
     ]
 
     # Mock emit_comment_from_payload success

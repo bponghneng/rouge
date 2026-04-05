@@ -16,7 +16,7 @@ from rouge.core.workflow.artifacts import (
     GlabPullRequestArtifact,
     PullRequestEntry,
 )
-from rouge.core.workflow.shared import get_affected_repo_paths
+from rouge.core.workflow.shared import get_affected_repo_paths, has_branch_delta
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _emit_and_log, load_and_render_attachment
 from rouge.core.workflow.types import StepResult
@@ -288,35 +288,9 @@ class GlabPullRequestStep(WorkflowStep):
             return
 
         # Layer 2.5: Branch-delta guard — skip MR creation if no commits ahead of base
-        try:
-            base_branch_result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
-                capture_output=True,
-                text=True,
-                cwd=repo_path,
-                timeout=30,
-            )
-            base_branch = (
-                base_branch_result.stdout.strip().replace("origin/", "")
-                if base_branch_result.returncode == 0
-                else "main"
-            )
-            delta_result = subprocess.run(
-                ["git", "rev-list", "--count", f"HEAD...origin/{base_branch}"],
-                capture_output=True,
-                text=True,
-                cwd=repo_path,
-                timeout=30,
-            )
-            if delta_result.returncode == 0 and delta_result.stdout.strip() == "0":
-                logger.info("No commits ahead of base in %s — skipping MR creation", repo_path)
-                return
-        except (subprocess.TimeoutExpired, OSError) as e:
-            logger.debug(
-                "Branch-delta check failed for %s: %s, continuing with MR creation",
-                repo_path,
-                e,
-            )
+        if not has_branch_delta(repo_path, logger):
+            logger.info("No commits ahead of base in %s — skipping MR creation", repo_path)
+            return
 
         # Layer 3: Push + create new MR
         push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]

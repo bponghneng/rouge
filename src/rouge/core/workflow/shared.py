@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import os
+import subprocess
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -62,4 +64,45 @@ def get_affected_repo_paths(
         return list(context.repo_paths)  # fallback: all repos
 
     affected_set = {r.repo_path for r in implement_data.affected_repos}
+    extra = affected_set - set(context.repo_paths)
+    if extra:
+        _logger = logging.getLogger(__name__)
+        _logger.warning("affected_repos contains paths not in context.repo_paths: %s", extra)
     return [p for p in context.repo_paths if p in affected_set]
+
+
+def has_branch_delta(repo_path: str, logger: logging.Logger) -> bool:
+    """Check if repo has commits ahead of its remote base branch.
+
+    Returns True if there are commits on HEAD not reachable from the remote
+    base branch. Returns True on error to allow PR/MR creation to proceed.
+    """
+    try:
+        base_branch_result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+            timeout=30,
+        )
+        base_branch = (
+            base_branch_result.stdout.strip().replace("origin/", "")
+            if base_branch_result.returncode == 0
+            else "main"
+        )
+        delta_result = subprocess.run(
+            ["git", "rev-list", "--count", f"origin/{base_branch}..HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=repo_path,
+            timeout=30,
+        )
+        if delta_result.returncode == 0 and delta_result.stdout.strip() == "0":
+            return False
+    except (subprocess.TimeoutExpired, OSError) as e:
+        logger.debug(
+            "Branch-delta check failed for %s: %s, continuing with creation",
+            repo_path,
+            e,
+        )
+    return True
