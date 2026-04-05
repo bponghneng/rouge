@@ -159,12 +159,12 @@ def load_and_render_attachment(context: "WorkflowContext") -> str | None:
         "plan_data",
         "plan",
         PlanArtifact,
-        lambda a: {"plan": a.plan_data.plan, "summary": a.plan_data.summary},
+        lambda a: a.plan_data,
     )
     return render_attachment_markdown(
         spec_text=issue_data["description"] if issue_data else None,
-        plan_text=plan_data["plan"] if plan_data else None,
-        plan_summary=plan_data["summary"] if plan_data else None,
+        plan_text=plan_data.plan if plan_data else None,
+        plan_summary=plan_data.summary if plan_data else None,
     )
 
 
