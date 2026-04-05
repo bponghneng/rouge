@@ -1,6 +1,12 @@
 """Shared constants and helper functions for workflow modules."""
 
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from rouge.core.workflow.step_base import WorkflowContext
 
 # Agent names
 AGENT_PLANNER = "sdlc_planner"
@@ -36,3 +42,24 @@ def get_working_dir() -> str:
         Working directory path, defaults to current directory if not set
     """
     return os.getenv("WORKING_DIR", os.getcwd())
+
+
+def get_affected_repo_paths(
+    context: WorkflowContext,
+) -> list[str]:
+    """Return repo paths that the Implement step actually changed.
+
+    Loads the Implement artifact and returns the intersection of
+    affected_repos with context.repo_paths (preserving original order).
+    Falls back to context.repo_paths if no affected_repos data exists.
+    """
+    from rouge.core.workflow.artifacts import ImplementArtifact
+
+    implement_data = context.load_optional_artifact(
+        "implement_data", "implement", ImplementArtifact, lambda a: a.implement_data
+    )
+    if implement_data is None or not implement_data.affected_repos:
+        return list(context.repo_paths)  # fallback: all repos
+
+    affected_set = {r.repo_path for r in implement_data.affected_repos}
+    return [p for p in context.repo_paths if p in affected_set]
