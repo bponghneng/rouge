@@ -101,6 +101,12 @@ def has_branch_delta(repo_path: str, adw_id: str) -> bool:
         )
         if delta_result.returncode == 0 and delta_result.stdout.strip() == "0":
             return False
+        if delta_result.returncode != 0:
+            logger.debug(
+                "rev-list returned %d for %s, defaulting to has-delta=True",
+                delta_result.returncode,
+                repo_path,
+            )
     except (subprocess.TimeoutExpired, OSError) as e:
         logger.debug(
             "Branch-delta check failed for %s: %s, continuing with creation",
