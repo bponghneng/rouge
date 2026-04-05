@@ -161,7 +161,23 @@ class PullRequestEntry(BaseModel):
     adopted: bool = False
 
 
-class GhPullRequestArtifact(Artifact):
+class PullRequestArtifactBase(Artifact):
+    """Common base for platform-specific pull request / merge request artifacts.
+
+    Subclasses narrow ``artifact_type`` to their own ``Literal`` and provide a
+    default; the field below satisfies mypy when the base type is used in the
+    shared orchestration layer.
+    """
+
+    artifact_type: Literal["gh-pull-request", "glab-pull-request"] = "gh-pull-request"
+    pull_requests: List[PullRequestEntry] = Field(
+        default_factory=list,
+        description="List of pull request / merge request entries, one per repository",
+    )
+    platform: str
+
+
+class GhPullRequestArtifact(PullRequestArtifactBase):
     """Artifact containing the created GitHub pull request details.
 
     Attributes:
@@ -247,7 +263,7 @@ class ComposeCommitsArtifact(Artifact):
     )
 
 
-class GlabPullRequestArtifact(Artifact):
+class GlabPullRequestArtifact(PullRequestArtifactBase):
     """Artifact containing the created GitLab pull request (merge request) details.
 
     Attributes:
