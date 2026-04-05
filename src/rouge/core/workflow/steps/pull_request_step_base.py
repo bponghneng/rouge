@@ -7,6 +7,7 @@ import logging
 import os
 import subprocess
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
@@ -14,9 +15,9 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
+    ArtifactType,
     ComposeRequestArtifact,
-    GhPullRequestArtifact,
-    GlabPullRequestArtifact,
+    PullRequestArtifactBase,
     PullRequestEntry,
 )
 from rouge.core.workflow.shared import get_affected_repo_paths, has_branch_delta
@@ -28,89 +29,38 @@ from rouge.core.workflow.types import StepResult
 class PullRequestStepBase(WorkflowStep, ABC):
     """Abstract base for platform-specific pull request / merge request steps.
 
-    Subclasses override the abstract properties and methods to customise
-    behaviour for GitHub (``gh``) or GitLab (``glab``) while reusing the
-    shared orchestration implemented here.
+    Subclasses override the abstract property ``artifact_class`` and define
+    the string class attributes below, plus the abstract methods for
+    platform-specific CLI operations.
     """
 
     # ------------------------------------------------------------------
-    # Abstract properties
+    # Class attributes – subclasses assign these directly, e.g.:
+    #   cli_binary = "gh"
+    # ------------------------------------------------------------------
+
+    cli_binary: ClassVar[str]
+    pat_env_var: ClassVar[str]
+    token_env_key: ClassVar[str]
+    artifact_slug: ClassVar[ArtifactType]
+    platform: ClassVar[str]
+    entity_name: ClassVar[str]
+    entity_prefix: ClassVar[str]
+    output_key_prefix: ClassVar[str]
+
+    # ------------------------------------------------------------------
+    # Abstract property
     # ------------------------------------------------------------------
 
     @property
     @abstractmethod
-    def name(self) -> str:
-        """Step display name."""
-        ...
-
-    @property
-    @abstractmethod
-    def cli_binary(self) -> str:
-        """CLI tool name (e.g. ``'gh'`` or ``'glab'``)."""
-        ...
-
-    @property
-    @abstractmethod
-    def pat_env_var(self) -> str:
-        """Environment variable holding the personal access token."""
-        ...
-
-    @property
-    @abstractmethod
-    def token_env_key(self) -> str:
-        """Key to set in the subprocess environment dict."""
-        ...
-
-    @property
-    @abstractmethod
-    def artifact_class(self) -> type[GhPullRequestArtifact] | type[GlabPullRequestArtifact]:
+    def artifact_class(self) -> type[PullRequestArtifactBase]:
         """The platform-specific artifact class."""
-        ...
-
-    @property
-    @abstractmethod
-    def artifact_slug(self) -> str:
-        """Artifact slug for store operations."""
-        ...
-
-    @property
-    @abstractmethod
-    def platform(self) -> str:
-        """Platform identifier (e.g. ``'github'`` or ``'gitlab'``)."""
-        ...
-
-    @property
-    @abstractmethod
-    def entity_name(self) -> str:
-        """Display name for the entity (e.g. ``'PR'`` or ``'MR'``)."""
-        ...
-
-    @property
-    @abstractmethod
-    def entity_prefix(self) -> str:
-        """Number prefix for log messages (e.g. ``'#'`` or ``'!'``)."""
-        ...
-
-    @property
-    @abstractmethod
-    def output_key_prefix(self) -> str:
-        """Output key prefix (e.g. ``'pull-request'`` or ``'merge-request'``)."""
         ...
 
     # ------------------------------------------------------------------
     # Abstract methods
     # ------------------------------------------------------------------
-
-    @abstractmethod
-    def _check_cli_available(
-        self, context: WorkflowContext, logger: logging.Logger
-    ) -> StepResult | None:
-        """Check whether the platform CLI is available.
-
-        Returns a ``StepResult`` to skip the step when the CLI is missing,
-        or ``None`` if the check passes (or is not applicable).
-        """
-        ...
 
     @abstractmethod
     def _list_cmd_args(self, branch_name: str) -> list[str]:
@@ -141,7 +91,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         ...
 
     # ------------------------------------------------------------------
-    # Concrete property
+    # Concrete properties
     # ------------------------------------------------------------------
 
     @property
@@ -152,6 +102,18 @@ class PullRequestStepBase(WorkflowStep, ABC):
     # ------------------------------------------------------------------
     # Concrete methods – shared orchestration
     # ------------------------------------------------------------------
+
+    def _check_cli_available(
+        self, _context: WorkflowContext, _logger: logging.Logger
+    ) -> StepResult | None:
+        """Check whether the platform CLI is available.
+
+        Returns a ``StepResult`` to skip the step when the CLI is missing,
+        or ``None`` if the check passes (or is not applicable).
+
+        Override in subclasses that need to verify CLI presence.
+        """
+        return None
 
     def _check_preconditions(
         self,
@@ -262,7 +224,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                             self.artifact_class(
                                 workflow_id=context.adw_id,
                                 pull_requests=pull_requests,
-                                platform=self.platform,  # type: ignore[arg-type]
+                                platform=self.platform,
                             )
                         )
                         logger.debug(
@@ -291,7 +253,13 @@ class PullRequestStepBase(WorkflowStep, ABC):
                                     exc,
                                 )
                         return True
-        except (subprocess.TimeoutExpired, json.JSONDecodeError) as e:
+        except (
+            subprocess.TimeoutExpired,
+            json.JSONDecodeError,
+            TypeError,
+            KeyError,
+            IndexError,
+        ) as e:
             logger.debug(
                 "Could not check for existing %s in %s: %s",
                 self.entity_name,
@@ -468,7 +436,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         artifact = self.artifact_class(
             workflow_id=context.adw_id,
             pull_requests=pull_requests,
-            platform=self.platform,  # type: ignore[arg-type]
+            platform=self.platform,
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug(
@@ -533,19 +501,19 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
             # Seed pull_requests from existing artifact for rerun continuity (Layer 0)
             pull_requests: list[PullRequestEntry] = []
-            if context.artifact_store.artifact_exists(self.artifact_slug):  # type: ignore[arg-type]
+            if context.artifact_store.artifact_exists(self.artifact_slug):
                 try:
                     existing_artifact = context.artifact_store.read_artifact(
-                        self.artifact_slug,  # type: ignore[arg-type]
+                        self.artifact_slug,
                         self.artifact_class,
                     )
-                    pull_requests = list(existing_artifact.pull_requests)  # type: ignore[attr-defined]
+                    pull_requests = list(existing_artifact.pull_requests)
                     logger.debug(
                         "Seeded %d existing %s entries from artifact",
                         len(pull_requests),
                         self.entity_name,
                     )
-                except Exception as e:
+                except (FileNotFoundError, ValueError) as e:
                     logger.debug(
                         "Could not load existing %s artifact: %s",
                         self.artifact_slug,
@@ -561,7 +529,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 artifact = self.artifact_class(
                     workflow_id=context.adw_id,
                     pull_requests=[],
-                    platform=self.platform,  # type: ignore[arg-type]
+                    platform=self.platform,
                 )
                 context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
@@ -576,7 +544,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 artifact = self.artifact_class(
                     workflow_id=context.adw_id,
                     pull_requests=pull_requests,
-                    platform=self.platform,  # type: ignore[arg-type]
+                    platform=self.platform,
                 )
                 status, msg = emit_artifact_comment(
                     context.require_issue_id, context.adw_id, artifact
@@ -612,7 +580,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
             )
             return StepResult.fail(error_msg)
         except FileNotFoundError:
-            error_msg = f"{self.cli_binary} CLI not found, skipping " f"{self.entity_name} creation"
+            error_msg = f"{self.cli_binary} CLI not found, skipping {self.entity_name} creation"
             logger.exception(error_msg)
             _emit_and_log(
                 context.require_issue_id,

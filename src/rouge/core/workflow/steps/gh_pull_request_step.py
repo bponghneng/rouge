@@ -5,10 +5,16 @@ import os
 import re
 import shutil
 import subprocess
+from typing import ClassVar
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import GhPullRequestArtifact
+from rouge.core.workflow.artifacts import (
+    ArtifactType,
+    GhPullRequestArtifact,
+    PullRequestArtifactBase,
+)
 from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.step_utils import _emit_and_log
 from rouge.core.workflow.steps.pull_request_step_base import PullRequestStepBase
 from rouge.core.workflow.types import StepResult
 
@@ -46,7 +52,7 @@ def _post_gh_attachment_comment(
         else None
     )
 
-    if existing_comment_id:
+    if existing_comment_id and existing_comment_id.isdigit():
         update_cmd = [
             "gh",
             "api",
@@ -85,53 +91,22 @@ def _post_gh_attachment_comment(
 class GhPullRequestStep(PullRequestStepBase):
     """Create GitHub pull request via gh CLI."""
 
-    # ------------------------------------------------------------------
-    # Properties
-    # ------------------------------------------------------------------
+    cli_binary: ClassVar[str] = "gh"
+    pat_env_var: ClassVar[str] = "GITHUB_PAT"
+    token_env_key: ClassVar[str] = "GH_TOKEN"
+    artifact_slug: ClassVar[ArtifactType] = "gh-pull-request"
+    platform: ClassVar[str] = "github"
+    entity_name: ClassVar[str] = "PR"
+    entity_prefix: ClassVar[str] = "#"
+    output_key_prefix: ClassVar[str] = "pull-request"
 
     @property
     def name(self) -> str:
         return "Creating GitHub pull request"
 
     @property
-    def cli_binary(self) -> str:
-        return "gh"
-
-    @property
-    def pat_env_var(self) -> str:
-        return "GITHUB_PAT"
-
-    @property
-    def token_env_key(self) -> str:
-        return "GH_TOKEN"
-
-    @property
-    def artifact_class(self) -> type[GhPullRequestArtifact]:
+    def artifact_class(self) -> type[PullRequestArtifactBase]:
         return GhPullRequestArtifact
-
-    @property
-    def artifact_slug(self) -> str:
-        return "gh-pull-request"
-
-    @property
-    def platform(self) -> str:
-        return "github"
-
-    @property
-    def entity_name(self) -> str:
-        return "PR"
-
-    @property
-    def entity_prefix(self) -> str:
-        return "#"
-
-    @property
-    def output_key_prefix(self) -> str:
-        return "pull-request"
-
-    # ------------------------------------------------------------------
-    # Abstract method implementations
-    # ------------------------------------------------------------------
 
     def _check_cli_available(
         self, context: WorkflowContext, logger: logging.Logger
@@ -140,8 +115,6 @@ class GhPullRequestStep(PullRequestStepBase):
             skip_msg = "PR creation skipped: gh CLI not found in PATH"
             logger.info(skip_msg)
             logger.debug("Current PATH: %s", os.environ.get("PATH", ""))
-            from rouge.core.workflow.step_utils import _emit_and_log
-
             _emit_and_log(
                 context.require_issue_id,
                 context.adw_id,

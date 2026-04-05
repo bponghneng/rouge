@@ -1,15 +1,17 @@
 """Create GitLab merge request step implementation."""
 
 import json
-import logging
 import re
 import subprocess
+from typing import ClassVar
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import GlabPullRequestArtifact
-from rouge.core.workflow.step_base import WorkflowContext
+from rouge.core.workflow.artifacts import (
+    ArtifactType,
+    GlabPullRequestArtifact,
+    PullRequestArtifactBase,
+)
 from rouge.core.workflow.steps.pull_request_step_base import PullRequestStepBase
-from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
 
@@ -83,50 +85,22 @@ def _post_glab_attachment_note(
 class GlabPullRequestStep(PullRequestStepBase):
     """Create GitLab merge request via glab CLI."""
 
+    cli_binary: ClassVar[str] = "glab"
+    pat_env_var: ClassVar[str] = "GITLAB_PAT"
+    token_env_key: ClassVar[str] = "GITLAB_TOKEN"
+    artifact_slug: ClassVar[ArtifactType] = "glab-pull-request"
+    platform: ClassVar[str] = "gitlab"
+    entity_name: ClassVar[str] = "MR"
+    entity_prefix: ClassVar[str] = "!"
+    output_key_prefix: ClassVar[str] = "merge-request"
+
     @property
     def name(self) -> str:
         return "Creating GitLab merge request"
 
     @property
-    def cli_binary(self) -> str:
-        return "glab"
-
-    @property
-    def pat_env_var(self) -> str:
-        return "GITLAB_PAT"
-
-    @property
-    def token_env_key(self) -> str:
-        return "GITLAB_TOKEN"
-
-    @property
-    def artifact_class(self) -> type[GlabPullRequestArtifact]:
+    def artifact_class(self) -> type[PullRequestArtifactBase]:
         return GlabPullRequestArtifact
-
-    @property
-    def artifact_slug(self) -> str:
-        return "glab-pull-request"
-
-    @property
-    def platform(self) -> str:
-        return "gitlab"
-
-    @property
-    def entity_name(self) -> str:
-        return "MR"
-
-    @property
-    def entity_prefix(self) -> str:
-        return "!"
-
-    @property
-    def output_key_prefix(self) -> str:
-        return "merge-request"
-
-    def _check_cli_available(
-        self, _context: WorkflowContext, _logger: logging.Logger
-    ) -> StepResult | None:
-        return None
 
     def _list_cmd_args(self, branch_name: str) -> list[str]:
         return ["glab", "mr", "list", "--source-branch", branch_name, "--output", "json"]
