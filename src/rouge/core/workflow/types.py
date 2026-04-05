@@ -144,13 +144,23 @@ class PlanData(BaseModel):
     pr_number: Optional[int] = Field(default=None, gt=0)
 
 
+class RepoChangeDetail(BaseModel):
+    """Per-repository change details from implementation."""
+
+    repo_path: str
+    files_modified: list[str] = Field(default_factory=list)
+    git_diff_stat: str = ""
+
+
 class ImplementData(BaseModel):
     """Data payload for implementation results.
 
     Attributes:
         output: The implementation output text
         session_id: Optional session ID for continuation
+        affected_repos: Per-repository change details from implementation
     """
 
     output: str
     session_id: Optional[str] = None
+    affected_repos: list[RepoChangeDetail] = Field(default_factory=list)

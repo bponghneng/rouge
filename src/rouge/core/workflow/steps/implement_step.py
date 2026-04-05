@@ -17,7 +17,7 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
-from rouge.core.workflow.types import ImplementData, StepResult
+from rouge.core.workflow.types import ImplementData, RepoChangeDetail, StepResult
 
 # Required fields for implement output JSON
 IMPLEMENT_REQUIRED_FIELDS = {
@@ -35,7 +35,19 @@ IMPLEMENT_JSON_SCHEMA = """{
     "git_diff_stat": { "type": "string" },
     "output": { "type": "string", "enum": ["implement-plan"] },
     "status": { "type": "string" },
-    "summary": { "type": "string" }
+    "summary": { "type": "string" },
+    "affected_repos": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "repo_path": { "type": "string" },
+          "files_modified": { "type": "array", "items": { "type": "string" } },
+          "git_diff_stat": { "type": "string" }
+        },
+        "required": ["repo_path"]
+      }
+    }
   },
   "required": ["files_modified", "git_diff_stat", "output", "status", "summary"]
 }"""
@@ -107,8 +119,15 @@ class ImplementStep(WorkflowStep):
         if not parse_result.success:
             return StepResult.fail(parse_result.error or "JSON parsing failed")
 
+        raw_repos = (parse_result.data or {}).get("affected_repos", [])
+        repo_details = [RepoChangeDetail(**r) for r in raw_repos] if raw_repos else []
+
         return StepResult.ok(
-            ImplementData(output=response.output, session_id=response.session_id),
+            ImplementData(
+                output=response.output,
+                session_id=response.session_id,
+                affected_repos=repo_details,
+            ),
             parsed_data=parse_result.data,
         )
 

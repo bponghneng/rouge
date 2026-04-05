@@ -56,12 +56,21 @@ After all steps complete:
 
 Return ONLY valid JSON with zero additional text, formatting, markdown, or explanation.
 
+Include an `affected_repos` array with one entry per repository that had files changed. Each entry must have `repo_path` set to the absolute path of the repository root directory, along with `files_modified` and `git_diff_stat` scoped to that repository.
+
 {
   "files_modified": ["path/to/file1.ext"],
   "git_diff_stat": "<git diff --stat output>",
   "output": "implement-plan",
   "status": "completed",
-  "summary": "<summary>"
+  "summary": "<summary>",
+  "affected_repos": [
+    {
+      "repo_path": "/absolute/path/to/repo",
+      "files_modified": ["relative/path/to/file1.ext"],
+      "git_diff_stat": "<git diff --stat output for this repo>"
+    }
+  ]
 }
 
 
