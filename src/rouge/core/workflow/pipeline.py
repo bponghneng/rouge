@@ -389,30 +389,16 @@ def get_direct_pipeline() -> List[WorkflowStep]:
     1. FetchIssueStep
     2. GitPrepareStep (branch-aware: creates or checks out branch)
     3. ImplementDirectStep
-    4. ComposeRequestStep
-    5. GhPullRequestStep/GlabPullRequestStep (conditional, creates draft)
     """
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
     from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
-    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
     from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
 
-    steps: List[WorkflowStep] = [
+    return [
         FetchIssueStep(),
         GitPrepareStep(),
         ImplementDirectStep(),
-        ComposeRequestStep(),
     ]
-
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
 
 
 def get_full_pipeline() -> List[WorkflowStep]:

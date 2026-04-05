@@ -2,8 +2,7 @@
 
 from pydantic import ValidationError
 
-from rouge.core.agent import execute_template
-from rouge.core.agents.claude import ClaudeAgentTemplateRequest
+from rouge.core.agent import execute_prompt_raw
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import (
@@ -11,13 +10,13 @@ from rouge.core.notifications.comments import (
     emit_comment_from_payload,
     log_artifact_comment_status,
 )
-from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import (
     FetchIssueArtifact,
     ImplementArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
+from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.implement_step import (
     IMPLEMENT_JSON_SCHEMA,
@@ -53,16 +52,15 @@ class ImplementDirectStep(WorkflowStep):
             StepResult with ImplementData containing output and optional session_id
         """
         logger = get_logger(adw_id)
-        request = ClaudeAgentTemplateRequest(
-            prompt_id=PromptId.IMPLEMENT_DIRECT,
-            args=[issue_description.lstrip()],
+        response = execute_prompt_raw(
+            prompt=issue_description.lstrip(),
             issue_id=issue_id,
             adw_id=adw_id,
             agent_name=AGENT_PLAN_IMPLEMENTOR,
+            model="opus",
             json_schema=IMPLEMENT_JSON_SCHEMA,
+            prompt_label="implement-direct",
         )
-
-        response = execute_template(request)
 
         logger.debug(
             "implement-direct response: success=%s, session_id=%s",
@@ -164,12 +162,18 @@ class ImplementDirectStep(WorkflowStep):
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
-        # Insert progress comment - best-effort, non-blocking
+        self._finalize_workflow(context)
+
+        return StepResult.ok(None)
+
+    def _finalize_workflow(self, context: WorkflowContext) -> None:
+        logger = get_logger(context.adw_id)
+        update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
         payload = CommentPayload(
             issue_id=context.require_issue_id,
             adw_id=context.adw_id,
-            text="Implementation complete.",
-            raw={"text": "Implementation complete."},
+            text="Solution implemented successfully",
+            raw={"text": "Solution implemented successfully."},
             source="system",
             kind="workflow",
         )
@@ -178,5 +182,3 @@ class ImplementDirectStep(WorkflowStep):
             logger.debug(msg)
         else:
             logger.error(msg)
-
-        return StepResult.ok(None)
