@@ -68,7 +68,7 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 class TestGhPullRequestStepOptionalDependency:
     """Tests verifying GhPullRequestStep handles absent compose-request artifact gracefully."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_succeeds_when_compose_request_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -81,7 +81,7 @@ class TestGhPullRequestStepOptionalDependency:
         assert result.success is True
         assert result.error is None
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_emits_skip_comment_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -96,7 +96,7 @@ class TestGhPullRequestStepOptionalDependency:
         # Message should indicate skip reason
         assert "skip" in text.lower() or "no pr details" in text.lower()
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_loads_pr_details_via_optional_artifact(
         self, mock_emit, base_context: WorkflowContext, store: ArtifactStore
     ) -> None:
@@ -118,7 +118,7 @@ class TestGhPullRequestStepOptionalDependency:
         # Artifact loading was attempted for compose-request
         assert "compose-request" in read_calls
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_does_not_raise_when_artifact_absent(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -133,9 +133,9 @@ class TestGhPullRequestStepOptionalDependency:
 class TestGhPullRequestStepWithArtifact:
     """Tests verifying GhPullRequestStep uses compose-request artifact when present."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     def test_uses_compose_request_artifact_when_present(
         self,
@@ -169,12 +169,12 @@ class TestGhPullRequestStepWithArtifact:
 class TestGhPullRequestStepDraftFlag:
     """Tests verifying GhPullRequestStep adds --draft flag based on pipeline_type."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.os.environ", new_callable=dict)
+    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.os.environ", new_callable=dict)
     def test_thin_pipeline_includes_draft_flag(
         self,
         mock_environ,
@@ -225,12 +225,12 @@ class TestGhPullRequestStepDraftFlag:
         cmd_args = gh_create_calls[0][0][0]
         assert "--draft" in cmd_args
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.os.environ", new_callable=dict)
+    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.os.environ", new_callable=dict)
     def test_full_pipeline_omits_draft_flag(
         self,
         mock_environ,
@@ -284,12 +284,12 @@ class TestGhPullRequestStepDraftFlag:
 class TestGhPullRequestStepAffectedRepos:
     """Tests for GhPullRequestStep affected-repos filtering and branch-delta guard."""
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.get_affected_repo_paths")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.get_affected_repo_paths")
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_only_affected_repos_are_iterated(
         self,
@@ -328,8 +328,8 @@ class TestGhPullRequestStepAffectedRepos:
             cwd = call[1].get("cwd", "")
             assert "repo-a" not in str(cwd)
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.get_affected_repo_paths")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.get_affected_repo_paths")
     def test_skips_when_zero_affected_repos(
         self,
         mock_get_affected: MagicMock,
@@ -358,11 +358,11 @@ class TestGhPullRequestStepAffectedRepos:
         artifact = store.read_artifact("gh-pull-request")
         assert artifact.pull_requests == []
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step.subprocess.run")
+    @patch("rouge.core.workflow.steps.pull_request_step_base.subprocess.run")
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_branch_delta_guard_prevents_empty_pr(
         self,
@@ -530,11 +530,11 @@ def _make_subprocess_side_effect(
 # Shared patch decorator stack for attachment tests — patches external
 # helpers and env so the step reaches the PR-creation / adopt path.
 _ATTACHMENT_PATCHES = [
-    "rouge.core.workflow.steps.gh_pull_request_step._emit_and_log",
-    "rouge.core.workflow.steps.gh_pull_request_step.emit_artifact_comment",
-    "rouge.core.workflow.steps.gh_pull_request_step.log_artifact_comment_status",
+    "rouge.core.workflow.steps.pull_request_step_base._emit_and_log",
+    "rouge.core.workflow.steps.pull_request_step_base.emit_artifact_comment",
+    "rouge.core.workflow.steps.pull_request_step_base.log_artifact_comment_status",
     "rouge.core.workflow.steps.gh_pull_request_step.shutil.which",
-    "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run",
+    "rouge.core.workflow.steps.pull_request_step_base.subprocess.run",
 ]
 
 

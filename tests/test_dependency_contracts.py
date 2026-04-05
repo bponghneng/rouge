@@ -147,7 +147,7 @@ class TestOptionalDependencies:
         assert "implement" in metadata.dependencies
         assert metadata.dependency_kinds.get("implement") == "optional"
 
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_optional_dependency_returns_none_not_error(
         self, mock_emit, base_context: WorkflowContext
     ) -> None:
@@ -319,7 +319,7 @@ class TestDependencySemanticsIntegration:
     """Integration tests validating dependency semantics with real artifacts."""
 
     @patch("rouge.core.database.get_client")
-    @patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log")
+    @patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log")
     def test_optional_dependency_succeeds_with_artifact(
         self,
         mock_emit: Mock,
@@ -411,7 +411,7 @@ class TestErrorMessageQuality:
         """Optional artifact skip should have informative log/comment message."""
         from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
-        with patch("rouge.core.workflow.steps.gh_pull_request_step._emit_and_log") as mock_emit:
+        with patch("rouge.core.workflow.steps.pull_request_step_base._emit_and_log") as mock_emit:
             step = GhPullRequestStep()
             result = step.run(base_context)
 
