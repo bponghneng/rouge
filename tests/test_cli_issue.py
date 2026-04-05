@@ -1370,6 +1370,79 @@ def test_update_command_type_patch_no_auto_clear(mock_update_issue) -> None:
     mock_update_issue.assert_called_once_with(789, issue_type="patch")
 
 
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_single_field_status(mock_update_issue) -> None:
+    """Test update command with single field (status)."""
+    mock_issue = Issue(
+        id=123,
+        description="Test description",
+        status="started",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "123", "--status", "started"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_update_issue.assert_called_once_with(123, status="started")
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_invalid_status(mock_update_issue) -> None:
+    """Test update command with invalid status value."""
+    result = runner.invoke(app, ["update", "123", "--status", "bogus"])
+    assert result.exit_code == 1
+    assert "Invalid status 'bogus'" in result.output
+    assert "pending" in result.output
+    assert "started" in result.output
+    assert "completed" in result.output
+    assert "failed" in result.output
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_empty_status(mock_update_issue) -> None:
+    """Test update command with whitespace-only status."""
+    result = runner.invoke(app, ["update", "123", "--status", "  "])
+    assert result.exit_code == 1
+    assert "Field 'status' cannot be whitespace only" in result.output
+    mock_update_issue.assert_not_called()
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_status_case_insensitive(mock_update_issue) -> None:
+    """Test update command normalizes mixed-case status to lowercase."""
+    mock_issue = Issue(
+        id=123,
+        description="Test description",
+        status="started",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "123", "--status", "Started"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_update_issue.assert_called_once_with(123, status="started")
+
+
+@patch("rouge.cli.issue.update_issue")
+def test_update_command_status_with_other_fields(mock_update_issue) -> None:
+    """Test update command with status combined with another field."""
+    mock_issue = Issue(
+        id=123,
+        title="Done",
+        description="Test description",
+        status="completed",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(
+        app, ["update", "123", "--status", "completed", "--title", "Done"]
+    )
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_update_issue.assert_called_once_with(123, status="completed", title="Done")
+
+
 # Tests for delete command
 
 

@@ -54,6 +54,15 @@ class IssueType(str, Enum):
     THIN = "thin"
 
 
+class IssueStatus(str, Enum):
+    """Issue statuses supported by Rouge."""
+
+    PENDING = "pending"
+    STARTED = "started"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class OutputFormat(str, Enum):
     """Output formats for list command."""
 
@@ -591,6 +600,13 @@ def update(
     branch: Optional[str] = typer.Option(
         _UNSET, "--branch", help="Branch name", show_default=False
     ),
+    status: Optional[str] = typer.Option(
+        None,
+        "--status",
+        "-s",
+        help="Issue status: 'pending', 'started', 'completed', or 'failed'",
+        show_default=True,
+    ),
 ) -> None:
     """Update an existing issue.
 
@@ -608,6 +624,7 @@ def update(
         title: New title for the issue
         description: New description for the issue
         branch: Branch name (explicit --branch takes precedence over auto-clear)
+        status: Issue status ('pending', 'started', 'completed', or 'failed')
 
     Examples:
         rouge issue update 123 --title "New Title"
@@ -616,6 +633,8 @@ def update(
         rouge issue update 123 --title "Title" --description "Description"
         rouge issue update 123 --type full  # Auto-clears branch
         rouge issue update 123 --type full --branch my-branch  # Keeps branch
+        rouge issue update 123 --status started
+        rouge issue update 123 --status completed --assigned-to agent-1
     """
     validate_issue_id(issue_id)
     try:
@@ -659,6 +678,20 @@ def update(
                         f"Invalid issue type '{issue_type}'. Must be one of: {valid_types}"
                     )
 
+        # Validate and normalize status
+        normalized_status: Optional[str] = None
+        if status is not None:
+            if status.strip() == "":
+                raise ValueError("Field 'status' cannot be whitespace only")
+            status = status.strip()
+            if status:
+                try:
+                    parsed_status = IssueStatus(status.lower())
+                    normalized_status = parsed_status.value
+                except ValueError:
+                    valid_statuses = ", ".join([s.value for s in IssueStatus])
+                    raise ValueError(f"Invalid status '{status}'. Must be one of: {valid_statuses}")
+
         # Auto-clear branch when changing to type 'full', unless --branch was explicitly provided
         if normalized_issue_type == "full" and branch == _UNSET:
             # branch was not explicitly provided, so auto-clear it
@@ -667,7 +700,14 @@ def update(
         # Check if all normalized fields are None or UNSET
         if all(
             field is None or field == _UNSET
-            for field in [assigned_to, normalized_issue_type, title, description, branch]
+            for field in [
+                assigned_to,
+                normalized_issue_type,
+                title,
+                description,
+                branch,
+                normalized_status,
+            ]
         ):
             raise ValueError("No fields provided for update. At least one field must be specified.")
 
@@ -683,6 +723,8 @@ def update(
             kwargs["description"] = description
         if branch != _UNSET:
             kwargs["branch"] = branch
+        if normalized_status is not None:
+            kwargs["status"] = normalized_status
 
         # Call update_issue with the constructed kwargs
         issue = update_issue(issue_id, **kwargs)
