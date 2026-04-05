@@ -169,7 +169,7 @@ class PullRequestArtifactBase(Artifact):
     shared orchestration layer.
     """
 
-    artifact_type: Literal["gh-pull-request", "glab-pull-request"] = "gh-pull-request"
+    artifact_type: Literal["gh-pull-request", "glab-pull-request"]
     pull_requests: List[PullRequestEntry] = Field(
         default_factory=list,
         description="List of pull request / merge request entries, one per repository",
@@ -186,10 +186,6 @@ class GhPullRequestArtifact(PullRequestArtifactBase):
     """
 
     artifact_type: Literal["gh-pull-request"] = "gh-pull-request"
-    pull_requests: List[PullRequestEntry] = Field(
-        default_factory=list,
-        description="List of GitHub pull request entries, one per repository",
-    )
     platform: Literal["github"] = "github"
 
 
@@ -272,10 +268,6 @@ class GlabPullRequestArtifact(PullRequestArtifactBase):
     """
 
     artifact_type: Literal["glab-pull-request"] = "glab-pull-request"
-    pull_requests: List[PullRequestEntry] = Field(
-        default_factory=list,
-        description="List of GitLab merge request entries, one per repository",
-    )
     platform: Literal["gitlab"] = "gitlab"
 
 
