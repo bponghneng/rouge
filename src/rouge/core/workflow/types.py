@@ -147,7 +147,7 @@ class PlanData(BaseModel):
 class RepoChangeDetail(BaseModel):
     """Per-repository change details from implementation."""
 
-    repo_path: str
+    repo_path: str = Field(min_length=1)
     files_modified: list[str] = Field(default_factory=list)
     git_diff_stat: str = ""
 
