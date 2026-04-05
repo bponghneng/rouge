@@ -299,7 +299,7 @@ class GhPullRequestStep(WorkflowStep):
             return
 
         # Layer 2.5: Branch-delta guard — skip PR creation if no commits ahead of base
-        if not has_branch_delta(repo_path, logger):
+        if not has_branch_delta(repo_path, context.adw_id):
             logger.info("No commits ahead of base in %s — skipping PR creation", repo_path)
             return
 
@@ -468,6 +468,9 @@ class GhPullRequestStep(WorkflowStep):
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping PR creation")
+                # Seeded entries from a prior run are intentionally discarded here.
+                # When no repos are affected, there is nothing to publish and the
+                # artifact is written as an empty skip record.
                 artifact = GhPullRequestArtifact(
                     workflow_id=context.adw_id,
                     pull_requests=[],

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import logging
 import os
 import subprocess
 from typing import TYPE_CHECKING
+
+from rouge.core.utils import get_logger
 
 if TYPE_CHECKING:
     from rouge.core.workflow.step_base import WorkflowContext
@@ -63,20 +64,21 @@ def get_affected_repo_paths(
     if implement_data is None or not implement_data.affected_repos:
         return list(context.repo_paths)  # fallback: all repos
 
+    logger = get_logger(context.adw_id)
     affected_set = {r.repo_path for r in implement_data.affected_repos}
     extra = affected_set - set(context.repo_paths)
     if extra:
-        _logger = logging.getLogger(__name__)
-        _logger.warning("affected_repos contains paths not in context.repo_paths: %s", extra)
+        logger.warning("affected_repos contains paths not in context.repo_paths: %s", extra)
     return [p for p in context.repo_paths if p in affected_set]
 
 
-def has_branch_delta(repo_path: str, logger: logging.Logger) -> bool:
+def has_branch_delta(repo_path: str, adw_id: str) -> bool:
     """Check if repo has commits ahead of its remote base branch.
 
     Returns True if there are commits on HEAD not reachable from the remote
     base branch. Returns True on error to allow PR/MR creation to proceed.
     """
+    logger = get_logger(adw_id)
     try:
         base_branch_result = subprocess.run(
             ["git", "rev-parse", "--abbrev-ref", "origin/HEAD"],
@@ -86,7 +88,7 @@ def has_branch_delta(repo_path: str, logger: logging.Logger) -> bool:
             timeout=30,
         )
         base_branch = (
-            base_branch_result.stdout.strip().replace("origin/", "")
+            base_branch_result.stdout.strip().removeprefix("origin/")
             if base_branch_result.returncode == 0
             else "main"
         )
