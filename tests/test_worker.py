@@ -1501,7 +1501,7 @@ class TestWorkerResetCLI:
         with patch("rouge.worker.cli.read_worker_artifact", return_value=ready_artifact):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 1
-        assert "can only reset 'failed' workers" in result.output
+        assert "can only reset 'failed' or 'working' workers" in result.output
 
     def test_worker_reset_succeeds_when_failed(self) -> None:
         """Test rouge-worker reset exits 0 and resets artifact when worker is in failed state."""
@@ -1522,16 +1522,21 @@ class TestWorkerResetCLI:
         assert "reset to ready" in result.output
         mock_transition.assert_called_once_with(failed_artifact, "ready", clear_issue=True)
 
-    def test_worker_reset_fails_when_working(self) -> None:
-        """Test rouge-worker reset exits 1 when worker is in working state."""
+    def test_worker_reset_succeeds_when_working(self) -> None:
+        """Test rouge-worker reset exits 0 and resets artifact when worker is in working state."""
         runner = CliRunner()
         working_artifact = WorkerArtifact(
             worker_id="test-worker",
             state="working",
-            current_issue_id=5,
+            current_issue_id=42,
             current_adw_id="adw-456",
         )
-        with patch("rouge.worker.cli.read_worker_artifact", return_value=working_artifact):
+
+        with (
+            patch("rouge.worker.cli.read_worker_artifact", return_value=working_artifact),
+            patch("rouge.worker.cli.transition_worker_artifact") as mock_transition,
+        ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
-        assert result.exit_code == 1
-        assert "can only reset 'failed' workers" in result.output
+        assert result.exit_code == 0
+        assert "reset to ready" in result.output
+        mock_transition.assert_called_once_with(working_artifact, "ready", clear_issue=True)
