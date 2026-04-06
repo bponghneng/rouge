@@ -18,8 +18,9 @@ def reset(
     the issue type.
 
     Issue type behavior:
-    - full: Clears branch field (set to None)
-    - patch: Preserves existing branch field
+    - full: Clears branch and adw_id
+    - thin: Clears branch and adw_id
+    - patch: Preserves existing branch, clears adw_id
 
     The issue must be in 'failed' or 'pending' status to be reset.
 
@@ -44,12 +45,14 @@ def reset(
             raise typer.Exit(1)
 
         # Call update_issue with explicit parameters
-        # For full type, clear branch; for patch type, preserve existing branch
-        if issue.type == "full":
-            updated_issue = update_issue(issue_id, assigned_to=None, status="pending", branch=None)
+        # For full/thin type, clear branch; for patch type, preserve existing branch
+        if issue.type in ("full", "thin"):
+            updated_issue = update_issue(
+                issue_id, assigned_to=None, status="pending", branch=None, adw_id=None
+            )
         else:
             # For patch type, preserve existing branch
-            updated_issue = update_issue(issue_id, assigned_to=None, status="pending")
+            updated_issue = update_issue(issue_id, assigned_to=None, status="pending", adw_id=None)
 
         # Output issue ID on success for scripting compatibility
         typer.echo(f"{updated_issue.id}")

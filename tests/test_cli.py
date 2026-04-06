@@ -156,6 +156,7 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
         type="full",
         assigned_to="local-1",
         branch="feature/test",
+        adw_id="adw-abc123",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -167,6 +168,7 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
         type="full",
         assigned_to=None,
         branch=None,
+        adw_id=None,
     )
     mock_update_issue.return_value = updated_issue
 
@@ -179,6 +181,7 @@ def test_reset_command_with_failed_issue_succeeds(mock_fetch_issue, mock_update_
         assigned_to=None,
         status="pending",
         branch=None,
+        adw_id=None,
     )
 
 
@@ -194,6 +197,7 @@ def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update
         type="full",
         assigned_to="local-2",
         branch="feature/pending-test",
+        adw_id="adw-abc123",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -205,6 +209,7 @@ def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update
         type="full",
         assigned_to=None,
         branch=None,
+        adw_id=None,
     )
     mock_update_issue.return_value = updated_issue
 
@@ -217,6 +222,7 @@ def test_reset_command_with_pending_issue_succeeds(mock_fetch_issue, mock_update
         assigned_to=None,
         status="pending",
         branch=None,
+        adw_id=None,
     )
 
 
@@ -317,6 +323,7 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         type="full",
         assigned_to="local-1",
         branch="feature/main-branch",
+        adw_id="adw-abc123",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -328,6 +335,7 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         type="full",
         assigned_to=None,
         branch=None,
+        adw_id=None,
     )
     mock_update_issue.return_value = updated_issue
 
@@ -341,6 +349,7 @@ def test_reset_command_with_failed_main_issue_clears_branch(
         assigned_to=None,
         status="pending",
         branch=None,
+        adw_id=None,
     )
 
 
@@ -358,6 +367,7 @@ def test_reset_command_with_failed_patch_issue_preserves_branch(
         type="patch",
         assigned_to="local-3",
         branch="feature/patch-branch",
+        adw_id="adw-xyz789",
     )
     mock_fetch_issue.return_value = mock_issue
 
@@ -369,6 +379,7 @@ def test_reset_command_with_failed_patch_issue_preserves_branch(
         type="patch",
         assigned_to=None,
         branch="feature/patch-branch",
+        adw_id=None,
     )
     mock_update_issue.return_value = updated_issue
 
@@ -381,6 +392,48 @@ def test_reset_command_with_failed_patch_issue_preserves_branch(
         333,
         assigned_to=None,
         status="pending",
+        adw_id=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_thin_issue_clears_branch(
+    mock_fetch_issue, mock_update_issue
+) -> None:
+    """Test 'rouge issue reset' with failed thin issue clears branch and adw_id."""
+    mock_issue = Issue(
+        id=444,
+        description="Test thin issue",
+        status="failed",
+        type="thin",
+        assigned_to="local-4",
+        branch="feature/thin-branch",
+        adw_id="adw-thin123",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    updated_issue = Issue(
+        id=444,
+        description="Test thin issue",
+        status="pending",
+        type="thin",
+        assigned_to=None,
+        branch=None,
+        adw_id=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(issue_app, ["reset", "444"])
+    assert result.exit_code == 0
+    assert "444" in result.output
+    mock_fetch_issue.assert_called_once_with(444)
+    mock_update_issue.assert_called_once_with(
+        444,
+        assigned_to=None,
+        status="pending",
+        branch=None,
+        adw_id=None,
     )
 
 
