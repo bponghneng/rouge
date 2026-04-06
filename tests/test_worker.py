@@ -71,7 +71,7 @@ class TestGetNextIssue:
             {
                 "issue_id": 123,
                 "issue_description": "Test issue",
-                "issue_status": "pending",
+                "issue_status": "claimed",
                 "issue_type": "full",
             }
         ]
@@ -80,7 +80,7 @@ class TestGetNextIssue:
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
-            assert result == (123, "Test issue", "pending", "full", None)
+            assert result == (123, "Test issue", "claimed", "full", None)
             mock_client.rpc.assert_called_once_with(
                 "get_and_lock_next_issue", {"p_worker_id": "test-worker"}
             )
@@ -93,7 +93,7 @@ class TestGetNextIssue:
             {
                 "issue_id": 456,
                 "issue_description": "Test issue with adw",
-                "issue_status": "pending",
+                "issue_status": "claimed",
                 "issue_type": "full",
                 "issue_adw_id": "abc12345",
             }
@@ -103,7 +103,7 @@ class TestGetNextIssue:
         with patch("rouge.worker.database.get_client", return_value=mock_client):
             result = database.get_next_issue("test-worker")
 
-            assert result == (456, "Test issue with adw", "pending", "full", "abc12345")
+            assert result == (456, "Test issue with adw", "claimed", "full", "abc12345")
 
     def test_get_next_issue_no_issues(self, mock_env) -> None:
         """Test when no issues are available."""
@@ -191,10 +191,12 @@ class TestExecuteWorkflow:
 
         with patch("subprocess.run", return_value=mock_result):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue", "pending", "full")
+                result = worker.execute_workflow(123, "Test issue", "claimed", "full")
 
                 assert result is True
-                mock_update.assert_called_once_with(123, "completed", worker.logger)
+                assert mock_update.call_count == 2
+                mock_update.assert_any_call(123, "started", worker.logger)
+                mock_update.assert_any_call(123, "completed", worker.logger)
 
     def test_execute_workflow_failure(self, worker) -> None:
         """Test workflow execution failure."""
@@ -205,28 +207,53 @@ class TestExecuteWorkflow:
 
         with patch("subprocess.run", return_value=mock_result):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue", "pending", "full")
+                result = worker.execute_workflow(123, "Test issue", "claimed", "full")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "failed", worker.logger)
+                assert mock_update.call_count == 2
+                mock_update.assert_any_call(123, "started", worker.logger)
+                mock_update.assert_any_call(123, "failed", worker.logger)
 
     def test_execute_workflow_timeout(self, worker) -> None:
         """Test workflow execution timeout."""
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 3600)):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue", "pending", "full")
+                result = worker.execute_workflow(123, "Test issue", "claimed", "full")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "failed", worker.logger)
+                assert mock_update.call_count == 2
+                mock_update.assert_any_call(123, "started", worker.logger)
+                mock_update.assert_any_call(123, "failed", worker.logger)
 
     def test_execute_workflow_exception(self, worker) -> None:
         """Test workflow execution with unexpected exception."""
         with patch("subprocess.run", side_effect=Exception("Unexpected error")):
             with patch("rouge.worker.worker.update_issue_status") as mock_update:
-                result = worker.execute_workflow(123, "Test issue", "pending", "full")
+                result = worker.execute_workflow(123, "Test issue", "claimed", "full")
 
                 assert result is False
-                mock_update.assert_called_once_with(123, "failed", worker.logger)
+                assert mock_update.call_count == 2
+                mock_update.assert_any_call(123, "started", worker.logger)
+                mock_update.assert_any_call(123, "failed", worker.logger)
+
+    def test_execute_workflow_calls_started_before_subprocess(self, worker) -> None:
+        """Test worker transitions issue to 'started' before launching subprocess."""
+        call_order: list[str] = []
+
+        def track_update(_issue_id: int, status: str, _logger: object) -> None:
+            call_order.append(f"update:{status}")
+
+        def track_subprocess(*_args: object, **_kwargs: object) -> Mock:
+            call_order.append("subprocess")
+            result = Mock()
+            result.returncode = 0
+            return result
+
+        with patch("subprocess.run", side_effect=track_subprocess):
+            with patch("rouge.worker.worker.update_issue_status", side_effect=track_update):
+                worker.execute_workflow(123, "Test issue", "claimed", "full")
+
+        assert call_order.index("update:started") < call_order.index("subprocess")
 
     def test_execute_workflow_command_format(self, worker) -> None:
         """Test workflow command is formatted correctly."""
@@ -240,7 +267,7 @@ class TestExecuteWorkflow:
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     # Mock shutil.which to return None so it falls back to uv run
                     with patch("shutil.which", return_value=None):
-                        worker.execute_workflow(456, "Test description", "pending", "full")
+                        worker.execute_workflow(456, "Test description", "claimed", "full")
 
                     # Verify the command was called with correct arguments
                     call_args = mock_run.call_args
@@ -265,7 +292,7 @@ class TestExecuteWorkflow:
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
                     # Mock shutil.which to return a path, simulating global install
                     with patch("shutil.which", return_value="/usr/local/bin/rouge-adw"):
-                        worker.execute_workflow(456, "Test description", "pending", "full")
+                        worker.execute_workflow(456, "Test description", "claimed", "full")
 
                     # Verify the command uses rouge-adw directly
                     call_args = mock_run.call_args
@@ -287,7 +314,7 @@ class TestExecuteWorkflow:
         with patch("subprocess.run", return_value=mock_result) as mock_run:
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", return_value="test-adw"):
-                    worker.execute_workflow(456, "Test description", "pending", "full")
+                    worker.execute_workflow(456, "Test description", "claimed", "full")
 
                     # Verify the command uses the custom command
                     call_args = mock_run.call_args
@@ -325,6 +352,16 @@ class TestUpdateIssueStatus:
             database.update_issue_status(123, "completed")
             mock_update.assert_called_once_with(123, status="completed")
 
+    def test_update_issue_status_claimed_accepted(self, mock_env) -> None:
+        """Test that 'claimed' is accepted as a valid status by update_issue_status."""
+        mock_issue = Mock()
+        mock_issue.id = 123
+        mock_issue.status = "claimed"
+
+        with patch("rouge.worker.database._update_issue", return_value=mock_issue) as mock_update:
+            database.update_issue_status(123, "claimed")
+            mock_update.assert_called_once_with(123, status="claimed")
+
     def test_update_issue_status_database_error(self, mock_env) -> None:
         """Test handling database errors during status update."""
         with patch("rouge.worker.database._update_issue", side_effect=Exception("Database error")):
@@ -344,7 +381,7 @@ class TestWorkerRun:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Test issue", "pending", "full", "abc12345")
+                return (123, "Test issue", "claimed", "full", "abc12345")
             worker.running = False
             return None
 
@@ -353,7 +390,7 @@ class TestWorkerRun:
                 worker.run()
 
                 mock_execute.assert_called_once_with(
-                    123, "Test issue", "pending", "full", adw_id="abc12345"
+                    123, "Test issue", "claimed", "full", adw_id="abc12345"
                 )
 
     @pytest.mark.skip(reason="Flaky sleep timing on CI runners; revisit later.")
@@ -676,7 +713,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-123", True)
 
-            result = worker.execute_workflow(123, "Test issue", "pending", "full")
+            result = worker.execute_workflow(123, "Test issue", "claimed", "full")
 
             assert result is True
             mock_workflow.assert_called_once_with(123, "full", "Test issue", adw_id=None)
@@ -686,7 +723,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("patch-adw-test-123", True)
 
-            result = worker.execute_workflow(456, "Patch issue", "pending", "patch")
+            result = worker.execute_workflow(456, "Patch issue", "claimed", "patch")
 
             assert result is True
             mock_workflow.assert_called_once_with(456, "patch", "Patch issue", adw_id=None)
@@ -699,7 +736,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-789", True)
 
-            result = worker.execute_workflow(789, "Unknown type issue", "pending", "unknown")
+            result = worker.execute_workflow(789, "Unknown type issue", "claimed", "unknown")
 
             assert result is True
             mock_workflow.assert_called_once_with(789, "unknown", "Unknown type issue", adw_id=None)
@@ -713,7 +750,7 @@ class TestWorkflowRouting:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (123, "Patch issue description", "pending", "patch", "abc12345")
+                return (123, "Patch issue description", "claimed", "patch", "abc12345")
             worker.running = False
             return None
 
@@ -723,7 +760,7 @@ class TestWorkflowRouting:
                 worker.run()
 
                 mock_execute.assert_called_once_with(
-                    123, "Patch issue description", "pending", "patch", adw_id="abc12345"
+                    123, "Patch issue description", "claimed", "patch", adw_id="abc12345"
                 )
 
     @pytest.mark.skip(reason="Hangs intermittently on CI runners; routing logic tested above.")
@@ -735,7 +772,7 @@ class TestWorkflowRouting:
         def mock_get_next_issue(worker_id, logger):
             call_count[0] += 1
             if call_count[0] == 1:
-                return (456, "Main issue description", "pending", "full", "abc12345")
+                return (456, "Main issue description", "claimed", "full", "abc12345")
             worker.running = False
             return None
 
@@ -745,7 +782,7 @@ class TestWorkflowRouting:
                 worker.run()
 
                 mock_execute.assert_called_once_with(
-                    456, "Main issue description", "pending", "full", adw_id="abc12345"
+                    456, "Main issue description", "claimed", "full", adw_id="abc12345"
                 )
 
     def test_execute_workflow_handles_patch_failure(self, worker) -> None:
@@ -753,7 +790,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("patch-adw-test-fail", False)
 
-            result = worker.execute_workflow(123, "Patch issue", "pending", "patch")
+            result = worker.execute_workflow(123, "Patch issue", "claimed", "patch")
 
             assert result is False
             mock_workflow.assert_called_once_with(123, "patch", "Patch issue", adw_id=None)
@@ -763,7 +800,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-fail", False)
 
-            result = worker.execute_workflow(123, "Full issue", "pending", "full")
+            result = worker.execute_workflow(123, "Full issue", "claimed", "full")
 
             assert result is False
             mock_workflow.assert_called_once_with(123, "full", "Full issue", adw_id=None)
@@ -773,7 +810,7 @@ class TestWorkflowRouting:
         with patch.object(worker, "_execute_workflow") as mock_workflow:
             mock_workflow.return_value = ("adw-test-123", True)
 
-            result = worker.execute_workflow(789, "Full issue description", "pending", "full")
+            result = worker.execute_workflow(789, "Full issue description", "claimed", "full")
 
             assert result is True
             mock_workflow.assert_called_once_with(
@@ -786,7 +823,7 @@ class TestWorkflowRouting:
             mock_workflow.return_value = ("abc12345", True)
 
             result = worker.execute_workflow(
-                123, "Test issue", "pending", "full", adw_id="abc12345"
+                123, "Test issue", "claimed", "full", adw_id="abc12345"
             )
 
             assert result is True
@@ -811,8 +848,8 @@ class TestPatchWorkflowAdwId:
         with patch("subprocess.run", return_value=mock_result):
             with patch("rouge.worker.worker.update_issue_status"):
                 with patch("rouge.worker.worker.make_adw_id", side_effect=capture_adw_id):
-                    worker.execute_workflow(100, "Patch issue", "pending", "patch")
-                    worker.execute_workflow(200, "Another patch", "pending", "patch")
+                    worker.execute_workflow(100, "Patch issue", "claimed", "patch")
+                    worker.execute_workflow(200, "Another patch", "claimed", "patch")
 
         assert len(generated_ids) == 2
         assert generated_ids[0] != generated_ids[1]
@@ -835,9 +872,9 @@ class TestPatchWorkflowAdwId:
                     side_effect=["patch-abc", "main-xyz"],
                 ):
                     # Execute a patch workflow
-                    worker.execute_workflow(100, "Patch issue", "pending", "patch")
+                    worker.execute_workflow(100, "Patch issue", "claimed", "patch")
                     # Execute a main workflow
-                    worker.execute_workflow(200, "Main issue", "pending", "full")
+                    worker.execute_workflow(200, "Main issue", "claimed", "full")
 
                     # Collect the adw_id arguments from subprocess.run calls
                     for call in mock_run.call_args_list:
@@ -862,7 +899,7 @@ class TestPatchWorkflowAdwId:
                 with patch(
                     "rouge.worker.worker.make_adw_id", return_value="unique-id"
                 ) as mock_make:
-                    worker.execute_workflow(100, "Issue", "pending", "patch")
+                    worker.execute_workflow(100, "Issue", "claimed", "patch")
 
                     mock_make.assert_called_once()
 
@@ -880,7 +917,7 @@ class TestAdwIdResolution:
                 with patch("rouge.worker.worker.make_adw_id") as mock_make:
                     with patch("shutil.which", return_value=None):
                         worker.execute_workflow(
-                            123, "Test issue", "pending", "full", adw_id="abc12345"
+                            123, "Test issue", "claimed", "full", adw_id="abc12345"
                         )
 
                     # make_adw_id should NOT have been called
@@ -904,7 +941,7 @@ class TestAdwIdResolution:
                     "rouge.worker.worker.make_adw_id", return_value="generated-id"
                 ) as mock_make:
                     with patch("shutil.which", return_value=None):
-                        worker.execute_workflow(123, "Test issue", "pending", "full", adw_id=None)
+                        worker.execute_workflow(123, "Test issue", "claimed", "full", adw_id=None)
 
                     # make_adw_id SHOULD have been called
                     mock_make.assert_called_once()
@@ -926,7 +963,7 @@ class TestAdwIdResolution:
                 with patch("rouge.worker.worker.make_adw_id") as mock_make:
                     with patch("shutil.which", return_value=None):
                         worker.execute_workflow(
-                            456, "Patch issue", "pending", "patch", adw_id="preassigned-id"
+                            456, "Patch issue", "claimed", "patch", adw_id="preassigned-id"
                         )
 
                     mock_make.assert_not_called()
@@ -1079,7 +1116,7 @@ class TestWorkerStateTransitions:
                         "rouge.worker.worker_artifact.write_worker_artifact",
                         side_effect=capture_write,
                     ):
-                        worker.execute_workflow(100, "Test issue", "pending", "full")
+                        worker.execute_workflow(100, "Test issue", "claimed", "full")
 
                     # Should have at least 2 writes: one for working, one for ready
                     assert len(write_calls) >= 2
@@ -1107,7 +1144,7 @@ class TestWorkerStateTransitions:
                         "rouge.worker.worker_artifact.write_worker_artifact",
                         side_effect=capture_write,
                     ):
-                        worker.execute_workflow(200, "Success issue", "pending", "full")
+                        worker.execute_workflow(200, "Success issue", "claimed", "full")
 
                     # Last write should transition to ready state
                     last_write = write_calls[-1]
@@ -1132,7 +1169,7 @@ class TestWorkerStateTransitions:
                         "rouge.worker.worker_artifact.write_worker_artifact",
                         side_effect=capture_write,
                     ):
-                        worker.execute_workflow(300, "Fail issue", "pending", "full")
+                        worker.execute_workflow(300, "Fail issue", "claimed", "full")
 
                     # Last write should transition to failed state
                     last_write = write_calls[-1]
@@ -1155,7 +1192,7 @@ class TestWorkerStateTransitions:
                         "rouge.worker.worker_artifact.write_worker_artifact",
                         side_effect=capture_write,
                     ):
-                        worker.execute_workflow(400, "Timeout issue", "pending", "full")
+                        worker.execute_workflow(400, "Timeout issue", "claimed", "full")
 
                     # Last write should transition to failed state
                     last_write = write_calls[-1]
@@ -1177,7 +1214,7 @@ class TestWorkerStateTransitions:
                         "rouge.worker.worker_artifact.write_worker_artifact",
                         side_effect=capture_write,
                     ):
-                        worker.execute_workflow(500, "Error issue", "pending", "full")
+                        worker.execute_workflow(500, "Error issue", "claimed", "full")
 
                     # Last write should transition to failed state
                     last_write = write_calls[-1]
@@ -1203,10 +1240,10 @@ class TestWorkerStateTransitions:
                         side_effect=capture_write,
                     ):
                         # Execute first workflow
-                        worker.execute_workflow(100, "First issue", "pending", "full")
+                        worker.execute_workflow(100, "First issue", "claimed", "full")
 
                         # Execute second workflow
-                        worker.execute_workflow(200, "Second issue", "pending", "full")
+                        worker.execute_workflow(200, "Second issue", "claimed", "full")
 
         # Should have writes for both workflows
         assert len(write_calls) >= 4  # 2 per workflow (working + ready)

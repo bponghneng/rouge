@@ -8,7 +8,7 @@ import pytest
 
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
-from rouge.core.workflow import execute_workflow, update_status
+from rouge.core.workflow import execute_workflow
 from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.types import StepResult
@@ -28,26 +28,6 @@ def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> Workfl
 def sample_issue() -> Issue:
     """Create a sample issue for testing."""
     return Issue(id=1, description="Fix login bug", status="pending")
-
-
-@patch("rouge.core.workflow.status.update_issue")
-def test_update_status_success(mock_update_issue) -> None:
-    """Test successful status update."""
-    mock_issue = Mock()
-    mock_issue.id = 1
-    mock_update_issue.return_value = mock_issue
-
-    update_status(1, "started", adw_id="test-adw-id")
-    mock_update_issue.assert_called_once_with(1, status="started")
-
-
-@patch("rouge.core.workflow.status.update_issue")
-def test_update_status_failure(mock_update_issue) -> None:
-    """Test status update handles errors gracefully."""
-    mock_update_issue.side_effect = ValueError("Database error")
-
-    # Should not raise - best-effort
-    update_status(1, "started", adw_id="test-adw-id")
 
 
 @patch("rouge.core.notifications.comments.create_comment")
@@ -1190,10 +1170,7 @@ def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
 
 @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
-@patch("rouge.core.workflow.steps.compose_request_step.update_status")
-def test_prepare_pr_step_emits_raw_llm_response(
-    mock_update_status, mock_execute, mock_emit
-) -> None:
+def test_prepare_pr_step_emits_raw_llm_response(mock_execute, mock_emit) -> None:
     """Test ComposeRequestStep emits raw LLM response for debugging."""
 
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
@@ -1233,9 +1210,9 @@ def test_prepare_pr_step_emits_raw_llm_response(
             llm_response_call = call
             break
 
-    assert (
-        llm_response_call is not None
-    ), "Expected emit_comment_from_payload call with pr-preparation-response"
+    assert llm_response_call is not None, (
+        "Expected emit_comment_from_payload call with pr-preparation-response"
+    )
     assert llm_response_call[0][0].raw["llm_response"] == pr_json
 
 

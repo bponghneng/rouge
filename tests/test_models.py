@@ -219,6 +219,12 @@ def test_patch_status_before_validation() -> None:
     assert patch.status == "pending"
 
 
+def test_issue_claimed_status() -> None:
+    """Test that Issue accepts claimed status."""
+    issue = Issue(id=1, description="Test", status="claimed")
+    assert issue.status == "claimed"
+
+
 def test_issue_failed_status() -> None:
     """Test that Issue accepts failed status."""
     issue = Issue(id=1, description="Test", status="failed")

@@ -35,7 +35,6 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 class TestComposeRequestOrderingOnlyDependency:
     """Tests that ComposeRequestStep does not read the acceptance artifact."""
 
-    @patch("rouge.core.workflow.steps.compose_request_step.update_status")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
@@ -46,19 +45,17 @@ class TestComposeRequestOrderingOnlyDependency:
         _mock_log,
         mock_emit_artifact,
         mock_emit,
-        mock_update_status,
         base_context: WorkflowContext,
     ) -> None:
         """ComposeRequestStep never calls read_artifact('acceptance', ...)."""
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", "summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
-        mock_update_status.return_value = None
 
         read_calls: list[str] = []
         original_read = base_context.artifact_store.read_artifact
@@ -75,7 +72,6 @@ class TestComposeRequestOrderingOnlyDependency:
         # Assert acceptance artifact was never read
         assert "acceptance" not in read_calls
 
-    @patch("rouge.core.workflow.steps.compose_request_step.update_status")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
@@ -86,19 +82,17 @@ class TestComposeRequestOrderingOnlyDependency:
         _mock_log,
         mock_emit_artifact,
         mock_emit,
-        mock_update_status,
         base_context: WorkflowContext,
     ) -> None:
         """ComposeRequestStep succeeds even when no acceptance artifact exists."""
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", "summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
-        mock_update_status.return_value = None
 
         step = ComposeRequestStep()
         result = step.run(base_context)
@@ -114,7 +108,6 @@ class TestComposeRequestOrderingOnlyDependency:
 class TestComposeRequestAffectedRepos:
     """Tests for ComposeRequestStep affected-repos filtering."""
 
-    @patch("rouge.core.workflow.steps.compose_request_step.update_status")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
@@ -127,7 +120,6 @@ class TestComposeRequestAffectedRepos:
         _mock_log,
         mock_emit_artifact,
         mock_emit,
-        mock_update_status,
         base_context: WorkflowContext,
     ) -> None:
         """ComposeRequestStep passes filtered repos (not full context.repo_paths) to template."""
@@ -135,12 +127,11 @@ class TestComposeRequestAffectedRepos:
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", ' '"summary": "Summary", "commits": []}'
+            '{"output": "pull-request", "title": "My PR", "summary": "Summary", "commits": []}'
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
-        mock_update_status.return_value = None
 
         step = ComposeRequestStep()
         result = step.run(base_context)

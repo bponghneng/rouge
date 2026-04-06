@@ -264,7 +264,6 @@ class TestImplementDirectStepRun:
         context.artifact_store = Mock()
         return context
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.update_status")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
@@ -273,7 +272,6 @@ class TestImplementDirectStepRun:
         mock_implement_direct,
         mock_emit,
         mock_emit_artifact,
-        mock_update_status,
         direct_mock_context,
     ) -> None:
         """Test successful direct implementation."""
@@ -304,13 +302,7 @@ class TestImplementDirectStepRun:
             direct_mock_context.require_issue_id,
             direct_mock_context.adw_id,
         )
-        mock_update_status.assert_called_once_with(
-            direct_mock_context.require_issue_id,
-            "completed",
-            adw_id=direct_mock_context.adw_id,
-        )
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.update_status")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
@@ -319,7 +311,6 @@ class TestImplementDirectStepRun:
         mock_implement_direct,
         mock_emit,
         mock_emit_artifact,
-        mock_update_status,
         direct_mock_context,
     ) -> None:
         """Test that finalization emits 'Solution implemented successfully' comment."""
@@ -347,42 +338,6 @@ class TestImplementDirectStepRun:
         mock_emit.assert_called_once()
         payload = mock_emit.call_args[0][0]
         assert payload.text == "Solution implemented successfully"
-
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.implement_direct_step.update_status")
-    @patch.object(ImplementDirectStep, "_implement_direct")
-    def test_run_succeeds_when_status_persistence_fails(
-        self,
-        mock_implement_direct,
-        mock_update_status,
-        mock_emit,
-        mock_emit_artifact,
-        direct_mock_context,
-    ) -> None:
-        """Test that finalization status persistence is best-effort."""
-        issue_mock = Mock()
-        issue_mock.description = "Implement feature X directly"
-
-        def _load(_context_key, _artifact_type, _artifact_class, _extract_fn):
-            return issue_mock
-
-        direct_mock_context.load_required_artifact = _load
-
-        sample_data = ImplementData(
-            output="Implementation completed successfully.",
-            session_id="direct-session-789",
-        )
-        mock_implement_direct.return_value = StepResult.ok(sample_data)
-        mock_update_status.side_effect = RuntimeError("transient status failure")
-        mock_emit_artifact.return_value = ("success", "ok")
-        mock_emit.return_value = ("success", "Comment inserted")
-
-        step = ImplementDirectStep()
-        result = step.run(direct_mock_context)
-
-        assert result.success is True
-        mock_emit.assert_called_once()
 
     def test_run_fails_when_no_fetch_issue_artifact(self, direct_mock_context) -> None:
         """Test that run fails when fetch-issue artifact is missing."""
@@ -473,7 +428,6 @@ class TestImplementDirectStepRun:
         assert result.success is False
         assert "missing" in result.error.lower() or "Implementation data" in result.error
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.update_status")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
@@ -482,7 +436,6 @@ class TestImplementDirectStepRun:
         mock_implement_direct,
         mock_emit,
         mock_emit_artifact,
-        _mock_update_status,
         direct_mock_context,
     ) -> None:
         """Test that implementation artifact is saved on success."""
