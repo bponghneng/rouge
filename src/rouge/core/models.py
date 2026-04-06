@@ -30,7 +30,7 @@ class Issue(BaseModel):
     id: int
     title: Optional[str] = None
     description: str = Field(..., min_length=1)
-    status: Literal["pending", "started", "completed", "failed"] = "pending"
+    status: Literal["pending", "claimed", "started", "completed", "failed"] = "pending"
     type: Literal["full", "patch", "thin", "direct"] = "full"
     adw_id: Optional[str] = None
     branch: Optional[str] = None
