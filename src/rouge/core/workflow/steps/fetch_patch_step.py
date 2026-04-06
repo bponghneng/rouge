@@ -9,7 +9,6 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchPatchArtifact
-from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -70,9 +69,6 @@ class FetchPatchStep(WorkflowStep):
 
             status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
             log_artifact_comment_status(status, msg)
-
-            # Update status to "started" - best-effort, non-blocking
-            update_status(issue_id, "started", adw_id=context.adw_id)
 
             # Emit progress comment
             payload = CommentPayload(

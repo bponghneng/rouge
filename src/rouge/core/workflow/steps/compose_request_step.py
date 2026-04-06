@@ -15,7 +15,6 @@ from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
-from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _sanitize_for_logging
 from rouge.core.workflow.types import StepResult
@@ -180,9 +179,6 @@ class ComposeRequestStep(WorkflowStep):
             context: Workflow context
         """
         logger = get_logger(context.adw_id)
-        # Update status to "completed" - best-effort, non-blocking
-        update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
-
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(
             issue_id=context.require_issue_id,

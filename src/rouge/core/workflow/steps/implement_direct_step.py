@@ -16,7 +16,6 @@ from rouge.core.workflow.artifacts import (
     ImplementDirectArtifact,
 )
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
-from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.implement_step import (
     IMPLEMENT_DIRECT_JSON_SCHEMA,
@@ -168,16 +167,6 @@ class ImplementDirectStep(WorkflowStep):
 
     def _finalize_workflow(self, context: WorkflowContext) -> None:
         logger = get_logger(context.adw_id)
-        try:
-            update_status(context.require_issue_id, "completed", adw_id=context.adw_id)
-        except Exception as exc:
-            logger.error(
-                "Failed to persist workflow completion status for issue_id=%s adw_id=%s: %s. "
-                "The implementation completed successfully; retry workflow bookkeeping if needed.",
-                context.require_issue_id,
-                context.adw_id,
-                exc,
-            )
         payload = CommentPayload(
             issue_id=context.require_issue_id,
             adw_id=context.adw_id,
