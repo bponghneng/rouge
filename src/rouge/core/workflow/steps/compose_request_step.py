@@ -126,7 +126,7 @@ class ComposeRequestStep(WorkflowStep):
             if not response.success:
                 logger.warning("Pull request preparation failed: %s", response.output)
                 # Still mark workflow as completed even if PR prep fails
-                self._finalize_workflow(context)
+                self._emit_completion_comment(context)
                 return StepResult.fail(f"Pull request preparation failed: {response.output}")
 
             # Parse and validate JSON output
@@ -137,7 +137,7 @@ class ComposeRequestStep(WorkflowStep):
                 error_msg = parse_result.error or "JSON parsing failed"
                 logger.warning("Pull request JSON parsing failed: %s", error_msg)
                 # Still mark workflow as completed even if parse fails
-                self._finalize_workflow(context)
+                self._emit_completion_comment(context)
                 return StepResult.fail(error_msg)
 
             logger.info("Pull request prepared successfully")
@@ -162,18 +162,18 @@ class ComposeRequestStep(WorkflowStep):
                 logger.error(msg)
 
             # Finalize workflow
-            self._finalize_workflow(context)
+            self._emit_completion_comment(context)
 
             return StepResult.ok(None, parsed_data=parse_result.data)
 
         except Exception as e:
             logger.exception("Pull request preparation failed: %s", e)
             # Still mark workflow as completed
-            self._finalize_workflow(context)
+            self._emit_completion_comment(context)
             return StepResult.fail(f"Pull request preparation failed: {e}")
 
-    def _finalize_workflow(self, context: WorkflowContext) -> None:
-        """Finalize workflow by updating status and inserting completion comment.
+    def _emit_completion_comment(self, context: WorkflowContext) -> None:
+        """Emit a completion comment for the workflow.
 
         Args:
             context: Workflow context

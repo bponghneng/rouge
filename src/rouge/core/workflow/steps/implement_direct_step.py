@@ -161,11 +161,11 @@ class ImplementDirectStep(WorkflowStep):
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
-        self._finalize_workflow(context)
+        self._emit_completion_comment(context)
 
         return StepResult.ok(None)
 
-    def _finalize_workflow(self, context: WorkflowContext) -> None:
+    def _emit_completion_comment(self, context: WorkflowContext) -> None:
         logger = get_logger(context.adw_id)
         payload = CommentPayload(
             issue_id=context.require_issue_id,
