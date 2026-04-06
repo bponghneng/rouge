@@ -67,7 +67,7 @@ def resume(
         # Validate issue has adw_id set
         if not issue.adw_id:
             typer.echo(
-                f"Error: Issue {issue_id} has no adw_id set, " "cannot resume without workflow ID",
+                f"Error: Issue {issue_id} has no adw_id set, cannot resume without workflow ID",
                 err=True,
             )
             raise typer.Exit(1)
