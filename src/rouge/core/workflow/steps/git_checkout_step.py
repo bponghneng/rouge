@@ -203,7 +203,7 @@ class GitCheckoutStep(WorkflowStep):
                         fetch_result.stderr.strip(),
                     )
                     error_msg = (
-                        f"git fetch --all --prune failed" f" (exit code {fetch_result.returncode})"
+                        f"git fetch --all --prune failed (exit code {fetch_result.returncode})"
                     )
                     logger.error(error_msg)
                     return StepResult.fail(error_msg)

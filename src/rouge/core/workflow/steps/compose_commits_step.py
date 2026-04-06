@@ -384,8 +384,7 @@ class ComposeCommitsStep(WorkflowStep):
 
             if not pat:
                 skip_msg = (
-                    f"PR update skipped for {repo_path}: "
-                    f"{pat_name} environment variable not set"
+                    f"PR update skipped for {repo_path}: {pat_name} environment variable not set"
                 )
                 logger.info(skip_msg)
                 _emit_and_log(
