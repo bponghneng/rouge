@@ -21,6 +21,7 @@ def reset(
     - full: Clears branch and adw_id
     - thin: Clears branch and adw_id
     - patch: Preserves existing branch, clears adw_id
+    - direct: Preserves existing branch, clears adw_id
 
     The issue must be in 'failed' or 'pending' status to be reset.
 
@@ -51,7 +52,7 @@ def reset(
                 issue_id, assigned_to=None, status="pending", branch=None, adw_id=None
             )
         else:
-            # For patch type, preserve existing branch
+            # For patch/direct type, preserve existing branch
             updated_issue = update_issue(issue_id, assigned_to=None, status="pending", adw_id=None)
 
         # Output issue ID on success for scripting compatibility
