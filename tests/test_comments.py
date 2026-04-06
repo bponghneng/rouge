@@ -227,9 +227,9 @@ class TestEmitArtifactComment:
 
             # Verify the comment type matches the artifact type
             call_args = mock_create_comment.call_args[0][0]
-            assert (
-                call_args.type == expected_type
-            ), f"Type mismatch for {expected_type}: got {call_args.type}"
+            assert call_args.type == expected_type, (
+                f"Type mismatch for {expected_type}: got {call_args.type}"
+            )
             assert call_args.source == "artifact"
             assert f"Artifact saved: {expected_type}" == call_args.comment
 

@@ -1051,6 +1051,26 @@ def test_list_command_filter_by_status_failed(mock_fetch_all_issues) -> None:
 
 
 @patch("rouge.cli.issue.fetch_all_issues")
+def test_list_command_filter_by_status_claimed(mock_fetch_all_issues) -> None:
+    """Test list command with --status claimed returns only claimed issues."""
+    mock_issues = [
+        Issue(
+            id=1,
+            title="Claimed Issue 1",
+            description="Claimed description",
+            status="claimed",
+            type="full",
+        ),
+    ]
+    mock_fetch_all_issues.return_value = mock_issues
+
+    result = runner.invoke(app, ["list", "--status", "claimed"])
+    assert result.exit_code == 0
+    mock_fetch_all_issues.assert_called_once_with(limit=5, issue_type=None, status="claimed")
+    assert "Claimed Issue 1" in result.output
+
+
+@patch("rouge.cli.issue.fetch_all_issues")
 def test_list_command_combined_filters(mock_fetch_all_issues) -> None:
     """Test list command with --limit 10 --type patch --status started honors all filters."""
     mock_issues = [
@@ -1430,12 +1450,29 @@ def test_update_command_single_field_status(mock_update_issue) -> None:
 
 
 @patch("rouge.cli.issue.update_issue")
+def test_update_command_status_claimed(mock_update_issue) -> None:
+    """Test update command accepts --status claimed."""
+    mock_issue = Issue(
+        id=123,
+        description="Test description",
+        status="claimed",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "123", "--status", "claimed"])
+    assert result.exit_code == 0
+    assert "123" in result.output
+    mock_update_issue.assert_called_once_with(123, status="claimed")
+
+
+@patch("rouge.cli.issue.update_issue")
 def test_update_command_invalid_status(mock_update_issue) -> None:
     """Test update command with invalid status value."""
     result = runner.invoke(app, ["update", "123", "--status", "bogus"])
     assert result.exit_code == 1
     assert "Invalid status 'bogus'" in result.output
     assert "pending" in result.output
+    assert "claimed" in result.output
     assert "started" in result.output
     assert "completed" in result.output
     assert "failed" in result.output

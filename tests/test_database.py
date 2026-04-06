@@ -1810,7 +1810,7 @@ def test_update_issue_all_valid_statuses(mock_get_client) -> None:
     mock_client.table.return_value = mock_table
     mock_get_client.return_value = mock_client
 
-    valid_statuses = ["pending", "started", "completed", "failed"]
+    valid_statuses = ["pending", "claimed", "started", "completed", "failed"]
 
     for status in valid_statuses:
         mock_execute_update.data = [
