@@ -236,7 +236,12 @@ class IssueWorker:
             self.worker_artifact.current_adw_id = adw_id
             self._transition_artifact("working")
 
-            update_issue_status(issue_id, "started", self.logger)
+            if not update_issue_status(issue_id, "started", self.logger):
+                self.logger.warning(
+                    "STATUS_TRANSITION_FAILED: issue %s remains in 'claimed' — "
+                    "proceeding with workflow execution despite stale status",
+                    issue_id,
+                )
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
@@ -286,7 +291,14 @@ class IssueWorker:
             update_issue_status(issue_id, "failed", self.logger)
 
             # Transition to failed state on timeout
-            self._transition_artifact("failed")
+            try:
+                self._transition_artifact("failed")
+            except Exception:
+                self.logger.exception(
+                    "Secondary failure: could not transition artifact to 'failed' "
+                    "after timeout for issue %s",
+                    issue_id,
+                )
 
             return adw_id, False
         except Exception:
@@ -294,7 +306,14 @@ class IssueWorker:
             update_issue_status(issue_id, "failed", self.logger)
 
             # Transition to failed state on exception
-            self._transition_artifact("failed")
+            try:
+                self._transition_artifact("failed")
+            except Exception:
+                self.logger.exception(
+                    "Secondary failure: could not transition artifact to 'failed' "
+                    "after error for issue %s",
+                    issue_id,
+                )
 
             return adw_id, False
 
