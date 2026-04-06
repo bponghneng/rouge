@@ -168,6 +168,40 @@ def load_and_render_attachment(context: "WorkflowContext") -> str | None:
     )
 
 
+def load_and_render_patch_attachment(context: "WorkflowContext") -> str | None:
+    """Load fetch-patch and plan artifacts and render the PR/MR attachment markdown.
+
+    This mirrors :func:`load_and_render_attachment` but reads from the
+    ``fetch-patch`` artifact instead of ``fetch-issue``.  Returns ``None``
+    when neither artifact is present.
+
+    Args:
+        context: The workflow context providing artifact loading.
+
+    Returns:
+        Rendered Markdown string, or ``None`` if both artifacts are absent.
+    """
+    from rouge.core.workflow.artifacts import FetchPatchArtifact, PlanArtifact
+
+    patch_data = context.load_optional_artifact(
+        "fetch_patch_data",
+        "fetch-patch",
+        FetchPatchArtifact,
+        lambda a: {"description": a.patch.description},
+    )
+    plan_data = context.load_optional_artifact(
+        "plan_data",
+        "plan",
+        PlanArtifact,
+        lambda a: a.plan_data,
+    )
+    return render_attachment_markdown(
+        spec_text=patch_data["description"] if patch_data else None,
+        plan_text=plan_data.plan if plan_data else None,
+        plan_summary=plan_data.summary if plan_data else None,
+    )
+
+
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:
     """Helper to emit comment and log based on status.
 
