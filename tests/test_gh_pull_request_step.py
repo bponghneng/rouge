@@ -708,9 +708,9 @@ class TestGhPullRequestStepAttachment:
         # No attachment-related calls: no gh pr view (comments), no gh pr comment, no gh api PATCH
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
-            assert not ("pr" in cmd_str and "view" in cmd_str), (
-                "gh pr view should not be called when attachment is None"
-            )
+            assert not (
+                "pr" in cmd_str and "view" in cmd_str
+            ), "gh pr view should not be called when attachment is None"
             has_attachment_comment = (
                 "pr" in cmd_str and "comment" in cmd_str and "rouge-review-context" in cmd_str
             )

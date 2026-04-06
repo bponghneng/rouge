@@ -79,9 +79,9 @@ class TestPromptId:
     def test_values_have_no_adw_prefix(self) -> None:
         """PromptId values do not carry an 'adw-' prefix."""
         for prompt_id in PromptId:
-            assert not prompt_id.value.startswith("adw-"), (
-                f"{prompt_id.name} value {prompt_id.value!r} still has 'adw-' prefix"
-            )
+            assert not prompt_id.value.startswith(
+                "adw-"
+            ), f"{prompt_id.name} value {prompt_id.value!r} still has 'adw-' prefix"
 
     def test_is_str_subclass(self) -> None:
         """PromptId inherits from str so it serialises cleanly."""
@@ -248,9 +248,9 @@ class TestPromptRegistryGet:
         registry = PromptRegistry()
         for prompt_id in PromptId:
             template = registry.get(prompt_id)
-            assert not template.body.startswith("---"), (
-                f"{prompt_id.value} body still contains front matter marker"
-            )
+            assert not template.body.startswith(
+                "---"
+            ), f"{prompt_id.value} body still contains front matter marker"
 
     def test_implement_plan_template_has_model_opus(self) -> None:
         """implement-plan.md front matter declares model: opus."""
@@ -476,9 +476,9 @@ class TestModuleLevelHelpers:
             registry = get_registry()
             # All PromptIds must be cached — validation happened at startup
             for prompt_id in PromptId:
-                assert prompt_id in registry._cache, (
-                    f"{prompt_id.value} was not validated at registry creation"
-                )
+                assert (
+                    prompt_id in registry._cache
+                ), f"{prompt_id.value} was not validated at registry creation"
         finally:
             _mod._registry = old
 
