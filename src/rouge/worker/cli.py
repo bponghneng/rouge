@@ -155,7 +155,7 @@ def main(
 def reset_worker(
     worker_id: str = typer.Argument(..., help="Worker ID to reset"),
 ) -> None:
-    """Reset a failed worker back to ready state."""
+    """Reset a failed or working worker back to ready state."""
     worker_id = worker_id.strip()
     if not worker_id:
         typer.echo("Error: worker-id cannot be empty", err=True)
@@ -164,10 +164,10 @@ def reset_worker(
     if artifact is None:
         typer.echo(f"Error: No artifact found for worker '{worker_id}'", err=True)
         raise typer.Exit(1)
-    if artifact.state != "failed":
+    if artifact.state not in ("failed", "working"):
         typer.echo(
             f"Error: Worker '{worker_id}' is in state '{artifact.state}', "
-            f"can only reset 'failed' workers",
+            f"can only reset 'failed' or 'working' workers",
             err=True,
         )
         raise typer.Exit(1)
