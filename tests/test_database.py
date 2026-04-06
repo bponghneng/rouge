@@ -2050,3 +2050,10 @@ def test_update_issue_adw_id_unset_omitted(mock_get_client) -> None:
     assert issue.id == 1
     # Only assigned_to should be in the update dict, adw_id should be omitted
     mock_table.update.assert_called_once_with({"assigned_to": "worker-1"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_adw_id_empty_raises(_mock_get_client) -> None:
+    """Test validation error for empty/whitespace-only adw_id."""
+    with pytest.raises(ValueError, match="adw_id cannot be empty/whitespace if provided"):
+        update_issue(1, adw_id="  ")
