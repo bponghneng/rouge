@@ -550,7 +550,7 @@ def update_issue(
 
     # Validate and add status to updates
     if not isinstance(status, _Unset):
-        valid_statuses = {"pending", "started", "completed", "failed"}
+        valid_statuses = {"pending", "claimed", "started", "completed", "failed"}
         if status not in valid_statuses:
             raise ValueError(
                 f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
