@@ -145,7 +145,7 @@ def _make_subprocess_side_effect(
 
     Handles the standard sequence of subprocess calls made by the step:
     git rev-parse, glab mr list (adopt check), git push, glab mr create,
-    glab api (note listing), and glab mr note create / glab api PUT.
+    glab api (note listing), and glab mr note / glab api PUT.
 
     Args:
         adopt: If True, glab mr list returns an existing MR to adopt.
@@ -205,8 +205,8 @@ def _make_subprocess_side_effect(
                 result.stdout = "[]"
             return result
 
-        # glab mr note create (new attachment note)
-        if "mr" in cmd_str and "note" in cmd_str and "create" in cmd_str:
+        # glab mr note (new attachment note)
+        if "mr" in cmd_str and "note" in cmd_str:
             if attachment_error:
                 raise OSError("network error")
             result = MagicMock()
@@ -488,7 +488,7 @@ class TestGlabPullRequestStepAttachment:
         base_context: WorkflowContext,
         store: ArtifactStore,
     ) -> None:
-        """When fetch-issue and plan artifacts exist, glab mr note create is called
+        """When fetch-issue and plan artifacts exist, glab mr note is called
         after MR create."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -509,7 +509,7 @@ class TestGlabPullRequestStepAttachment:
 
         assert result.success is True
 
-        # Find the glab mr note create call
+        # Find the glab mr note call
         note_create_calls = [
             c
             for c in mock_subprocess.call_args_list
@@ -517,7 +517,7 @@ class TestGlabPullRequestStepAttachment:
             and c[0][0][0] == "glab"
             and c[0][0][1] == "mr"
             and c[0][0][2] == "note"
-            and c[0][0][3] == "create"
+            and c[0][0][3] == "99"
         ]
         assert len(note_create_calls) == 1
         note_cmd = note_create_calls[0][0][0]
@@ -525,6 +525,8 @@ class TestGlabPullRequestStepAttachment:
         assert any("<!-- rouge-review-context -->" in arg for arg in note_cmd)
         # Should contain the MR number
         assert "99" in note_cmd
+        # Regression: "create" must not appear in the note command
+        assert "create" not in note_cmd
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
@@ -560,7 +562,7 @@ class TestGlabPullRequestStepAttachment:
 
         assert result.success is True
 
-        # Find the glab mr note create call
+        # Find the glab mr note call
         note_create_calls = [
             c
             for c in mock_subprocess.call_args_list
@@ -568,13 +570,15 @@ class TestGlabPullRequestStepAttachment:
             and c[0][0][0] == "glab"
             and c[0][0][1] == "mr"
             and c[0][0][2] == "note"
-            and c[0][0][3] == "create"
+            and c[0][0][3] == "77"
         ]
         assert len(note_create_calls) == 1
         note_cmd = note_create_calls[0][0][0]
         assert any("<!-- rouge-review-context -->" in arg for arg in note_cmd)
         # Should reference MR 77 (the adopted MR)
         assert "77" in note_cmd
+        # Regression: "create" must not appear in the note command
+        assert "create" not in note_cmd
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
@@ -616,8 +620,10 @@ class TestGlabPullRequestStepAttachment:
             assert not (
                 "api" in cmd_str and "notes" in cmd_str
             ), "glab api notes listing should not be called when attachment is None"
-            has_note_create = "mr" in cmd_str and "note" in cmd_str and "create" in cmd_str
-            assert not has_note_create, "glab mr note create should not be called"
+            has_note_cmd = (
+                "glab" in cmd_str and "mr" in cmd_str and "note" in cmd_str and "api" not in cmd_str
+            )
+            assert not has_note_cmd, "glab mr note should not be called"
             has_api_put = "api" in cmd_str and "PUT" in cmd_str
             assert not has_api_put, "glab api PUT should not be called"
 
@@ -666,7 +672,7 @@ class TestGlabPullRequestStepAttachment:
         # Should reference the existing note ID in the URL
         assert any("5001" in arg for arg in put_cmd)
 
-        # Should NOT have a glab mr note create call
+        # Should NOT have a glab mr note call (note was updated via API PUT instead)
         note_create_calls = [
             c
             for c in mock_subprocess.call_args_list
@@ -674,7 +680,7 @@ class TestGlabPullRequestStepAttachment:
             and c[0][0][0] == "glab"
             and c[0][0][1] == "mr"
             and c[0][0][2] == "note"
-            and c[0][0][3] == "create"
+            and c[0][0][3].isdigit()
         ]
         assert len(note_create_calls) == 0
 

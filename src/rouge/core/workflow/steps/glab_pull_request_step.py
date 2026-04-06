@@ -68,7 +68,7 @@ def _post_glab_attachment_note(
         else:
             _logger.info("Updated review-context note on MR !%d", mr_number)
     else:
-        cmd = ["glab", "mr", "note", "create", str(mr_number), "--message", tagged_body]
+        cmd = ["glab", "mr", "note", str(mr_number), "--message", tagged_body]
         create_result = subprocess.run(
             cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
         )
