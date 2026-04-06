@@ -12,7 +12,7 @@ from dotenv import find_dotenv, load_dotenv
 from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
-from rouge.core.models import Comment, Issue
+from rouge.core.models import VALID_ISSUE_STATUSES, Comment, Issue
 from rouge.core.utils import make_adw_id
 
 logger = logging.getLogger(__name__)
@@ -550,10 +550,10 @@ def update_issue(
 
     # Validate and add status to updates
     if not isinstance(status, _Unset):
-        valid_statuses = {"pending", "claimed", "started", "completed", "failed"}
-        if status not in valid_statuses:
+        if status not in VALID_ISSUE_STATUSES:
             raise ValueError(
-                f"Invalid status '{status}'. Must be one of: {', '.join(valid_statuses)}"
+                f"Invalid status '{status}'. "
+                f"Must be one of: {', '.join(sorted(VALID_ISSUE_STATUSES))}"
             )
         updates["status"] = status
 

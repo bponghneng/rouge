@@ -17,6 +17,7 @@ from rouge.core.database import (
     fetch_issue,
     update_issue,
 )
+from rouge.core.models import VALID_ISSUE_STATUSES
 
 app = typer.Typer(help="Issue management commands")
 
@@ -56,14 +57,11 @@ class IssueType(str, Enum):
     DIRECT = "direct"
 
 
-class IssueStatus(str, Enum):
-    """Issue statuses supported by Rouge."""
-
-    PENDING = "pending"
-    CLAIMED = "claimed"
-    STARTED = "started"
-    COMPLETED = "completed"
-    FAILED = "failed"
+IssueStatus = Enum(  # type: ignore[misc]
+    "IssueStatus",
+    {s.upper(): s for s in sorted(VALID_ISSUE_STATUSES)},
+    type=str,
+)
 
 
 class OutputFormat(str, Enum):

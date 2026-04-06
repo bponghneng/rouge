@@ -4,9 +4,15 @@ Agent-specific models moved to rouge.core.agents package.
 """
 
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Literal, Optional, get_args
 
 from pydantic import BaseModel, Field, field_validator
+
+IssueStatusLiteral = Literal["pending", "claimed", "started", "completed", "failed"]
+"""Canonical issue status type — single source of truth for all status validation."""
+
+VALID_ISSUE_STATUSES: frozenset[str] = frozenset(get_args(IssueStatusLiteral))
+"""Derived set of valid status strings for runtime validation."""
 
 
 class Issue(BaseModel):
@@ -30,7 +36,7 @@ class Issue(BaseModel):
     id: int
     title: Optional[str] = None
     description: str = Field(..., min_length=1)
-    status: Literal["pending", "claimed", "started", "completed", "failed"] = "pending"
+    status: IssueStatusLiteral = "pending"
     type: Literal["full", "patch", "thin", "direct"] = "full"
     adw_id: Optional[str] = None
     branch: Optional[str] = None

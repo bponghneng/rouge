@@ -8,6 +8,7 @@ import httpx
 from rouge.core.database import get_client as _get_client
 from rouge.core.database import reset_client
 from rouge.core.database import update_issue as _update_issue
+from rouge.core.models import VALID_ISSUE_STATUSES
 from rouge.worker.exceptions import TransientDatabaseError
 
 
@@ -96,7 +97,7 @@ def update_issue_status(
     issue_id: int,
     status: str,
     logger: Optional[logging.Logger] = None,
-) -> None:
+) -> bool:
     """
     Update the status of an issue in the database.
 
@@ -105,25 +106,29 @@ def update_issue_status(
         status: The new status reflecting the issue lifecycle:
             pending → claimed → started → completed|failed
         logger: Optional logger for logging operations
+
+    Returns:
+        True if the status was updated successfully, False otherwise.
     """
-    valid_statuses = {"pending", "claimed", "started", "completed", "failed"}
-    if status not in valid_statuses:
+    if status not in VALID_ISSUE_STATUSES:
         error_message = (
             f"Invalid status '{status}' for issue {issue_id}. "
-            f"Valid statuses are: {', '.join(sorted(valid_statuses))}"
+            f"Valid statuses are: {', '.join(sorted(VALID_ISSUE_STATUSES))}"
         )
         if logger:
             logger.error(error_message)
         else:
             logging.getLogger(__name__).error(error_message)
-        return
+        return False
 
     try:
         _update_issue(issue_id, status=status)
 
         if logger:
             logger.debug("Updated issue %s status to %s", issue_id, status)
+        return True
 
     except Exception:
         if logger:
             logger.exception("Error updating issue %s status", issue_id)
+        return False
