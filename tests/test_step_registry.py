@@ -701,9 +701,9 @@ class TestGlobalRegistry:
         registry = get_step_registry()
 
         metadata = registry.get_step_metadata_by_slug("implement-plan")
-        assert (
-            metadata is not None
-        ), "ImplementPlanStep should be registered with slug 'implement-plan'"
+        assert metadata is not None, (
+            "ImplementPlanStep should be registered with slug 'implement-plan'"
+        )
         assert metadata.dependencies == ["plan"]
         assert metadata.outputs == ["implement"]
         assert metadata.is_critical is True
@@ -713,9 +713,9 @@ class TestGlobalRegistry:
         registry = get_step_registry()
 
         metadata = registry.get_step_metadata_by_slug("implement-direct")
-        assert (
-            metadata is not None
-        ), "ImplementDirectStep should be registered with slug 'implement-direct'"
+        assert metadata is not None, (
+            "ImplementDirectStep should be registered with slug 'implement-direct'"
+        )
         assert metadata.dependencies == ["git-branch", "fetch-issue"]
         assert metadata.outputs == ["implement:direct"]
         assert metadata.dependency_kinds == {"git-branch": "ordering-only"}
@@ -763,16 +763,16 @@ class TestGlobalRegistry:
         deps = registry.resolve_dependencies(patch_plan_step_name)
 
         # Should only include FetchPatchStep (produces patch artifact)
-        assert any(
-            "Fetching pending patch" in dep for dep in deps
-        ), "Should depend on FetchPatchStep"
+        assert any("Fetching pending patch" in dep for dep in deps), (
+            "Should depend on FetchPatchStep"
+        )
         # Should NOT depend on FetchIssueStep or PlanStep (decoupled)
-        assert not any(
-            "Fetching issue" in dep for dep in deps
-        ), "Should not depend on FetchIssueStep"
-        assert not any(
-            "Building implementation plan" in dep for dep in deps
-        ), "Should not depend on PlanStep"
+        assert not any("Fetching issue" in dep for dep in deps), (
+            "Should not depend on FetchIssueStep"
+        )
+        assert not any("Building implementation plan" in dep for dep in deps), (
+            "Should not depend on PlanStep"
+        )
 
 
 class TestRegistryContractConstraints:
@@ -815,9 +815,9 @@ class TestRegistryContractConstraints:
         implement_meta = registry.get_step_metadata_by_slug("implement-plan")
 
         assert implement_meta is not None, "ImplementPlanStep must be registered"
-        assert (
-            "plan" in implement_meta.dependencies
-        ), "ImplementPlanStep must declare plan as a dependency"
+        assert "plan" in implement_meta.dependencies, (
+            "ImplementPlanStep must declare plan as a dependency"
+        )
         # plan must NOT appear in dependency_kinds — absence means 'required'
         assert "plan" not in implement_meta.dependency_kinds, (
             "ImplementPlanStep's plan dependency should be implicitly required "
@@ -849,27 +849,27 @@ class TestRegistryContractConstraints:
         # gh-pull-request: compose-request is optional
         gh_meta = registry.get_step_metadata_by_slug("gh-pull-request")
         assert gh_meta is not None, "gh-pull-request step must be registered"
-        assert (
-            gh_meta.dependency_kinds.get("compose-request") == "optional"
-        ), "gh-pull-request must declare compose-request as optional"
+        assert gh_meta.dependency_kinds.get("compose-request") == "optional", (
+            "gh-pull-request must declare compose-request as optional"
+        )
 
         # glab-pull-request: compose-request is optional
         glab_meta = registry.get_step_metadata_by_slug("glab-pull-request")
         assert glab_meta is not None, "glab-pull-request step must be registered"
-        assert (
-            glab_meta.dependency_kinds.get("compose-request") == "optional"
-        ), "glab-pull-request must declare compose-request as optional"
+        assert glab_meta.dependency_kinds.get("compose-request") == "optional", (
+            "glab-pull-request must declare compose-request as optional"
+        )
 
         # code-quality: implement is optional (reads affected repos from implement artifact)
         cq_meta = registry.get_step_metadata_by_slug("code-quality")
         assert cq_meta is not None, "code-quality step must be registered"
-        assert (
-            cq_meta.dependency_kinds.get("implement") == "optional"
-        ), "code-quality must declare implement as optional"
+        assert cq_meta.dependency_kinds.get("implement") == "optional", (
+            "code-quality must declare implement as optional"
+        )
 
         # compose-request: implement is optional
         cr_meta = registry.get_step_metadata_by_slug("compose-request")
         assert cr_meta is not None, "compose-request step must be registered"
-        assert (
-            cr_meta.dependency_kinds.get("implement") == "optional"
-        ), "compose-request must declare implement as optional"
+        assert cr_meta.dependency_kinds.get("implement") == "optional", (
+            "compose-request must declare implement as optional"
+        )
