@@ -35,80 +35,87 @@ class TestDetectPrPlatform:
     def test_detects_github_pr_via_gh(self, mock_run, monkeypatch) -> None:
         """Test detection of GitHub PR using gh CLI."""
         step = ComposeCommitsStep()
-        gh_output = json.dumps({"url": "https://github.com/org/repo/pull/42"})
+        gh_output = json.dumps({"url": "https://github.com/org/repo/pull/42", "number": 42})
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = gh_output
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform == "github"
         assert url == "https://github.com/org/repo/pull/42"
+        assert number == 42
         # Verify gh was called with correct args
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
-        assert cmd == ["gh", "pr", "view", "--json", "url"]
+        assert cmd == ["gh", "pr", "view", "--json", "url,number"]
 
     @patch("subprocess.run")
     def test_detects_gitlab_mr_via_glab(self, mock_run, monkeypatch) -> None:
         """Test detection of GitLab MR using glab CLI."""
         step = ComposeCommitsStep()
-        glab_output = json.dumps({"web_url": "https://gitlab.com/org/repo/-/merge_requests/7"})
+        glab_output = json.dumps(
+            {"web_url": "https://gitlab.com/org/repo/-/merge_requests/7", "iid": 7}
+        )
         mock_result = Mock()
         mock_result.returncode = 0
         mock_result.stdout = glab_output
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform == "gitlab"
         assert url == "https://gitlab.com/org/repo/-/merge_requests/7"
+        assert number == 7
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
         assert cmd == ["glab", "mr", "view", "--output", "json"]
 
     @patch("subprocess.run")
     def test_returns_none_when_env_missing(self, mock_run, monkeypatch) -> None:
-        """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is unset."""
+        """Test returns (None, None, None) when DEV_SEC_OPS_PLATFORM is unset."""
         step = ComposeCommitsStep()
 
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
         mock_run.assert_not_called()
 
     @patch("subprocess.run")
     def test_returns_none_when_env_invalid(self, mock_run, monkeypatch) -> None:
-        """Test returns (None, None) when DEV_SEC_OPS_PLATFORM is invalid."""
+        """Test returns (None, None, None) when DEV_SEC_OPS_PLATFORM is invalid."""
         step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "bitbucket")
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
         mock_run.assert_not_called()
 
     @patch("subprocess.run")
     def test_returns_none_when_cli_missing(self, mock_run, monkeypatch) -> None:
-        """Test returns (None, None) when CLI is missing."""
+        """Test returns (None, None, None) when CLI is missing."""
         step = ComposeCommitsStep()
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         mock_run.side_effect = FileNotFoundError
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
 
     @patch("subprocess.run")
     def test_returns_none_when_github_cli_fails(self, mock_run, monkeypatch) -> None:
-        """Test returns (None, None) when the selected CLI command fails."""
+        """Test returns (None, None, None) when the selected CLI command fails."""
         step = ComposeCommitsStep()
 
         fail_result = Mock()
@@ -117,10 +124,11 @@ class TestDetectPrPlatform:
         mock_run.return_value = fail_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
 
     @patch("subprocess.run")
     def test_handles_gh_timeout(self, mock_run, monkeypatch) -> None:
@@ -132,10 +140,11 @@ class TestDetectPrPlatform:
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
         mock_run.side_effect = raise_timeout
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
 
     @patch("subprocess.run")
     def test_handles_invalid_json_from_gh(self, mock_run, monkeypatch) -> None:
@@ -148,10 +157,11 @@ class TestDetectPrPlatform:
         mock_run.return_value = mock_result
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
-        platform, url = step._detect_pr_platform("/fake/repo", "test-adw-id")
+        platform, url, number = step._detect_pr_platform("/fake/repo", "test-adw-id")
 
         assert platform is None
         assert url is None
+        assert number is None
 
 
 class TestRunWhenPlatformMissing:
@@ -482,7 +492,7 @@ class TestComposeCommitsMultiRepo:
 
         def subprocess_side_effect(cmd, **kwargs):
             cwd = kwargs.get("cwd", "")
-            if cmd == ["gh", "pr", "view", "--json", "url"]:
+            if cmd == ["gh", "pr", "view", "--json", "url,number"]:
                 # Only /repo/with-pr has a PR
                 if cwd == "/repo/with-pr":
                     return Mock(
@@ -528,3 +538,288 @@ class TestUpdatePRCommitsStepProperties:
         """Test step is not critical."""
         step = ComposeCommitsStep()
         assert step.is_critical is False
+
+
+class TestPatchReviewContext:
+    """Tests for review-context posting after successful push."""
+
+    # -- helpers ----------------------------------------------------------
+
+    @staticmethod
+    def _mock_compose_commits(mock_request, mock_exec, mock_parse):
+        """Wire up mocks so compose-commits succeeds."""
+        mock_request_instance = Mock()
+        mock_request_instance.model_dump_json.return_value = "{}"
+        mock_request.return_value = mock_request_instance
+
+        mock_exec.return_value = Mock(
+            success=True,
+            output='{"output": "compose-commits", "summary": "s", "commits": []}',
+        )
+        mock_parse.return_value = Mock(
+            success=True,
+            data={"output": "compose-commits", "summary": "s", "commits": []},
+            error=None,
+        )
+
+    @staticmethod
+    def _subprocess_github(pr_number=42):
+        """Return a subprocess side-effect for a GitHub repo with a PR."""
+
+        def _side_effect(cmd, **kwargs):
+            if cmd == ["gh", "pr", "view", "--json", "url,number"]:
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "url": "https://github.com/org/repo/pull/%d" % pr_number,
+                            "number": pr_number,
+                        }
+                    ),
+                )
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return Mock(returncode=0, stdout="feature-branch\n", stderr="")
+            if cmd[0] == "git" and cmd[1] == "push":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=1, stdout="", stderr="")
+
+        return _side_effect
+
+    @staticmethod
+    def _subprocess_gitlab(mr_number=7):
+        """Return a subprocess side-effect for a GitLab repo with an MR."""
+
+        def _side_effect(cmd, **kwargs):
+            if cmd == ["glab", "mr", "view", "--output", "json"]:
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps(
+                        {
+                            "web_url": (
+                                "https://gitlab.com/org/repo/-/merge_requests/%d" % mr_number
+                            ),
+                            "iid": mr_number,
+                        }
+                    ),
+                )
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return Mock(returncode=0, stdout="feature-branch\n", stderr="")
+            if cmd[0] == "git" and cmd[1] == "push":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=1, stdout="", stderr="")
+
+        return _side_effect
+
+    # -- tests ------------------------------------------------------------
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_review_context_posted_after_push_github(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        mock_load_attachment,
+        mock_post_gh,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """After a successful push on GitHub, _post_gh_attachment_comment is called."""
+        self._mock_compose_commits(mock_request, mock_exec, mock_parse)
+        mock_load_attachment.return_value = "## Review Context\nSome markdown"
+        mock_subprocess.side_effect = self._subprocess_github(pr_number=42)
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        step = ComposeCommitsStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_gh.assert_called_once()
+        call_args = mock_post_gh.call_args
+        assert call_args[0][0] == "/repo"  # repo_path
+        assert call_args[0][1] == 42  # pr_number
+        assert call_args[0][2] == "## Review Context\nSome markdown"  # body
+        # Fourth arg is the env dict containing GH_TOKEN
+        assert call_args[0][3]["GH_TOKEN"] == "fake-token"
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_review_context_posted_after_push_gitlab(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        mock_load_attachment,
+        mock_post_glab,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """After a successful push on GitLab, _post_glab_attachment_note is called."""
+        self._mock_compose_commits(mock_request, mock_exec, mock_parse)
+        mock_load_attachment.return_value = "## Review Context\nGitLab markdown"
+        mock_subprocess.side_effect = self._subprocess_gitlab(mr_number=7)
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "gitlab")
+        monkeypatch.setenv("GITLAB_PAT", "fake-token")
+
+        step = ComposeCommitsStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_glab.assert_called_once()
+        call_args = mock_post_glab.call_args
+        assert call_args[0][0] == "/repo"  # repo_path
+        assert call_args[0][1] == 7  # mr number (iid)
+        assert call_args[0][2] == "## Review Context\nGitLab markdown"  # body
+        assert call_args[0][3]["GITLAB_TOKEN"] == "fake-token"
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_review_context_failure_does_not_fail_step(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        mock_load_attachment,
+        mock_post_gh,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """If _post_gh_attachment_comment raises OSError, the step still succeeds."""
+        self._mock_compose_commits(mock_request, mock_exec, mock_parse)
+        mock_load_attachment.return_value = "## Review Context"
+        mock_post_gh.side_effect = OSError("network error")
+        mock_subprocess.side_effect = self._subprocess_github(pr_number=42)
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        step = ComposeCommitsStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_gh.assert_called_once()
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_review_context_skipped_when_no_attachment(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        mock_load_attachment,
+        mock_post_glab,
+        mock_post_gh,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """When load_and_render_patch_attachment returns None, posting is skipped."""
+        self._mock_compose_commits(mock_request, mock_exec, mock_parse)
+        mock_load_attachment.return_value = None
+        mock_subprocess.side_effect = self._subprocess_github(pr_number=42)
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        step = ComposeCommitsStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_gh.assert_not_called()
+        mock_post_glab.assert_not_called()
+
+    @patch(
+        "rouge.core.workflow.step_utils.emit_comment_from_payload",
+        return_value=("success", "ok"),
+    )
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
+    @patch("subprocess.run")
+    @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
+    @patch("rouge.core.workflow.steps.compose_commits_step.execute_template")
+    @patch("rouge.core.workflow.steps.compose_commits_step.ClaudeAgentTemplateRequest")
+    def test_review_context_skipped_when_no_pr_number(
+        self,
+        mock_request,
+        mock_exec,
+        mock_parse,
+        mock_subprocess,
+        mock_load_attachment,
+        mock_post_glab,
+        mock_post_gh,
+        _mock_emit,
+        monkeypatch,
+        mock_context,
+    ) -> None:
+        """When _detect_pr_platform returns no pr_number, posting is skipped."""
+        self._mock_compose_commits(mock_request, mock_exec, mock_parse)
+        mock_load_attachment.return_value = "## Review Context"
+
+        # gh pr view returns url but no number field
+        def _side_effect(cmd, **kwargs):
+            if cmd == ["gh", "pr", "view", "--json", "url,number"]:
+                return Mock(
+                    returncode=0,
+                    stdout=json.dumps({"url": "https://github.com/org/repo/pull/99"}),
+                )
+            if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
+                return Mock(returncode=0, stdout="feature-branch\n", stderr="")
+            if cmd[0] == "git" and cmd[1] == "push":
+                return Mock(returncode=0, stdout="", stderr="")
+            return Mock(returncode=1, stdout="", stderr="")
+
+        mock_subprocess.side_effect = _side_effect
+
+        monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
+        monkeypatch.setenv("GITHUB_PAT", "fake-token")
+
+        step = ComposeCommitsStep()
+        result = step.run(mock_context)
+
+        assert result.success is True
+        mock_post_gh.assert_not_called()
+        mock_post_glab.assert_not_called()
