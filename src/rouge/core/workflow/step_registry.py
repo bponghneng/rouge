@@ -444,7 +444,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         dependencies=["implement"],
         outputs=["compose-request"],
         description=(
-            "Prepare pull request metadata. " "Optional dependency on implement for repo targeting."
+            "Prepare pull request metadata. Optional dependency on implement for repo targeting."
         ),
         dependency_kinds={"implement": "optional"},
     )

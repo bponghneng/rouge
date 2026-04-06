@@ -568,8 +568,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
         except subprocess.TimeoutExpired:
             error_msg = (
-                f"{self.cli_binary} {self.entity_name.lower()} create "
-                f"timed out after 120 seconds"
+                f"{self.cli_binary} {self.entity_name.lower()} create timed out after 120 seconds"
             )
             logger.exception(error_msg)
             _emit_and_log(
