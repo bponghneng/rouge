@@ -490,6 +490,7 @@ def update_issue(
     description: str | _Unset = UNSET,
     status: str | _Unset = UNSET,
     branch: Optional[str] | _Unset = UNSET,
+    adw_id: Optional[str] | _Unset = UNSET,
 ) -> Issue:
     """Update multiple fields on an issue in a single operation.
 
@@ -501,6 +502,7 @@ def update_issue(
         description: Issue description, or UNSET to skip
         status: Issue status ('pending', 'started', 'completed', 'failed'), or UNSET to skip
         branch: Branch name or None to clear, or UNSET to skip
+        adw_id: ADW identifier or None to clear, or UNSET to skip
 
     Returns:
         Updated Issue object
@@ -563,6 +565,14 @@ def update_issue(
         if branch is not None:
             branch = branch.strip()
         updates["branch"] = branch
+
+    # Validate and add adw_id to updates
+    if not isinstance(adw_id, _Unset):
+        if adw_id is not None:
+            adw_id = adw_id.strip()
+            if not adw_id:
+                raise ValueError("adw_id cannot be empty/whitespace if provided")
+        updates["adw_id"] = adw_id
 
     # Ensure at least one field is being updated
     if not updates:

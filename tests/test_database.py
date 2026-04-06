@@ -1901,3 +1901,84 @@ def test_update_issue_clear_branch_persists_to_database(mock_get_client) -> None
 
     # Verify the database update was executed
     mock_eq_update.execute.assert_called_once()
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_adw_id_set_to_none(mock_get_client) -> None:
+    """Test that adw_id=None is included in the update payload."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "adw_id": None,
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, adw_id=None)
+    assert issue.id == 1
+    assert issue.adw_id is None
+    mock_table.update.assert_called_once_with({"adw_id": None})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_adw_id_unset_omitted(mock_get_client) -> None:
+    """Test that adw_id is omitted from the update payload when left as UNSET."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for the select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for the update
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "assigned_to": "worker-1",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    # Update only assigned_to, leave adw_id as UNSET (default)
+    issue = update_issue(1, assigned_to="worker-1")
+    assert issue.id == 1
+    # Only assigned_to should be in the update dict, adw_id should be omitted
+    mock_table.update.assert_called_once_with({"assigned_to": "worker-1"})
