@@ -1,10 +1,21 @@
 """CLI commands for workflow artifact management."""
+from typing import cast
 
 import typer
 
-from rouge.core.workflow.artifacts import ARTIFACT_MODELS, Artifact, ArtifactStore
+from rouge.core.workflow.artifacts import ARTIFACT_MODELS, Artifact, ArtifactStore, ArtifactType
 
 app = typer.Typer(help="Workflow artifact management commands")
+
+
+def _parse_artifact_type(artifact_type: str) -> ArtifactType:
+    """Validate and return an artifact type with precise typing."""
+    if artifact_type not in ARTIFACT_MODELS:
+        valid_types = ", ".join(sorted(ARTIFACT_MODELS.keys()))
+        typer.echo(f"Error: Invalid artifact type '{artifact_type}'", err=True)
+        typer.echo(f"Valid types: {valid_types}", err=True)
+        raise typer.Exit(1)
+    return cast(ArtifactType, artifact_type)
 
 
 @app.command("list")
@@ -59,21 +70,16 @@ def show_artifact(
         rouge artifact show adw-xyz123 classification
         rouge artifact show adw-xyz123 issue --raw
     """
-    # Validate artifact type
-    if artifact_type not in ARTIFACT_MODELS:
-        valid_types = ", ".join(sorted(ARTIFACT_MODELS.keys()))
-        typer.echo(f"Error: Invalid artifact type '{artifact_type}'", err=True)
-        typer.echo(f"Valid types: {valid_types}", err=True)
-        raise typer.Exit(1)
+    typed_artifact_type = _parse_artifact_type(artifact_type)
 
     store = ArtifactStore(adw_id)
 
-    if not store.artifact_exists(artifact_type):
+    if not store.artifact_exists(typed_artifact_type):
         typer.echo(f"Artifact '{artifact_type}' not found for workflow '{adw_id}'", err=True)
         raise typer.Exit(1)
 
     try:
-        artifact: Artifact = store.read_artifact(artifact_type)
+        artifact: Artifact = store.read_artifact(typed_artifact_type)
         json_data = artifact.model_dump_json(indent=None if raw else 2)
 
         if raw:
@@ -102,16 +108,11 @@ def delete_artifact(
         rouge artifact delete adw-xyz123 classification
         rouge artifact delete adw-xyz123 issue --force
     """
-    # Validate artifact type
-    if artifact_type not in ARTIFACT_MODELS:
-        valid_types = ", ".join(sorted(ARTIFACT_MODELS.keys()))
-        typer.echo(f"Error: Invalid artifact type '{artifact_type}'", err=True)
-        typer.echo(f"Valid types: {valid_types}", err=True)
-        raise typer.Exit(1)
+    typed_artifact_type = _parse_artifact_type(artifact_type)
 
     store = ArtifactStore(adw_id)
 
-    if not store.artifact_exists(artifact_type):
+    if not store.artifact_exists(typed_artifact_type):
         typer.echo(f"Artifact '{artifact_type}' not found for workflow '{adw_id}'", err=True)
         raise typer.Exit(1)
 
@@ -121,7 +122,7 @@ def delete_artifact(
             typer.echo("Cancelled")
             return
 
-    deleted = store.delete_artifact(artifact_type)
+    deleted = store.delete_artifact(typed_artifact_type)
     if deleted:
         typer.echo(f"Deleted artifact '{artifact_type}' from workflow '{adw_id}'")
     else:
