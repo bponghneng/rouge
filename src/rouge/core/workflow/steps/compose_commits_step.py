@@ -18,7 +18,13 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _emit_and_log, _sanitize_for_logging
+from rouge.core.workflow.step_utils import (
+    _emit_and_log,
+    _sanitize_for_logging,
+    load_and_render_patch_attachment,
+)
+from rouge.core.workflow.steps.gh_pull_request_step import _post_gh_attachment_comment
+from rouge.core.workflow.steps.glab_pull_request_step import _post_glab_attachment_note
 from rouge.core.workflow.types import StepResult
 
 # Required fields for compose-commits output JSON
@@ -66,20 +72,22 @@ class ComposeCommitsStep(WorkflowStep):
 
     def _detect_pr_platform(
         self, repo_path: str, adw_id: str
-    ) -> Tuple[Optional[str], Optional[str]]:
-        """Detect the existing PR/MR platform and URL using git CLI tools.
+    ) -> Tuple[Optional[str], Optional[str], Optional[int]]:
+        """Detect the existing PR/MR platform, URL, and number using git CLI tools.
 
         Uses DEV_SEC_OPS_PLATFORM to select either GitHub or GitLab and
         invokes the corresponding CLI. If the env var is missing or invalid,
-        returns (None, None).
+        returns (None, None, None).
 
         Args:
             repo_path: Path to the repository root
             adw_id: Workflow ID for logger retrieval
 
         Returns:
-            Tuple of (platform, url) where platform is "github" or "gitlab",
-            or (None, None) if no PR/MR is detected or no CLI tool is available.
+            Tuple of (platform, url, number) where platform is "github" or
+            "gitlab" and number is the PR/MR number (int), or
+            (None, None, None) if no PR/MR is detected or no CLI tool is
+            available.
         """
         logger = get_logger(adw_id)
         platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
@@ -87,7 +95,7 @@ class ComposeCommitsStep(WorkflowStep):
             logger.warning(
                 "DEV_SEC_OPS_PLATFORM is not set to a supported platform (github/gitlab)"
             )
-            return (None, None)
+            return (None, None, None)
 
         if platform == "github":
             github_pat = os.environ.get("GITHUB_PAT")
@@ -97,7 +105,7 @@ class ComposeCommitsStep(WorkflowStep):
 
             try:
                 result = subprocess.run(
-                    ["gh", "pr", "view", "--json", "url"],
+                    ["gh", "pr", "view", "--json", "url,number"],
                     capture_output=True,
                     text=True,
                     env=env,
@@ -107,9 +115,10 @@ class ComposeCommitsStep(WorkflowStep):
                 if result.returncode == 0:
                     data = json.loads(result.stdout.strip())
                     url = data.get("url", "")
+                    number = data.get("number")
                     if url:
-                        logger.debug("Detected GitHub PR: %s", url)
-                        return ("github", url)
+                        logger.debug("Detected GitHub PR: %s (#%s)", url, number)
+                        return ("github", url, number)
             except (
                 subprocess.TimeoutExpired,
                 json.JSONDecodeError,
@@ -135,9 +144,10 @@ class ComposeCommitsStep(WorkflowStep):
                 if result.returncode == 0:
                     data = json.loads(result.stdout.strip())
                     url = data.get("web_url", "")
+                    number = data.get("iid")
                     if url:
-                        logger.debug("Detected GitLab MR: %s", url)
-                        return ("gitlab", url)
+                        logger.debug("Detected GitLab MR: %s (!%s)", url, number)
+                        return ("gitlab", url, number)
             except (
                 subprocess.TimeoutExpired,
                 json.JSONDecodeError,
@@ -146,7 +156,7 @@ class ComposeCommitsStep(WorkflowStep):
             ):
                 logger.debug("glab mr view failed or timed out")
 
-        return (None, None)
+        return (None, None, None)
 
     def _push_repo(
         self,
@@ -351,6 +361,13 @@ class ComposeCommitsStep(WorkflowStep):
             )
             return StepResult.fail(error_msg)
 
+        # Render review-context attachment once (best-effort, never blocks workflow)
+        attachment_md: str | None = None
+        try:
+            attachment_md = load_and_render_patch_attachment(context)
+        except Exception:
+            logger.debug("Failed to render patch review-context attachment", exc_info=True)
+
         # Multi-repo PR detection and push loop
         issue_id = context.require_issue_id
         succeeded: List[str] = []
@@ -358,7 +375,7 @@ class ComposeCommitsStep(WorkflowStep):
 
         for repo_path in context.repo_paths:
             # Detect platform and PR/MR URL for this repo
-            platform, pr_url = self._detect_pr_platform(repo_path, context.adw_id)
+            platform, pr_url, pr_number = self._detect_pr_platform(repo_path, context.adw_id)
 
             if not platform or not pr_url:
                 warn_msg = f"No existing PR/MR found for {repo_path}, skipping push"
@@ -415,6 +432,19 @@ class ComposeCommitsStep(WorkflowStep):
                         "repo": repo_path,
                     },
                 )
+                # Post/update review-context comment (best-effort)
+                if attachment_md and pr_number:
+                    try:
+                        if platform == "github":
+                            _post_gh_attachment_comment(repo_path, pr_number, attachment_md, env)
+                        else:
+                            _post_glab_attachment_note(repo_path, pr_number, attachment_md, env)
+                    except (subprocess.TimeoutExpired, OSError, subprocess.SubprocessError):
+                        logger.warning(
+                            "Failed to post review-context on %s for %s",
+                            platform,
+                            repo_path,
+                        )
             else:
                 errors.append(push_result.error or f"Push failed for {repo_path}")
 
