@@ -18,6 +18,8 @@ def execute_adw_workflow(
     Supports multiple workflow types:
     - ``"full"`` (default): Full issue-based workflow pipeline with Claude Code planning.
     - ``"patch"``: Patch pipeline for existing issues.
+    - ``"thin"``: Lightweight workflow for straightforward issues.
+    - ``"direct"``: Direct implementation pipeline without an explicit planning step.
 
     Resume behavior:
     - When ``resume_from`` is provided, the workflow will skip all steps before
@@ -30,7 +32,7 @@ def execute_adw_workflow(
         issue_id: The ID of the issue to process.  Required for all
             workflow types.
         workflow_type: The type of workflow to execute.  One of
-            ``"full"`` or ``"patch"``.
+            ``"full"``, ``"patch"``, ``"thin"``, or ``"direct"``.
         resume_from: Optional step name to resume workflow execution from.
             When provided, all steps before this step will be skipped.
 

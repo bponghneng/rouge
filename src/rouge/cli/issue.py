@@ -114,7 +114,7 @@ def validate_new_args(
         branch: Pre-set branch name for the issue (or None)
         assigned_to: Assignee identifier (or None)
         parent_issue_id: Parent issue ID for patch issues (or None)
-        issue_type: Issue type (full, patch, or thin)
+        issue_type: Issue type (full, patch, thin, or direct)
 
     Raises:
         typer.Exit: If validation fails

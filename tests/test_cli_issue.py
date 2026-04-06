@@ -100,6 +100,29 @@ def test_create_command_description_with_explicit_title(mock_create_issue) -> No
 
 
 @patch("rouge.cli.issue.create_issue")
+def test_create_command_direct_type(mock_create_issue) -> None:
+    """Test create command accepts direct issue type."""
+    mock_issue = Issue(
+        id=457,
+        description="Implement directly from the issue",
+        status="pending",
+        type="direct",
+    )
+    mock_create_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["create", "Implement directly from the issue", "--type", "direct"])
+    assert result.exit_code == 0
+    assert "457" in result.output
+    mock_create_issue.assert_called_once_with(
+        description="Implement directly from the issue",
+        title="Implement directly from the issue",
+        issue_type="direct",
+        branch=None,
+        assigned_to=None,
+    )
+
+
+@patch("rouge.cli.issue.create_issue")
 def test_create_command_spec_file_with_title(mock_create_issue, tmp_path) -> None:
     """Test create command with spec file and title."""
     mock_issue = Issue(id=789, description="Detailed spec content", status="pending")
@@ -1230,6 +1253,23 @@ def test_update_command_no_fields_provided(mock_update_issue) -> None:
 
 
 @patch("rouge.cli.issue.update_issue")
+def test_update_command_direct_type(mock_update_issue) -> None:
+    """Test update command accepts direct issue type."""
+    mock_issue = Issue(
+        id=457,
+        description="Implement directly from the issue",
+        status="pending",
+        type="direct",
+    )
+    mock_update_issue.return_value = mock_issue
+
+    result = runner.invoke(app, ["update", "457", "--type", "direct"])
+    assert result.exit_code == 0
+    assert "457" in result.output
+    mock_update_issue.assert_called_once_with(457, issue_type="direct")
+
+
+@patch("rouge.cli.issue.update_issue")
 def test_update_command_custom_worker_id(mock_update_issue) -> None:
     """Test update command with custom/arbitrary worker ID (backward compatible)."""
     mock_issue = Issue(
@@ -1252,7 +1292,10 @@ def test_update_command_invalid_type(mock_update_issue) -> None:
     # Error is now caught at CLI validation layer with improved message
     result = runner.invoke(app, ["update", "123", "--type", "invalid"])
     assert result.exit_code == 1
-    assert "Error: Invalid issue type 'invalid'. Must be one of: full, patch" in result.output
+    assert (
+        "Error: Invalid issue type 'invalid'. Must be one of: full, patch, thin, direct"
+        in result.output
+    )
     # update_issue should not be called since validation fails early
     mock_update_issue.assert_not_called()
 

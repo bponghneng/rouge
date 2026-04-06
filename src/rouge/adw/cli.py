@@ -29,7 +29,7 @@ def main(
         "full",
         "--workflow-type",
         "-w",
-        help="Workflow type to execute (e.g. full, patch)",
+        help="Workflow type to execute (e.g. full, patch, thin, direct)",
         show_default=True,
     ),
 ) -> None:
