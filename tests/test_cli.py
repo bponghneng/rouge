@@ -439,6 +439,49 @@ def test_reset_command_with_failed_thin_issue_clears_branch(
 
 @patch("rouge.cli.reset.update_issue")
 @patch("rouge.cli.reset.fetch_issue")
+def test_reset_command_with_failed_direct_issue_preserves_branch(
+    mock_fetch_issue, mock_update_issue
+) -> None:
+    """Test 'rouge issue reset' with failed direct issue preserves branch."""
+    # Mock a failed direct issue with branch
+    mock_issue = Issue(
+        id=555,
+        description="Test direct issue",
+        status="failed",
+        type="direct",
+        assigned_to="local-5",
+        branch="feature/direct-branch",
+        adw_id="adw-direct456",
+    )
+    mock_fetch_issue.return_value = mock_issue
+
+    # Mock the updated issue (branch preserved)
+    updated_issue = Issue(
+        id=555,
+        description="Test direct issue",
+        status="pending",
+        type="direct",
+        assigned_to=None,
+        branch="feature/direct-branch",
+        adw_id=None,
+    )
+    mock_update_issue.return_value = updated_issue
+
+    result = runner.invoke(issue_app, ["reset", "555"])
+    assert result.exit_code == 0
+    assert "555" in result.output
+    mock_fetch_issue.assert_called_once_with(555)
+    # Verify branch is NOT in kwargs (preserves existing value)
+    mock_update_issue.assert_called_once_with(
+        555,
+        assigned_to=None,
+        status="pending",
+        adw_id=None,
+    )
+
+
+@patch("rouge.cli.reset.update_issue")
+@patch("rouge.cli.reset.fetch_issue")
 def test_reset_command_invalid_issue_id_zero(mock_fetch_issue, mock_update_issue) -> None:
     """Test 'rouge issue reset' with issue_id of 0 fails."""
     result = runner.invoke(issue_app, ["reset", "0"])
