@@ -19,6 +19,7 @@ from rouge.core.workflow.step_utils import (
     _MAX_BODY_CHARS,
     _TRUNCATION_NOTICE,
     load_and_render_attachment,
+    load_and_render_patch_attachment,
     render_attachment_markdown,
 )
 from rouge.core.workflow.types import PlanData
@@ -300,5 +301,66 @@ class TestLoadAndRenderAttachment:
         ctx.artifact_store.read_artifact.side_effect = FileNotFoundError
 
         result = load_and_render_attachment(ctx)
+
+        assert result is None
+
+
+class TestLoadAndRenderPatchAttachment:
+    """Integration tests for load_and_render_patch_attachment (patch artifact loading + rendering)."""  # noqa: E501
+
+    def test_both_patch_and_plan_in_cache(self) -> None:
+        """Both fetch-patch and plan artifacts produce full output with both sections."""
+        plan = PlanData(plan="Patch plan body", summary="Patch plan summary")
+        ctx = _make_context(
+            {
+                "fetch_patch_data": {"description": "Patch spec text"},
+                "plan_data": plan,
+            }
+        )
+
+        result = load_and_render_patch_attachment(ctx)
+
+        assert result is not None
+        assert "Source Specification" in result
+        assert "Patch spec text" in result
+        assert "Implementation Plan" in result
+        assert "Patch plan body" in result
+        assert "**Summary:** Patch plan summary" in result
+
+    def test_only_patch_data(self) -> None:
+        """Output contains spec but no plan when only fetch-patch artifact is available."""
+        ctx = _make_context(
+            {
+                "fetch_patch_data": {"description": "Only patch spec"},
+            }
+        )
+        ctx.artifact_store.read_artifact.side_effect = FileNotFoundError
+
+        result = load_and_render_patch_attachment(ctx)
+
+        assert result is not None
+        assert "Source Specification" in result
+        assert "Only patch spec" in result
+        assert "Implementation Plan" not in result
+
+    def test_only_plan_data_no_patch(self) -> None:
+        """Output contains plan but no spec when only plan artifact is cached."""
+        plan = PlanData(plan="Plan without patch", summary="Plan only summary")
+        ctx = _make_context({"plan_data": plan})
+        ctx.artifact_store.read_artifact.side_effect = FileNotFoundError
+
+        result = load_and_render_patch_attachment(ctx)
+
+        assert result is not None
+        assert "Implementation Plan" in result
+        assert "Plan without patch" in result
+        assert "Source Specification" not in result
+
+    def test_neither_artifact_present(self) -> None:
+        """Returns None when both patch and plan artifact loads return None."""
+        ctx = _make_context()
+        ctx.artifact_store.read_artifact.side_effect = FileNotFoundError
+
+        result = load_and_render_patch_attachment(ctx)
 
         assert result is None
