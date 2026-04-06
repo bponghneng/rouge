@@ -27,6 +27,7 @@ _UNSET = "__UNSET_SENTINEL_VALUE__"
 # Status emoji mapping for visual status indicators
 STATUS_EMOJI = {
     "pending": "⏳",
+    "claimed": "🔒",
     "started": "🔄",
     "completed": "✅",
     "failed": "❌",
@@ -59,6 +60,7 @@ class IssueStatus(str, Enum):
     """Issue statuses supported by Rouge."""
 
     PENDING = "pending"
+    CLAIMED = "claimed"
     STARTED = "started"
     COMPLETED = "completed"
     FAILED = "failed"
@@ -554,7 +556,7 @@ def list_issues(
 
             # Print header
             typer.echo(
-                f"{'ID':<6} {'Title':<32} {'Type':<10} {'S':<4}" f"{'Br':<3} {'Assigned To':<12}"
+                f"{'ID':<6} {'Title':<32} {'Type':<10} {'S':<4}{'Br':<3} {'Assigned To':<12}"
             )
             typer.echo("-" * 71)
 
