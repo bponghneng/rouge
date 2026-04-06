@@ -8,7 +8,6 @@ Main components:
 - pipeline: WorkflowRunner orchestrator and step pipeline
 - step_base: Abstract WorkflowStep base class and WorkflowContext
 - steps/: Individual step implementations (fetch, plan, implement, etc.)
-- status: Issue status updates
 - shared: Common constants and helper functions
 - types: Unified result types for consistent error handling
 - workflow_io: Shared I/O utilities for steps
@@ -21,7 +20,6 @@ respective step classes in steps/.
 # Import and re-export public API
 from rouge.core.workflow.pipeline import WorkflowRunner, get_full_pipeline
 from rouge.core.workflow.runner import execute_workflow
-from rouge.core.workflow.status import update_status
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import (
     ImplementData,
@@ -39,8 +37,6 @@ __all__ = [
     "WorkflowStep",
     "WorkflowContext",
     "get_full_pipeline",
-    # Individual workflow functions
-    "update_status",
     # Unified types
     "StepResult",
     "PlanData",

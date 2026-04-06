@@ -204,14 +204,21 @@ class IssueWorker:
         Uses the provided adw_id or generates a new one, and builds the
         appropriate command with --workflow-type for all workflow types.
 
+        This method owns the full issue-status lifecycle:
+
+        * ``claimed -> started`` — set before the subprocess is launched.
+        * ``started -> completed`` — set when the subprocess exits 0.
+        * ``started -> failed`` — set on non-zero exit, timeout, or
+          unexpected exception.
+
         Args:
-            issue_id: The ID of the issue to process
-            workflow_type: The workflow type (e.g. "full", "patch")
-            description: The issue description (used for logging)
-            adw_id: Optional pre-assigned ADW ID; if None, a new one is generated
+            issue_id: The ID of the issue to process.
+            workflow_type: The workflow type (e.g. "full", "patch").
+            description: The issue description (used for logging).
+            adw_id: Optional pre-assigned ADW ID; if None, a new one is generated.
 
         Returns:
-            Tuple of (adw_id, success) where success is True if workflow completed
+            Tuple of (adw_id, success) where success is True if workflow completed.
 
         """
         try:
@@ -228,6 +235,8 @@ class IssueWorker:
             self.worker_artifact.current_issue_id = issue_id
             self.worker_artifact.current_adw_id = adw_id
             self._transition_artifact("working")
+
+            update_issue_status(issue_id, "started", self.logger)
 
             cmd = self._get_base_cmd() + [
                 "--adw-id",
