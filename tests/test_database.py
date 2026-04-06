@@ -748,6 +748,36 @@ def test_create_issue_with_thin_type_and_adw_id(mock_get_client) -> None:
 
 
 @patch("rouge.core.database.get_client")
+def test_create_issue_with_direct_type(mock_get_client) -> None:
+    """Test creating issue with explicit direct type."""
+    mock_client = Mock()
+    mock_table = Mock()
+    mock_insert = Mock()
+    mock_execute = Mock()
+
+    mock_client.table.return_value = mock_table
+    mock_table.insert.return_value = mock_insert
+    mock_execute.data = [
+        {
+            "id": 8,
+            "description": "Direct issue for straightforward implementation",
+            "status": "pending",
+            "type": "direct",
+            "adw_id": "direct123",
+        }
+    ]
+    mock_insert.execute.return_value = mock_execute
+    mock_get_client.return_value = mock_client
+
+    issue = create_issue("Direct issue for straightforward implementation", issue_type="direct")
+    assert issue.id == 8
+    assert issue.type == "direct"
+
+    insert_call_args = mock_table.insert.call_args[0][0]
+    assert insert_call_args["type"] == "direct"
+
+
+@patch("rouge.core.database.get_client")
 def test_create_issue_default_type_is_full(mock_get_client) -> None:
     """Test that issue type defaults to 'full' when not specified."""
     mock_client = Mock()
@@ -937,6 +967,44 @@ def test_update_issue_single_field_issue_type(mock_get_client) -> None:
     assert issue.id == 1
     assert issue.type == "patch"
     mock_table.update.assert_called_once_with({"type": "patch"})
+
+
+@patch("rouge.core.database.get_client")
+def test_update_issue_single_field_issue_type_direct(mock_get_client) -> None:
+    """Test updating only issue_type field to direct."""
+    mock_client = Mock()
+    mock_table = Mock()
+
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 1}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 1,
+            "description": "Test issue",
+            "status": "pending",
+            "type": "direct",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    mock_table.select.return_value = mock_select_check
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    issue = update_issue(1, issue_type="direct")
+    assert issue.id == 1
+    assert issue.type == "direct"
+    mock_table.update.assert_called_once_with({"type": "direct"})
 
 
 @patch("rouge.core.database.get_client")

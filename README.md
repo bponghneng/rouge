@@ -22,6 +22,8 @@ The built-in workflow types are:
   creates a draft PR/MR when publishing is enabled
 - `patch`: check out an existing branch, build a patch plan, implement it, run
   code quality, and push commits to an existing PR/MR
+- `direct`: fetch issue, prepare a branch/worktree, and implement directly
+  from the issue description without a planning step
 
 Workflow state is persisted as typed artifacts under
 `<WORKING_DIR>/.rouge/workflows/<workflow-id>/`.
@@ -87,6 +89,9 @@ uv run rouge workflow thin 123
 # Run a patch workflow
 uv run rouge workflow patch 123
 
+# Run a direct workflow
+uv run rouge workflow direct 123
+
 # Run the single-issue ADW entrypoint directly
 uv run rouge-adw 123 --workflow-type full
 
@@ -99,7 +104,7 @@ uv run rouge-worker --worker-id alleycat-1
 Main command groups:
 
 - `rouge issue`: `create`, `read`, `list`, `update`, `delete`, `reset`
-- `rouge workflow`: `run`, `patch`, `thin`
+- `rouge workflow`: `run`, `patch`, `thin`, `direct`
 - `rouge comment`: `list`, `read`
 - `rouge step`: `list`, `run`, `deps`, `validate`
 - `rouge artifact`: `list`, `show`, `delete`, `types`, `path`
@@ -114,6 +119,7 @@ Issue types:
 - `full`
 - `patch`
 - `thin`
+- `direct`
 
 Examples:
 
