@@ -40,7 +40,7 @@ step(
         WITH next_issue AS (
             SELECT i.id
             FROM issues i
-            WHERE i.type IN ('full', 'patch', 'thin')
+            WHERE i.type IN ('direct','full', 'patch', 'thin')
               AND i.status = 'pending'
               AND i.assigned_to::TEXT = p_worker_id
             ORDER BY i.id
@@ -66,7 +66,7 @@ step(
         WITH next_issue AS (
             SELECT i.id
             FROM issues i
-            WHERE i.type IN ('full', 'patch', 'thin')
+            WHERE i.type IN ('direct','full', 'patch', 'thin')
               AND i.status = 'pending'
               AND i.assigned_to::TEXT = p_worker_id
             ORDER BY i.id
