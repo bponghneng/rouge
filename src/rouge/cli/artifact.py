@@ -2,7 +2,7 @@
 
 import typer
 
-from rouge.core.workflow.artifacts import ARTIFACT_MODELS, ArtifactStore
+from rouge.core.workflow.artifacts import ARTIFACT_MODELS, Artifact, ArtifactStore
 
 app = typer.Typer(help="Workflow artifact management commands")
 
@@ -68,12 +68,12 @@ def show_artifact(
 
     store = ArtifactStore(adw_id)
 
-    if not store.artifact_exists(artifact_type):  # type: ignore
+    if not store.artifact_exists(artifact_type):
         typer.echo(f"Artifact '{artifact_type}' not found for workflow '{adw_id}'", err=True)
         raise typer.Exit(1)
 
     try:
-        artifact = store.read_artifact(artifact_type)  # type: ignore
+        artifact: Artifact = store.read_artifact(artifact_type)
         json_data = artifact.model_dump_json(indent=None if raw else 2)
 
         if raw:
@@ -111,7 +111,7 @@ def delete_artifact(
 
     store = ArtifactStore(adw_id)
 
-    if not store.artifact_exists(artifact_type):  # type: ignore
+    if not store.artifact_exists(artifact_type):
         typer.echo(f"Artifact '{artifact_type}' not found for workflow '{adw_id}'", err=True)
         raise typer.Exit(1)
 
@@ -121,7 +121,7 @@ def delete_artifact(
             typer.echo("Cancelled")
             return
 
-    deleted = store.delete_artifact(artifact_type)  # type: ignore
+    deleted = store.delete_artifact(artifact_type)
     if deleted:
         typer.echo(f"Deleted artifact '{artifact_type}' from workflow '{adw_id}'")
     else:
