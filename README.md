@@ -3,8 +3,7 @@
 Rouge is a Python workflow runner for software-development issues stored in
 Supabase. It gives you:
 
-- `rouge`: the main CLI for issue management, workflow execution, comments,
-  steps, and artifacts
+- `rouge`: the main CLI for issue management, workflow execution, and comments
 - `rouge-adw`: a single-issue workflow runner
 - `rouge-worker`: a queue worker that continuously polls for assigned work
 
@@ -106,10 +105,6 @@ Main command groups:
 - `rouge issue`: `create`, `read`, `list`, `update`, `delete`, `reset`
 - `rouge workflow`: `run`, `patch`, `thin`, `direct`
 - `rouge comment`: `list`, `read`
-- `rouge step`: `list`, `run`, `deps`, `validate`
-- `rouge artifact`: `list`, `show`, `delete`, `types`, `path`
-- `rouge resume`: resume a failed workflow from its saved workflow state
-
 Use `uv run rouge <group> --help` for full arguments and options.
 
 ## Issues and workflows
@@ -142,34 +137,6 @@ uv run rouge issue create "Apply follow-up fixes" \
 
 Patch issues can also inherit a branch from a parent issue via
 `--parent-issue-id`.
-
-## Artifacts and step inspection
-
-Rouge persists step outputs to typed artifacts so workflows can be inspected,
-resumed, and rerun step-by-step.
-
-Useful commands:
-
-```bash
-# See step slugs and dependencies
-uv run rouge step list
-
-# Show the dependency chain for a step
-uv run rouge step deps implement
-
-# Run a single dependency-free step
-uv run rouge step run fetch-issue --issue-id 123
-
-# Run a step that depends on existing artifacts
-uv run rouge step run claude-code-plan --issue-id 123 --adw-id abc12345
-
-# Inspect artifacts for a workflow
-uv run rouge artifact list abc12345
-uv run rouge artifact show abc12345 plan
-```
-
-Single-step execution with dependencies requires an existing workflow artifact
-directory.
 
 ## Worker operation
 
@@ -217,4 +184,3 @@ src/rouge/core/     Shared models, database access, agents, and workflow logic
 tests/              Unit tests
 ```
 
-See `ARTIFACT_POLICY.md` for artifact-system rules.
