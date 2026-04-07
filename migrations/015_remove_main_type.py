@@ -17,11 +17,9 @@ from yoyo import step
 
 __depends__ = {"014_remove_codereview_type"}
 
-step(
-    """
+step("""
     DELETE FROM issues WHERE type = 'main';
-    """
-)
+    """)
 
 step(
     """
