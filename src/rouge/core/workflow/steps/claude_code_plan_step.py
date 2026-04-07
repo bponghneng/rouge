@@ -8,16 +8,11 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
 
 # Required fields for plan output JSON
@@ -46,9 +41,9 @@ class ClaudeCodePlanStep(WorkflowStep):
 
     This step builds an implementation plan directly from the issue
     description, without requiring classification. It:
-    1. Uses the issue from FetchIssueArtifact
+    1. Uses the issue from context (set by FetchIssueStep)
     2. Generates a task-oriented plan via the claude-code-plan prompt template
-    3. Stores the result in context and as a PlanArtifact
+    3. Stores the result in context.data
     """
 
     @property
@@ -117,21 +112,19 @@ class ClaudeCodePlanStep(WorkflowStep):
         """Build implementation plan and store in context.
 
         Args:
-            context: Workflow context with fetch-issue artifact
+            context: Workflow context with issue from FetchIssueStep
 
         Returns:
             StepResult with success status and optional error message
         """
         logger = get_logger(context.adw_id)
 
-        # Load issue from artifact (required)
-        try:
-            issue = context.load_required_artifact(
-                "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
-            )
-        except StepInputError as e:
-            logger.error("Cannot build plan: issue not fetched: %s", e)
-            return StepResult.fail(f"Cannot build plan: issue not fetched: {e}")
+        # Load issue from context (set by FetchIssueStep)
+        issue = context.issue
+        if issue is None:
+            error_msg = "Cannot build plan: no issue in context"
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
 
         plan_response = self._build_plan(issue, context.adw_id)
 
@@ -140,19 +133,10 @@ class ClaudeCodePlanStep(WorkflowStep):
             return StepResult.fail(f"Error building plan: {plan_response.error}")
 
         # Store plan data in context
-        context.data["plan_data"] = plan_response.data
-
-        # Save artifact
         if plan_response.data is not None:
-            artifact = PlanArtifact(
-                workflow_id=context.adw_id,
-                plan_data=plan_response.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved plan artifact for workflow %s", context.adw_id)
-
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
+            context.data["plan_data"] = plan_response.data
+            context.data["plan"] = plan_response.data
+            logger.debug("Stored plan data for workflow %s", context.adw_id)
 
         # Build progress comment from parsed plan data
         parsed_data = plan_response.metadata.get("parsed_data", {})

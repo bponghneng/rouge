@@ -9,54 +9,33 @@ import subprocess
 from abc import ABC, abstractmethod
 from typing import ClassVar
 
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    log_artifact_comment_status,
-)
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import (
-    ArtifactType,
-    ComposeRequestArtifact,
-    PullRequestArtifactBase,
-    PullRequestEntry,
-)
 from rouge.core.workflow.shared import get_affected_repo_paths, has_branch_delta
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _emit_and_log, load_and_render_attachment
-from rouge.core.workflow.types import StepResult
+from rouge.core.workflow.types import PullRequestEntry, StepResult
 
 
 class PullRequestStepBase(WorkflowStep, ABC):
     """Abstract base for platform-specific pull request / merge request steps.
 
-    Subclasses override the abstract property ``artifact_class`` and define
-    the string class attributes below, plus the abstract methods for
-    platform-specific CLI operations.
+    Subclasses define the string class attributes below, plus the abstract
+    methods for platform-specific CLI operations.
     """
 
     # ------------------------------------------------------------------
-    # Class attributes – subclasses assign these directly, e.g.:
+    # Class attributes -- subclasses assign these directly, e.g.:
     #   cli_binary = "gh"
     # ------------------------------------------------------------------
 
     cli_binary: ClassVar[str]
     pat_env_var: ClassVar[str]
     token_env_key: ClassVar[str]
-    artifact_slug: ClassVar[ArtifactType]
+    artifact_slug: ClassVar[str]
     platform: ClassVar[str]
     entity_name: ClassVar[str]
     entity_prefix: ClassVar[str]
     output_key_prefix: ClassVar[str]
-
-    # ------------------------------------------------------------------
-    # Abstract property
-    # ------------------------------------------------------------------
-
-    @property
-    @abstractmethod
-    def artifact_class(self) -> type[PullRequestArtifactBase]:
-        """The platform-specific artifact class."""
-        ...
 
     # ------------------------------------------------------------------
     # Abstract methods
@@ -100,7 +79,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         return False
 
     # ------------------------------------------------------------------
-    # Concrete methods – shared orchestration
+    # Concrete methods -- shared orchestration
     # ------------------------------------------------------------------
 
     def _check_cli_available(
@@ -220,15 +199,9 @@ class PullRequestStepBase(WorkflowStep, ABC):
                             adopted=True,
                         )
                         pull_requests.append(entry)
-                        context.artifact_store.write_artifact(
-                            self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                                workflow_id=context.adw_id,
-                                pull_requests=pull_requests,
-                                platform=self.platform,
-                            )
-                        )
+                        self._save_pr_data(context, pull_requests)
                         logger.debug(
-                            "Saved %s artifact after adopting %s for %s",
+                            "Saved %s data after adopting %s for %s",
                             self.artifact_slug,
                             self.entity_name,
                             repo_name,
@@ -267,6 +240,36 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 e,
             )
         return False
+
+    def _save_pr_data(
+        self,
+        context: WorkflowContext,
+        pull_requests: list[PullRequestEntry],
+    ) -> None:
+        """Persist pull request entries to context.data."""
+        context.data[self.artifact_slug] = {
+            "pull_requests": [pr.model_dump() for pr in pull_requests],
+            "platform": self.platform,
+        }
+
+    def _load_existing_pr_entries(
+        self,
+        context: WorkflowContext,
+        logger: logging.Logger,
+    ) -> list[PullRequestEntry]:
+        """Load existing PR entries from context.data for rerun continuity."""
+        existing_data = context.data.get(self.artifact_slug)
+        if existing_data and isinstance(existing_data, dict):
+            raw_entries = existing_data.get("pull_requests", [])
+            try:
+                return [PullRequestEntry(**entry) for entry in raw_entries]
+            except (TypeError, ValueError) as e:
+                logger.debug(
+                    "Could not load existing %s entries: %s",
+                    self.artifact_slug,
+                    e,
+                )
+        return []
 
     def _process_repo(
         self,
@@ -432,15 +435,10 @@ class PullRequestStepBase(WorkflowStep, ABC):
         )
         pull_requests.append(entry)
 
-        # Write artifact after each repo so partial progress survives failures
-        artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-            workflow_id=context.adw_id,
-            pull_requests=pull_requests,
-            platform=self.platform,
-        )
-        context.artifact_store.write_artifact(artifact)
+        # Save PR data after each repo so partial progress survives failures
+        self._save_pr_data(context, pull_requests)
         logger.debug(
-            "Saved %s artifact after creating %s for %s",
+            "Saved %s data after creating %s for %s",
             self.artifact_slug,
             self.entity_name,
             repo_name,
@@ -474,13 +472,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
         """
         logger = get_logger(context.adw_id)
 
-        # Try to load pr_details from artifact if not in context (optional)
-        pr_details = context.load_optional_artifact(
-            "pr_details",
-            "compose-request",
-            ComposeRequestArtifact,
-            lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
-        )
+        # Load pr_details from context data (optional)
+        pr_details = context.load_optional_artifact("pr_details")
 
         attachment_md = load_and_render_attachment(context)
 
@@ -499,39 +492,19 @@ class PullRequestStepBase(WorkflowStep, ABC):
             env = os.environ.copy()
             env[self.token_env_key] = pat_value
 
-            # Seed pull_requests from existing artifact for rerun continuity (Layer 0)
-            pull_requests: list[PullRequestEntry] = []
-            if context.artifact_store.artifact_exists(self.artifact_slug):
-                try:
-                    existing_artifact = context.artifact_store.read_artifact(
-                        self.artifact_slug,
-                        self.artifact_class,
-                    )
-                    pull_requests = list(existing_artifact.pull_requests)
-                    logger.debug(
-                        "Seeded %d existing %s entries from artifact",
-                        len(pull_requests),
-                        self.entity_name,
-                    )
-                except (FileNotFoundError, ValueError) as e:
-                    logger.debug(
-                        "Could not load existing %s artifact: %s",
-                        self.artifact_slug,
-                        e,
-                    )
+            # Seed pull_requests from existing data for rerun continuity (Layer 0)
+            pull_requests = self._load_existing_pr_entries(context, logger)
+            if pull_requests:
+                logger.debug(
+                    "Seeded %d existing %s entries from context data",
+                    len(pull_requests),
+                    self.entity_name,
+                )
 
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping %s creation", self.entity_name)
-                # Seeded entries from a prior run are intentionally discarded here.
-                # When no repos are affected, there is nothing to publish and the
-                # artifact is written as an empty skip record.
-                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                    workflow_id=context.adw_id,
-                    pull_requests=[],
-                    platform=self.platform,
-                )
-                context.artifact_store.write_artifact(artifact)
+                self._save_pr_data(context, [])
                 return StepResult.ok(None)
 
             for repo_path in affected_repos:
@@ -539,18 +512,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
                     context, repo_path, title, summary, pull_requests, env, attachment_md
                 )
 
-            # Emit artifact comment and progress comment after all repos are processed
+            # Emit progress comment after all repos are processed
             if pull_requests:
-                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                    workflow_id=context.adw_id,
-                    pull_requests=pull_requests,
-                    platform=self.platform,
-                )
-                status, msg = emit_artifact_comment(
-                    context.require_issue_id, context.adw_id, artifact
-                )
-                log_artifact_comment_status(status, msg)
-
                 urls = [entry.url for entry in pull_requests]
                 comment_data = {
                     "commits": commits,

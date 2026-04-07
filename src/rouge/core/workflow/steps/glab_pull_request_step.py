@@ -6,11 +6,6 @@ import subprocess
 from typing import ClassVar
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import (
-    ArtifactType,
-    GlabPullRequestArtifact,
-    PullRequestArtifactBase,
-)
 from rouge.core.workflow.pull_request_step_base import PullRequestStepBase
 
 _logger = get_logger(__name__)
@@ -88,7 +83,7 @@ class GlabPullRequestStep(PullRequestStepBase):
     cli_binary: ClassVar[str] = "glab"
     pat_env_var: ClassVar[str] = "GITLAB_PAT"
     token_env_key: ClassVar[str] = "GITLAB_TOKEN"
-    artifact_slug: ClassVar[ArtifactType] = "glab-pull-request"
+    artifact_slug: ClassVar[str] = "glab-pull-request"
     platform: ClassVar[str] = "gitlab"
     entity_name: ClassVar[str] = "MR"
     entity_prefix: ClassVar[str] = "!"
@@ -97,10 +92,6 @@ class GlabPullRequestStep(PullRequestStepBase):
     @property
     def name(self) -> str:
         return "Creating GitLab merge request"
-
-    @property
-    def artifact_class(self) -> type[PullRequestArtifactBase]:
-        return GlabPullRequestArtifact
 
     def _list_cmd_args(self, branch_name: str) -> list[str]:
         return ["glab", "mr", "list", "--source-branch", branch_name, "--output", "json"]

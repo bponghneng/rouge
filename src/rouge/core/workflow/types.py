@@ -128,6 +128,24 @@ class StepResult(BaseModel, Generic[T]):
         )
 
 
+class PullRequestEntry(BaseModel):
+    """A single pull request entry within a multi-repo workflow.
+
+    Attributes:
+        repo: Human-readable repository name (e.g. "org/repo")
+        repo_path: Filesystem path to the repository
+        url: The URL of the pull request or merge request
+        number: The PR/MR number, if available
+        adopted: Whether this PR was adopted from a pre-existing open PR
+    """
+
+    repo: str
+    repo_path: str
+    url: str
+    number: int | None = None
+    adopted: bool = False
+
+
 class PlanData(BaseModel):
     """Data payload for plan building results.
 

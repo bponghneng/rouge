@@ -1,14 +1,13 @@
-"""Step registry for workflow step metadata and dependency resolution.
+"""Step registry for workflow step metadata.
 
-This module provides a registry for declaring workflow step dependencies
-and outputs, enabling independent step execution and dependency resolution.
+This module provides a registry for declaring workflow step metadata,
+enabling step lookup by name or slug.
 """
 
 import logging
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Type, TypeVar
+from dataclasses import dataclass
+from typing import Dict, List, Optional, Type, TypeVar
 
-from rouge.core.workflow.artifacts import ArtifactType
 from rouge.core.workflow.step_base import WorkflowStep
 
 # Module-level logger is appropriate here: step registration occurs at initialization
@@ -26,28 +25,20 @@ class StepMetadata:
     Attributes:
         step_class: The WorkflowStep subclass
         slug: Unique slug identifier for the step (kebab-case)
-        dependencies: List of artifact types required as input
-        outputs: List of artifact types produced as output
         is_critical: Whether the step is critical (workflow aborts on failure)
         description: Optional description of what the step does
-        dependency_kinds: Mapping of artifact type to dependency kind
-            (optional, ordering-only). Required dependencies don't need entries.
     """
 
     step_class: Type[WorkflowStep]
     slug: str = ""
-    dependencies: List[ArtifactType] = field(default_factory=list)
-    outputs: List[ArtifactType] = field(default_factory=list)
     is_critical: bool = True
     description: Optional[str] = None
-    dependency_kinds: Dict[ArtifactType, str] = field(default_factory=dict)
 
 
 class StepRegistry:
-    """Registry for workflow step metadata and dependency management.
+    """Registry for workflow step metadata.
 
-    Provides step registration, metadata lookup, and dependency resolution
-    for enabling independent step execution.
+    Provides step registration and metadata lookup by name or slug.
     """
 
     def __init__(self) -> None:
@@ -58,29 +49,22 @@ class StepRegistry:
     def register(
         self,
         step_class: Type[WorkflowStep],
-        dependencies: Optional[List[ArtifactType]] = None,
-        outputs: Optional[List[ArtifactType]] = None,
         is_critical: Optional[bool] = None,
         description: Optional[str] = None,
         slug: Optional[str] = None,
-        dependency_kinds: Optional[Dict[ArtifactType, str]] = None,
+        **kwargs: object,  # noqa: ARG002
     ) -> None:
         """Register a workflow step with its metadata.
 
         Args:
             step_class: The WorkflowStep subclass to register
-            dependencies: List of artifact types required as input
-            outputs: List of artifact types produced as output
             is_critical: Whether the step is critical (uses step's default if not specified)
             description: Optional description of what the step does
             slug: Optional unique slug identifier (kebab-case)
-            dependency_kinds: Mapping of artifact type to dependency kind
-                (optional, ordering-only). Required dependencies don't need entries.
+            **kwargs: Ignored (accepts legacy keyword arguments for backward compatibility)
 
         Raises:
             ValueError: If the slug is already registered to a different step
-            ValueError: If dependency_kinds contains keys not in dependencies list
-            ValueError: If dependency_kinds contains invalid values
         """
         # Create a temporary instance to get the step name and is_critical flag
         temp_instance = step_class()
@@ -96,35 +80,11 @@ class StepRegistry:
                     )
             self._slug_to_name[slug] = step_name
 
-        # Validate dependency_kinds if provided
-        deps_list = dependencies or []
-        dep_kinds = dependency_kinds or {}
-
-        # Validate all dependency_kinds keys exist in dependencies list
-        for artifact_type in dep_kinds.keys():
-            if artifact_type not in deps_list:
-                raise ValueError(
-                    f"Step '{step_name}': dependency_kinds key '{artifact_type}' "
-                    f"not found in dependencies list"
-                )
-
-        # Validate all dependency_kinds values are valid
-        valid_kinds = ("optional", "ordering-only")
-        for artifact_type, kind in dep_kinds.items():
-            if kind not in valid_kinds:
-                raise ValueError(
-                    f"Step '{step_name}': dependency_kinds value '{kind}' for artifact "
-                    f"'{artifact_type}' must be one of {valid_kinds}"
-                )
-
         metadata = StepMetadata(
             step_class=step_class,
             slug=slug or "",
-            dependencies=deps_list,
-            outputs=outputs or [],
             is_critical=is_critical if is_critical is not None else temp_instance.is_critical,
             description=description,
-            dependency_kinds=dep_kinds,
         )
 
         self._steps[step_name] = metadata
@@ -193,8 +153,7 @@ class StepRegistry:
         """List all steps with their full metadata.
 
         Returns:
-            List of dicts with slug, name, dependencies, outputs, is_critical,
-            description, dependency_kinds
+            List of dicts with slug, name, is_critical, description
         """
         result = []
         for step_name, metadata in self._steps.items():
@@ -202,140 +161,11 @@ class StepRegistry:
                 {
                     "slug": metadata.slug,
                     "name": step_name,
-                    "dependencies": list(metadata.dependencies),
-                    "outputs": list(metadata.outputs),
                     "is_critical": metadata.is_critical,
                     "description": metadata.description,
-                    "dependency_kinds": dict(metadata.dependency_kinds),
                 }
             )
         return result
-
-    def resolve_dependencies(self, step_name: str) -> List[str]:
-        """Resolve the dependency order for executing a step.
-
-        Returns the ordered list of step names that must be executed before
-        the target step, using topological sort on the dependency graph.
-
-        Args:
-            step_name: The step to resolve dependencies for
-
-        Returns:
-            List of step names in execution order (not including target step)
-
-        Raises:
-            ValueError: If step not found or circular dependency detected
-        """
-        if step_name not in self._steps:
-            raise ValueError(f"Unknown step: {step_name}")
-
-        # Build a map of artifact -> producing step
-        artifact_producers: Dict[str, str] = {}
-        for name, metadata in self._steps.items():
-            for output in metadata.outputs:
-                artifact_producers[output] = name
-
-        # Perform topological sort
-        visited: Set[str] = set()
-        result: List[str] = []
-        in_progress: Set[str] = set()
-
-        def visit(name: str) -> None:
-            if name in visited:
-                return
-            if name in in_progress:
-                raise ValueError(f"Circular dependency detected involving step: {name}")
-
-            in_progress.add(name)
-            metadata = self._steps.get(name)
-            if metadata:
-                for dep in metadata.dependencies:
-                    producer = artifact_producers.get(dep)
-                    if producer and producer != name:
-                        visit(producer)
-
-            in_progress.remove(name)
-            visited.add(name)
-            result.append(name)
-
-        visit(step_name)
-
-        # Remove the target step from the result (we only want dependencies)
-        if step_name in result:
-            result.remove(step_name)
-
-        return result
-
-    def get_steps_for_artifact(self, artifact_type: ArtifactType) -> List[str]:
-        """Get all steps that produce a given artifact type.
-
-        Args:
-            artifact_type: The artifact type to find producers for
-
-        Returns:
-            List of step names that produce this artifact
-        """
-        producers = []
-        for step_name, metadata in self._steps.items():
-            if artifact_type in metadata.outputs:
-                producers.append(step_name)
-        return producers
-
-    def get_steps_requiring_artifact(self, artifact_type: ArtifactType) -> List[str]:
-        """Get all steps that require a given artifact type.
-
-        Args:
-            artifact_type: The artifact type to find consumers for
-
-        Returns:
-            List of step names that require this artifact
-        """
-        consumers = []
-        for step_name, metadata in self._steps.items():
-            if artifact_type in metadata.dependencies:
-                consumers.append(step_name)
-        return consumers
-
-    def validate_registry(self) -> List[str]:
-        """Validate the registry for consistency issues.
-
-        Checks for:
-        - Steps with unresolvable dependencies (no producer registered)
-        - Circular dependencies
-
-        Returns:
-            List of warning/error messages (empty if valid)
-        """
-        issues = []
-
-        # Build artifact producer map
-        artifact_producers: Dict[str, str] = {}
-        for step_name, metadata in self._steps.items():
-            for output in metadata.outputs:
-                artifact_producers[output] = step_name
-
-        # Check for missing producers
-        for step_name, metadata in self._steps.items():
-            for dep in metadata.dependencies:
-                if dep not in artifact_producers:
-                    issues.append(
-                        f"Step '{step_name}' requires artifact '{dep}' but no step produces it"
-                    )
-
-        # Check for circular dependencies
-        detected_circular_deps = set()
-        for step_name in self._steps:
-            try:
-                self.resolve_dependencies(step_name)
-            except ValueError as e:
-                if "Circular dependency" in str(e):
-                    # Extract the cycle to avoid duplicate reporting
-                    error_msg = str(e)
-                    if error_msg not in detected_circular_deps:
-                        detected_circular_deps.add(error_msg)
-                        issues.append(error_msg)
-
-        return issues
 
 
 # Global registry instance
@@ -382,168 +212,98 @@ def _register_default_steps(registry: StepRegistry) -> None:
     from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
     from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 
-    # 0. GitBranchStep: requires fetch-issue, produces git-branch artifact
     registry.register(
         GitBranchStep,
         slug="git-branch",
-        dependencies=["fetch-issue"],
-        outputs=["git-branch"],
         description="Set up git environment for workflow execution",
     )
 
-    # 0b. GitCheckoutStep: requires fetch-patch (branch from patch issue), produces git-checkout
     registry.register(
         GitCheckoutStep,
         slug="git-checkout",
-        dependencies=["fetch-patch"],
-        outputs=["git-checkout"],
         description="Check out existing git branch and pull latest changes",
     )
 
-    # 1. FetchIssueStep: no dependencies, produces fetch-issue artifact
     registry.register(
         FetchIssueStep,
         slug="fetch-issue",
-        dependencies=[],
-        outputs=["fetch-issue"],
         description="Fetch issue from Supabase database",
     )
 
-    # 1b. FetchPatchStep: no dependencies, produces fetch-patch artifact (for patch workflow)
     registry.register(
         FetchPatchStep,
         slug="fetch-patch",
-        dependencies=[],
-        outputs=["fetch-patch"],
         description="Fetch pending patch from Supabase database",
     )
 
-    # 4. ImplementPlanStep: requires plan, produces implement artifact
     registry.register(
         ImplementPlanStep,
         slug="implement-plan",
-        dependencies=["plan"],
-        outputs=["implement"],
         description="Execute the plan-based implementation",
     )
 
-    # 5. CodeQualityStep: requires implement (optional), produces code-quality artifact
     registry.register(
         CodeQualityStep,
         slug="code-quality",
-        dependencies=["implement"],
-        outputs=["code-quality"],
-        description="Run code quality checks. Optional dependency on implement for repo targeting.",
-        dependency_kinds={"implement": "optional"},
+        description="Run code quality checks",
     )
 
-    # 10. ComposeRequestStep: requires implement (optional), produces compose-request artifact
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
-        dependencies=["implement"],
-        outputs=["compose-request"],
-        description=(
-            "Prepare pull request metadata. Optional dependency on implement for repo targeting."
-        ),
-        dependency_kinds={"implement": "optional"},
+        description="Prepare pull request metadata",
     )
 
-    # 11. GhPullRequestStep: requires compose-request, fetch-issue, plan, implement (all optional),
-    # produces gh-pull-request artifact
     registry.register(
         GhPullRequestStep,
         slug="gh-pull-request",
-        dependencies=["compose-request", "fetch-issue", "plan", "implement"],
-        outputs=["gh-pull-request"],
-        description=(
-            "Create GitHub pull request via gh CLI. "
-            "Optional dependency on compose-request, fetch-issue, plan, implement."
-        ),
-        dependency_kinds={
-            "compose-request": "optional",
-            "fetch-issue": "optional",
-            "plan": "optional",
-            "implement": "optional",
-        },
+        description="Create GitHub pull request via gh CLI",
     )
 
-    # 12. GlabPullRequestStep: requires compose-request, fetch-issue, plan, implement
-    # (all optional), produces glab-pull-request artifact
     registry.register(
         GlabPullRequestStep,
         slug="glab-pull-request",
-        dependencies=["compose-request", "fetch-issue", "plan", "implement"],
-        outputs=["glab-pull-request"],
-        description=(
-            "Create GitLab merge request via glab CLI. "
-            "Optional dependency on compose-request, fetch-issue, plan, implement."
-        ),
-        dependency_kinds={
-            "compose-request": "optional",
-            "fetch-issue": "optional",
-            "plan": "optional",
-            "implement": "optional",
-        },
+        description="Create GitLab merge request via glab CLI",
     )
 
-    # 13. PatchPlanStep: requires fetch-patch, produces plan
     registry.register(
         PatchPlanStep,
         slug="patch-plan",
-        dependencies=["fetch-patch"],
-        outputs=["plan"],
         is_critical=True,
         description="Build standalone implementation plan for patch issue",
     )
 
-    # 14. ComposeCommitsStep: detects PR via CLI, pushes commits, produces compose-commits artifact
     registry.register(
         ComposeCommitsStep,
         slug="compose-commits",
-        dependencies=[],
-        outputs=["compose-commits"],
         is_critical=False,
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
     )
 
-    # 15. ClaudeCodePlanStep: requires fetch-issue, produces plan
     registry.register(
         ClaudeCodePlanStep,
         slug="claude-code-plan",
-        dependencies=["fetch-issue"],
-        outputs=["plan"],
         is_critical=True,
         description="Build task-oriented implementation plan without classification",
     )
 
-    # 16. ThinPlanStep: requires fetch-issue, produces plan
     registry.register(
         ThinPlanStep,
         slug="thin-plan",
-        dependencies=["fetch-issue"],
-        outputs=["plan"],
         is_critical=True,
         description="Build a lightweight implementation plan with minimal agent interaction",
     )
 
-    # 17. ImplementDirectStep: ordered after git preparation, produces direct-only output
     registry.register(
         ImplementDirectStep,
         slug="implement-direct",
-        dependencies=["git-branch", "fetch-issue"],
-        outputs=["implement:direct"],
         is_critical=True,
         description="Implement directly from the issue description without a plan",
-        dependency_kinds={"git-branch": "ordering-only"},
     )
 
-    # 18. GitPrepareStep: requires fetch-issue, produces either git-branch or git-checkout
     registry.register(
         GitPrepareStep,
         slug="git-prepare",
-        dependencies=["fetch-issue"],
-        outputs=["git-branch", "git-checkout"],
         is_critical=True,
         description="Branch-aware git workspace preparation (creates or checks out branch)",
     )

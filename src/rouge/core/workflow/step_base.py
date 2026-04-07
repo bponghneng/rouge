@@ -3,17 +3,14 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from rouge.core.models import Issue
 from rouge.core.utils import get_logger
 from rouge.core.workflow.shared import get_repo_paths
 
 if TYPE_CHECKING:
-    from rouge.core.workflow.artifacts import Artifact, ArtifactStore, ArtifactType
     from rouge.core.workflow.types import StepResult
-
-T = TypeVar("T", bound="Artifact")
 
 
 class StepInputError(RuntimeError):
@@ -26,7 +23,6 @@ class WorkflowContext:
 
     Attributes:
         adw_id: Workflow ID for tracking
-        artifact_store: ArtifactStore for artifact persistence (required)
         issue_id: The Rouge issue ID being processed (None for standalone workflows)
         issue: The fetched Issue object (set by FetchIssueStep)
         resume_from: Optional step name to resume workflow execution from
@@ -36,7 +32,6 @@ class WorkflowContext:
     """
 
     adw_id: str
-    artifact_store: "ArtifactStore"
     issue_id: Optional[int] = None
     issue: Optional[Issue] = None
     resume_from: Optional[str] = None
@@ -70,95 +65,35 @@ class WorkflowContext:
             )
         return self.issue_id
 
-    def load_required_artifact(
-        self,
-        context_key: str,
-        artifact_type: "ArtifactType",
-        artifact_class: Type[T],
-        extract_fn: Callable[[T], Any],
-    ) -> Any:
-        """Load a required artifact, raising if it is not found.
-
-        Checks context cache first, then loads from the artifact store.  If the
-        artifact file does not exist a ``StepInputError`` is raised so callers
-        get a clear, actionable error message.
+    def load_required_artifact(self, key: str, artifact_cls: Any = None) -> Any:  # noqa: ARG002
+        """Load a required value from the context data dict.
 
         Args:
-            context_key: The key to store/check in context.data (cache)
-            artifact_type: The artifact type identifier used by the store
-            artifact_class: The artifact class to deserialize into
-            extract_fn: Function to extract the desired value from the artifact
+            key: The key to look up in context.data
+            artifact_cls: Ignored (kept for backward compatibility)
 
         Returns:
-            The loaded and extracted value (from cache or artifact store)
+            The value from context.data
 
         Raises:
-            StepInputError: If the artifact file does not exist
+            StepInputError: If the key is not found in context.data
         """
-        logger = self._logger
-
-        # Check cache first
-        existing = self.data.get(context_key)
-        if existing is not None:
-            return existing
-
-        # Load from artifact store; propagate StepInputError on missing file
-        try:
-            artifact = self.artifact_store.read_artifact(artifact_type, artifact_class)
-        except FileNotFoundError:
-            raise StepInputError(
-                f"Required artifact '{artifact_type}' not found for step. "
-                "Ensure the preceding step completed successfully and wrote its artifact."
-            )
-
-        value = extract_fn(artifact)
-        self.data[context_key] = value
-        logger.debug("Loaded required artifact %s", artifact_type)
+        value = self.data.get(key)
+        if value is None:
+            raise StepInputError(f"Required data '{key}' not found in context")
         return value
 
-    def load_optional_artifact(
-        self,
-        context_key: str,
-        artifact_type: "ArtifactType",
-        artifact_class: Type[T],
-        extract_fn: Callable[[T], Any],
-    ) -> Optional[Any]:
-        """Load an optional artifact, returning None if it is not found.
-
-        Checks context cache first, then loads from the artifact store.  A
-        missing artifact is treated as a normal condition and logged at DEBUG
-        level rather than raising an error.
+    def load_optional_artifact(self, key: str, artifact_cls: Any = None) -> Any:  # noqa: ARG002
+        """Load an optional value from the context data dict.
 
         Args:
-            context_key: The key to store/check in context.data (cache)
-            artifact_type: The artifact type identifier used by the store
-            artifact_class: The artifact class to deserialize into
-            extract_fn: Function to extract the desired value from the artifact
+            key: The key to look up in context.data
+            artifact_cls: Ignored (kept for backward compatibility)
 
         Returns:
-            The loaded and extracted value, or None if the artifact does not exist
+            The value from context.data, or None if not found
         """
-        logger = self._logger
-
-        # Check cache first
-        existing = self.data.get(context_key)
-        if existing is not None:
-            return existing
-
-        # Try to load from artifact store
-        try:
-            artifact = self.artifact_store.read_artifact(artifact_type, artifact_class)
-        except FileNotFoundError:
-            logger.debug(
-                "Optional artifact '%s' not found; proceeding without it",
-                artifact_type,
-            )
-            return None
-
-        value = extract_fn(artifact)
-        self.data[context_key] = value
-        logger.debug("Loaded optional artifact %s", artifact_type)
-        return value
+        return self.data.get(key)
 
 
 class WorkflowStep(ABC):

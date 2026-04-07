@@ -8,11 +8,6 @@ import subprocess
 from typing import ClassVar
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import (
-    ArtifactType,
-    GhPullRequestArtifact,
-    PullRequestArtifactBase,
-)
 from rouge.core.workflow.pull_request_step_base import PullRequestStepBase
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.step_utils import _emit_and_log
@@ -94,7 +89,7 @@ class GhPullRequestStep(PullRequestStepBase):
     cli_binary: ClassVar[str] = "gh"
     pat_env_var: ClassVar[str] = "GITHUB_PAT"
     token_env_key: ClassVar[str] = "GH_TOKEN"
-    artifact_slug: ClassVar[ArtifactType] = "gh-pull-request"
+    artifact_slug: ClassVar[str] = "gh-pull-request"
     platform: ClassVar[str] = "github"
     entity_name: ClassVar[str] = "PR"
     entity_prefix: ClassVar[str] = "#"
@@ -103,10 +98,6 @@ class GhPullRequestStep(PullRequestStepBase):
     @property
     def name(self) -> str:
         return "Creating GitHub pull request"
-
-    @property
-    def artifact_class(self) -> type[PullRequestArtifactBase]:
-        return GhPullRequestArtifact
 
     def _check_cli_available(
         self, context: WorkflowContext, logger: logging.Logger

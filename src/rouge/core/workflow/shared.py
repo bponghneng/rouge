@@ -52,15 +52,11 @@ def get_affected_repo_paths(
 ) -> list[str]:
     """Return repo paths that the Implement step actually changed.
 
-    Loads the Implement artifact and returns the intersection of
+    Loads implement data from context and returns the intersection of
     affected_repos with context.repo_paths (preserving original order).
     Falls back to context.repo_paths if no affected_repos data exists.
     """
-    from rouge.core.workflow.artifacts import ImplementArtifact
-
-    implement_data = context.load_optional_artifact(
-        "implement_data", "implement", ImplementArtifact, lambda a: a.implement_data
-    )
+    implement_data = context.load_optional_artifact("implement_data")
     if implement_data is None or not implement_data.affected_repos:
         return list(context.repo_paths)  # fallback: all repos
 

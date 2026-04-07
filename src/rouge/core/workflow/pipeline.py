@@ -4,7 +4,6 @@ import os
 from typing import Dict, List, Optional
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
 
@@ -49,14 +48,9 @@ class WorkflowRunner:
         """
         logger = get_logger(adw_id)
 
-        # Create artifact store unconditionally
-        artifact_store = ArtifactStore(adw_id)
-        logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
-
         context = WorkflowContext(
             issue_id=issue_id,
             adw_id=adw_id,
-            artifact_store=artifact_store,
             resume_from=resume_from,
             pipeline_type=pipeline_type,
         )
@@ -80,9 +74,6 @@ class WorkflowRunner:
                     resume_from,
                 )
 
-        # Track the name of the last successfully completed step
-        last_completed_step: Optional[str] = None
-
         while step_index < len(self._steps):
             step = self._steps[step_index]
             log_step_start(step.name, adw_id, issue_id=issue_id)
@@ -96,16 +87,6 @@ class WorkflowRunner:
                     if result.error:
                         error_msg += f": {result.error}"
                     logger.error("%s, aborting workflow", error_msg)
-
-                    # Best-effort write of WorkflowStateArtifact on critical failure
-                    self._write_workflow_state(
-                        artifact_store,
-                        adw_id,
-                        last_completed_step=last_completed_step,
-                        failed_step=step.name,
-                        pipeline_type=pipeline_type,
-                    )
-
                     return False
                 else:
                     log_step_end(step.name, result.success, adw_id, issue_id=issue_id)
@@ -115,16 +96,6 @@ class WorkflowRunner:
                     logger.warning("%s, continuing", warning_msg)
             else:
                 log_step_end(step.name, result.success, adw_id, issue_id=issue_id)
-
-                # Update last completed step and write WorkflowStateArtifact (best-effort)
-                last_completed_step = step.name
-                self._write_workflow_state(
-                    artifact_store,
-                    adw_id,
-                    last_completed_step=last_completed_step,
-                    failed_step=None,
-                    pipeline_type=pipeline_type,
-                )
 
             # Handle rerun requests
             if result.rerun_from is not None:
@@ -158,135 +129,12 @@ class WorkflowRunner:
         logger.info("\n=== Workflow completed successfully ===")
         return True
 
-    def _write_workflow_state(
-        self,
-        artifact_store: ArtifactStore,
-        workflow_id: str,
-        last_completed_step: Optional[str],
-        failed_step: Optional[str],
-        pipeline_type: str,
-    ) -> None:
-        """Write WorkflowStateArtifact in a best-effort manner.
-
-        This method ensures artifact writes never halt the pipeline. Write
-        failures are logged at WARNING level but do not raise exceptions.
-
-        Args:
-            artifact_store: The artifact store to write to
-            workflow_id: The workflow ID
-            last_completed_step: Name of the last successfully completed step (or None)
-            failed_step: Name of the step that failed (or None)
-            pipeline_type: The type of pipeline being executed
-        """
-        logger = get_logger(workflow_id)
-        try:
-            from rouge.core.workflow.artifacts import WorkflowStateArtifact
-
-            state_artifact = WorkflowStateArtifact(
-                workflow_id=workflow_id,
-                last_completed_step=last_completed_step,
-                failed_step=failed_step,
-                pipeline_type=pipeline_type,
-            )
-            artifact_store.write_artifact(state_artifact)
-            logger.debug(
-                "Wrote workflow state: last_completed=%s, failed=%s, type=%s",
-                last_completed_step,
-                failed_step,
-                pipeline_type,
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to write WorkflowStateArtifact (best-effort): %s",
-                e,
-                exc_info=True,
-            )
-
-    def run_single_step(
-        self,
-        step_name: str,
-        issue_id: int,
-        adw_id: str,
-        has_dependencies: bool = True,
-    ) -> bool:
-        """Execute a single step by name, using artifacts for dependencies.
-
-        This method enables running individual steps independently by loading
-        their dependencies from previously stored artifacts.
-
-        Args:
-            step_name: The name of the step to execute
-            issue_id: The Rouge issue ID to process
-            adw_id: Workflow ID for artifact persistence
-            has_dependencies: Whether the step has dependencies (if False, skip artifact dir check)
-
-        Returns:
-            True if step completed successfully, False otherwise
-
-        Raises:
-            ValueError: If step_name is not found in the pipeline
-        """
-        logger = get_logger(adw_id)
-
-        # Find the step by name
-        target_step: Optional[WorkflowStep] = None
-        for step in self._steps:
-            if step.name == step_name:
-                target_step = step
-                break
-
-        if target_step is None:
-            raise ValueError(f"Step not found: {step_name}")
-
-        # Always enable artifacts for single-step execution
-        artifact_store = ArtifactStore(adw_id)
-        workflow_dir = artifact_store.workflow_dir
-
-        # For steps with dependencies, ensure the workflow directory exists with artifacts
-        # For dependency-free steps, skip this check (artifacts will be created by this step)
-        if has_dependencies:
-            if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
-                logger.error(
-                    "Workflow directory '%s' does not exist or contains no artifacts. "
-                    "Run the full workflow or prior steps before executing this step.",
-                    workflow_dir,
-                )
-                return False
-            logger.debug("Single-step execution with artifacts at %s", workflow_dir)
-        else:
-            logger.debug("Dependency-free step execution, workflow dir: %s", workflow_dir)
-
-        context = WorkflowContext(
-            issue_id=issue_id,
-            adw_id=adw_id,
-            artifact_store=artifact_store,
-        )
-
-        logger.info("ADW ID: %s", adw_id)
-        logger.info("Running single step '%s' for issue ID: %s", step_name, issue_id)
-
-        log_step_start(target_step.name, adw_id, issue_id=issue_id)
-        result = target_step.run(context)
-        log_step_end(target_step.name, result.success, adw_id, issue_id=issue_id)
-
-        if not result.success:
-            error_msg = f"Step '{step_name}' failed"
-            if result.error:
-                error_msg += f": {result.error}"
-            logger.error(error_msg)
-            return False
-
-        logger.info("Step '%s' completed successfully", step_name)
-        return True
-
 
 def get_patch_pipeline() -> List[WorkflowStep]:
     """Create the patch workflow pipeline.
 
     The patch workflow is a fully decoupled pipeline designed to process patch
-    issues independently. Each patch workflow receives its own unique ADW ID and
-    operates in a separate artifact directory, without accessing or depending on
-    any parent workflow's artifacts.
+    issues independently. Each patch workflow receives its own unique ADW ID.
 
     Routing:
     --------
@@ -303,19 +151,13 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     - PR/MR creation steps are NOT needed: Patch commits are pushed to the
       existing branch and the associated PR/MR updates automatically
 
-    Each patch workflow has a unique ADW ID and its own artifact directory. All
-    steps read and write artifacts within this directory; no artifacts are loaded
-    from any parent or prior workflow.
-
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
-    2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
-       writes a standard PlanArtifact (no parent issue or plan is referenced)
-    3. ImplementPlanStep - Implement the plan by loading PlanArtifact from the current
-       patch workflow's artifact directory
-    4. CodeQualityStep - Run code quality checks
-    5. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
-       PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
+    1. FetchPatchStep - Fetch the patch issue from the database
+    2. GitCheckoutStep - Check out the existing branch
+    3. PatchPlanStep - Build a standalone plan from the patch issue description
+    4. ImplementPlanStep - Implement the plan
+    5. CodeQualityStep - Run code quality checks
+    6. ComposeCommitsStep - Push commits to the existing PR/MR branch
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
