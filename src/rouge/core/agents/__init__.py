@@ -27,7 +27,6 @@ from rouge.core.agents.base import (
     CodingAgent,
 )
 from rouge.core.agents.claude import ClaudeAgent
-from rouge.core.agents.opencode import OpenCodeAgent
 from rouge.core.agents.registry import get_agent, get_implement_provider, register_agent
 
 __all__ = [
@@ -35,7 +34,6 @@ __all__ = [
     "AgentExecuteRequest",
     "AgentExecuteResponse",
     "ClaudeAgent",
-    "OpenCodeAgent",
     "get_agent",
     "get_implement_provider",
     "register_agent",

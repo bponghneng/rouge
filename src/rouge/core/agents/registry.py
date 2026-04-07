@@ -11,7 +11,6 @@ from typing import Dict, Optional
 
 from rouge.core.agents.base import CodingAgent
 from rouge.core.agents.claude import ClaudeAgent
-from rouge.core.agents.opencode import OpenCodeAgent
 
 _DEFAULT_LOGGER = logging.getLogger(__name__)
 
@@ -96,16 +95,16 @@ def get_implement_provider() -> str:
     step while keeping classification and planning with Claude.
 
     Returns:
-        Provider name string (e.g., "claude", "opencode")
+        Provider name string (e.g., "claude", "custom")
 
     Example:
-        # Use OpenCode for implementation
-        os.environ["ROUGE_IMPLEMENT_PROVIDER"] = "opencode"
-        provider_name = get_implement_provider()  # Returns "opencode"
+        # Use a custom provider for implementation
+        os.environ["ROUGE_IMPLEMENT_PROVIDER"] = "custom"
+        provider_name = get_implement_provider()  # Returns "custom"
 
         # Fallback to general provider setting
-        os.environ["ROUGE_AGENT_PROVIDER"] = "opencode"
-        provider_name = get_implement_provider()  # Returns "opencode"
+        os.environ["ROUGE_AGENT_PROVIDER"] = "custom"
+        provider_name = get_implement_provider()  # Returns "custom"
 
         # Default behavior
         provider_name = get_implement_provider()  # Returns "claude"
@@ -128,7 +127,3 @@ def get_implement_provider() -> str:
 # Register default Claude provider
 register_agent("claude", ClaudeAgent())
 _DEFAULT_LOGGER.debug("Default Claude agent provider registered")
-
-# Register OpenCode provider
-register_agent("opencode", OpenCodeAgent())
-_DEFAULT_LOGGER.debug("OpenCode agent provider registered")

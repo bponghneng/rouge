@@ -8,7 +8,6 @@ from rouge.core.agents.base import (
     CodingAgent,
 )
 from rouge.core.agents.claude import ClaudeAgent
-from rouge.core.agents.opencode import OpenCodeAgent
 from rouge.core.agents.registry import get_agent, get_implement_provider, register_agent
 
 
@@ -94,12 +93,6 @@ def test_register_agent_invalid_agent():
         register_agent("invalid", "not an agent")
 
 
-def test_get_agent_opencode():
-    """Test getting opencode agent by name."""
-    agent = get_agent("opencode")
-    assert isinstance(agent, OpenCodeAgent)
-
-
 def test_get_implement_provider_default(monkeypatch):
     """Test get_implement_provider defaults to 'claude'."""
     monkeypatch.delenv("ROUGE_IMPLEMENT_PROVIDER", raising=False)
@@ -111,25 +104,25 @@ def test_get_implement_provider_default(monkeypatch):
 
 def test_get_implement_provider_explicit(monkeypatch):
     """Test get_implement_provider respects ROUGE_IMPLEMENT_PROVIDER."""
-    monkeypatch.setenv("ROUGE_IMPLEMENT_PROVIDER", "opencode")
+    monkeypatch.setenv("ROUGE_IMPLEMENT_PROVIDER", "custom")
 
     provider = get_implement_provider()
-    assert provider == "opencode"
+    assert provider == "custom"
 
 
 def test_get_implement_provider_fallback_to_agent_provider(monkeypatch):
     """Test get_implement_provider falls back to ROUGE_AGENT_PROVIDER."""
     monkeypatch.delenv("ROUGE_IMPLEMENT_PROVIDER", raising=False)
-    monkeypatch.setenv("ROUGE_AGENT_PROVIDER", "opencode")
+    monkeypatch.setenv("ROUGE_AGENT_PROVIDER", "custom")
 
     provider = get_implement_provider()
-    assert provider == "opencode"
+    assert provider == "custom"
 
 
 def test_get_implement_provider_precedence(monkeypatch):
     """Test ROUGE_IMPLEMENT_PROVIDER takes precedence over ROUGE_AGENT_PROVIDER."""
-    monkeypatch.setenv("ROUGE_IMPLEMENT_PROVIDER", "opencode")
+    monkeypatch.setenv("ROUGE_IMPLEMENT_PROVIDER", "custom")
     monkeypatch.setenv("ROUGE_AGENT_PROVIDER", "claude")
 
     provider = get_implement_provider()
-    assert provider == "opencode"
+    assert provider == "custom"
