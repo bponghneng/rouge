@@ -136,20 +136,13 @@ class InvalidRerunStep(WorkflowStep):
 
 
 class TestWorkflowContext:
-    def test_init(self, tmp_path) -> None:
-        from rouge.core.workflow.artifacts import ArtifactStore
-
-        store = ArtifactStore(workflow_id="test-adw", base_path=tmp_path)
-        context = WorkflowContext(issue_id=1, adw_id="test-adw", artifact_store=store)
+    def test_init(self) -> None:
+        context = WorkflowContext(issue_id=1, adw_id="test-adw")
         assert context.issue_id == 1
         assert context.adw_id == "test-adw"
-        assert context.artifact_store is store
 
-    def test_data_storage(self, tmp_path) -> None:
-        from rouge.core.workflow.artifacts import ArtifactStore
-
-        store = ArtifactStore(workflow_id="test-adw", base_path=tmp_path)
-        context = WorkflowContext(issue_id=1, adw_id="test-adw", artifact_store=store)
+    def test_data_storage(self) -> None:
+        context = WorkflowContext(issue_id=1, adw_id="test-adw")
         context.data["key"] = "value"
         assert context.data["key"] == "value"
 

@@ -1,17 +1,15 @@
 """Tests for ThinPlanStep workflow step.
 
-Tests verify that ThinPlanStep loads the issue from the fetch-issue
-artifact and writes a PlanArtifact.
+Tests verify that ThinPlanStep loads the issue from context.issue
+and stores plan data in context.data.
 """
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from rouge.core.models import Issue
 from rouge.core.prompts import PromptId
-from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 from rouge.core.workflow.types import PlanData, StepResult
@@ -31,93 +29,78 @@ def issue() -> Issue:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store."""
-    return ArtifactStore(workflow_id="test-adw-thin-plan", base_path=tmp_path)
+def context_with_issue(issue: Issue) -> WorkflowContext:
+    """Create a workflow context with the issue set on context."""
+    ctx = WorkflowContext(
+        issue_id=5,
+        adw_id="test-adw-thin-plan",
+    )
+    ctx.issue = issue
+    return ctx
 
 
 @pytest.fixture
-def context_with_artifact(issue: Issue, store: ArtifactStore) -> WorkflowContext:
-    """Create a workflow context with fetch-issue artifact written to the store."""
-    artifact = FetchIssueArtifact(
-        workflow_id=store.workflow_id,
-        issue=issue,
-    )
-    store.write_artifact(artifact)
+def context_without_issue() -> WorkflowContext:
+    """Create a workflow context WITHOUT an issue."""
     return WorkflowContext(
         issue_id=5,
         adw_id="test-adw-thin-plan",
-        artifact_store=store,
     )
 
 
-@pytest.fixture
-def context_without_artifact(store: ArtifactStore) -> WorkflowContext:
-    """Create a workflow context WITHOUT fetch-issue artifact."""
-    return WorkflowContext(
-        issue_id=5,
-        adw_id="test-adw-thin-plan",
-        artifact_store=store,
-    )
-
-
-class TestThinPlanStepLoadsFromArtifact:
-    """Tests verifying ThinPlanStep loads the issue from fetch-issue artifact."""
+class TestThinPlanStepLoadsFromContext:
+    """Tests verifying ThinPlanStep loads the issue from context.issue."""
 
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
-    def test_loads_issue_from_fetch_issue_artifact(
+    def test_loads_issue_from_context(
         self,
         mock_build_template,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
         issue,
     ) -> None:
-        """Step loads the issue from the fetch-issue artifact and writes a PlanArtifact."""
+        """Step loads the issue from context.issue and stores plan data."""
         plan_data = PlanData(
             plan="## Thin Plan\nAdd utility function",
             summary="Plan for adding string sanitization utility",
         )
         mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
-        # Verify build_plan_from_template was called with the issue from the artifact
+        # Verify build_plan_from_template was called with the issue from context
         mock_build_template.assert_called_once_with(
             issue,
             PromptId.THIN_PLAN,
-            context_with_artifact.adw_id,
+            context_with_issue.adw_id,
         )
-        # Verify a PlanArtifact was saved
-        assert context_with_artifact.artifact_store.artifact_exists("plan")
+        # Verify plan data was stored in context
+        assert "plan_data" in context_with_issue.data
+        assert context_with_issue.data["plan_data"] == plan_data
 
-    def test_fails_when_fetch_issue_artifact_missing(
+    def test_fails_when_issue_missing(
         self,
-        context_without_artifact,
+        context_without_issue,
     ) -> None:
-        """Step fails when fetch-issue artifact is absent (required dependency)."""
+        """Step fails when context.issue is None (required dependency)."""
         step = ThinPlanStep()
-        result = step.run(context_without_artifact)
+        result = step.run(context_without_issue)
 
         assert result.success is False
         assert result.error is not None
         assert "Cannot build thin plan" in result.error
 
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_calls_build_plan_with_thin_plan_prompt_id(
         self,
         mock_build_template,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
         issue,
     ) -> None:
         """build_plan_from_template is called with PromptId.THIN_PLAN."""
@@ -127,29 +110,28 @@ class TestThinPlanStepLoadsFromArtifact:
         )
         mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
         mock_build_template.assert_called_once_with(
             issue,
             PromptId.THIN_PLAN,
-            context_with_artifact.adw_id,
+            context_with_issue.adw_id,
         )
 
     @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_fails_when_build_plan_fails(
         self,
         mock_build_template,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
         """Step returns failure when build_plan_from_template returns a failed StepResult."""
         mock_build_template.return_value = StepResult.fail("Template execution error")
 
         step = ThinPlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is False
         assert result.error is not None
@@ -159,18 +141,18 @@ class TestThinPlanStepLoadsFromArtifact:
     def test_fails_when_plan_data_is_none(
         self,
         mock_build_template,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
-        """Step fails when plan succeeds but returns None data (no artifact written)."""
+        """Step fails when plan succeeds but returns None data."""
         mock_build_template.return_value = StepResult.ok(None, metadata={"parsed_data": {}})
 
         step = ThinPlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is False
         assert result.error is not None
         assert "no plan data" in result.error
-        assert not context_with_artifact.artifact_store.artifact_exists("plan")
+        assert "plan_data" not in context_with_issue.data
 
 
 class TestThinPlanStepProperties:

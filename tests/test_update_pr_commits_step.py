@@ -23,7 +23,6 @@ def mock_context() -> Mock:
     context.adw_id = "test-adw-pr-update"
     context.data = {}
     context.artifacts_enabled = True
-    context.artifact_store = Mock()
     context.repo_paths = ["/repo"]
     return context
 

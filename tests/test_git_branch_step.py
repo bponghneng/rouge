@@ -1,41 +1,20 @@
 """Tests for GitBranchStep git environment setup."""
 
 import subprocess
-from typing import Generator
 from unittest.mock import Mock, patch
 
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.git_branch_step import GIT_TIMEOUT, GitBranchStep
 from rouge.core.workflow.types import StepResult
 
 
-@pytest.fixture(autouse=True, scope="module")
-def patch_external_helpers() -> Generator[None, None, None]:
-    """Patch external helper functions to avoid side effects during tests.
-
-    This fixture patches emit_artifact_comment and log_artifact_comment_status
-    across all tests in this module to prevent actual comment emission.
-    """
-    with (
-        patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment") as mock_emit,
-        patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status"),
-    ):
-        # Configure emit_artifact_comment to return success by default
-        mock_emit.return_value = ("success", "ok")
-        yield
-
-
 @pytest.fixture
-def context(tmp_path) -> WorkflowContext:
+def context() -> WorkflowContext:
     """Create a sample workflow context for testing."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    return WorkflowContext(
-        issue_id=1, adw_id="test123", artifact_store=store, repo_paths=["/path/to/repo"]
-    )
+    return WorkflowContext(issue_id=1, adw_id="test123", repo_paths=["/path/to/repo"])
 
 
 # === Basic Step Properties Tests ===
@@ -57,15 +36,11 @@ def test_branch_step_is_critical() -> None:
 
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status")
-@patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment")
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_success(
     mock_subprocess,
     _mock_update_branch,
-    mock_emit_artifact_comment,
-    mock_log_artifact_comment_status,
     context,
 ) -> None:
     """Test successful git setup with all commands succeeding."""
@@ -89,7 +64,6 @@ def test_branch_step_success(
         mock_show_ref_fail,  # show-ref (branch doesn't exist)
         mock_success,  # checkout -b
     ]
-    mock_emit_artifact_comment.return_value = ("success", "ok")
 
     step = GitBranchStep()
     result = step.run(context)
@@ -513,9 +487,7 @@ def test_branch_step_unexpected_error(mock_subprocess, context) -> None:
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_uses_issue_branch_when_set(
-    mock_subprocess, mock_update_issue, tmp_path
-) -> None:
+def test_branch_step_uses_issue_branch_when_set(mock_subprocess, mock_update_issue) -> None:
     """Test that branch name comes from context.issue.branch when set."""
 
     mock_success = Mock()
@@ -538,8 +510,7 @@ def test_branch_step_uses_issue_branch_when_set(
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch="my-feature")
-    store = ArtifactStore(workflow_id="abc123", base_path=tmp_path)
-    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -556,7 +527,7 @@ def test_branch_step_uses_issue_branch_when_set(
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
-    mock_subprocess, mock_update_issue, tmp_path
+    mock_subprocess, mock_update_issue
 ) -> None:
     """Test that branch name falls back to adw-<id> when context.issue.branch is None."""
 
@@ -580,8 +551,7 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch=None)
-    store = ArtifactStore(workflow_id="xyz789", base_path=tmp_path)
-    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -597,7 +567,7 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
-def test_branch_step_branch_name_format(mock_subprocess, _mock_update_branch, tmp_path) -> None:
+def test_branch_step_branch_name_format(mock_subprocess, _mock_update_branch) -> None:
     """Test that branch name is correctly formatted from adw_id when no issue branch."""
 
     # Mock all git commands succeeding
@@ -628,8 +598,7 @@ def test_branch_step_branch_name_format(mock_subprocess, _mock_update_branch, tm
             mock_show_ref_fail,  # show-ref
             mock_success,  # checkout -b
         ]
-        store = ArtifactStore(workflow_id=adw_id, base_path=tmp_path / adw_id)
-        context = WorkflowContext(issue_id=1, adw_id=adw_id, artifact_store=store)
+        context = WorkflowContext(issue_id=1, adw_id=adw_id)
 
         step = GitBranchStep()
         result = step.run(context)

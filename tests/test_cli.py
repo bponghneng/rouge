@@ -33,8 +33,6 @@ def test_cli_help() -> None:
     assert "issue" in result.output.lower()
     assert "workflow" in result.output.lower()
     assert "comment" in result.output.lower()
-    assert "step" in result.output.lower()
-    assert "artifact" in result.output.lower()
 
 
 def test_cli_version() -> None:
@@ -119,20 +117,6 @@ def test_comment_command_group_exists() -> None:
     result = runner.invoke(app, ["comment", "--help"])
     assert result.exit_code == 0
     assert "comment" in result.output.lower()
-
-
-def test_step_command_group_exists() -> None:
-    """Test that 'step' command group is registered."""
-    result = runner.invoke(app, ["step", "--help"])
-    assert result.exit_code == 0
-    assert "step" in result.output.lower()
-
-
-def test_artifact_command_group_exists() -> None:
-    """Test that 'artifact' command group is registered."""
-    result = runner.invoke(app, ["artifact", "--help"])
-    assert result.exit_code == 0
-    assert "artifact" in result.output.lower()
 
 
 # Tests for reset command (now under 'issue' subcommand)

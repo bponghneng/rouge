@@ -1,4 +1,4 @@
-"""Unit tests for step registry and dependency resolution."""
+"""Unit tests for step registry."""
 
 import pytest
 
@@ -56,15 +56,13 @@ class TestStepMetadata:
         """Test StepMetadata can be created with all fields."""
         metadata = StepMetadata(
             step_class=MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
+            slug="mock-step",
             is_critical=True,
             description="Test step",
         )
 
         assert metadata.step_class == MockStep
-        assert metadata.dependencies == ["issue"]
-        assert metadata.outputs == ["classification"]
+        assert metadata.slug == "mock-step"
         assert metadata.is_critical is True
         assert metadata.description == "Test step"
 
@@ -72,8 +70,7 @@ class TestStepMetadata:
         """Test StepMetadata has correct defaults."""
         metadata = StepMetadata(step_class=MockStep)
 
-        assert metadata.dependencies == []
-        assert metadata.outputs == []
+        assert metadata.slug == ""
         assert metadata.is_critical is True
         assert metadata.description is None
 
@@ -86,16 +83,15 @@ class TestStepRegistry:
         registry = StepRegistry()
         registry.register(
             MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
+            slug="mock-step",
             description="Mock classification",
         )
 
         metadata = registry.get_step_metadata("Mock Step")
         assert metadata is not None
         assert metadata.step_class == MockStep
-        assert metadata.dependencies == ["issue"]
-        assert metadata.outputs == ["classification"]
+        assert metadata.slug == "mock-step"
+        assert metadata.description == "Mock classification"
 
     def test_register_step_infers_is_critical(self):
         """Test register infers is_critical from step class."""
@@ -160,197 +156,30 @@ class TestStepRegistry:
         registry = StepRegistry()
         registry.register(
             MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
+            slug="mock-step",
             description="Mock step",
         )
 
         details = registry.list_step_details()
         assert len(details) == 1
         assert details[0]["name"] == "Mock Step"
-        assert details[0]["dependencies"] == ["issue"]
-        assert details[0]["outputs"] == ["classification"]
+        assert details[0]["slug"] == "mock-step"
         assert details[0]["is_critical"] is True
         assert details[0]["description"] == "Mock step"
 
-
-class TestDependencyResolution:
-    """Tests for dependency resolution functionality."""
-
-    def test_resolve_no_dependencies(self):
-        """Test resolving step with no dependencies."""
+    def test_register_accepts_legacy_kwargs(self):
+        """Test register accepts and ignores legacy keyword arguments."""
         registry = StepRegistry()
-        registry.register(MockStep, dependencies=[], outputs=["issue"])
+        # Should not raise even with unknown kwargs
+        registry.register(
+            MockStep,
+            dependencies=["issue"],
+            outputs=["classification"],
+        )
 
-        deps = registry.resolve_dependencies("Mock Step")
-        assert deps == []
-
-    def test_resolve_single_dependency(self):
-        """Test resolving step with single dependency."""
-        registry = StepRegistry()
-        registry.register(MockStep, dependencies=[], outputs=["issue"])
-        registry.register(AnotherMockStep, dependencies=["issue"], outputs=["classification"])
-
-        deps = registry.resolve_dependencies("Another Mock Step")
-        assert deps == ["Mock Step"]
-
-    def test_resolve_chain_dependencies(self):
-        """Test resolving chain of dependencies."""
-
-        class Step1(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Step 1"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        class Step2(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Step 2"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        class Step3(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Step 3"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        registry = StepRegistry()
-        registry.register(Step1, dependencies=[], outputs=["issue"])
-        registry.register(Step2, dependencies=["issue"], outputs=["classification"])
-        registry.register(Step3, dependencies=["classification"], outputs=["plan"])
-
-        deps = registry.resolve_dependencies("Step 3")
-        # Step 1 must come before Step 2
-        assert "Step 1" in deps
-        assert "Step 2" in deps
-        assert deps.index("Step 1") < deps.index("Step 2")
-
-    def test_resolve_unknown_step(self):
-        """Test resolving unknown step raises ValueError."""
-        registry = StepRegistry()
-
-        with pytest.raises(ValueError, match="Unknown step"):
-            registry.resolve_dependencies("Unknown Step")
-
-    def test_resolve_circular_dependency(self):
-        """Test resolving circular dependency raises ValueError."""
-
-        class CircularStep1(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Circular 1"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        class CircularStep2(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Circular 2"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        registry = StepRegistry()
-        registry.register(CircularStep1, dependencies=["artifact_b"], outputs=["artifact_a"])
-        registry.register(CircularStep2, dependencies=["artifact_a"], outputs=["artifact_b"])
-
-        with pytest.raises(ValueError, match="Circular dependency"):
-            registry.resolve_dependencies("Circular 1")
-
-
-class TestArtifactQueries:
-    """Tests for artifact-related query methods."""
-
-    def test_get_steps_for_artifact(self):
-        """Test finding steps that produce an artifact."""
-        registry = StepRegistry()
-        registry.register(MockStep, outputs=["issue"])
-        registry.register(AnotherMockStep, outputs=["classification"])
-
-        producers = registry.get_steps_for_artifact("issue")
-        assert producers == ["Mock Step"]
-
-    def test_get_steps_for_artifact_none(self):
-        """Test finding producers for non-existent artifact."""
-        registry = StepRegistry()
-        registry.register(MockStep, outputs=["issue"])
-
-        producers = registry.get_steps_for_artifact("unknown")
-        assert producers == []
-
-    def test_get_steps_requiring_artifact(self):
-        """Test finding steps that require an artifact."""
-        registry = StepRegistry()
-        registry.register(MockStep, outputs=["issue"])
-        registry.register(AnotherMockStep, dependencies=["issue"])
-
-        consumers = registry.get_steps_requiring_artifact("issue")
-        assert consumers == ["Another Mock Step"]
-
-    def test_get_steps_requiring_artifact_none(self):
-        """Test finding consumers for non-required artifact."""
-        registry = StepRegistry()
-        registry.register(MockStep, dependencies=["issue"])
-
-        consumers = registry.get_steps_requiring_artifact("unknown")
-        assert consumers == []
-
-
-class TestRegistryValidation:
-    """Tests for registry validation functionality."""
-
-    def test_validate_valid_registry(self):
-        """Test validation of valid registry returns no issues."""
-        registry = StepRegistry()
-        registry.register(MockStep, dependencies=[], outputs=["issue"])
-        registry.register(AnotherMockStep, dependencies=["issue"], outputs=["classification"])
-
-        issues = registry.validate_registry()
-        assert issues == []
-
-    def test_validate_missing_producer(self):
-        """Test validation catches missing artifact producer."""
-        registry = StepRegistry()
-        registry.register(MockStep, dependencies=["nonexistent"], outputs=["issue"])
-
-        issues = registry.validate_registry()
-        assert len(issues) == 1
-        assert "nonexistent" in issues[0]
-        assert "no step produces it" in issues[0]
-
-    def test_validate_circular_dependency(self):
-        """Test validation catches circular dependencies."""
-
-        class CircularA(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Circular A"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        class CircularB(WorkflowStep):
-            @property
-            def name(self) -> str:
-                return "Circular B"
-
-            def run(self, context: WorkflowContext) -> StepResult:
-                return StepResult.ok(None)
-
-        registry = StepRegistry()
-        registry.register(CircularA, dependencies=["b_output"], outputs=["a_output"])
-        registry.register(CircularB, dependencies=["a_output"], outputs=["b_output"])
-
-        issues = registry.validate_registry()
-        assert any("Circular dependency" in issue for issue in issues)
+        metadata = registry.get_step_metadata("Mock Step")
+        assert metadata is not None
+        assert metadata.step_class == MockStep
 
 
 class TestSlugFunctionality:
@@ -390,8 +219,6 @@ class TestSlugFunctionality:
         registry.register(
             MockStep,
             slug="mock-slug",
-            dependencies=["issue"],
-            outputs=["classification"],
             description="Test step",
         )
 
@@ -399,8 +226,6 @@ class TestSlugFunctionality:
         assert metadata is not None
         assert metadata.step_class == MockStep
         assert metadata.slug == "mock-slug"
-        assert metadata.dependencies == ["issue"]
-        assert metadata.outputs == ["classification"]
         assert metadata.description == "Test step"
 
     def test_get_step_metadata_by_slug_not_found(self):
@@ -410,132 +235,6 @@ class TestSlugFunctionality:
 
         metadata = registry.get_step_metadata_by_slug("unknown-slug")
         assert metadata is None
-
-
-class TestDependencyKindsValidation:
-    """Tests for dependency_kinds validation in register()."""
-
-    def test_valid_dependency_kinds_optional(self) -> None:
-        """Test registering step with valid 'optional' dependency_kinds."""
-        registry = StepRegistry()
-        registry.register(
-            MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
-            dependency_kinds={"issue": "optional"},
-        )
-
-        metadata = registry.get_step_metadata("Mock Step")
-        assert metadata is not None
-        assert metadata.dependency_kinds == {"issue": "optional"}
-
-    def test_valid_dependency_kinds_ordering_only(self) -> None:
-        """Test registering step with valid 'ordering-only' dependency_kinds."""
-        registry = StepRegistry()
-        registry.register(
-            MockStep,
-            dependencies=["issue", "plan"],
-            outputs=["classification"],
-            dependency_kinds={"plan": "ordering-only"},
-        )
-
-        metadata = registry.get_step_metadata("Mock Step")
-        assert metadata is not None
-        assert metadata.dependency_kinds == {"plan": "ordering-only"}
-
-    def test_invalid_dependency_kinds_key_not_in_dependencies(self) -> None:
-        """Test that dependency_kinds key not in dependencies raises ValueError."""
-        registry = StepRegistry()
-
-        with pytest.raises(ValueError, match="dependency_kinds key 'nonexistent'"):
-            registry.register(
-                MockStep,
-                dependencies=["issue"],
-                outputs=["classification"],
-                dependency_kinds={"nonexistent": "optional"},
-            )
-
-    def test_invalid_dependency_kinds_value(self) -> None:
-        """Test that invalid dependency_kinds value raises ValueError."""
-        registry = StepRegistry()
-
-        with pytest.raises(ValueError, match="dependency_kinds value 'invalid'"):
-            registry.register(
-                MockStep,
-                dependencies=["issue"],
-                outputs=["classification"],
-                dependency_kinds={"issue": "invalid"},
-            )
-
-    def test_invalid_dependency_kinds_value_required(self) -> None:
-        """Test that 'required' in dependency_kinds value raises ValueError.
-
-        'required' is implicit when a dependency is not in dependency_kinds,
-        so it should not be explicitly specified.
-        """
-        registry = StepRegistry()
-
-        with pytest.raises(ValueError, match="dependency_kinds value 'required'"):
-            registry.register(
-                MockStep,
-                dependencies=["issue"],
-                outputs=["classification"],
-                dependency_kinds={"issue": "required"},
-            )
-
-    def test_multiple_invalid_keys(self) -> None:
-        """Test that first invalid dependency_kinds key is caught."""
-        registry = StepRegistry()
-
-        with pytest.raises(ValueError, match="dependency_kinds key 'nonexistent1'"):
-            registry.register(
-                MockStep,
-                dependencies=["issue"],
-                outputs=["classification"],
-                dependency_kinds={"nonexistent1": "optional", "nonexistent2": "ordering-only"},
-            )
-
-    def test_empty_dependency_kinds_is_valid(self) -> None:
-        """Test that empty dependency_kinds dict is valid."""
-        registry = StepRegistry()
-        registry.register(
-            MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
-            dependency_kinds={},
-        )
-
-        metadata = registry.get_step_metadata("Mock Step")
-        assert metadata is not None
-        assert metadata.dependency_kinds == {}
-
-    def test_none_dependency_kinds_is_valid(self) -> None:
-        """Test that None dependency_kinds is valid."""
-        registry = StepRegistry()
-        registry.register(
-            MockStep,
-            dependencies=["issue"],
-            outputs=["classification"],
-            dependency_kinds=None,
-        )
-
-        metadata = registry.get_step_metadata("Mock Step")
-        assert metadata is not None
-        assert metadata.dependency_kinds == {}
-
-    def test_mixed_valid_dependency_kinds(self) -> None:
-        """Test registering step with multiple valid dependency_kinds."""
-        registry = StepRegistry()
-        registry.register(
-            MockStep,
-            dependencies=["issue", "plan", "code"],
-            outputs=["classification"],
-            dependency_kinds={"plan": "optional", "code": "ordering-only"},
-        )
-
-        metadata = registry.get_step_metadata("Mock Step")
-        assert metadata is not None
-        assert metadata.dependency_kinds == {"plan": "optional", "code": "ordering-only"}
 
 
 class TestGlobalRegistry:
@@ -598,104 +297,6 @@ class TestGlobalRegistry:
         # After reset, should be a new instance
         assert registry1 is not registry2
 
-    def test_default_step_dependencies(self):
-        """Test default steps have correct dependencies configured."""
-        registry = get_step_registry()
-
-        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
-
-        assert implement_meta is not None
-        assert "plan" in implement_meta.dependencies
-
-    def test_default_step_outputs(self):
-        """Test default steps have correct outputs configured."""
-        registry = get_step_registry()
-
-        # FetchIssueStep should output fetch-issue
-        fetch_meta = None
-        for name in registry.list_all_steps():
-            if "Fetching" in name:
-                fetch_meta = registry.get_step_metadata(name)
-                break
-
-        assert fetch_meta is not None
-        assert "fetch-issue" in fetch_meta.outputs
-
-    def test_dependency_chain_resolution(self):
-        """Test resolving full dependency chain for late step.
-
-        ImplementPlanStep depends on "plan", which can be produced by either
-        PlanStep (main) or PatchPlanStep (patch). The resolver
-        picks one valid chain.
-        """
-        registry = get_step_registry()
-
-        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
-        assert implement_meta is not None
-
-        deps = registry.resolve_dependencies(implement_meta.step_class().name)
-
-        # Should have at least a fetch step and a plan-building step
-        assert len(deps) >= 2
-        assert any("Building" in dep for dep in deps), "Should depend on a plan building step"
-
-    def test_patch_plan_step_registration(self):
-        """Test PatchPlanStep is registered with correct metadata.
-
-        After decoupling, PatchPlanStep only depends on the patch artifact
-        and produces a regular plan artifact (not a separate patch_plan).
-        """
-        registry = get_step_registry()
-
-        # Find the patch plan step - exact name is "Building patch plan"
-        patch_plan_step_name = None
-        for name in registry.list_all_steps():
-            if "Building patch plan" in name:
-                patch_plan_step_name = name
-                break
-
-        assert patch_plan_step_name is not None, "PatchPlanStep should be registered"
-
-        metadata = registry.get_step_metadata(patch_plan_step_name)
-        assert metadata is not None
-        assert metadata.dependencies == ["fetch-patch"]
-        assert metadata.outputs == ["plan"]
-        assert metadata.is_critical is True
-
-    def test_update_pr_commits_step_registration(self):
-        """Test ComposeCommitsStep is registered with correct metadata.
-
-        After decoupling, ComposeCommitsStep detects PRs via gh/glab CLI
-        rather than loading parent PullRequestArtifact, so it has no artifact
-        dependencies.
-        """
-        registry = get_step_registry()
-
-        # Find the update PR commits step - exact name is "Updating pull request with patch commits"
-        update_pr_commits_step_name = None
-        for name in registry.list_all_steps():
-            if "Updating pull request with patch commits" in name:
-                update_pr_commits_step_name = name
-                break
-
-        assert update_pr_commits_step_name is not None, "ComposeCommitsStep should be registered"
-
-        metadata = registry.get_step_metadata(update_pr_commits_step_name)
-        assert metadata is not None
-        assert metadata.dependencies == []
-        assert metadata.outputs == ["compose-commits"]
-        assert metadata.is_critical is False
-
-    def test_thin_plan_step_registration(self) -> None:
-        """Test ThinPlanStep is registered with correct metadata."""
-        registry = get_step_registry()
-
-        metadata = registry.get_step_metadata_by_slug("thin-plan")
-        assert metadata is not None, "ThinPlanStep should be registered with slug 'thin-plan'"
-        assert metadata.dependencies == ["fetch-issue"]
-        assert metadata.outputs == ["plan"]
-        assert metadata.is_critical is True
-
     def test_implement_plan_step_registration(self) -> None:
         """Test ImplementPlanStep is registered with slug 'implement-plan'."""
         registry = get_step_registry()
@@ -704,8 +305,6 @@ class TestGlobalRegistry:
         assert (
             metadata is not None
         ), "ImplementPlanStep should be registered with slug 'implement-plan'"
-        assert metadata.dependencies == ["plan"]
-        assert metadata.outputs == ["implement"]
         assert metadata.is_critical is True
 
     def test_implement_direct_step_registration(self) -> None:
@@ -716,9 +315,6 @@ class TestGlobalRegistry:
         assert (
             metadata is not None
         ), "ImplementDirectStep should be registered with slug 'implement-direct'"
-        assert metadata.dependencies == ["git-branch", "fetch-issue"]
-        assert metadata.outputs == ["implement:direct"]
-        assert metadata.dependency_kinds == {"git-branch": "ordering-only"}
         assert metadata.is_critical is True
 
     def test_git_prepare_step_registration(self) -> None:
@@ -727,149 +323,28 @@ class TestGlobalRegistry:
 
         metadata = registry.get_step_metadata_by_slug("git-prepare")
         assert metadata is not None, "GitPrepareStep should be registered with slug 'git-prepare'"
-        assert metadata.dependencies == ["fetch-issue"]
-        assert metadata.outputs == ["git-branch", "git-checkout"]
         assert metadata.is_critical is True
 
-    def test_validate_registry_passes(self):
-        """Test that validate_registry passes with no issues."""
+    def test_patch_plan_step_registration(self):
+        """Test PatchPlanStep is registered with correct metadata."""
         registry = get_step_registry()
 
-        issues = registry.validate_registry()
+        metadata = registry.get_step_metadata_by_slug("patch-plan")
+        assert metadata is not None, "PatchPlanStep should be registered"
+        assert metadata.is_critical is True
 
-        # Should have no issues -- all artifact dependencies are now resolvable.
-        # Both 'plan' producers (PlanStep and BuildPatchPlanStep) and
-        # 'patch' producer (FetchPatchStep) are registered.
-        assert issues == [], f"Registry validation issues: {issues}"
-
-    def test_patch_plan_dependency_resolution(self):
-        """Test dependency resolution for PatchPlanStep.
-
-        After decoupling, PatchPlanStep only depends on the patch artifact
-        produced by FetchPatchStep. It no longer depends on FetchIssueStep or
-        PlanStep from a parent workflow.
-        """
+    def test_compose_commits_step_registration(self):
+        """Test ComposeCommitsStep is registered with correct metadata."""
         registry = get_step_registry()
 
-        # Find the patch plan step - exact name is "Building patch plan"
-        patch_plan_step_name = None
-        for name in registry.list_all_steps():
-            if "Building patch plan" in name:
-                patch_plan_step_name = name
-                break
+        metadata = registry.get_step_metadata_by_slug("compose-commits")
+        assert metadata is not None, "ComposeCommitsStep should be registered"
+        assert metadata.is_critical is False
 
-        assert patch_plan_step_name is not None
-
-        deps = registry.resolve_dependencies(patch_plan_step_name)
-
-        # Should only include FetchPatchStep (produces patch artifact)
-        assert any(
-            "Fetching pending patch" in dep for dep in deps
-        ), "Should depend on FetchPatchStep"
-        # Should NOT depend on FetchIssueStep or PlanStep (decoupled)
-        assert not any(
-            "Fetching issue" in dep for dep in deps
-        ), "Should not depend on FetchIssueStep"
-        assert not any(
-            "Building implementation plan" in dep for dep in deps
-        ), "Should not depend on PlanStep"
-
-
-class TestRegistryContractConstraints:
-    """Contract tests enforcing artifact dependency policy rules on the global registry."""
-
-    def setup_method(self):
-        """Reset global registry before each test."""
-        reset_step_registry()
-
-    def teardown_method(self):
-        """Reset global registry after each test."""
-        reset_step_registry()
-
-    def test_all_dependency_kinds_values_are_from_valid_set(self):
-        """All dependency_kinds values in registered steps must be 'optional' or 'ordering-only'.
-
-        'required' is the implicit default and must not appear as an explicit value.
-        """
-        valid_kinds = {"optional", "ordering-only"}
+    def test_thin_plan_step_registration(self) -> None:
+        """Test ThinPlanStep is registered with correct metadata."""
         registry = get_step_registry()
 
-        for step_name in registry.list_all_steps():
-            metadata = registry.get_step_metadata(step_name)
-            assert metadata is not None
-            for artifact_type, kind in metadata.dependency_kinds.items():
-                assert kind in valid_kinds, (
-                    f"Step '{step_name}' has invalid dependency_kinds value '{kind}' "
-                    f"for artifact '{artifact_type}'. Valid values: {valid_kinds}"
-                )
-
-    def test_steps_with_no_dependency_kinds_entry_are_treated_as_required(self):
-        """Dependencies without a dependency_kinds entry default to 'required'.
-
-        The implement step depends on plan with no explicit dependency_kinds
-        entry, so plan is implicitly required.  The registry must not list
-        plan in dependency_kinds (which would override the default).
-        """
-        registry = get_step_registry()
-
-        implement_meta = registry.get_step_metadata_by_slug("implement-plan")
-
-        assert implement_meta is not None, "ImplementPlanStep must be registered"
-        assert (
-            "plan" in implement_meta.dependencies
-        ), "ImplementPlanStep must declare plan as a dependency"
-        # plan must NOT appear in dependency_kinds — absence means 'required'
-        assert "plan" not in implement_meta.dependency_kinds, (
-            "ImplementPlanStep's plan dependency should be implicitly required "
-            "(not listed in dependency_kinds)"
-        )
-
-    def test_adding_step_with_invalid_dependency_kinds_raises_value_error(self):
-        """Registering a step with an unknown dependency_kinds value must raise ValueError."""
-        registry = get_step_registry()
-
-        with pytest.raises(ValueError, match="dependency_kinds value 'unknown-kind'"):
-            registry.register(
-                MockStep,
-                dependencies=["fetch-issue"],
-                outputs=["test-output"],
-                dependency_kinds={"fetch-issue": "unknown-kind"},
-            )
-
-    def test_all_optional_and_ordering_only_deps_are_explicitly_declared(self):
-        """Steps with optional/ordering-only deps must have them explicitly declared.
-
-        Policy assertions:
-        - gh-pull-request and glab-pull-request declare compose-request as optional
-        - code-quality declares implement as optional
-        - compose-request declares implement as optional
-        """
-        registry = get_step_registry()
-
-        # gh-pull-request: compose-request is optional
-        gh_meta = registry.get_step_metadata_by_slug("gh-pull-request")
-        assert gh_meta is not None, "gh-pull-request step must be registered"
-        assert (
-            gh_meta.dependency_kinds.get("compose-request") == "optional"
-        ), "gh-pull-request must declare compose-request as optional"
-
-        # glab-pull-request: compose-request is optional
-        glab_meta = registry.get_step_metadata_by_slug("glab-pull-request")
-        assert glab_meta is not None, "glab-pull-request step must be registered"
-        assert (
-            glab_meta.dependency_kinds.get("compose-request") == "optional"
-        ), "glab-pull-request must declare compose-request as optional"
-
-        # code-quality: implement is optional (reads affected repos from implement artifact)
-        cq_meta = registry.get_step_metadata_by_slug("code-quality")
-        assert cq_meta is not None, "code-quality step must be registered"
-        assert (
-            cq_meta.dependency_kinds.get("implement") == "optional"
-        ), "code-quality must declare implement as optional"
-
-        # compose-request: implement is optional
-        cr_meta = registry.get_step_metadata_by_slug("compose-request")
-        assert cr_meta is not None, "compose-request step must be registered"
-        assert (
-            cr_meta.dependency_kinds.get("implement") == "optional"
-        ), "compose-request must declare implement as optional"
+        metadata = registry.get_step_metadata_by_slug("thin-plan")
+        assert metadata is not None, "ThinPlanStep should be registered with slug 'thin-plan'"
+        assert metadata.is_critical is True

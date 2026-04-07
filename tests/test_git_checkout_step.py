@@ -1,46 +1,19 @@
 """Tests for GitCheckoutStep git branch checkout."""
 
 import subprocess
-from typing import Generator
 from unittest.mock import Mock, patch
 
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import ArtifactStore, FetchPatchArtifact, GitCheckoutArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.git_checkout_step import GIT_TIMEOUT, GitCheckoutStep
 from rouge.core.workflow.types import StepResult
 
 
-@pytest.fixture(autouse=True, scope="module")
-def patch_external_helpers() -> Generator[None, None, None]:
-    """Patch external helper functions to avoid side effects during tests.
-
-    This fixture patches emit_artifact_comment and log_artifact_comment_status
-    across all tests in this module to prevent actual comment emission.
-    """
-    with (
-        patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment") as mock_emit,
-        patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status"),
-    ):
-        # Configure emit_artifact_comment to return success by default
-        mock_emit.return_value = ("success", "ok")
-        yield
-
-
 def _make_issue(branch: str | None = "feature-branch") -> Issue:
     """Create a minimal Issue for testing."""
     return Issue(id=1, title="Test issue", description="A test issue", branch=branch)
-
-
-def _write_fetch_patch_artifact(store: ArtifactStore, issue: Issue) -> None:
-    """Write a FetchPatchArtifact to the store for a given issue."""
-    artifact = FetchPatchArtifact(
-        workflow_id=store.workflow_id,
-        patch=issue,
-    )
-    store.write_artifact(artifact)
 
 
 @pytest.fixture
@@ -50,18 +23,11 @@ def issue() -> Issue:
 
 
 @pytest.fixture
-def store(tmp_path) -> ArtifactStore:
-    """Create a temporary artifact store."""
-    return ArtifactStore(workflow_id="test123", base_path=tmp_path)
-
-
-@pytest.fixture
-def context(issue: Issue, store: ArtifactStore) -> WorkflowContext:
-    """Create a sample workflow context with fetch-patch artifact written."""
-    _write_fetch_patch_artifact(store, issue)
-    return WorkflowContext(
-        issue_id=1, adw_id="test123", artifact_store=store, repo_paths=["/path/to/repo"]
-    )
+def context(issue: Issue) -> WorkflowContext:
+    """Create a sample workflow context with fetch-patch data in context.data."""
+    ctx = WorkflowContext(issue_id=1, adw_id="test123", repo_paths=["/path/to/repo"])
+    ctx.data["fetch-patch"] = {"patch": issue}
+    return ctx
 
 
 # === Basic Step Properties ===
@@ -82,25 +48,21 @@ def test_checkout_step_is_critical() -> None:
 # === Guard Conditions — artifact-based ===
 
 
-def test_checkout_step_fails_when_fetch_patch_artifact_missing(tmp_path) -> None:
-    """Step returns StepResult.fail when fetch-patch artifact is absent."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    # Do NOT write fetch-patch artifact
-    ctx = WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
+def test_checkout_step_fails_when_fetch_patch_data_missing() -> None:
+    """Step returns StepResult.fail when fetch-patch data is absent."""
+    ctx = WorkflowContext(issue_id=1, adw_id="test123")
     step = GitCheckoutStep()
     result = step.run(ctx)
 
     assert result.success is False
     assert result.error is not None
-    # StepInputError message mentions the artifact type
     assert "fetch-patch" in result.error
 
 
-def test_checkout_step_fails_when_branch_is_none(tmp_path) -> None:
-    """Step returns StepResult.fail when fetch-patch artifact has branch=None."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    _write_fetch_patch_artifact(store, _make_issue(branch=None))
-    ctx = WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
+def test_checkout_step_fails_when_branch_is_none() -> None:
+    """Step returns StepResult.fail when fetch-patch data has branch=None."""
+    ctx = WorkflowContext(issue_id=1, adw_id="test123")
+    ctx.data["fetch-patch"] = {"patch": _make_issue(branch=None)}
     step = GitCheckoutStep()
     result = step.run(ctx)
 
@@ -108,11 +70,10 @@ def test_checkout_step_fails_when_branch_is_none(tmp_path) -> None:
     assert "issue.branch is not set" in result.error
 
 
-def test_checkout_step_fails_when_branch_is_empty_string(tmp_path) -> None:
-    """Step returns StepResult.fail when fetch-patch artifact has branch=''."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    _write_fetch_patch_artifact(store, _make_issue(branch=""))
-    ctx = WorkflowContext(issue_id=1, adw_id="test123", artifact_store=store)
+def test_checkout_step_fails_when_branch_is_empty_string() -> None:
+    """Step returns StepResult.fail when fetch-patch data has branch=''."""
+    ctx = WorkflowContext(issue_id=1, adw_id="test123")
+    ctx.data["fetch-patch"] = {"patch": _make_issue(branch="")}
     step = GitCheckoutStep()
     result = step.run(ctx)
 
@@ -120,34 +81,25 @@ def test_checkout_step_fails_when_branch_is_empty_string(tmp_path) -> None:
     assert "issue.branch is not set" in result.error
 
 
+@patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
-    """Step loads the issue from the fetch-patch artifact, not from context.issue."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    _write_fetch_patch_artifact(store, _make_issue(branch="artifact-branch"))
-    # context.issue intentionally left as None to prove it is not used
-    ctx = WorkflowContext(
-        issue_id=1, adw_id="test123", issue=None, artifact_store=store, repo_paths=["/path/to/repo"]
-    )
+def test_checkout_step_loads_issue_from_fetch_patch_data(mock_sub) -> None:
+    """Step loads the issue from the fetch-patch data, not from context.issue."""
+    ctx = WorkflowContext(issue_id=1, adw_id="test123", issue=None, repo_paths=["/path/to/repo"])
+    ctx.data["fetch-patch"] = {"patch": _make_issue(branch="data-branch")}
 
-    with (
-        patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run") as mock_sub,
-        patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment") as mock_emit,
-        patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status"),
-    ):
-        mock_emit.return_value = ("ok", "ok")
-        mock_checkout = Mock(returncode=0, stdout="", stderr="")
-        mock_fetch = Mock(returncode=0, stdout="", stderr="")
-        mock_pull = Mock(returncode=0, stdout="", stderr="")
-        mock_sub.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_checkout = Mock(returncode=0, stdout="", stderr="")
+    mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_pull = Mock(returncode=0, stdout="", stderr="")
+    mock_sub.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
-        step = GitCheckoutStep()
-        result = step.run(ctx)
+    step = GitCheckoutStep()
+    result = step.run(ctx)
 
     assert result.success is True
-    # Verify branch from artifact was used
+    # Verify branch from data was used
     checkout_call = mock_sub.call_args_list[1]
-    assert "artifact-branch" in checkout_call[0][0]
+    assert "data-branch" in checkout_call[0][0]
 
 
 # === context.issue path (source-agnostic) ===
@@ -155,11 +107,11 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
 
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_uses_context_issue_when_no_artifact(mock_subprocess, tmp_path) -> None:
-    """Step uses context.issue directly when no FetchPatchArtifact is present.
+def test_checkout_step_uses_context_issue_when_no_fetch_patch_data(mock_subprocess) -> None:
+    """Step uses context.issue directly when no fetch-patch data is present.
 
     Verifies that when context.issue is set the step proceeds to checkout
-    without requiring a FetchPatchArtifact on disk, and that the branch
+    without requiring fetch-patch data, and that the branch
     from context.issue is passed to git checkout.
     """
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
@@ -167,13 +119,9 @@ def test_checkout_step_uses_context_issue_when_no_artifact(mock_subprocess, tmp_
     mock_pull = Mock(returncode=0, stdout="", stderr="")
     mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
 
-    # Provide context.issue with a branch but NO FetchPatchArtifact in the store.
+    # Provide context.issue with a branch but NO fetch-patch data.
     issue = _make_issue(branch="context-issue-branch")
-    store = ArtifactStore(workflow_id="test-ctx", base_path=tmp_path)
-    # Intentionally do NOT write a FetchPatchArtifact to the store.
-    ctx = WorkflowContext(
-        issue_id=1, adw_id="test-ctx", issue=issue, artifact_store=store, repo_paths=["/repo"]
-    )
+    ctx = WorkflowContext(issue_id=1, adw_id="test-ctx", issue=issue, repo_paths=["/repo"])
 
     step = GitCheckoutStep()
     result = step.run(ctx)
@@ -188,14 +136,10 @@ def test_checkout_step_uses_context_issue_when_no_artifact(mock_subprocess, tmp_
 # === Happy Path ===
 
 
-@patch("rouge.core.workflow.steps.git_checkout_step.emit_artifact_comment")
-@patch("rouge.core.workflow.steps.git_checkout_step.log_artifact_comment_status")
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_success(
-    mock_subprocess, _mock_log_status, mock_emit_comment, context
-) -> None:
-    """Happy path: all git commands succeed and GitCheckoutArtifact is written."""
+def test_checkout_step_success(mock_subprocess, context) -> None:
+    """Happy path: all git commands succeed and checkout data is stored in context."""
 
     mock_checkout = Mock()
     mock_checkout.returncode = 0
@@ -213,15 +157,6 @@ def test_checkout_step_success(
     mock_pull.stderr = ""
 
     mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
-    mock_emit_comment.return_value = ("ok", "comment posted")
-
-    # Provide an artifact store so the artifact write path is exercised
-    mock_store = Mock(spec=ArtifactStore)
-    # The context fixture has already written the fetch-patch artifact to the real store;
-    # replace with mock so we can assert write_artifact call, but first seed the context
-    # data cache so load_required_artifact doesn't need the mock store to read
-    context.data["fetch_patch_data"] = _make_issue(branch="feature-branch")
-    context.artifact_store = mock_store
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -250,34 +185,10 @@ def test_checkout_step_success(
     assert pull_call[1]["cwd"] == "/path/to/repo"
     assert pull_call[1]["timeout"] == GIT_TIMEOUT
 
-    # Verify artifact was written
-    mock_store.write_artifact.assert_called_once()
-    written_artifact = mock_store.write_artifact.call_args[0][0]
-    assert isinstance(written_artifact, GitCheckoutArtifact)
-    assert written_artifact.branch == "feature-branch"
-    assert written_artifact.artifact_type == "git-checkout"
-
-
-@patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
-@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_checkout_step_success_no_artifact_store(mock_subprocess, context) -> None:
-    """Happy path without an artifact store: no artifact write is attempted."""
-
-    mock_checkout = Mock(returncode=0, stdout="", stderr="")
-    mock_fetch = Mock(returncode=0, stdout="", stderr="")
-    mock_pull = Mock(returncode=0, stdout="", stderr="")
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
-
-    # No artifact_store set on context; use cached fetch-patch data
-    context.data["fetch_patch_data"] = _make_issue(branch="feature-branch")
-    context.artifact_store = None
-    assert context.artifact_store is None
-
-    step = GitCheckoutStep()
-    result = step.run(context)
-
-    assert result.success is True
-    assert mock_subprocess.call_count == 3  # fetch, checkout, pull
+    # Verify checkout data was stored in context
+    assert "git-checkout" in context.data
+    assert context.data["git-checkout"]["branch"] == "feature-branch"
+    assert context.data["git-checkout"]["checked_out_repos"] == ["/path/to/repo"]
 
 
 # === git checkout Failure ===
@@ -861,17 +772,15 @@ def test_checkout_step_returns_step_result_fail(mock_subprocess, context) -> Non
 
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
-def test_git_checkout_multiple_repos(mock_subprocess, tmp_path) -> None:
+def test_git_checkout_multiple_repos(mock_subprocess) -> None:
     """Step runs fetch+checkout+pull for each repo when multiple repo_paths are provided."""
 
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
-    _write_fetch_patch_artifact(store, _make_issue(branch="feature-branch"))
     ctx = WorkflowContext(
         issue_id=1,
         adw_id="test123",
-        artifact_store=store,
         repo_paths=["/repo/a", "/repo/b"],
     )
+    ctx.data["fetch-patch"] = {"patch": _make_issue(branch="feature-branch")}
 
     # 3 calls per repo (fetch, checkout, pull) x 2 repos = 6 total
     mock_success = Mock(returncode=0, stdout="", stderr="")

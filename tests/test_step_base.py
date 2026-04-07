@@ -1,16 +1,14 @@
 """Unit tests for WorkflowContext in rouge.core.workflow.step_base."""
 
 import os
-from unittest.mock import MagicMock
 
 from rouge.core.workflow.step_base import WorkflowContext
 
 
 def _make_context(**kwargs) -> WorkflowContext:
-    """Helper to create a minimal WorkflowContext with a mock artifact store."""
+    """Helper to create a minimal WorkflowContext."""
     defaults = {
         "adw_id": "adw-test-001",
-        "artifact_store": MagicMock(),
     }
     defaults.update(kwargs)
     return WorkflowContext(**defaults)

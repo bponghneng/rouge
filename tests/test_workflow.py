@@ -1,7 +1,5 @@
 """Tests for workflow orchestration."""
 
-import tempfile
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -9,19 +7,14 @@ import pytest
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import execute_workflow
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.types import StepResult
 
 
 def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> WorkflowContext:
-    """Create a WorkflowContext with a temporary artifact store for testing."""
-    tmp_dir = tempfile.TemporaryDirectory()
-    store = ArtifactStore(workflow_id=adw_id, base_path=Path(tmp_dir.name))
+    """Create a WorkflowContext for testing."""
     kwargs.setdefault("repo_paths", ["/path/to/repo"])
-    context = WorkflowContext(issue_id=issue_id, adw_id=adw_id, artifact_store=store, **kwargs)
-    context._tmp_dir = tmp_dir  # type: ignore[attr-defined]  # keeps dir alive until context is GC'd
-    return context
+    return WorkflowContext(issue_id=issue_id, adw_id=adw_id, **kwargs)
 
 
 @pytest.fixture

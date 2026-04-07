@@ -1,53 +1,39 @@
 """Tests for ComposeRequestStep ordering-only dependency contract.
 
 Focuses on confirming that ComposeRequestStep:
-- Does NOT read the acceptance artifact (ordering-only dependency)
+- Does NOT read the acceptance data (ordering-only dependency)
 - Proceeds with its own agent-based logic without reading acceptance data
 """
 
-from pathlib import Path
-from typing import Any, Optional
 from unittest.mock import Mock, patch
 
 import pytest
 
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store with no acceptance artifact."""
-    return ArtifactStore(workflow_id="test-compose-request", base_path=tmp_path)
-
-
-@pytest.fixture
-def base_context(store: ArtifactStore) -> WorkflowContext:
-    """Create a workflow context with no acceptance artifact."""
+def base_context() -> WorkflowContext:
+    """Create a workflow context with no acceptance data."""
     return WorkflowContext(
         adw_id="test-compose-request",
         issue_id=77,
-        artifact_store=store,
     )
 
 
 class TestComposeRequestOrderingOnlyDependency:
-    """Tests that ComposeRequestStep does not read the acceptance artifact."""
+    """Tests that ComposeRequestStep does not read the acceptance data."""
 
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
-    def test_does_not_read_acceptance_artifact(
+    def test_succeeds_without_acceptance_data(
         self,
         mock_exec,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
-        """ComposeRequestStep never calls read_artifact('acceptance', ...)."""
+        """ComposeRequestStep succeeds even when no acceptance data exists."""
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = (
@@ -55,44 +41,6 @@ class TestComposeRequestOrderingOnlyDependency:
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
-
-        read_calls: list[str] = []
-        original_read = base_context.artifact_store.read_artifact
-
-        def tracking_read(artifact_type: str, model_class: Optional[type] = None) -> Any:
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(base_context.artifact_store, "read_artifact", side_effect=tracking_read):
-            step = ComposeRequestStep()
-            result = step.run(base_context)
-
-        assert result.success is True
-        # Assert acceptance artifact was never read
-        assert "acceptance" not in read_calls
-
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
-    @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
-    def test_succeeds_without_acceptance_artifact(
-        self,
-        mock_exec,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit,
-        base_context: WorkflowContext,
-    ) -> None:
-        """ComposeRequestStep succeeds even when no acceptance artifact exists."""
-        mock_response = Mock()
-        mock_response.success = True
-        mock_response.output = (
-            '{"output": "pull-request", "title": "My PR", "summary": "Summary", "commits": []}'
-        )
-        mock_exec.return_value = mock_response
-        mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ComposeRequestStep()
         result = step.run(base_context)
@@ -109,16 +57,12 @@ class TestComposeRequestAffectedRepos:
     """Tests for ComposeRequestStep affected-repos filtering."""
 
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
     @patch("rouge.core.workflow.steps.compose_request_step.get_affected_repo_paths")
     def test_uses_filtered_repos_as_args(
         self,
         mock_get_affected,
         mock_exec,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
@@ -131,7 +75,6 @@ class TestComposeRequestAffectedRepos:
         )
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ComposeRequestStep()
         result = step.run(base_context)
@@ -153,6 +96,5 @@ class TestComposeRequestAffectedRepos:
         result = step.run(base_context)
 
         assert result.success is True
-        # Verify a placeholder artifact was written
-        artifact = base_context.artifact_store.read_artifact("compose-request")
-        assert artifact.title == "No changes"
+        # Verify a placeholder was written to context.data
+        assert base_context.data["compose-request"]["title"] == "No changes"

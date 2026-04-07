@@ -1,19 +1,17 @@
 """Tests for ClaudeCodePlanStep workflow step.
 
 Tests verify that ClaudeCodePlanStep:
-- Loads issue from fetch-issue artifact
-- Builds task-oriented plan via /adw-claude-code-plan
-- Stores result as PlanArtifact
+- Loads issue from context.issue
+- Builds task-oriented plan via _build_plan
+- Stores result in context.data
 - Extracts comment title from 'task' field
 """
 
-from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.types import PlanData, StepResult
@@ -33,33 +31,22 @@ def issue() -> Issue:
 
 
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store."""
-    return ArtifactStore(workflow_id="test-adw-full", base_path=tmp_path)
+def context_with_issue(issue: Issue) -> WorkflowContext:
+    """Create a workflow context with the issue set on context."""
+    ctx = WorkflowContext(
+        issue_id=42,
+        adw_id="test-adw-full",
+    )
+    ctx.issue = issue
+    return ctx
 
 
 @pytest.fixture
-def context_with_artifact(issue: Issue, store: ArtifactStore) -> WorkflowContext:
-    """Create a workflow context with fetch-issue artifact written to the store."""
-    artifact = FetchIssueArtifact(
-        workflow_id=store.workflow_id,
-        issue=issue,
-    )
-    store.write_artifact(artifact)
+def context_without_issue() -> WorkflowContext:
+    """Create a workflow context WITHOUT an issue."""
     return WorkflowContext(
         issue_id=42,
         adw_id="test-adw-full",
-        artifact_store=store,
-    )
-
-
-@pytest.fixture
-def context_without_artifact(store: ArtifactStore) -> WorkflowContext:
-    """Create a workflow context WITHOUT fetch-issue artifact."""
-    return WorkflowContext(
-        issue_id=42,
-        adw_id="test-adw-full",
-        artifact_store=store,
     )
 
 
@@ -67,17 +54,15 @@ class TestClaudeCodePlanStepHappyPath:
     """Tests for successful plan building flow."""
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
     def test_happy_path(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
         issue,
     ) -> None:
-        """Agent succeeds, PlanArtifact written with correct data."""
+        """Agent succeeds, plan data written to context."""
         plan_data = PlanData(
             plan="## Implementation Plan\n- Add toggle component\n- Wire up state",
             summary="Plan for adding dark mode toggle to settings",
@@ -93,50 +78,31 @@ class TestClaudeCodePlanStepHappyPath:
             plan_data, session_id="sess-abc123", parsed_data=parsed_data
         )
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         # Verify success
         assert result.success is True
         assert result.error is None
 
         # Verify _build_plan was called with correct issue
-        mock_build.assert_called_once_with(issue, context_with_artifact.adw_id)
+        mock_build.assert_called_once_with(issue, context_with_issue.adw_id)
 
         # Verify plan data stored in context
-        assert "plan_data" in context_with_artifact.data
-        assert context_with_artifact.data["plan_data"] == plan_data
-
-        # Verify PlanArtifact written to store
-        assert context_with_artifact.artifact_store.artifact_exists("plan")
-        saved_artifact = context_with_artifact.artifact_store.read_artifact(
-            "plan", model_class=None
-        )
-        assert saved_artifact.artifact_type == "plan"
-        assert saved_artifact.plan_data.plan == plan_data.plan
-        assert saved_artifact.plan_data.summary == plan_data.summary
-        assert saved_artifact.plan_data.session_id == "sess-abc123"
-
-        # Verify artifact comment emitted
-        mock_emit_artifact.assert_called_once()
+        assert "plan_data" in context_with_issue.data
+        assert context_with_issue.data["plan_data"] == plan_data
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
-    def test_succeeds_when_context_issue_is_none_but_artifact_present(
+    def test_succeeds_with_issue_on_context(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
         issue,
     ) -> None:
-        """Step succeeds even when context.issue is None if fetch-issue artifact exists."""
-        # Explicitly verify context.issue is None
-        assert context_with_artifact.issue is None
-
+        """Step succeeds when context.issue is set."""
         plan_data = PlanData(plan="## Plan\nDo the thing", summary="Summary")
         parsed_data = {
             "task": "Task title",
@@ -146,10 +112,9 @@ class TestClaudeCodePlanStepHappyPath:
         }
         mock_build.return_value = StepResult.ok(plan_data, parsed_data=parsed_data)
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
 
@@ -157,81 +122,74 @@ class TestClaudeCodePlanStepHappyPath:
 class TestClaudeCodePlanStepFailureCases:
     """Tests for error handling scenarios."""
 
-    def test_missing_fetch_issue_artifact(self, context_without_artifact) -> None:
-        """Step fails when FetchIssueArtifact is missing."""
+    def test_missing_issue(self, context_without_issue) -> None:
+        """Step fails when context.issue is None."""
         step = ClaudeCodePlanStep()
-        result = step.run(context_without_artifact)
+        result = step.run(context_without_issue)
 
         assert result.success is False
-        assert "issue not fetched" in result.error
+        assert "no issue in context" in result.error
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
     def test_agent_failure(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
-        """Step fails when agent returns failure, no artifact written."""
+        """Step fails when agent returns failure, no plan data written."""
         # Simulate agent failure
         mock_build.return_value = StepResult.fail("Agent execution failed")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         # Verify step failed
         assert result.success is False
         assert "Error building plan" in result.error
         assert "Agent execution failed" in result.error
 
-        # Verify no artifact was written
-        assert not context_with_artifact.artifact_store.artifact_exists("plan")
+        # Verify no plan data was stored
+        assert "plan_data" not in context_with_issue.data
 
         # Verify no comments emitted
-        mock_emit_artifact.assert_not_called()
         mock_emit.assert_not_called()
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
     def test_json_parse_failure(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
         """Step fails when JSON parsing fails."""
         # Mock _build_plan to return a parse failure
         mock_build.return_value = StepResult.fail("Missing required field: task")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         # Verify step failed
         assert result.success is False
         assert "Error building plan" in result.error
         assert "Missing required field" in result.error
 
-        # Verify no artifact was written
-        assert not context_with_artifact.artifact_store.artifact_exists("plan")
+        # Verify no plan data was stored
+        assert "plan_data" not in context_with_issue.data
 
 
 class TestClaudeCodePlanStepCommentTitleExtraction:
     """Tests for comment title extraction from 'task' field."""
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
     def test_task_key_in_comment(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
         """Verify 'task' field is used for comment title extraction."""
         plan_data = PlanData(
@@ -246,10 +204,9 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         }
         mock_build.return_value = StepResult.ok(plan_data, parsed_data=parsed_data)
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
 
@@ -265,14 +222,12 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         assert payload.raw["parsed"] == parsed_data
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
     def test_task_key_fallback_when_missing(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
     ) -> None:
         """Verify fallback title when 'task' field is missing from parsed_data."""
         plan_data = PlanData(
@@ -287,10 +242,9 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         }
         mock_build.return_value = StepResult.ok(plan_data, parsed_data=parsed_data)
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
 
@@ -315,21 +269,19 @@ class TestClaudeCodePlanStepProperties:
         assert step.is_critical is True
 
 
-class TestClaudeCodePlanStepArtifactHandling:
-    """Tests for artifact reading and writing behavior."""
+class TestClaudeCodePlanStepDataHandling:
+    """Tests for data reading and writing behavior."""
 
     @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
     @patch.object(ClaudeCodePlanStep, "_build_plan")
-    def test_loads_issue_from_fetch_issue_artifact(
+    def test_loads_issue_from_context(
         self,
         mock_build,
-        mock_emit_artifact,
         mock_emit,
-        context_with_artifact,
+        context_with_issue,
         issue,
     ) -> None:
-        """Step loads the issue from the fetch-issue artifact, not context.issue."""
+        """Step loads the issue from context.issue."""
         plan_data = PlanData(
             plan="## Plan\nImplementation",
             summary="Plan summary",
@@ -342,55 +294,13 @@ class TestClaudeCodePlanStepArtifactHandling:
         }
         mock_build.return_value = StepResult.ok(plan_data, parsed_data=parsed_data)
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ClaudeCodePlanStep()
-        result = step.run(context_with_artifact)
+        result = step.run(context_with_issue)
 
         assert result.success is True
-        # Verify _build_plan was called with the issue from the artifact
+        # Verify _build_plan was called with the issue from context
         mock_build.assert_called_once_with(
             issue,
-            context_with_artifact.adw_id,
+            context_with_issue.adw_id,
         )
-
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
-    def test_does_not_read_other_artifacts(
-        self,
-        mock_build,
-        mock_emit_artifact,
-        mock_emit,
-        context_with_artifact,
-    ) -> None:
-        """Step reads only the fetch-issue artifact, not fetch-patch or plan artifacts."""
-        plan_data = PlanData(plan="## Plan\nFix", summary="Fix things")
-        parsed_data = {
-            "task": "Task",
-            "output": "plan",
-            "plan": "## Plan\nFix",
-            "summary": "Fix things",
-        }
-        mock_build.return_value = StepResult.ok(plan_data, parsed_data=parsed_data)
-        mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
-
-        read_calls: list[str] = []
-        original_read = context_with_artifact.artifact_store.read_artifact
-
-        def tracking_read(artifact_type, model_class=None):
-            read_calls.append(artifact_type)
-            return original_read(artifact_type, model_class)
-
-        with patch.object(
-            context_with_artifact.artifact_store, "read_artifact", side_effect=tracking_read
-        ):
-            step = ClaudeCodePlanStep()
-            step.run(context_with_artifact)
-
-        # Only fetch-issue should be read
-        assert "fetch-patch" not in read_calls
-        assert "plan" not in read_calls
-        # fetch-issue may be read (it's the declared dependency)
-        assert all(t == "fetch-issue" for t in read_calls)

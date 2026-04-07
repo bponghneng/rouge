@@ -5,7 +5,6 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import FetchPatchArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
 
@@ -19,7 +18,6 @@ def mock_context() -> WorkflowContext:
     context.adw_id = "test-adw-patch"
     context.issue = None
     context.data = {}
-    context.artifact_store = Mock()
     return context
 
 
@@ -65,13 +63,9 @@ def test_fetch_patch_step_success(
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
 
-    # Verify patch artifact was saved
-    assert mock_context.artifact_store.write_artifact.call_count == 1
-
-    # Check the call was FetchPatchArtifact with the patch issue
-    artifact_call = mock_context.artifact_store.write_artifact.call_args_list[0][0][0]
-    assert isinstance(artifact_call, FetchPatchArtifact)
-    assert artifact_call.patch == sample_patch_issue
+    # Verify patch data was saved to context.data
+    assert "fetch-patch" in mock_context.data
+    assert mock_context.data["fetch-patch"]["patch"] == sample_patch_issue
 
     # Verify progress comment was emitted with correct text
     mock_emit.assert_called_once()
@@ -116,14 +110,13 @@ def test_fetch_patch_step_issue_not_found(
 
 @patch("rouge.core.workflow.steps.fetch_patch_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.fetch_patch_step.fetch_issue")
-def test_fetch_patch_step_writes_artifact(
+def test_fetch_patch_step_writes_to_context_data(
     mock_fetch_issue,
     mock_emit,
     mock_context,
     sample_patch_issue,
 ) -> None:
-    """Test fetch patch step always writes artifact to the artifact store."""
-    # artifact_store is always present (required field).
+    """Test fetch patch step always writes data to context.data."""
     mock_fetch_issue.return_value = sample_patch_issue
     mock_emit.return_value = ("success", "Comment inserted")
 
@@ -132,8 +125,8 @@ def test_fetch_patch_step_writes_artifact(
 
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
-    # Artifact must always be written
-    mock_context.artifact_store.write_artifact.assert_called_once()
+    # Data must always be written to context.data
+    assert "fetch-patch" in mock_context.data
 
 
 def test_fetch_patch_step_is_critical() -> None:
