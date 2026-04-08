@@ -261,23 +261,14 @@ class ComposeCommitsStep(WorkflowStep):
             )
             return StepResult.fail(error_msg)
 
-    def run(self, context: WorkflowContext) -> StepResult:
-        """Push new commits to existing PR/MRs across all repos.
+    def _compose_commits(self, context: WorkflowContext) -> Optional[StepResult]:
+        """Compose conventional commits from unstaged changes via the LLM agent.
 
-        Detects the PR/MR platform by running the CLI indicated by
-        DEV_SEC_OPS_PLATFORM rather than loading artifacts from a parent workflow.
-        Iterates over all repos in ``context.repo_paths`` and pushes each one
-        independently.
-
-        Args:
-            context: Workflow context
-
-        Returns:
-            StepResult with success status and optional error message
+        Returns ``None`` on success (caller should continue) or a
+        :class:`StepResult` on failure (caller should return it immediately).
         """
         logger = get_logger(context.adw_id)
 
-        # Compose conventional commits from unstaged changes
         try:
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
@@ -365,14 +356,19 @@ class ComposeCommitsStep(WorkflowStep):
             )
             return StepResult.fail(error_msg)
 
-        # Render review-context attachment once (best-effort, never blocks workflow)
-        attachment_md: str | None = None
-        try:
-            attachment_md = load_and_render_patch_attachment(context)
-        except Exception:
-            logger.error("Failed to render patch review-context attachment", exc_info=True)
+        return None
 
-        # Multi-repo PR detection and push loop
+    def _push_all_repos(
+        self,
+        context: WorkflowContext,
+        attachment_md: str | None,
+    ) -> StepResult:
+        """Detect PR/MR platform for each repo and push commits.
+
+        Posts the review-context attachment after each successful push when
+        *attachment_md* is not ``None``.
+        """
+        logger = get_logger(context.adw_id)
         issue_id = context.require_issue_id
         succeeded: List[str] = []
         errors: List[str] = []
@@ -474,3 +470,33 @@ class ComposeCommitsStep(WorkflowStep):
             {"output": "pr-update-failed", "error": error_msg},
         )
         return StepResult.fail(error_msg)
+
+    def run(self, context: WorkflowContext) -> StepResult:
+        """Push new commits to existing PR/MRs across all repos.
+
+        Detects the PR/MR platform by running the CLI indicated by
+        DEV_SEC_OPS_PLATFORM rather than loading artifacts from a parent workflow.
+        Iterates over all repos in ``context.repo_paths`` and pushes each one
+        independently.
+
+        Args:
+            context: Workflow context
+
+        Returns:
+            StepResult with success status and optional error message
+        """
+        logger = get_logger(context.adw_id)
+
+        # Compose conventional commits from unstaged changes
+        compose_failure = self._compose_commits(context)
+        if compose_failure is not None:
+            return compose_failure
+
+        # Render review-context attachment once (best-effort, never blocks workflow)
+        attachment_md: str | None = None
+        try:
+            attachment_md = load_and_render_patch_attachment(context)
+        except Exception:
+            logger.error("Failed to render patch review-context attachment", exc_info=True)
+
+        return self._push_all_repos(context, attachment_md)
