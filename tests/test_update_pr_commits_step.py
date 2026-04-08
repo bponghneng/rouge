@@ -6,6 +6,7 @@ verifying that the step works independently without loading parent artifacts.
 
 import json
 import subprocess
+from typing import Callable
 from unittest.mock import Mock, patch
 
 import pytest
@@ -261,7 +262,7 @@ class TestComposeCommits:
             # gh pr view for platform detection
             return Mock(
                 returncode=0,
-                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1"}),
+                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1", "number": 1}),
             )
 
         mock_subprocess.side_effect = subprocess_side_effect
@@ -430,7 +431,7 @@ class TestComposeCommitsMultiRepo:
             # gh pr view for platform detection
             return Mock(
                 returncode=0,
-                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1"}),
+                stdout=json.dumps({"url": "https://github.com/org/repo/pull/1", "number": 1}),
             )
 
         mock_subprocess.side_effect = subprocess_side_effect
@@ -546,7 +547,7 @@ class TestPatchReviewContext:
     # -- helpers ----------------------------------------------------------
 
     @staticmethod
-    def _mock_compose_commits(mock_request, mock_exec, mock_parse):
+    def _mock_compose_commits(mock_request, mock_exec, mock_parse) -> None:
         """Wire up mocks so compose-commits succeeds."""
         mock_request_instance = Mock()
         mock_request_instance.model_dump_json.return_value = "{}"
@@ -563,7 +564,7 @@ class TestPatchReviewContext:
         )
 
     @staticmethod
-    def _subprocess_github(pr_number=42):
+    def _subprocess_github(pr_number: int = 42) -> Callable[..., Mock]:
         """Return a subprocess side-effect for a GitHub repo with a PR."""
 
         def _side_effect(cmd, **kwargs):
@@ -586,7 +587,7 @@ class TestPatchReviewContext:
         return _side_effect
 
     @staticmethod
-    def _subprocess_gitlab(mr_number=7):
+    def _subprocess_gitlab(mr_number: int = 7) -> Callable[..., Mock]:
         """Return a subprocess side-effect for a GitLab repo with an MR."""
 
         def _side_effect(cmd, **kwargs):

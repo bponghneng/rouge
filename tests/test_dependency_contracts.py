@@ -347,9 +347,7 @@ class TestDependencySemanticsIntegration:
         # Mock environment and subprocess to avoid actual PR creation
         with patch.dict("os.environ", {"GITHUB_PAT": "test-token"}):
             with patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which") as mock_which:
-                with patch(
-                    "rouge.core.workflow.steps.gh_pull_request_step.subprocess.run"
-                ) as mock_run:
+                with patch("rouge.core.workflow.pull_request_step_base.subprocess.run") as mock_run:
                     mock_which.return_value = "/usr/bin/gh"
                     # Step calls per repo: rev-parse (branch), gh pr list,
                     # rev-parse (base branch), rev-list (delta), git push, gh pr create
