@@ -1,6 +1,8 @@
 """Shared utility helpers for workflow step implementations."""
 
+import json
 import re
+import subprocess
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
@@ -200,6 +202,160 @@ def load_and_render_patch_attachment(context: "WorkflowContext") -> str | None:
         plan_text=plan_data.plan if plan_data else None,
         plan_summary=plan_data.summary if plan_data else None,
     )
+
+
+def post_gh_attachment_comment(
+    repo_path: str,
+    pr_number: int,
+    body: str,
+    env: dict[str, str],
+) -> None:
+    """Post or update the Rouge review-context comment on a GitHub PR.
+
+    Shared by GhPullRequestStep and ComposeCommitsStep so neither step
+    module imports from a sibling step module.
+
+    Args:
+        repo_path: Path to the repository root.
+        pr_number: The pull request number.
+        body: Markdown body for the comment.
+        env: Environment dict with the appropriate token set.
+    """
+    logger = get_logger(__name__)
+    marker = "<!-- rouge-review-context -->"
+    tagged_body = f"{marker}\n{body}"
+
+    list_cmd = [
+        "gh",
+        "pr",
+        "view",
+        str(pr_number),
+        "--json",
+        "comments",
+        "--jq",
+        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .databaseId',
+    ]
+    result = subprocess.run(
+        list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+    )
+
+    existing_comment_id = (
+        result.stdout.strip().split("\n")[0]
+        if result.returncode == 0 and result.stdout.strip()
+        else None
+    )
+
+    if existing_comment_id and existing_comment_id.isdigit():
+        update_cmd = [
+            "gh",
+            "api",
+            "--method",
+            "PATCH",
+            f"/repos/{{owner}}/{{repo}}/issues/comments/{existing_comment_id}",
+            "-f",
+            f"body={tagged_body}",
+        ]
+        update_result = subprocess.run(
+            update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if update_result.returncode != 0:
+            logger.warning(
+                "Failed to update review-context comment on PR #%d: %s",
+                pr_number,
+                update_result.stderr,
+            )
+        else:
+            logger.info("Updated review-context comment on PR #%d", pr_number)
+    else:
+        cmd = ["gh", "pr", "comment", str(pr_number), "--body", tagged_body]
+        create_result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if create_result.returncode != 0:
+            logger.warning(
+                "Failed to post review-context comment on PR #%d: %s",
+                pr_number,
+                create_result.stderr,
+            )
+        else:
+            logger.info("Posted review-context comment on PR #%d", pr_number)
+
+
+def post_glab_attachment_note(
+    repo_path: str,
+    mr_number: int,
+    body: str,
+    env: dict[str, str],
+) -> None:
+    """Post or update the Rouge review-context note on a GitLab MR.
+
+    Shared by GlabPullRequestStep and ComposeCommitsStep so neither step
+    module imports from a sibling step module.
+
+    Args:
+        repo_path: Path to the repository root.
+        mr_number: The merge request IID.
+        body: Markdown body for the note.
+        env: Environment dict with the appropriate token set.
+    """
+    logger = get_logger(__name__)
+    marker = "<!-- rouge-review-context -->"
+    tagged_body = f"{marker}\n{body}"
+
+    list_cmd = [
+        "glab",
+        "api",
+        f"projects/:id/merge_requests/{mr_number}/notes?per_page=100",
+    ]
+    result = subprocess.run(
+        list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+    )
+
+    existing_note_id = None
+    if result.returncode == 0 and result.stdout.strip():
+        try:
+            notes = json.loads(result.stdout)
+            for note in notes:
+                if note.get("body", "").startswith(marker):
+                    existing_note_id = note["id"]
+                    break
+        except (ValueError, KeyError):
+            pass
+
+    if existing_note_id:
+        update_cmd = [
+            "glab",
+            "api",
+            "--method",
+            "PUT",
+            f"projects/:id/merge_requests/{mr_number}/notes/{existing_note_id}",
+            "-f",
+            f"body={tagged_body}",
+        ]
+        update_result = subprocess.run(
+            update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if update_result.returncode != 0:
+            logger.warning(
+                "Failed to update review-context note on MR !%d: %s",
+                mr_number,
+                update_result.stderr,
+            )
+        else:
+            logger.info("Updated review-context note on MR !%d", mr_number)
+    else:
+        cmd = ["glab", "mr", "note", str(mr_number), "--message", tagged_body]
+        create_result = subprocess.run(
+            cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
+        )
+        if create_result.returncode != 0:
+            logger.warning(
+                "Failed to post review-context note on MR !%d: %s",
+                mr_number,
+                create_result.stderr,
+            )
+        else:
+            logger.info("Posted review-context note on MR !%d", mr_number)
 
 
 def _emit_and_log(issue_id: int, adw_id: str, text: str, raw: dict[str, Any]) -> None:

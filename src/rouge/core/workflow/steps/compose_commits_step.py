@@ -22,9 +22,9 @@ from rouge.core.workflow.step_utils import (
     _emit_and_log,
     _sanitize_for_logging,
     load_and_render_patch_attachment,
+    post_gh_attachment_comment,
+    post_glab_attachment_note,
 )
-from rouge.core.workflow.steps.gh_pull_request_step import _post_gh_attachment_comment
-from rouge.core.workflow.steps.glab_pull_request_step import _post_glab_attachment_note
 from rouge.core.workflow.types import StepResult
 
 # Required fields for compose-commits output JSON
@@ -116,6 +116,8 @@ class ComposeCommitsStep(WorkflowStep):
                     data = json.loads(result.stdout.strip())
                     url = data.get("url", "")
                     number = data.get("number")
+                    if not (isinstance(number, int) and number > 0):
+                        number = None
                     if url:
                         logger.debug("Detected GitHub PR: %s (#%s)", url, number)
                         return ("github", url, number)
@@ -145,6 +147,8 @@ class ComposeCommitsStep(WorkflowStep):
                     data = json.loads(result.stdout.strip())
                     url = data.get("web_url", "")
                     number = data.get("iid")
+                    if not (isinstance(number, int) and number > 0):
+                        number = None
                     if url:
                         logger.debug("Detected GitLab MR: %s (!%s)", url, number)
                         return ("gitlab", url, number)
@@ -366,7 +370,7 @@ class ComposeCommitsStep(WorkflowStep):
         try:
             attachment_md = load_and_render_patch_attachment(context)
         except Exception:
-            logger.debug("Failed to render patch review-context attachment", exc_info=True)
+            logger.warning("Failed to render patch review-context attachment", exc_info=True)
 
         # Multi-repo PR detection and push loop
         issue_id = context.require_issue_id
@@ -436,14 +440,15 @@ class ComposeCommitsStep(WorkflowStep):
                 if attachment_md and pr_number:
                     try:
                         if platform == "github":
-                            _post_gh_attachment_comment(repo_path, pr_number, attachment_md, env)
+                            post_gh_attachment_comment(repo_path, pr_number, attachment_md, env)
                         else:
-                            _post_glab_attachment_note(repo_path, pr_number, attachment_md, env)
-                    except (subprocess.TimeoutExpired, OSError, subprocess.SubprocessError):
+                            post_glab_attachment_note(repo_path, pr_number, attachment_md, env)
+                    except Exception:
                         logger.warning(
                             "Failed to post review-context on %s for %s",
                             platform,
                             repo_path,
+                            exc_info=True,
                         )
             else:
                 errors.append(push_result.error or f"Push failed for {repo_path}")

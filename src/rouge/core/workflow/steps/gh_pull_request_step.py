@@ -4,7 +4,6 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 from typing import ClassVar
 
 from rouge.core.utils import get_logger
@@ -15,77 +14,10 @@ from rouge.core.workflow.artifacts import (
 )
 from rouge.core.workflow.pull_request_step_base import PullRequestStepBase
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.step_utils import _emit_and_log
+from rouge.core.workflow.step_utils import _emit_and_log, post_gh_attachment_comment
 from rouge.core.workflow.types import StepResult
 
 _logger = get_logger(__name__)
-
-
-def _post_gh_attachment_comment(
-    repo_path: str,
-    pr_number: int,
-    body: str,
-    env: dict[str, str],
-) -> None:
-    """Post or update the Rouge review-context comment on a GitHub PR."""
-    marker = "<!-- rouge-review-context -->"
-    tagged_body = f"{marker}\n{body}"
-
-    # List existing comments and find one with our marker
-    list_cmd = [
-        "gh",
-        "pr",
-        "view",
-        str(pr_number),
-        "--json",
-        "comments",
-        "--jq",
-        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .databaseId',
-    ]
-    result = subprocess.run(
-        list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
-    )
-
-    existing_comment_id = (
-        result.stdout.strip().split("\n")[0]
-        if result.returncode == 0 and result.stdout.strip()
-        else None
-    )
-
-    if existing_comment_id and existing_comment_id.isdigit():
-        update_cmd = [
-            "gh",
-            "api",
-            "--method",
-            "PATCH",
-            f"/repos/{{owner}}/{{repo}}/issues/comments/{existing_comment_id}",
-            "-f",
-            f"body={tagged_body}",
-        ]
-        update_result = subprocess.run(
-            update_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
-        )
-        if update_result.returncode != 0:
-            _logger.warning(
-                "Failed to update review-context comment on PR #%d: %s",
-                pr_number,
-                update_result.stderr,
-            )
-        else:
-            _logger.info("Updated review-context comment on PR #%d", pr_number)
-    else:
-        cmd = ["gh", "pr", "comment", str(pr_number), "--body", tagged_body]
-        create_result = subprocess.run(
-            cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
-        )
-        if create_result.returncode != 0:
-            _logger.warning(
-                "Failed to post review-context comment on PR #%d: %s",
-                pr_number,
-                create_result.stderr,
-            )
-        else:
-            _logger.info("Posted review-context comment on PR #%d", pr_number)
 
 
 class GhPullRequestStep(PullRequestStepBase):
@@ -147,4 +79,4 @@ class GhPullRequestStep(PullRequestStepBase):
         return (url, number)
 
     def _post_attachment(self, repo_path: str, number: int, body: str, env: dict[str, str]) -> None:
-        _post_gh_attachment_comment(repo_path, number, body, env)
+        post_gh_attachment_comment(repo_path, number, body, env)

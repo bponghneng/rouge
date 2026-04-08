@@ -616,7 +616,7 @@ class TestPatchReviewContext:
         "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_gh_attachment_comment")
     @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
@@ -634,7 +634,7 @@ class TestPatchReviewContext:
         monkeypatch,
         mock_context,
     ) -> None:
-        """After a successful push on GitHub, _post_gh_attachment_comment is called."""
+        """After a successful push on GitHub, post_gh_attachment_comment is called."""
         self._mock_compose_commits(mock_request, mock_exec, mock_parse)
         mock_load_attachment.return_value = "## Review Context\nSome markdown"
         mock_subprocess.side_effect = self._subprocess_github(pr_number=42)
@@ -658,7 +658,7 @@ class TestPatchReviewContext:
         "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_glab_attachment_note")
     @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
@@ -676,7 +676,7 @@ class TestPatchReviewContext:
         monkeypatch,
         mock_context,
     ) -> None:
-        """After a successful push on GitLab, _post_glab_attachment_note is called."""
+        """After a successful push on GitLab, post_glab_attachment_note is called."""
         self._mock_compose_commits(mock_request, mock_exec, mock_parse)
         mock_load_attachment.return_value = "## Review Context\nGitLab markdown"
         mock_subprocess.side_effect = self._subprocess_gitlab(mr_number=7)
@@ -699,7 +699,7 @@ class TestPatchReviewContext:
         "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_gh_attachment_comment")
     @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
@@ -717,7 +717,7 @@ class TestPatchReviewContext:
         monkeypatch,
         mock_context,
     ) -> None:
-        """If _post_gh_attachment_comment raises OSError, the step still succeeds."""
+        """If post_gh_attachment_comment raises OSError, the step still succeeds."""
         self._mock_compose_commits(mock_request, mock_exec, mock_parse)
         mock_load_attachment.return_value = "## Review Context"
         mock_post_gh.side_effect = OSError("network error")
@@ -736,8 +736,8 @@ class TestPatchReviewContext:
         "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_glab_attachment_note")
     @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
@@ -775,8 +775,8 @@ class TestPatchReviewContext:
         "rouge.core.workflow.step_utils.emit_comment_from_payload",
         return_value=("success", "ok"),
     )
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_gh_attachment_comment")
-    @patch("rouge.core.workflow.steps.compose_commits_step._post_glab_attachment_note")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_gh_attachment_comment")
+    @patch("rouge.core.workflow.steps.compose_commits_step.post_glab_attachment_note")
     @patch("rouge.core.workflow.steps.compose_commits_step.load_and_render_patch_attachment")
     @patch("subprocess.run")
     @patch("rouge.core.workflow.steps.compose_commits_step.parse_and_validate_json")
