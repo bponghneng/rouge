@@ -22,7 +22,7 @@ def register_agent(name: str, agent: CodingAgent) -> None:
     """Register a coding agent provider.
 
     Args:
-        name: Provider name (e.g., "claude", "claude_alt", "aider")
+        name: Provider name (e.g., "claude", "claude_alt", "my_custom")
         agent: CodingAgent implementation instance
 
     Raises:
@@ -63,7 +63,7 @@ def get_agent(provider: Optional[str] = None) -> CodingAgent:
         agent = get_agent("claude_alt")
 
         # Use environment variable
-        os.environ["ROUGE_AGENT_PROVIDER"] = "aider"
+        os.environ["ROUGE_AGENT_PROVIDER"] = "my_custom"
         agent = get_agent()
     """
     # Determine provider name

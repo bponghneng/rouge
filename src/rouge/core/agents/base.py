@@ -1,7 +1,7 @@
 """Provider-agnostic coding agent interfaces.
 
 This module defines the abstract base classes and models for integrating
-multiple coding agent providers (Claude Code, Aider, Cursor, etc.) with Rouge.
+multiple coding agent providers (Claude Code and custom providers) with Rouge.
 
 The abstraction separates execution logic from notification/progress tracking
 by using injectable stream handlers, allowing clean provider implementations
