@@ -320,7 +320,7 @@ def post_glab_attachment_note(
                     existing_note_id = note["id"]
                     break
         except (ValueError, KeyError):
-            pass
+            logger.debug("Failed to parse GitLab notes response for MR !%d", mr_number)
 
     if existing_note_id:
         update_cmd = [
