@@ -46,6 +46,10 @@ Required to talk to Supabase:
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
+Required to manage database schema:
+
+- Supabase CLI `2.84.2` or newer
+
 Required to execute Claude-driven workflow steps:
 
 - `ANTHROPIC_API_KEY`
@@ -207,6 +211,31 @@ uv run mypy
 uv run pytest tests/ -v
 ```
 
+## Database migrations
+
+Rouge uses Supabase CLI SQL migrations stored in `supabase/migrations/`.
+
+The first migration is a baseline schema for the current Rouge database. Apply
+it to fresh local databases and new environments. For the existing cloud
+database that already contains production data, do not run the baseline
+`CREATE TABLE` migration directly. First verify the live schema matches the
+baseline, then mark the baseline migration version as applied with Supabase CLI
+migration history repair.
+
+Local development workflow:
+
+```bash
+supabase start
+supabase status
+supabase db reset
+```
+
+`supabase db reset` resets the local Supabase database and reapplies local
+migrations and seed SQL.
+
+After `supabase status`, point Rouge at the local stack by setting
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` from the printed local values.
+
 ## Repository layout
 
 ```text
@@ -214,6 +243,7 @@ src/rouge/cli/      Main Typer CLI
 src/rouge/adw/      Single-issue workflow runner
 src/rouge/worker/   Queue worker and worker state handling
 src/rouge/core/     Shared models, database access, agents, and workflow logic
+supabase/           Supabase CLI config and SQL migrations
 tests/              Unit tests
 ```
 
