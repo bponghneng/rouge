@@ -30,9 +30,7 @@ import os
 import subprocess
 
 from rouge.core.database import update_issue
-from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import GitBranchArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -287,18 +285,6 @@ class GitBranchStep(WorkflowStep):
             logger.debug(
                 "Persisted branch name %s for issue %s", branch_name, context.require_issue_id
             )
-
-            # Save artifact to the artifact store
-            artifact = GitBranchArtifact(
-                workflow_id=context.adw_id,
-                branch=branch_name,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved git_branch artifact for workflow %s", context.adw_id)
-
-            if context.issue_id is not None:
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
 
             logger.info("Git environment setup complete: branch=%s", branch_name)
             return StepResult.ok(None)

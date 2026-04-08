@@ -38,9 +38,7 @@ in development environments to prevent accidental data loss.
 import os
 import subprocess
 
-from rouge.core.notifications.comments import emit_artifact_comment, log_artifact_comment_status
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import FetchPatchArtifact, GitCheckoutArtifact
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -109,18 +107,13 @@ class GitCheckoutStep(WorkflowStep):
         if context.issue is not None:
             issue = context.issue
         else:
-            # Fall back to loading the issue from the FetchPatchArtifact (patch pipeline).
-            try:
-                issue = context.load_required_artifact(
-                    "fetch_patch_data",
-                    "fetch-patch",
-                    FetchPatchArtifact,
-                    lambda a: a.patch,
-                )
-            except StepInputError as e:
-                error_msg = str(e)
-                logger.error(error_msg)
-                return StepResult.fail(error_msg)
+            error_msg = (
+                "context.issue is not set. "
+                "Ensure a preceding step (e.g. FetchIssueStep or FetchPatchStep) "
+                "has populated context.issue."
+            )
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
 
         branch = issue.branch
         if not branch:
@@ -295,20 +288,6 @@ class GitCheckoutStep(WorkflowStep):
                 error_msg = ERROR_MISSING_BRANCH.format(branch=branch)
                 logger.error(error_msg)
                 return StepResult.fail(error_msg)
-
-            # Save artifact if artifact store is available (once, after all repos succeed)
-            if context.artifact_store is not None:
-                artifact = GitCheckoutArtifact(
-                    workflow_id=context.adw_id,
-                    branch=branch,
-                    checked_out_repos=checked_out_repos,
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved git_checkout artifact for workflow %s", context.adw_id)
-
-                if context.issue_id is not None:
-                    status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                    log_artifact_comment_status(status, msg)
 
             logger.info("Git checkout complete: branch=%s", branch)
             return StepResult.ok(None)

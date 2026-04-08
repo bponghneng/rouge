@@ -136,33 +136,27 @@ def render_attachment_markdown(
 
 
 def load_and_render_attachment(context: "WorkflowContext") -> str | None:
-    """Load fetch-issue and plan artifacts and render the PR/MR attachment markdown.
+    """Load issue and plan data from context and render the PR/MR attachment markdown.
 
     Both GhPullRequestStep and GlabPullRequestStep use this to build the
-    review-context comment body. Returns ``None`` when neither artifact is present.
+    review-context comment body. Returns ``None`` when neither data source is present.
 
     Args:
-        context: The workflow context providing artifact loading.
+        context: The workflow context providing step data.
 
     Returns:
-        Rendered Markdown string, or ``None`` if both artifacts are absent.
+        Rendered Markdown string, or ``None`` if both data sources are absent.
     """
-    from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
+    # Get issue description from context.issue
+    spec_text = None
+    if context.issue and context.issue.description:
+        spec_text = context.issue.description
 
-    issue_data = context.load_optional_artifact(
-        "issue_data",
-        "fetch-issue",
-        FetchIssueArtifact,
-        lambda a: {"description": a.issue.description},
-    )
-    plan_data = context.load_optional_artifact(
-        "plan_data",
-        "plan",
-        PlanArtifact,
-        lambda a: a.plan_data,
-    )
+    # Get plan data from context.data
+    plan_data = context.get_optional_step_data("plan_data")
+
     return render_attachment_markdown(
-        spec_text=issue_data["description"] if issue_data else None,
+        spec_text=spec_text,
         plan_text=plan_data.plan if plan_data else None,
         plan_summary=plan_data.summary if plan_data else None,
     )

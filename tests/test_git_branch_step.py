@@ -7,65 +7,43 @@ from unittest.mock import Mock, patch
 import pytest
 
 from rouge.core.models import Issue
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.git_branch_step import GIT_TIMEOUT, GitBranchStep
 from rouge.core.workflow.types import StepResult
 
-
 @pytest.fixture(autouse=True, scope="module")
 def patch_external_helpers() -> Generator[None, None, None]:
-    """Patch external helper functions to avoid side effects during tests.
-
-    This fixture patches emit_artifact_comment and log_artifact_comment_status
-    across all tests in this module to prevent actual comment emission.
-    """
-    with (
-        patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment") as mock_emit,
-        patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status"),
-    ):
-        # Configure emit_artifact_comment to return success by default
-        mock_emit.return_value = ("success", "ok")
-        yield
-
+    """Patch external helper functions to avoid side effects during tests."""
+    yield
 
 @pytest.fixture
 def context(tmp_path) -> WorkflowContext:
     """Create a sample workflow context for testing."""
-    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
     return WorkflowContext(
-        issue_id=1, adw_id="test123", artifact_store=store, repo_paths=["/path/to/repo"]
+        issue_id=1, adw_id="test123",
+ repo_paths=["/path/to/repo"]
     )
 
-
 # === Basic Step Properties Tests ===
-
 
 def test_branch_step_name() -> None:
     """Test GitBranchStep has correct name."""
     step = GitBranchStep()
     assert step.name == "Setting up git environment"
 
-
 def test_branch_step_is_critical() -> None:
     """Test GitBranchStep is marked as critical."""
     step = GitBranchStep()
     assert step.is_critical is True
 
-
 # === Successful Execution Tests ===
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
-@patch("rouge.core.workflow.steps.git_branch_step.log_artifact_comment_status")
-@patch("rouge.core.workflow.steps.git_branch_step.emit_artifact_comment")
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_success(
     mock_subprocess,
     _mock_update_branch,
-    mock_emit_artifact_comment,
-    mock_log_artifact_comment_status,
     context,
 ) -> None:
     """Test successful git setup with all commands succeeding."""
@@ -89,8 +67,6 @@ def test_branch_step_success(
         mock_show_ref_fail,  # show-ref (branch doesn't exist)
         mock_success,  # checkout -b
     ]
-    mock_emit_artifact_comment.return_value = ("success", "ok")
-
     step = GitBranchStep()
     result = step.run(context)
 
@@ -132,7 +108,6 @@ def test_branch_step_success(
     assert branch_call[1]["cwd"] == "/path/to/repo"
     assert branch_call[1]["timeout"] == GIT_TIMEOUT
 
-
 @patch.dict(
     "os.environ", {"DEFAULT_GIT_BRANCH": "develop", "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"}
 )
@@ -160,7 +135,6 @@ def test_branch_step_custom_default_branch(mock_subprocess, _mock_update_branch,
     # Verify custom branch was used in reset
     reset_call = mock_subprocess.call_args_list[2]
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/develop"]
-
 
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -190,9 +164,7 @@ def test_branch_step_default_branch_fallback(
     reset_call = mock_subprocess.call_args_list[2]
     assert reset_call[0][0] == ["git", "reset", "--hard", "origin/main"]
 
-
 # === Safety Check Tests ===
-
 
 def test_branch_step_destructive_ops_not_allowed_by_default(context, monkeypatch) -> None:
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is not set."""
@@ -204,7 +176,6 @@ def test_branch_step_destructive_ops_not_allowed_by_default(context, monkeypatch
     assert "Destructive git operations not allowed" in result.error
     assert "ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true" in result.error
 
-
 def test_branch_step_destructive_ops_explicitly_disabled(context, monkeypatch) -> None:
     """Test setup fails when ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS is explicitly set to false."""
     monkeypatch.setenv("ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS", "false")
@@ -213,7 +184,6 @@ def test_branch_step_destructive_ops_explicitly_disabled(context, monkeypatch) -
 
     assert result.success is False
     assert "Destructive git operations not allowed" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "True"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -249,7 +219,6 @@ def test_branch_step_destructive_ops_case_insensitive(
     assert result.success is True
     assert mock_subprocess.call_count == 5
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "TRUE"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -284,9 +253,7 @@ def test_branch_step_destructive_ops_uppercase(
     assert result.success is True
     assert mock_subprocess.call_count == 5
 
-
 # === Failure Handling Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -306,7 +273,6 @@ def test_branch_step_checkout_failure(mock_subprocess, context) -> None:
     assert result.success is False
     assert "Failed to checkout default branch 'main'" in result.error
     assert mock_subprocess.call_count == 1  # Should stop after checkout fails
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -332,7 +298,6 @@ def test_branch_step_reset_failure(mock_subprocess, context) -> None:
     assert result.success is False
     assert "git reset --hard failed" in result.error
     assert mock_subprocess.call_count == 3  # Should stop after reset fails
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -372,9 +337,7 @@ def test_branch_step_branch_creation_failure(mock_subprocess, context) -> None:
     assert "Failed to create branch 'adw-test123'" in result.error
     assert mock_subprocess.call_count == 5
 
-
 # === Timeout Handling Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -391,7 +354,6 @@ def test_branch_step_checkout_timeout(mock_subprocess, context) -> None:
     assert result.success is False
     assert "timed out after" in result.error
     assert str(GIT_TIMEOUT) in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -422,7 +384,6 @@ def test_branch_step_reset_timeout(mock_subprocess, context) -> None:
 
     assert result.success is False
     assert "timed out after" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -472,9 +433,7 @@ def test_branch_step_branch_creation_timeout(mock_subprocess, context) -> None:
     assert result.success is False
     assert "timed out after" in result.error
 
-
 # === Error Handling Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -489,7 +448,6 @@ def test_branch_step_git_not_found(mock_subprocess, context) -> None:
     assert result.success is False
     assert "git command not found" in result.error
     assert "ensure git is installed" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -506,9 +464,7 @@ def test_branch_step_unexpected_error(mock_subprocess, context) -> None:
     assert "RuntimeError" in result.error
     assert "Unexpected system error" in result.error
 
-
 # === Branch Name Logic Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -538,8 +494,8 @@ def test_branch_step_uses_issue_branch_when_set(
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch="my-feature")
-    store = ArtifactStore(workflow_id="abc123", base_path=tmp_path)
-    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="abc123", issue=issue,
+)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -550,7 +506,6 @@ def test_branch_step_uses_issue_branch_when_set(
     assert branch_call[0][0] == ["git", "checkout", "-b", "my-feature"]
 
     mock_update_issue.assert_called_once_with(1, branch="my-feature")
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -580,8 +535,8 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
     ]
 
     issue = Issue(id=1, title="Test issue", description="A test issue", branch=None)
-    store = ArtifactStore(workflow_id="xyz789", base_path=tmp_path)
-    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue, artifact_store=store)
+    ctx = WorkflowContext(issue_id=1, adw_id="xyz789", issue=issue,
+)
 
     step = GitBranchStep()
     result = step.run(ctx)
@@ -592,7 +547,6 @@ def test_branch_step_falls_back_to_adw_id_when_issue_branch_is_none(
     assert branch_call[0][0] == ["git", "checkout", "-b", "adw-xyz789"]
 
     mock_update_issue.assert_called_once_with(1, branch="adw-xyz789")
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -628,8 +582,8 @@ def test_branch_step_branch_name_format(mock_subprocess, _mock_update_branch, tm
             mock_show_ref_fail,  # show-ref
             mock_success,  # checkout -b
         ]
-        store = ArtifactStore(workflow_id=adw_id, base_path=tmp_path / adw_id)
-        context = WorkflowContext(issue_id=1, adw_id=adw_id, artifact_store=store)
+        context = WorkflowContext(issue_id=1, adw_id=adw_id,
+)
 
         step = GitBranchStep()
         result = step.run(context)
@@ -638,9 +592,7 @@ def test_branch_step_branch_name_format(mock_subprocess, _mock_update_branch, tm
         branch_call = mock_subprocess.call_args_list[4]
         assert branch_call[0][0] == ["git", "checkout", "-b", expected_branch]
 
-
 # === Subprocess Options Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -666,9 +618,7 @@ def test_branch_step_subprocess_options(mock_subprocess, _mock_update_branch, co
         assert kwargs["timeout"] == GIT_TIMEOUT
         assert kwargs["cwd"] == "/path/to/repo"
 
-
 # === Integration with StepResult Tests ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -690,7 +640,6 @@ def test_branch_step_returns_step_result_ok(mock_subprocess, _mock_update_branch
     assert result.data is None
     assert result.error is None
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_step_returns_step_result_fail(mock_subprocess, context) -> None:
@@ -711,9 +660,7 @@ def test_branch_step_returns_step_result_fail(mock_subprocess, context) -> None:
     assert result.error is not None
     assert len(result.error) > 0
 
-
 # === New Feature Tests (Steps 6-9) ===
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -738,7 +685,6 @@ def test_fetch_all_prune_command(mock_subprocess, _mock_update_issue, context) -
     assert fetch_call[0][0] == ["git", "fetch", "--all", "--prune"]
     assert fetch_call[1]["cwd"] == "/path/to/repo"
     assert fetch_call[1]["timeout"] == GIT_TIMEOUT
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -790,7 +736,6 @@ def test_missing_default_branch_fallback(mock_subprocess, _mock_update_issue, co
     assert fallback_call[1]["cwd"] == "/path/to/repo"
     assert fallback_call[1]["timeout"] == GIT_TIMEOUT
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_missing_default_branch_fallback_also_fails(mock_subprocess, context) -> None:
@@ -817,7 +762,6 @@ def test_missing_default_branch_fallback_also_fails(mock_subprocess, context) ->
 
     assert result.success is False
     assert "Default branch 'main' not found locally or on remote" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -857,7 +801,6 @@ def test_existing_workflow_branch_deletion(mock_subprocess, _mock_update_issue, 
     # Verify git checkout -b was called to create new branch
     create_call = mock_subprocess.call_args_list[5]
     assert create_call[0][0] == ["git", "checkout", "-b", "adw-test123"]
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.update_issue")
@@ -900,7 +843,6 @@ def test_no_reuse_guarantee(mock_subprocess, _mock_update_issue, context) -> Non
     assert create_idx is not None, "checkout -b command not found"
     assert show_ref_idx < delete_idx < create_idx, "Commands not in correct order"
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_branch_deletion_failure(mock_subprocess, context) -> None:
@@ -934,7 +876,6 @@ def test_branch_deletion_failure(mock_subprocess, context) -> None:
     assert result.success is False
     assert "Failed to delete existing branch 'adw-test123'" in result.error
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_standardized_error_message_missing_default_branch(mock_subprocess, context) -> None:
@@ -955,7 +896,6 @@ def test_standardized_error_message_missing_default_branch(mock_subprocess, cont
     # Check for standardized error message format
     assert "Default branch 'main' not found locally or on remote" in result.error
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_standardized_error_message_checkout_failed(mock_subprocess, context) -> None:
@@ -973,7 +913,6 @@ def test_standardized_error_message_checkout_failed(mock_subprocess, context) ->
 
     assert result.success is False
     assert "Failed to checkout default branch 'main'" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -998,7 +937,6 @@ def test_standardized_error_message_fetch_failed(mock_subprocess, context) -> No
     assert result.success is False
     assert "git fetch --all --prune failed" in result.error
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_standardized_error_message_reset_failed(mock_subprocess, context) -> None:
@@ -1021,7 +959,6 @@ def test_standardized_error_message_reset_failed(mock_subprocess, context) -> No
 
     assert result.success is False
     assert "git reset --hard failed" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
@@ -1058,7 +995,6 @@ def test_standardized_error_message_create_branch_failed(mock_subprocess, contex
     assert result.success is False
     assert "Failed to create branch 'adw-test123'" in result.error
 
-
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")
 def test_standardized_error_message_timeout(mock_subprocess, context) -> None:
@@ -1073,7 +1009,6 @@ def test_standardized_error_message_timeout(mock_subprocess, context) -> None:
 
     assert result.success is False
     assert "Git operation timed out after 60 seconds" in result.error
-
 
 @patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "true"})
 @patch("rouge.core.workflow.steps.git_branch_step.subprocess.run")

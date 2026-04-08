@@ -4,7 +4,6 @@ import os
 from typing import Dict, List, Optional
 
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
 
@@ -49,14 +48,9 @@ class WorkflowRunner:
         """
         logger = get_logger(adw_id)
 
-        # Create artifact store unconditionally
-        artifact_store = ArtifactStore(adw_id)
-        logger.debug("Artifact persistence enabled at %s", artifact_store.workflow_dir)
-
         context = WorkflowContext(
             issue_id=issue_id,
             adw_id=adw_id,
-            artifact_store=artifact_store,
             resume_from=resume_from,
             pipeline_type=pipeline_type,
         )
@@ -80,9 +74,6 @@ class WorkflowRunner:
                     resume_from,
                 )
 
-        # Track the name of the last successfully completed step
-        last_completed_step: Optional[str] = None
-
         while step_index < len(self._steps):
             step = self._steps[step_index]
             log_step_start(step.name, adw_id, issue_id=issue_id)
@@ -97,15 +88,6 @@ class WorkflowRunner:
                         error_msg += f": {result.error}"
                     logger.error("%s, aborting workflow", error_msg)
 
-                    # Best-effort write of WorkflowStateArtifact on critical failure
-                    self._write_workflow_state(
-                        artifact_store,
-                        adw_id,
-                        last_completed_step=last_completed_step,
-                        failed_step=step.name,
-                        pipeline_type=pipeline_type,
-                    )
-
                     return False
                 else:
                     log_step_end(step.name, result.success, adw_id, issue_id=issue_id)
@@ -115,16 +97,6 @@ class WorkflowRunner:
                     logger.warning("%s, continuing", warning_msg)
             else:
                 log_step_end(step.name, result.success, adw_id, issue_id=issue_id)
-
-                # Update last completed step and write WorkflowStateArtifact (best-effort)
-                last_completed_step = step.name
-                self._write_workflow_state(
-                    artifact_store,
-                    adw_id,
-                    last_completed_step=last_completed_step,
-                    failed_step=None,
-                    pipeline_type=pipeline_type,
-                )
 
             # Handle rerun requests
             if result.rerun_from is not None:
@@ -157,50 +129,6 @@ class WorkflowRunner:
 
         logger.info("\n=== Workflow completed successfully ===")
         return True
-
-    def _write_workflow_state(
-        self,
-        artifact_store: ArtifactStore,
-        workflow_id: str,
-        last_completed_step: Optional[str],
-        failed_step: Optional[str],
-        pipeline_type: str,
-    ) -> None:
-        """Write WorkflowStateArtifact in a best-effort manner.
-
-        This method ensures artifact writes never halt the pipeline. Write
-        failures are logged at WARNING level but do not raise exceptions.
-
-        Args:
-            artifact_store: The artifact store to write to
-            workflow_id: The workflow ID
-            last_completed_step: Name of the last successfully completed step (or None)
-            failed_step: Name of the step that failed (or None)
-            pipeline_type: The type of pipeline being executed
-        """
-        logger = get_logger(workflow_id)
-        try:
-            from rouge.core.workflow.artifacts import WorkflowStateArtifact
-
-            state_artifact = WorkflowStateArtifact(
-                workflow_id=workflow_id,
-                last_completed_step=last_completed_step,
-                failed_step=failed_step,
-                pipeline_type=pipeline_type,
-            )
-            artifact_store.write_artifact(state_artifact)
-            logger.debug(
-                "Wrote workflow state: last_completed=%s, failed=%s, type=%s",
-                last_completed_step,
-                failed_step,
-                pipeline_type,
-            )
-        except Exception as e:
-            logger.warning(
-                "Failed to write WorkflowStateArtifact (best-effort): %s",
-                e,
-                exc_info=True,
-            )
 
     def run_single_step(
         self,
@@ -238,28 +166,9 @@ class WorkflowRunner:
         if target_step is None:
             raise ValueError(f"Step not found: {step_name}")
 
-        # Always enable artifacts for single-step execution
-        artifact_store = ArtifactStore(adw_id)
-        workflow_dir = artifact_store.workflow_dir
-
-        # For steps with dependencies, ensure the workflow directory exists with artifacts
-        # For dependency-free steps, skip this check (artifacts will be created by this step)
-        if has_dependencies:
-            if not os.path.isdir(workflow_dir) or not os.listdir(workflow_dir):
-                logger.error(
-                    "Workflow directory '%s' does not exist or contains no artifacts. "
-                    "Run the full workflow or prior steps before executing this step.",
-                    workflow_dir,
-                )
-                return False
-            logger.debug("Single-step execution with artifacts at %s", workflow_dir)
-        else:
-            logger.debug("Dependency-free step execution, workflow dir: %s", workflow_dir)
-
         context = WorkflowContext(
             issue_id=issue_id,
             adw_id=adw_id,
-            artifact_store=artifact_store,
         )
 
         logger.info("ADW ID: %s", adw_id)

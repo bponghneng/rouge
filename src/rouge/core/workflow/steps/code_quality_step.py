@@ -4,14 +4,9 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import CodeQualityArtifact
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
@@ -69,13 +64,6 @@ class CodeQualityStep(WorkflowStep):
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping code quality")
-                artifact = CodeQualityArtifact(
-                    workflow_id=context.adw_id,
-                    output="skipped",
-                    tools=[],
-                    parsed_data={"skipped": True, "reason": "no affected repos"},
-                )
-                context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
 
             request = ClaudeAgentTemplateRequest(
@@ -112,19 +100,8 @@ class CodeQualityStep(WorkflowStep):
 
             logger.info("Code quality checks completed successfully")
 
-            # Save artifact to the artifact store
-            if parse_result.data is not None:
-                artifact = CodeQualityArtifact(
-                    workflow_id=context.adw_id,
-                    output=parse_result.data.get("output", ""),
-                    tools=parse_result.data.get("tools", []),
-                    parsed_data=parse_result.data,
-                )
-                context.artifact_store.write_artifact(artifact)
-                logger.debug("Saved quality_check artifact for workflow %s", context.adw_id)
-
-                status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-                log_artifact_comment_status(status, msg)
+            # Store code quality data in context
+            context.data["code_quality_data"] = parse_result.data
 
             # Insert progress comment - best-effort, non-blocking
             if context.issue_id is not None:

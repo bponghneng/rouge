@@ -6,17 +6,9 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import (
-    ImplementArtifact,
-    PlanArtifact,
-)
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR, IMPLEMENT_PLAN_STEP_NAME
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import ImplementData, RepoChangeDetail, StepResult
@@ -180,14 +172,9 @@ class ImplementPlanStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
 
-        # Load plan from artifact (required)
+        # Load plan from context data (required - set by a plan step)
         try:
-            plan_data = context.load_required_artifact(
-                "plan_data",
-                "plan",
-                PlanArtifact,
-                lambda a: a.plan_data,
-            )
+            plan_data = context.get_step_data("plan_data")
         except StepInputError as e:
             logger.error("Cannot implement: no plan available: %s", e)
             return StepResult.fail(
@@ -221,17 +208,6 @@ class ImplementPlanStep(WorkflowStep):
 
         # Store implementation data in context
         context.data["implement_data"] = implement_response.data
-
-        # Save artifact
-        artifact = ImplementArtifact(
-            workflow_id=context.adw_id,
-            implement_data=implement_response.data,
-        )
-        context.artifact_store.write_artifact(artifact)
-        logger.debug("Saved implementation artifact for workflow %s", context.adw_id)
-
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-        log_artifact_comment_status(status, msg)
 
         # Insert progress comment - best-effort, non-blocking
         payload = CommentPayload(

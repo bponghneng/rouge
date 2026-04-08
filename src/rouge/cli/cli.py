@@ -8,7 +8,6 @@ from typing import Optional
 import typer
 
 from rouge import __version__
-from rouge.cli.artifact import app as artifact_app
 from rouge.cli.comment import app as comment_app
 from rouge.cli.issue import app as issue_app
 from rouge.cli.resume import resume
@@ -46,7 +45,6 @@ app.add_typer(issue_app, name="issue")
 app.add_typer(workflow_app, name="workflow")
 app.add_typer(comment_app, name="comment")
 app.add_typer(step_app, name="step")
-app.add_typer(artifact_app, name="artifact")
 
 # Register top-level commands
 app.command()(resume)

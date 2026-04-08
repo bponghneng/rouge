@@ -66,13 +66,11 @@ def sample_implement_data() -> ImplementData:
 class TestImplementPlanStepRun:
     """Tests for ImplementPlanStep.run method."""
 
-    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementPlanStep, "_implement_plan")
     def test_run_success_with_plan(
         self,
         mock__implement_plan,
-        mock_emit_artifact,
         mock_emit,
         mock_load_required_artifact,
         sample_plan_data,
@@ -84,7 +82,6 @@ class TestImplementPlanStepRun:
         mock_context.artifact_store.artifact_exists.return_value = False
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementPlanStep()
@@ -131,13 +128,11 @@ class TestImplementPlanStepRun:
         assert "Implementation failed" in result.error
         _mock_emit.assert_not_called()
 
-    @patch("rouge.core.workflow.steps.implement_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_step.emit_comment_from_payload")
     @patch.object(ImplementPlanStep, "_implement_plan")
     def test_run_saves_artifact(
         self,
         mock__implement_plan,
-        mock_emit_artifact,
         mock_emit,
         mock_load_required_artifact,
         sample_plan_data,
@@ -149,7 +144,6 @@ class TestImplementPlanStepRun:
         mock_context.artifact_store.artifact_exists.return_value = False
 
         mock__implement_plan.return_value = StepResult.ok(sample_implement_data)
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementPlanStep()
@@ -208,18 +202,14 @@ class TestImplementPlanStepRerunBehavior:
             with patch(
                 "rouge.core.workflow.steps.implement_step.emit_comment_from_payload"
             ) as mock_e:
-                with patch(
-                    "rouge.core.workflow.steps.implement_step.emit_artifact_comment"
-                ) as mock_emit_artifact:
-                    mock_impl.return_value = StepResult.ok(sample_implement_data)
-                    mock_e.return_value = ("success", "ok")
-                    mock_emit_artifact.return_value = ("success", "ok")
+                mock_impl.return_value = StepResult.ok(sample_implement_data)
+                mock_e.return_value = ("success", "ok")
 
-                    step = ImplementPlanStep()
-                    result = step.run(mock_context)
+                step = ImplementPlanStep()
+                result = step.run(mock_context)
 
-                    assert result.success is True
-                    assert result.rerun_from is None
+                assert result.success is True
+                assert result.rerun_from is None
 
 
 class TestImplementPlanStepProperties:
@@ -264,14 +254,12 @@ class TestImplementDirectStepRun:
         context.artifact_store = Mock()
         return context
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
     def test_run_success(
         self,
         mock_implement_direct,
         mock_emit,
-        mock_emit_artifact,
         direct_mock_context,
     ) -> None:
         """Test successful direct implementation."""
@@ -290,7 +278,6 @@ class TestImplementDirectStepRun:
         direct_mock_context.load_required_artifact = _load
 
         mock_implement_direct.return_value = StepResult.ok(sample_data)
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementDirectStep()
@@ -303,14 +290,12 @@ class TestImplementDirectStepRun:
             direct_mock_context.adw_id,
         )
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
     def test_run_emits_finalization_comment(
         self,
         mock_implement_direct,
         mock_emit,
-        mock_emit_artifact,
         direct_mock_context,
     ) -> None:
         """Test that finalization emits 'Solution implemented successfully' comment."""
@@ -327,7 +312,6 @@ class TestImplementDirectStepRun:
             session_id="direct-session-789",
         )
         mock_implement_direct.return_value = StepResult.ok(sample_data)
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementDirectStep()
@@ -370,14 +354,12 @@ class TestImplementDirectStepRun:
         assert result.error == "Cannot implement: issue has no description"
         assert result.rerun_from == "Fetching issue"
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
     def test_run_fails_when_implement_direct_fails(
         self,
         mock_implement_direct,
         _mock_emit,
-        _mock_emit_artifact,
         direct_mock_context,
     ) -> None:
         """Test that run fails when _implement_direct fails."""
@@ -400,14 +382,12 @@ class TestImplementDirectStepRun:
             or "Direct implementation failed" in result.error
         )
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
     def test_run_fails_when_empty_output(
         self,
         mock_implement_direct,
         _mock_emit,
-        _mock_emit_artifact,
         direct_mock_context,
     ) -> None:
         """Test that run fails when _implement_direct returns None data."""
@@ -428,14 +408,12 @@ class TestImplementDirectStepRun:
         assert result.success is False
         assert "missing" in result.error.lower() or "Implementation data" in result.error
 
-    @patch("rouge.core.workflow.steps.implement_direct_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.implement_direct_step.emit_comment_from_payload")
     @patch.object(ImplementDirectStep, "_implement_direct")
     def test_run_saves_artifact(
         self,
         mock_implement_direct,
         mock_emit,
-        mock_emit_artifact,
         direct_mock_context,
     ) -> None:
         """Test that implementation artifact is saved on success."""
@@ -452,7 +430,6 @@ class TestImplementDirectStepRun:
             session_id="direct-session-789",
         )
         mock_implement_direct.return_value = StepResult.ok(sample_data)
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_emit.return_value = ("success", "Comment inserted")
 
         step = ImplementDirectStep()

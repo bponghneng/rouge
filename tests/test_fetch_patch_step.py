@@ -65,14 +65,6 @@ def test_fetch_patch_step_success(
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
 
-    # Verify patch artifact was saved
-    assert mock_context.artifact_store.write_artifact.call_count == 1
-
-    # Check the call was FetchPatchArtifact with the patch issue
-    artifact_call = mock_context.artifact_store.write_artifact.call_args_list[0][0][0]
-    assert isinstance(artifact_call, FetchPatchArtifact)
-    assert artifact_call.patch == sample_patch_issue
-
     # Verify progress comment was emitted with correct text
     mock_emit.assert_called_once()
     payload = mock_emit.call_args[0][0]
@@ -132,8 +124,6 @@ def test_fetch_patch_step_writes_artifact(
 
     assert result.success is True
     assert mock_context.issue == sample_patch_issue
-    # Artifact must always be written
-    mock_context.artifact_store.write_artifact.assert_called_once()
 
 
 def test_fetch_patch_step_is_critical() -> None:

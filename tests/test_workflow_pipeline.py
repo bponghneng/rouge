@@ -30,7 +30,6 @@ from rouge.core.workflow.types import StepResult
 
 _WORKING_DIR_PATCH = "rouge.core.paths.get_working_dir"
 
-
 class DummyStep(WorkflowStep):
     def __init__(self, name: str, critical: bool = True):
         self._name = name
@@ -49,7 +48,6 @@ class DummyStep(WorkflowStep):
         self.executed = True
         return StepResult.ok(None)
 
-
 class FailingStep(WorkflowStep):
     def __init__(self, name: str, critical: bool = True):
         self._name = name
@@ -65,7 +63,6 @@ class FailingStep(WorkflowStep):
 
     def run(self, context: WorkflowContext) -> StepResult:
         return StepResult.fail("Step failed")
-
 
 class RerunStep(WorkflowStep):
     """Step that signals a rerun on its first N executions, then succeeds normally."""
@@ -91,7 +88,6 @@ class RerunStep(WorkflowStep):
             return StepResult.ok(None, rerun_from=self._target)
         return StepResult.ok(None)
 
-
 class CountingStep(WorkflowStep):
     """Step that counts how many times it is executed."""
 
@@ -111,7 +107,6 @@ class CountingStep(WorkflowStep):
     def run(self, context: WorkflowContext) -> StepResult:
         self.call_count += 1
         return StepResult.ok(None)
-
 
 class InvalidRerunStep(WorkflowStep):
     """Step that signals a rerun targeting a non-existent step name."""
@@ -134,25 +129,18 @@ class InvalidRerunStep(WorkflowStep):
         self.call_count += 1
         return StepResult.ok(None, rerun_from=self._target)
 
-
 class TestWorkflowContext:
     def test_init(self, tmp_path) -> None:
-        from rouge.core.workflow.artifacts import ArtifactStore
-
-        store = ArtifactStore(workflow_id="test-adw", base_path=tmp_path)
-        context = WorkflowContext(issue_id=1, adw_id="test-adw", artifact_store=store)
+        context = WorkflowContext(issue_id=1, adw_id="test-adw",
+)
         assert context.issue_id == 1
         assert context.adw_id == "test-adw"
-        assert context.artifact_store is store
 
     def test_data_storage(self, tmp_path) -> None:
-        from rouge.core.workflow.artifacts import ArtifactStore
-
-        store = ArtifactStore(workflow_id="test-adw", base_path=tmp_path)
-        context = WorkflowContext(issue_id=1, adw_id="test-adw", artifact_store=store)
+        context = WorkflowContext(issue_id=1, adw_id="test-adw",
+)
         context.data["key"] = "value"
         assert context.data["key"] == "value"
-
 
 class TestWorkflowRunner:
     def test_execute_pipeline_success(self, caplog, tmp_path):
@@ -307,7 +295,6 @@ class TestWorkflowRunner:
         assert step3.call_count == 1
         assert "Rerun requested for unknown step 'NonExistent', ignoring" in caplog.text
 
-
 class TestGetPatchPipeline:
     def test_patch_pipeline_structure_no_platform(self, monkeypatch):
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
@@ -379,7 +366,6 @@ class TestGetPatchPipeline:
             assert isinstance(
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
-
 
 class TestGetFullPipeline:
     def test_pipeline_structure_no_platform(self, monkeypatch):
@@ -500,7 +486,6 @@ class TestGetFullPipeline:
                 step, expected_type
             ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
 
-
 class TestGetThinPipeline:
     def test_thin_pipeline_structure_no_platform(self, monkeypatch) -> None:
         """Test thin pipeline structure without platform set."""
@@ -554,7 +539,6 @@ class TestGetThinPipeline:
         # Check step count (should be 6 with GitLab MR step)
         assert len(pipeline) == 6
         assert isinstance(pipeline[-1], GlabPullRequestStep)
-
 
 class TestGetDirectPipeline:
     def test_direct_pipeline_structure_no_platform(self) -> None:

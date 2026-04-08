@@ -8,16 +8,11 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload, Issue
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.shared import AGENT_PLANNER
-from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
 
 # Required fields for plan output JSON
@@ -124,14 +119,12 @@ class ClaudeCodePlanStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
 
-        # Load issue from artifact (required)
-        try:
-            issue = context.load_required_artifact(
-                "issue", "fetch-issue", FetchIssueArtifact, lambda a: a.issue
-            )
-        except StepInputError as e:
-            logger.error("Cannot build plan: issue not fetched: %s", e)
-            return StepResult.fail(f"Cannot build plan: issue not fetched: {e}")
+        # Load issue from context (required - set by FetchIssueStep)
+        if context.issue is None:
+            error_msg = "Cannot build plan: issue not fetched (context.issue is None)"
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
+        issue = context.issue
 
         plan_response = self._build_plan(issue, context.adw_id)
 
@@ -141,18 +134,6 @@ class ClaudeCodePlanStep(WorkflowStep):
 
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
-
-        # Save artifact
-        if plan_response.data is not None:
-            artifact = PlanArtifact(
-                workflow_id=context.adw_id,
-                plan_data=plan_response.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved plan artifact for workflow %s", context.adw_id)
-
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
 
         # Build progress comment from parsed plan data
         parsed_data = plan_response.metadata.get("parsed_data", {})

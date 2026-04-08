@@ -8,7 +8,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Set, Type, TypeVar
 
-from rouge.core.workflow.artifacts import ArtifactType
 from rouge.core.workflow.step_base import WorkflowStep
 
 # Module-level logger is appropriate here: step registration occurs at initialization
@@ -36,11 +35,11 @@ class StepMetadata:
 
     step_class: Type[WorkflowStep]
     slug: str = ""
-    dependencies: List[ArtifactType] = field(default_factory=list)
-    outputs: List[ArtifactType] = field(default_factory=list)
+    dependencies: List[str] = field(default_factory=list)
+    outputs: List[str] = field(default_factory=list)
     is_critical: bool = True
     description: Optional[str] = None
-    dependency_kinds: Dict[ArtifactType, str] = field(default_factory=dict)
+    dependency_kinds: Dict[str, str] = field(default_factory=dict)
 
 
 class StepRegistry:
@@ -58,12 +57,12 @@ class StepRegistry:
     def register(
         self,
         step_class: Type[WorkflowStep],
-        dependencies: Optional[List[ArtifactType]] = None,
-        outputs: Optional[List[ArtifactType]] = None,
+        dependencies: Optional[List[str]] = None,
+        outputs: Optional[List[str]] = None,
         is_critical: Optional[bool] = None,
         description: Optional[str] = None,
         slug: Optional[str] = None,
-        dependency_kinds: Optional[Dict[ArtifactType, str]] = None,
+        dependency_kinds: Optional[Dict[str, str]] = None,
     ) -> None:
         """Register a workflow step with its metadata.
 
@@ -266,7 +265,7 @@ class StepRegistry:
 
         return result
 
-    def get_steps_for_artifact(self, artifact_type: ArtifactType) -> List[str]:
+    def get_steps_for_artifact(self, artifact_type: str) -> List[str]:
         """Get all steps that produce a given artifact type.
 
         Args:
@@ -281,7 +280,7 @@ class StepRegistry:
                 producers.append(step_name)
         return producers
 
-    def get_steps_requiring_artifact(self, artifact_type: ArtifactType) -> List[str]:
+    def get_steps_requiring_artifact(self, artifact_type: str) -> List[str]:
         """Get all steps that require a given artifact type.
 
         Args:

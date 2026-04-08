@@ -2,13 +2,8 @@
 
 from rouge.core.database import fetch_issue
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
@@ -42,17 +37,6 @@ class FetchIssueStep(WorkflowStep):
             issue = fetch_issue(issue_id)
             logger.info("Issue fetched: ID=%s, Status=%s", issue.id, issue.status)
             context.issue = issue
-
-            # Save artifact
-            artifact = FetchIssueArtifact(
-                workflow_id=context.adw_id,
-                issue=issue,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved issue artifact for workflow %s", context.adw_id)
-
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
 
             # Insert progress comment - best-effort, non-blocking
             payload = CommentPayload(

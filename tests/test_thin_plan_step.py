@@ -11,11 +11,10 @@ import pytest
 
 from rouge.core.models import Issue
 from rouge.core.prompts import PromptId
-from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
+from rouge.core.workflow.artifacts import FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
 from rouge.core.workflow.types import PlanData, StepResult
-
 
 @pytest.fixture
 def issue() -> Issue:
@@ -29,15 +28,8 @@ def issue() -> Issue:
         branch="feature/string-sanitization",
     )
 
-
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store."""
-    return ArtifactStore(workflow_id="test-adw-thin-plan", base_path=tmp_path)
-
-
-@pytest.fixture
-def context_with_artifact(issue: Issue, store: ArtifactStore) -> WorkflowContext:
+def context_with_artifact(issue: Issue) -> WorkflowContext:
     """Create a workflow context with fetch-issue artifact written to the store."""
     artifact = FetchIssueArtifact(
         workflow_id=store.workflow_id,
@@ -47,30 +39,24 @@ def context_with_artifact(issue: Issue, store: ArtifactStore) -> WorkflowContext
     return WorkflowContext(
         issue_id=5,
         adw_id="test-adw-thin-plan",
-        artifact_store=store,
     )
 
-
 @pytest.fixture
-def context_without_artifact(store: ArtifactStore) -> WorkflowContext:
+def context_without_artifact(store) -> WorkflowContext:
     """Create a workflow context WITHOUT fetch-issue artifact."""
     return WorkflowContext(
         issue_id=5,
         adw_id="test-adw-thin-plan",
-        artifact_store=store,
     )
-
 
 class TestThinPlanStepLoadsFromArtifact:
     """Tests verifying ThinPlanStep loads the issue from fetch-issue artifact."""
 
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_loads_issue_from_fetch_issue_artifact(
         self,
         mock_build_template,
-        mock_emit_artifact,
         mock_emit,
         context_with_artifact,
         issue,
@@ -82,7 +68,6 @@ class TestThinPlanStepLoadsFromArtifact:
         )
         mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
@@ -95,7 +80,6 @@ class TestThinPlanStepLoadsFromArtifact:
             context_with_artifact.adw_id,
         )
         # Verify a PlanArtifact was saved
-        assert context_with_artifact.artifact_store.artifact_exists("plan")
 
     def test_fails_when_fetch_issue_artifact_missing(
         self,
@@ -110,12 +94,10 @@ class TestThinPlanStepLoadsFromArtifact:
         assert "Cannot build thin plan" in result.error
 
     @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_calls_build_plan_with_thin_plan_prompt_id(
         self,
         mock_build_template,
-        mock_emit_artifact,
         mock_emit,
         context_with_artifact,
         issue,
@@ -127,7 +109,6 @@ class TestThinPlanStepLoadsFromArtifact:
         )
         mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
@@ -170,8 +151,6 @@ class TestThinPlanStepLoadsFromArtifact:
         assert result.success is False
         assert result.error is not None
         assert "no plan data" in result.error
-        assert not context_with_artifact.artifact_store.artifact_exists("plan")
-
 
 class TestThinPlanStepProperties:
     """Tests for ThinPlanStep properties."""

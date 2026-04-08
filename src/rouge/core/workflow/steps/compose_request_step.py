@@ -6,14 +6,9 @@ from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import ComposeRequestArtifact
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _sanitize_for_logging
@@ -76,13 +71,6 @@ class ComposeRequestStep(WorkflowStep):
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping compose request")
-                artifact = ComposeRequestArtifact(
-                    workflow_id=context.adw_id,
-                    title="No changes",
-                    summary="No changes to compose",
-                    commits=[],
-                )
-                context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
 
             request = ClaudeAgentTemplateRequest(
@@ -215,15 +203,5 @@ class ComposeRequestStep(WorkflowStep):
             len(pr_details["commits"]),
         )
 
-        # Save artifact to the artifact store
-        artifact = ComposeRequestArtifact(
-            workflow_id=context.adw_id,
-            title=pr_details["title"],
-            summary=pr_details["summary"],
-            commits=pr_details["commits"],
-        )
-        context.artifact_store.write_artifact(artifact)
-        logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)
 
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-        log_artifact_comment_status(status, msg)
+

@@ -6,16 +6,11 @@ ImplementPlanStep, so downstream steps work identically to other plan pipelines.
 """
 
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
 from rouge.core.workflow.plan_common import build_plan_from_template
-from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 
@@ -51,17 +46,12 @@ class ThinPlanStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
 
-        # Load issue from fetch-issue artifact (required)
-        try:
-            issue = context.load_required_artifact(
-                "issue",
-                "fetch-issue",
-                FetchIssueArtifact,
-                lambda a: a.issue,
-            )
-        except StepInputError as e:
-            logger.error("Cannot build thin plan: %s", e)
-            return StepResult.fail(f"Cannot build thin plan: {e}")
+        # Load issue from context (required - set by FetchIssueStep)
+        if context.issue is None:
+            error_msg = "Cannot build thin plan: issue not fetched (context.issue is None)"
+            logger.error(error_msg)
+            return StepResult.fail(error_msg)
+        issue = context.issue
 
         # Build plan from issue description using thin-plan prompt
         plan_response = build_plan_from_template(issue, PromptId.THIN_PLAN, context.adw_id)
@@ -73,18 +63,7 @@ class ThinPlanStep(WorkflowStep):
         # Store plan data in context
         context.data["plan_data"] = plan_response.data
 
-        # Save artifact to the artifact store
-        if plan_response.data is not None:
-            artifact = PlanArtifact(
-                workflow_id=context.adw_id,
-                plan_data=plan_response.data,
-            )
-            context.artifact_store.write_artifact(artifact)
-            logger.debug("Saved plan artifact for workflow %s", context.adw_id)
-
-            status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-            log_artifact_comment_status(status, msg)
-        else:
+        if plan_response.data is None:
             return StepResult.fail("Plan step succeeded but produced no plan data")
 
         # Build progress comment from parsed plan data

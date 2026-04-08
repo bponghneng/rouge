@@ -9,26 +9,18 @@ import pytest
 from rouge.core.models import CommentPayload, Issue
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.workflow import execute_workflow
-from rouge.core.workflow.artifacts import ArtifactStore
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.types import StepResult
 
-
 def _make_context(adw_id: str = "adw123", issue_id: int = 1, **kwargs) -> WorkflowContext:
-    """Create a WorkflowContext with a temporary artifact store for testing."""
-    tmp_dir = tempfile.TemporaryDirectory()
-    store = ArtifactStore(workflow_id=adw_id, base_path=Path(tmp_dir.name))
+    """Create a WorkflowContext for testing."""
     kwargs.setdefault("repo_paths", ["/path/to/repo"])
-    context = WorkflowContext(issue_id=issue_id, adw_id=adw_id, artifact_store=store, **kwargs)
-    context._tmp_dir = tmp_dir  # type: ignore[attr-defined]  # keeps dir alive until context is GC'd
-    return context
-
+    return WorkflowContext(issue_id=issue_id, adw_id=adw_id, **kwargs)
 
 @pytest.fixture
 def sample_issue() -> Issue:
     """Create a sample issue for testing."""
     return Issue(id=1, description="Fix login bug", status="pending")
-
 
 @patch("rouge.core.notifications.comments.create_comment")
 def test_emit_comment_from_payload_success(mock_create_comment) -> None:
@@ -55,7 +47,6 @@ def test_emit_comment_from_payload_success(mock_create_comment) -> None:
     assert created_comment.source == "system"
     assert created_comment.type == "comment"
 
-
 @patch("rouge.core.notifications.comments.create_comment")
 def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
     """Test progress comment insertion handles errors gracefully."""
@@ -73,17 +64,14 @@ def test_emit_comment_from_payload_failure(mock_create_comment) -> None:
     assert "Failed to insert comment on issue 1" in msg
     assert "Database error" in msg
 
-
 # REMOVED: Legacy top-level classify_issue and build_plan functions were
 # refactored into step classes and subsequently removed entirely.
-
 
 # REMOVED: Tests for implement_plan function (moved to step class in
 # rouge.core.workflow.steps.implement)
 # This test tested a top-level function that no longer exists after refactoring.
 # The business logic is now in ImplementPlanStep.run() method.
 # To test implementation logic, test ImplementPlanStep directly instead.
-
 
 @patch("rouge.core.workflow.runner.get_full_pipeline")
 def test_execute_workflow_success(mock_get_pipeline) -> None:
@@ -106,7 +94,6 @@ def test_execute_workflow_success(mock_get_pipeline) -> None:
     for step in mock_steps:
         step.run.assert_called_once()
 
-
 @patch("rouge.core.workflow.runner.get_full_pipeline")
 def test_execute_workflow_fetch_failure(mock_get_pipeline) -> None:
     """Test workflow handles fetch failure (first step fails)."""
@@ -120,7 +107,6 @@ def test_execute_workflow_fetch_failure(mock_get_pipeline) -> None:
 
     result = execute_workflow(999, "adw123")
     assert result is False
-
 
 @patch("rouge.core.workflow.runner.get_full_pipeline")
 def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
@@ -140,7 +126,6 @@ def test_execute_workflow_second_step_failure(mock_get_pipeline) -> None:
 
     result = execute_workflow(1, "adw123")
     assert result is False
-
 
 @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
@@ -164,9 +149,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     assert request.json_schema is not None
     assert '"const": "code-quality"' in request.json_schema
 
-
 # === GhPullRequestStep Tests ===
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -225,7 +208,6 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
     assert pr_call[0][0][0:3] == ["gh", "pr", "create"]
     assert pr_call[1]["cwd"] == "/path/to/repo"
 
-
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 def test_create_pr_step_missing_github_pat(mock_emit) -> None:
@@ -247,7 +229,6 @@ def test_create_pr_step_missing_github_pat(mock_emit) -> None:
 
     assert result.success is True
 
-
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     """Test PR creation skipped when pr_details is missing."""
@@ -263,7 +244,6 @@ def test_create_pr_step_missing_pr_details(mock_emit) -> None:
     result = step.run(context)
 
     assert result.success is True
-
 
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
@@ -285,7 +265,6 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
     result = step.run(context)
 
     assert result.success is True
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
@@ -324,7 +303,6 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
     assert result.success is True
     # Only rev-parse and pr list were called (no push or create)
     assert mock_subprocess.call_count == 2
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
@@ -371,7 +349,6 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     # When all repos fail (only one repo), step returns success (best-effort)
     assert result.success is True
 
-
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -417,7 +394,6 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     # Per-repo timeout is caught in _process_repo; step returns success (best-effort)
     assert result.success is True
 
-
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
@@ -444,7 +420,6 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
     # Should return ok (skip) rather than fail since gh not found is handled proactively
     assert result.success is True
     mock_which.assert_called_once_with("gh")
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
@@ -494,7 +469,6 @@ def test_create_pr_step_push_failure_continues_to_pr(
     assert result.success is True
     assert mock_subprocess.call_count == 6
 
-
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -542,7 +516,6 @@ def test_create_pr_step_push_timeout_continues_to_pr(
     # PR should succeed even if push timed out
     assert result.success is True
     assert mock_subprocess.call_count == 6
-
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -621,7 +594,6 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
     assert pr_create_call_b[1]["cwd"] == "/repo/b"
     assert pr_create_call_b[0][0][0:3] == ["gh", "pr", "create"]
 
-
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
@@ -687,7 +659,6 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     push_call_b = mock_subprocess.call_args_list[10]
     assert push_call_b[1]["cwd"] == "/repo/b"
 
-
 def test_create_pr_step_is_not_critical() -> None:
     """Test GhPullRequestStep is not critical."""
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -696,7 +667,6 @@ def test_create_pr_step_is_not_critical() -> None:
 
     step = GhPullRequestStep()
     assert step.is_critical is False
-
 
 def test_create_pr_step_name() -> None:
     """Test GhPullRequestStep has correct name."""
@@ -707,9 +677,7 @@ def test_create_pr_step_name() -> None:
     step = GhPullRequestStep()
     assert step.name == "Creating GitHub pull request"
 
-
 # === GlabPullRequestStep Tests ===
-
 
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
@@ -774,7 +742,6 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
     assert payload.raw["output"] == "merge-request-created"
     assert "https://gitlab.com/owner/repo/-/merge_requests/123" in payload.raw["urls"]
 
-
 @patch.dict("os.environ", {}, clear=True)
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
@@ -807,7 +774,6 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) ->
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
-
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
 def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) -> None:
@@ -832,7 +798,6 @@ def test_create_gitlab_mr_step_missing_pr_details(mock_get_logger, mock_emit) ->
     mock_logger.info.assert_called_with("MR creation skipped: no PR details in context")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
-
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
@@ -863,7 +828,6 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
     mock_logger.info.assert_called_with("MR creation skipped: MR title is empty")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
-
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
@@ -917,7 +881,6 @@ def test_create_gitlab_mr_step_glab_command_failure(
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
-
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -968,7 +931,6 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
 
-
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.get_logger")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -1009,7 +971,6 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
     mock_logger.exception.assert_called_with("glab CLI not found, skipping MR creation")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
-
 
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
@@ -1058,7 +1019,6 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
-
 @patch("rouge.core.workflow.step_utils.emit_comment_from_payload")
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
@@ -1106,14 +1066,12 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
-
 def test_create_gitlab_mr_step_is_not_critical() -> None:
     """Test GlabPullRequestStep is not critical."""
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     step = GlabPullRequestStep()
     assert step.is_critical is False
-
 
 def test_create_gitlab_mr_step_name() -> None:
     """Test GlabPullRequestStep has correct name."""
@@ -1122,9 +1080,7 @@ def test_create_gitlab_mr_step_name() -> None:
     step = GlabPullRequestStep()
     assert step.name == "Creating GitLab merge request"
 
-
 # === ComposeRequestStep JSON parsing Tests ===
-
 
 def test_prepare_pr_step_store_pr_details_success() -> None:
     """Test _store_pr_details stores validated dict correctly."""
@@ -1148,7 +1104,6 @@ def test_prepare_pr_step_store_pr_details_success() -> None:
     assert context.data["pr_details"]["summary"] == "This adds a feature."
     assert context.data["pr_details"]["commits"] == [{"message": "abc123"}, {"message": "def456"}]
 
-
 def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
     """Test _store_pr_details handles missing fields with defaults."""
 
@@ -1166,7 +1121,6 @@ def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
     assert context.data["pr_details"]["title"] == "only title"
     assert context.data["pr_details"]["summary"] == "Default summary"
     assert context.data["pr_details"]["commits"] == []
-
 
 @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
 @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
@@ -1214,6 +1168,5 @@ def test_prepare_pr_step_emits_raw_llm_response(mock_execute, mock_emit) -> None
         llm_response_call is not None
     ), "Expected emit_comment_from_payload call with pr-preparation-response"
     assert llm_response_call[0][0].raw["llm_response"] == pr_json
-
 
 # Patch status transition tests removed - using update_issue_status instead

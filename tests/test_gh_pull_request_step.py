@@ -16,7 +16,6 @@ import pytest
 
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import (
-    ArtifactStore,
     ComposeRequestArtifact,
     FetchIssueArtifact,
     PlanArtifact,
@@ -24,7 +23,6 @@ from rouge.core.workflow.artifacts import (
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.types import PlanData
-
 
 def _gh_subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
     """Simulate subprocess calls for gh PR creation flow."""
@@ -47,23 +45,14 @@ def _gh_subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
         result.stdout = ""
     return result
 
-
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store."""
-    return ArtifactStore(workflow_id="test-gh-pr", base_path=tmp_path)
-
-
-@pytest.fixture
-def base_context(store: ArtifactStore) -> WorkflowContext:
+def base_context(store) -> WorkflowContext:
     """Create a workflow context without any artifacts."""
     return WorkflowContext(
         adw_id="test-gh-pr",
         issue_id=42,
-        artifact_store=store,
         repo_paths=["/path/to/repo"],
     )
-
 
 class TestGhPullRequestStepOptionalDependency:
     """Tests verifying GhPullRequestStep handles absent compose-request artifact gracefully."""
@@ -98,7 +87,7 @@ class TestGhPullRequestStepOptionalDependency:
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
     def test_loads_pr_details_via_optional_artifact(
-        self, mock_emit, base_context: WorkflowContext, store: ArtifactStore
+        self, mock_emit, base_context: WorkflowContext, store
     ) -> None:
         """load_optional_artifact is used (not a guard-and-fail pattern)."""
 
@@ -110,7 +99,7 @@ class TestGhPullRequestStepOptionalDependency:
             read_calls.append(artifact_type)
             return original_read(artifact_type, model_class)
 
-        with patch.object(store, "read_artifact", side_effect=tracking_read):
+        with patch.object("read_artifact", side_effect=tracking_read):
             step = GhPullRequestStep()
             result = step.run(base_context)
 
@@ -129,23 +118,16 @@ class TestGhPullRequestStepOptionalDependency:
         result = step.run(base_context)
         assert result is not None
 
-
 class TestGhPullRequestStepWithArtifact:
     """Tests verifying GhPullRequestStep uses compose-request artifact when present."""
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     def test_uses_compose_request_artifact_when_present(
         self,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Step reads PR details from compose-request artifact when it exists."""
         # Write compose-request artifact
         compose_artifact = ComposeRequestArtifact(
@@ -156,7 +138,6 @@ class TestGhPullRequestStepWithArtifact:
         )
         store.write_artifact(compose_artifact)
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = None  # gh CLI not found → graceful skip
 
         step = GhPullRequestStep()
@@ -165,13 +146,10 @@ class TestGhPullRequestStepWithArtifact:
         # Step should succeed (either skip due to missing gh or GITHUB_PAT)
         assert result.success is True
 
-
 class TestGhPullRequestStepDraftFlag:
     """Tests verifying GhPullRequestStep adds --draft flag based on pipeline_type."""
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
@@ -180,17 +158,11 @@ class TestGhPullRequestStepDraftFlag:
         mock_environ,
         mock_run,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit,
-        store: ArtifactStore,
-    ) -> None:
+        mock_emit) -> None:
         """When pipeline_type is 'thin', gh pr create command includes --draft."""
         mock_environ["GITHUB_PAT"] = "fake-token"
         mock_environ["PATH"] = "/usr/bin"
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit_artifact.return_value = ("success", "ok")
-
         # Write compose-request artifact so the step proceeds to PR creation
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-gh-pr",
@@ -203,7 +175,6 @@ class TestGhPullRequestStepDraftFlag:
         context = WorkflowContext(
             adw_id="test-gh-pr",
             issue_id=42,
-            artifact_store=store,
             repo_paths=["/path/to/repo"],
             pipeline_type="thin",
         )
@@ -226,8 +197,6 @@ class TestGhPullRequestStepDraftFlag:
         assert "--draft" in cmd_args
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
@@ -236,16 +205,11 @@ class TestGhPullRequestStepDraftFlag:
         mock_environ,
         mock_run,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit,
-        store: ArtifactStore,
-    ) -> None:
+        mock_emit) -> None:
         """When pipeline_type is 'full', gh pr create command does not include --draft."""
         mock_environ["GITHUB_PAT"] = "fake-token"
         mock_environ["PATH"] = "/usr/bin"
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit_artifact.return_value = ("success", "ok")
 
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-gh-pr",
@@ -258,7 +222,6 @@ class TestGhPullRequestStepDraftFlag:
         context = WorkflowContext(
             adw_id="test-gh-pr",
             issue_id=42,
-            artifact_store=store,
             repo_paths=["/path/to/repo"],
             pipeline_type="full",
         )
@@ -280,13 +243,10 @@ class TestGhPullRequestStepDraftFlag:
         cmd_args = gh_create_calls[0][0][0]
         assert "--draft" not in cmd_args
 
-
 class TestGhPullRequestStepAffectedRepos:
     """Tests for GhPullRequestStep affected-repos filtering and branch-delta guard."""
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.get_affected_repo_paths")
@@ -296,12 +256,8 @@ class TestGhPullRequestStepAffectedRepos:
         mock_get_affected: MagicMock,
         mock_run: MagicMock,
         mock_which: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Only repos returned by get_affected_repo_paths are processed."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -312,7 +268,6 @@ class TestGhPullRequestStepAffectedRepos:
             )
         )
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit_artifact.return_value = ("success", "ok")
 
         # Context has two repos, but only one is affected
         base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
@@ -334,9 +289,7 @@ class TestGhPullRequestStepAffectedRepos:
         self,
         mock_get_affected: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Step returns success and writes empty artifact when no repos are affected."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -359,8 +312,6 @@ class TestGhPullRequestStepAffectedRepos:
         assert artifact.pull_requests == []
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
@@ -368,12 +319,8 @@ class TestGhPullRequestStepAffectedRepos:
         self,
         mock_run: MagicMock,
         mock_which: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When branch has zero commits ahead of base, PR creation is skipped."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -384,7 +331,6 @@ class TestGhPullRequestStepAffectedRepos:
             )
         )
         mock_which.return_value = "/usr/bin/gh"
-        mock_emit_artifact.return_value = ("success", "ok")
 
         def _delta_guard_side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
             result = MagicMock()
@@ -421,8 +367,7 @@ class TestGhPullRequestStepAffectedRepos:
         ]
         assert len(gh_create_calls) == 0
 
-
-def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
+def _write_fetch_issue_and_plan_artifacts(store) -> None:
     """Write fetch-issue and plan artifacts to the store for attachment tests."""
     issue = Issue(
         id=42,
@@ -440,7 +385,6 @@ def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
             ),
         )
     )
-
 
 def _make_subprocess_side_effect(
     *,
@@ -526,17 +470,13 @@ def _make_subprocess_side_effect(
 
     return _side_effect
 
-
 # Shared patch decorator stack for attachment tests — patches external
 # helpers and env so the step reaches the PR-creation / adopt path.
 _ATTACHMENT_PATCHES = [
     "rouge.core.workflow.pull_request_step_base._emit_and_log",
-    "rouge.core.workflow.pull_request_step_base.emit_artifact_comment",
-    "rouge.core.workflow.pull_request_step_base.log_artifact_comment_status",
     "rouge.core.workflow.steps.gh_pull_request_step.shutil.which",
     "rouge.core.workflow.pull_request_step_base.subprocess.run",
 ]
-
 
 class TestGhPullRequestStepAttachment:
     """Tests for attachment comment posting/updating on pull requests."""
@@ -544,19 +484,13 @@ class TestGhPullRequestStepAttachment:
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
     @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
-    @patch(_ATTACHMENT_PATCHES[4])
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_comment_posted_on_create(
         self,
         mock_subprocess,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When fetch-issue and plan artifacts exist, gh pr comment is called after PR create."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -568,7 +502,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect()
 
@@ -592,19 +525,13 @@ class TestGhPullRequestStepAttachment:
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
     @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
-    @patch(_ATTACHMENT_PATCHES[4])
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_comment_posted_on_adopt(
         self,
         mock_subprocess,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When an existing PR is adopted, attachment comment is posted on the adopted PR."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -616,7 +543,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
 
         def _adopt_side_effect(cmd: list[str], **_kwargs: object) -> MagicMock:
@@ -672,19 +598,13 @@ class TestGhPullRequestStepAttachment:
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
     @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
-    @patch(_ATTACHMENT_PATCHES[4])
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_skipped_when_artifacts_missing(
         self,
         mock_subprocess,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """No attachment subprocess calls when fetch-issue/plan artifacts are absent."""
         # Only write compose-request — no fetch-issue or plan
         store.write_artifact(
@@ -696,7 +616,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect()
 
@@ -719,19 +638,13 @@ class TestGhPullRequestStepAttachment:
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
     @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
-    @patch(_ATTACHMENT_PATCHES[4])
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_updated_on_rerun(
         self,
         mock_subprocess,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Existing attachment comment found via gh pr view triggers PATCH update."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -743,7 +656,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         # Existing comment ID returned by gh pr view
         mock_subprocess.side_effect = _make_subprocess_side_effect(existing_comment_id="12345678")
@@ -773,19 +685,13 @@ class TestGhPullRequestStepAttachment:
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
     @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
-    @patch(_ATTACHMENT_PATCHES[4])
     @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_failure_does_not_fail_step(
         self,
         mock_subprocess,
         mock_which,
-        _mock_log,
-        mock_emit_artifact,
         mock_emit,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Attachment posting failure is caught and the step still returns success."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -797,7 +703,6 @@ class TestGhPullRequestStepAttachment:
             )
         )
 
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
         mock_subprocess.side_effect = _make_subprocess_side_effect(
             attachment_error=True,

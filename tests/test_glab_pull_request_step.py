@@ -19,7 +19,6 @@ import pytest
 
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import (
-    ArtifactStore,
     ComposeRequestArtifact,
     FetchIssueArtifact,
     PlanArtifact,
@@ -32,12 +31,10 @@ from rouge.core.workflow.types import PlanData
 # Fixtures and helpers for draft-flag tests
 # ---------------------------------------------------------------------------
 
-
 @pytest.fixture
 def store_mr(tmp_path: Path) -> ArtifactStore:
     """Create a temporary artifact store for draft-flag tests."""
     return ArtifactStore(workflow_id="test-glab-mr", base_path=tmp_path)
-
 
 def _subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
     """Simulate subprocess calls for glab MR creation flow."""
@@ -60,25 +57,20 @@ def _subprocess_side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
         result.stdout = ""
     return result
 
-
-def _make_context(store: ArtifactStore, pipeline_type: str) -> WorkflowContext:
-    """Create a WorkflowContext with a compose-request artifact and the given pipeline_type."""
-    compose_artifact = ComposeRequestArtifact(
-        workflow_id="test-glab-mr",
-        title="MR Title",
-        summary="MR Summary",
-        commits=[],
-    )
-    store.write_artifact(compose_artifact)
-
-    return WorkflowContext(
+def _make_context(pipeline_type: str) -> WorkflowContext:
+    """Create a WorkflowContext with pr_details in context.data."""
+    ctx = WorkflowContext(
         adw_id="test-glab-mr",
         issue_id=99,
-        artifact_store=store,
         repo_paths=["/path/to/repo"],
         pipeline_type=pipeline_type,
     )
-
+    ctx.data["pr_details"] = {
+        "title": "MR Title",
+        "summary": "MR Summary",
+        "commits": [],
+    }
+    return ctx
 
 def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
     """Extract the glab mr create command from mock_run call history."""
@@ -92,30 +84,20 @@ def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
     ), f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
     return glab_create_calls[0][0][0]
 
-
 # ---------------------------------------------------------------------------
 # Fixtures and helpers for attachment tests
 # ---------------------------------------------------------------------------
 
-
 @pytest.fixture
-def store(tmp_path: Path) -> ArtifactStore:
-    """Create a temporary artifact store for attachment tests."""
-    return ArtifactStore(workflow_id="test-glab-pr", base_path=tmp_path)
-
-
-@pytest.fixture
-def base_context(store: ArtifactStore) -> WorkflowContext:
+def base_context(store) -> WorkflowContext:
     """Create a workflow context without any artifacts."""
     return WorkflowContext(
         adw_id="test-glab-pr",
         issue_id=42,
-        artifact_store=store,
         repo_paths=["/path/to/repo"],
     )
 
-
-def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
+def _write_fetch_issue_and_plan_artifacts(store) -> None:
     """Write fetch-issue and plan artifacts to the store for attachment tests."""
     issue = Issue(
         id=42,
@@ -133,7 +115,6 @@ def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
             ),
         )
     )
-
 
 def _make_subprocess_side_effect(
     *,
@@ -231,29 +212,22 @@ def _make_subprocess_side_effect(
 
     return _side_effect
 
-
 # Shared patch targets for attachment tests.
 _STEP_MODULE = "rouge.core.workflow.steps.glab_pull_request_step"
 _BASE_MODULE = "rouge.core.workflow.pull_request_step_base"
 _ATTACHMENT_PATCHES = [
     f"{_BASE_MODULE}._emit_and_log",
-    f"{_BASE_MODULE}.emit_artifact_comment",
-    f"{_BASE_MODULE}.log_artifact_comment_status",
     f"{_BASE_MODULE}.subprocess.run",
 ]
-
 
 # ---------------------------------------------------------------------------
 # Test classes
 # ---------------------------------------------------------------------------
 
-
 class TestGlabPullRequestStepAffectedRepos:
     """Tests for GlabPullRequestStep affected-repos filtering and branch-delta guard."""
 
     @patch(f"{_BASE_MODULE}._emit_and_log")
-    @patch(f"{_BASE_MODULE}.emit_artifact_comment")
-    @patch(f"{_BASE_MODULE}.log_artifact_comment_status")
     @patch(f"{_BASE_MODULE}.subprocess.run")
     @patch(f"{_BASE_MODULE}.get_affected_repo_paths")
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
@@ -261,12 +235,8 @@ class TestGlabPullRequestStepAffectedRepos:
         self,
         mock_get_affected: MagicMock,
         mock_run: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Only repos returned by get_affected_repo_paths are processed."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -277,7 +247,6 @@ class TestGlabPullRequestStepAffectedRepos:
             )
         )
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         # Context has two repos, but only one is affected
         base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
@@ -300,9 +269,7 @@ class TestGlabPullRequestStepAffectedRepos:
         self,
         mock_get_affected: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Step returns success and writes empty artifact when no repos are affected."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -322,19 +289,13 @@ class TestGlabPullRequestStepAffectedRepos:
         assert artifact.pull_requests == []
 
     @patch(f"{_BASE_MODULE}._emit_and_log")
-    @patch(f"{_BASE_MODULE}.emit_artifact_comment")
-    @patch(f"{_BASE_MODULE}.log_artifact_comment_status")
     @patch(f"{_BASE_MODULE}.subprocess.run")
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_branch_delta_guard_prevents_empty_mr(
         self,
         mock_run: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When branch has zero commits ahead of base, MR creation is skipped."""
         store.write_artifact(
             ComposeRequestArtifact(
@@ -345,7 +306,6 @@ class TestGlabPullRequestStepAffectedRepos:
             )
         )
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         def _delta_guard_side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
             result = MagicMock()
@@ -382,30 +342,22 @@ class TestGlabPullRequestStepAffectedRepos:
         ]
         assert len(glab_create_calls) == 0
 
-
 class TestGlabPullRequestStepDraftFlag:
     """Tests verifying GlabPullRequestStep adds --draft flag based on pipeline_type."""
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_thin_pipeline_includes_draft_flag(
         self,
         mock_environ,
         mock_run,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit_and_log,
-        store_mr: ArtifactStore,
-    ) -> None:
+        mock_emit_and_log) -> None:
         """When pipeline_type is 'thin', glab mr create command includes --draft."""
         mock_environ["GITLAB_PAT"] = "fake-token"
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_run.side_effect = _subprocess_side_effect
 
-        context = _make_context(store_mr, pipeline_type="thin")
+        context = _make_context(pipeline_type="thin")
 
         step = GlabPullRequestStep()
         result = step.run(context)
@@ -415,25 +367,18 @@ class TestGlabPullRequestStepDraftFlag:
         assert "--draft" in cmd_args
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_full_pipeline_omits_draft_flag(
         self,
         mock_environ,
         mock_run,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit_and_log,
-        store_mr: ArtifactStore,
-    ) -> None:
+        mock_emit_and_log) -> None:
         """When pipeline_type is 'full', glab mr create command does not include --draft."""
         mock_environ["GITLAB_PAT"] = "fake-token"
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_run.side_effect = _subprocess_side_effect
 
-        context = _make_context(store_mr, pipeline_type="full")
+        context = _make_context(pipeline_type="full")
 
         step = GlabPullRequestStep()
         result = step.run(context)
@@ -443,25 +388,18 @@ class TestGlabPullRequestStepDraftFlag:
         assert "--draft" not in cmd_args
 
     @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
-    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
-    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_patch_pipeline_omits_draft_flag(
         self,
         mock_environ,
         mock_run,
-        _mock_log,
-        mock_emit_artifact,
-        mock_emit_and_log,
-        store_mr: ArtifactStore,
-    ) -> None:
+        mock_emit_and_log) -> None:
         """When pipeline_type is 'patch', glab mr create command does not include --draft."""
         mock_environ["GITLAB_PAT"] = "fake-token"
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_run.side_effect = _subprocess_side_effect
 
-        context = _make_context(store_mr, pipeline_type="patch")
+        context = _make_context(pipeline_type="patch")
 
         step = GlabPullRequestStep()
         result = step.run(context)
@@ -470,24 +408,17 @@ class TestGlabPullRequestStepDraftFlag:
         cmd_args = _find_glab_create_cmd(mock_run)
         assert "--draft" not in cmd_args
 
-
 class TestGlabPullRequestStepAttachment:
     """Tests for attachment note posting/updating on GitLab merge requests."""
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
-    @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_note_posted_on_create(
         self,
         mock_subprocess: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When fetch-issue and plan artifacts exist, glab mr note is called
         after MR create."""
         _write_fetch_issue_and_plan_artifacts(store)
@@ -501,7 +432,6 @@ class TestGlabPullRequestStepAttachment:
         )
 
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_subprocess.side_effect = _make_subprocess_side_effect()
 
         step = GlabPullRequestStep()
@@ -530,18 +460,12 @@ class TestGlabPullRequestStepAttachment:
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
-    @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_note_posted_on_adopt(
         self,
         mock_subprocess: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """When an existing MR is adopted, attachment note is posted on the adopted MR."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -554,7 +478,6 @@ class TestGlabPullRequestStepAttachment:
         )
 
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_subprocess.side_effect = _make_subprocess_side_effect(adopt=True)
 
         step = GlabPullRequestStep()
@@ -582,18 +505,12 @@ class TestGlabPullRequestStepAttachment:
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
-    @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_skipped_when_artifacts_missing(
         self,
         mock_subprocess: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """No attachment subprocess calls when fetch-issue/plan artifacts are absent."""
         # Only write compose-request -- no fetch-issue or plan
         store.write_artifact(
@@ -606,7 +523,6 @@ class TestGlabPullRequestStepAttachment:
         )
 
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_subprocess.side_effect = _make_subprocess_side_effect()
 
         step = GlabPullRequestStep()
@@ -629,18 +545,12 @@ class TestGlabPullRequestStepAttachment:
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
-    @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_updated_on_rerun(
         self,
         mock_subprocess: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Existing attachment note found via glab api triggers PUT update."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -653,7 +563,6 @@ class TestGlabPullRequestStepAttachment:
         )
 
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_subprocess.side_effect = _make_subprocess_side_effect(existing_note_id=5001)
 
         step = GlabPullRequestStep()
@@ -686,18 +595,12 @@ class TestGlabPullRequestStepAttachment:
 
     @patch(_ATTACHMENT_PATCHES[0])
     @patch(_ATTACHMENT_PATCHES[1])
-    @patch(_ATTACHMENT_PATCHES[2])
-    @patch(_ATTACHMENT_PATCHES[3])
     @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
     def test_attachment_failure_does_not_fail_step(
         self,
         mock_subprocess: MagicMock,
-        _mock_log: MagicMock,
-        mock_emit_artifact: MagicMock,
         mock_emit: MagicMock,
-        base_context: WorkflowContext,
-        store: ArtifactStore,
-    ) -> None:
+        base_context: WorkflowContext) -> None:
         """Attachment posting failure is caught and the step still returns success."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
@@ -710,7 +613,6 @@ class TestGlabPullRequestStepAttachment:
         )
 
         mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
         mock_subprocess.side_effect = _make_subprocess_side_effect(attachment_error=True)
 
         step = GlabPullRequestStep()

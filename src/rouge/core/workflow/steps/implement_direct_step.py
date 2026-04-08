@@ -5,18 +5,10 @@ from pydantic import ValidationError
 from rouge.core.agent import execute_prompt_raw
 from rouge.core.json_parser import parse_and_validate_json
 from rouge.core.models import CommentPayload
-from rouge.core.notifications.comments import (
-    emit_artifact_comment,
-    emit_comment_from_payload,
-    log_artifact_comment_status,
-)
+from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import (
-    FetchIssueArtifact,
-    ImplementDirectArtifact,
-)
 from rouge.core.workflow.shared import AGENT_PLAN_IMPLEMENTOR
-from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.steps.implement_step import (
     IMPLEMENT_DIRECT_JSON_SCHEMA,
     IMPLEMENT_DIRECT_REQUIRED_FIELDS,
@@ -109,20 +101,12 @@ class ImplementDirectStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
 
-        # Load issue from fetch-issue artifact (required)
-        try:
-            issue = context.load_required_artifact(
-                "issue",
-                "fetch-issue",
-                FetchIssueArtifact,
-                lambda a: a.issue,
-            )
-        except StepInputError as e:
-            logger.error("Cannot implement: no issue available: %s", e)
-            return StepResult.fail(
-                f"Cannot implement: no issue available: {e}",
-                rerun_from="Fetching issue",
-            )
+        # Load issue from context (required - set by FetchIssueStep)
+        if context.issue is None:
+            error_msg = "Cannot implement: no issue available (context.issue is None)"
+            logger.error(error_msg)
+            return StepResult.fail(error_msg, rerun_from="Fetching issue")
+        issue = context.issue
 
         if issue is None or not issue.description or not issue.description.strip():
             logger.error("Cannot implement: issue has no description")
@@ -149,17 +133,6 @@ class ImplementDirectStep(WorkflowStep):
 
         # Store implementation data in context
         context.data["implement_data"] = implement_response.data
-
-        # Save artifact
-        artifact = ImplementDirectArtifact(
-            workflow_id=context.adw_id,
-            implement_data=implement_response.data,
-        )
-        context.artifact_store.write_artifact(artifact)
-        logger.debug("Saved implementation artifact for workflow %s", context.adw_id)
-
-        status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
-        log_artifact_comment_status(status, msg)
 
         self._emit_completion_comment(context)
 
