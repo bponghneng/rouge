@@ -59,6 +59,8 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
 _MAX_BODY_CHARS = 60_000
 _TRUNCATION_NOTICE = "\n\n… *(content truncated to fit platform limits)*"
 
+_REVIEW_CONTEXT_MARKER = "<!-- rouge-review-context -->"
+
 
 def render_attachment_markdown(
     spec_text: str | None,
@@ -222,8 +224,7 @@ def post_gh_attachment_comment(
         env: Environment dict with the appropriate token set.
     """
     logger = get_logger(__name__)
-    marker = "<!-- rouge-review-context -->"
-    tagged_body = f"{marker}\n{body}"
+    tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
 
     list_cmd = [
         "gh",
@@ -233,7 +234,7 @@ def post_gh_attachment_comment(
         "--json",
         "comments",
         "--jq",
-        '.comments[] | select(.body | startswith("<!-- rouge-review-context -->")) | .databaseId',
+        f'.comments[] | select(.body | startswith("{_REVIEW_CONTEXT_MARKER}")) | .databaseId',
     ]
     result = subprocess.run(
         list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
@@ -299,9 +300,9 @@ def post_glab_attachment_note(
         env: Environment dict with the appropriate token set.
     """
     logger = get_logger(__name__)
-    marker = "<!-- rouge-review-context -->"
-    tagged_body = f"{marker}\n{body}"
+    tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
 
+    # NOTE: per_page=100 without pagination; duplicates possible on MRs with 100+ notes.
     list_cmd = [
         "glab",
         "api",
@@ -316,8 +317,8 @@ def post_glab_attachment_note(
         try:
             notes = json.loads(result.stdout)
             for note in notes:
-                if note.get("body", "").startswith(marker):
-                    existing_note_id = note["id"]
+                if note.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
+                    existing_note_id = int(note["id"])
                     break
         except (ValueError, KeyError):
             logger.debug("Failed to parse GitLab notes response for MR !%d", mr_number)
