@@ -366,6 +366,133 @@ def list_comments(
         raise ValueError(f"Failed to list comments: {e}") from e
 
 
+def list_mr_comments(
+    *,
+    issue_id: Optional[int] = None,
+    platform: Optional[str] = None,
+    limit: int = 10,
+    offset: int = 0,
+) -> list[dict]:
+    """List merge/pull-request comments with optional filters.
+
+    Queries artifact comments whose type is ``gh-pull-request`` or
+    ``glab-pull-request`` and flattens each comment's pull-request
+    entries into individual result dicts.
+
+    Note:
+        Pagination (``limit`` and ``offset``) applies to the underlying
+        comment rows, **not** to the flattened pull-request entries.  A
+        single comment may contain multiple pull-request entries, so the
+        number of returned dicts can exceed ``limit``.
+
+    Args:
+        issue_id: Optional issue ID to filter by.
+        platform: Optional platform filter — ``"github"``, ``"gitlab"``,
+            or ``None`` for all platforms.
+        limit: Maximum number of comment rows to return (default 10).
+        offset: Number of comment rows to skip (default 0).
+
+    Returns:
+        List of dicts, each representing a single pull-request entry with
+        keys: ``issue_id``, ``adw_id``, ``platform``, ``repo``,
+        ``number``, ``url``, ``adopted``.
+
+    Raises:
+        ValueError: If validation fails or the database query fails.
+    """
+    # -- input validation (mirrors list_comments) --
+    if limit < 1:
+        raise ValueError(f"limit must be >= 1, got {limit}")
+    if limit > MAX_LIMIT:
+        limit = MAX_LIMIT
+    if offset < 0:
+        raise ValueError(f"offset must be >= 0, got {offset}")
+    if issue_id is not None and issue_id <= 0:
+        raise ValueError(f"issue_id must be > 0, got {issue_id}")
+    if platform not in {"github", "gitlab", None}:
+        raise ValueError(
+            f"platform must be 'github', 'gitlab', or None, got {platform!r}"
+        )
+
+    # -- determine type filter --
+    _PLATFORM_TYPE_MAP = {
+        "github": ["gh-pull-request"],
+        "gitlab": ["glab-pull-request"],
+        None: ["gh-pull-request", "glab-pull-request"],
+    }
+    type_values = _PLATFORM_TYPE_MAP[platform]
+
+    try:
+        client = get_client()
+        query = client.table("comments").select("*").eq("source", "artifact")
+        query = query.in_("type", type_values)
+        if issue_id is not None:
+            query = query.eq("issue_id", issue_id)
+        response = (
+            query.order("created_at", desc=True).limit(limit).offset(offset).execute()
+        )
+
+        if not response.data:
+            return []
+
+        results: list[dict] = []
+        for row in response.data:
+            if not isinstance(row, dict):
+                logger.warning(
+                    "Skipping non-dict comment row: %s", type(row).__name__
+                )
+                continue
+
+            raw = row.get("raw")
+            if not isinstance(raw, dict):
+                logger.warning(
+                    "Skipping comment %s: 'raw' is not a dict", row.get("id")
+                )
+                continue
+
+            artifact = raw.get("artifact")
+            if not isinstance(artifact, dict):
+                logger.warning(
+                    "Skipping comment %s: 'raw.artifact' is not a dict",
+                    row.get("id"),
+                )
+                continue
+
+            pull_requests = artifact.get("pull_requests")
+            if not isinstance(pull_requests, list) or not pull_requests:
+                logger.warning(
+                    "Skipping comment %s: 'pull_requests' missing or empty",
+                    row.get("id"),
+                )
+                continue
+
+            artifact_platform = artifact.get("platform")
+            for pr_entry in pull_requests:
+                if not isinstance(pr_entry, dict):
+                    logger.warning(
+                        "Skipping malformed PR entry in comment %s",
+                        row.get("id"),
+                    )
+                    continue
+                results.append(
+                    {
+                        "issue_id": row.get("issue_id"),
+                        "adw_id": row.get("adw_id"),
+                        "platform": artifact_platform,
+                        "repo": pr_entry.get("repo"),
+                        "number": pr_entry.get("number"),
+                        "url": pr_entry.get("url"),
+                        "adopted": pr_entry.get("adopted", False),
+                    }
+                )
+
+        return results
+
+    except APIError as e:
+        logger.exception("Database error listing MR comments")
+        raise ValueError(f"Failed to list MR comments: {e}") from e
+
+
 # ============================================================================
 # Issue Updates
 # ============================================================================
