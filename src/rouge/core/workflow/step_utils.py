@@ -320,7 +320,7 @@ def post_glab_attachment_note(
                 if note.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
                     existing_note_id = int(note["id"])
                     break
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError, AttributeError):
             logger.debug("Failed to parse GitLab notes response for MR !%d", mr_number)
 
     if existing_note_id:
