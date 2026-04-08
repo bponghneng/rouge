@@ -370,7 +370,7 @@ class ComposeCommitsStep(WorkflowStep):
         try:
             attachment_md = load_and_render_patch_attachment(context)
         except Exception:
-            logger.warning("Failed to render patch review-context attachment", exc_info=True)
+            logger.error("Failed to render patch review-context attachment", exc_info=True)
 
         # Multi-repo PR detection and push loop
         issue_id = context.require_issue_id
@@ -444,7 +444,7 @@ class ComposeCommitsStep(WorkflowStep):
                         else:
                             post_glab_attachment_note(repo_path, pr_number, attachment_md, env)
                     except Exception:
-                        logger.warning(
+                        logger.error(
                             "Failed to post review-context on %s for %s",
                             platform,
                             repo_path,

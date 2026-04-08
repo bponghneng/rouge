@@ -501,7 +501,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
     registry.register(
         ComposeCommitsStep,
         slug="compose-commits",
-        dependencies=[],
+        dependencies=["fetch-patch", "plan"],
         outputs=["compose-commits"],
         is_critical=False,
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
