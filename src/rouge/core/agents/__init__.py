@@ -1,7 +1,7 @@
 """Provider-agnostic coding agent interfaces and registry.
 
 This package provides a clean abstraction for integrating multiple
-coding agent providers (Claude Code, Aider, Cursor, etc.) with Rouge.
+coding agent providers (Claude Code and custom providers) with Rouge.
 
 Use get_agent() to obtain the configured provider instance.
 
