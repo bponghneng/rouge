@@ -727,8 +727,6 @@ def update(
             kwargs["branch"] = branch
         if normalized_status is not None:
             kwargs["status"] = normalized_status
-
-        # Call update_issue with the constructed kwargs
         issue = update_issue(issue_id, **kwargs)
 
         # Output issue ID on success (for scripting compatibility)
