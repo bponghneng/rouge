@@ -168,7 +168,7 @@ class TestEndToEndResumeFlow:
                 write_worker_artifact(worker)
 
                 with patch("rouge.cli.resume.fetch_issue", return_value=mock_issue):
-                    with patch("rouge.cli.resume.update_issue") as mock_update:
+                    with patch("rouge.cli.resume.transition_issue_status") as mock_update:
                         with patch("rouge.cli.resume.execute_adw_workflow") as mock_execute:
                             mock_execute.return_value = (True, "adw-resume-123")
 
@@ -183,7 +183,7 @@ class TestEndToEndResumeFlow:
                 assert "adw-resume-123" in result.output
 
                 # Verify issue status was updated to started
-                mock_update.assert_called_once_with(123, status="started")
+                mock_update.assert_called_once_with(123, "started")
 
                 # Verify execute_adw_workflow was called with correct params
                 mock_execute.assert_called_once_with(
@@ -484,7 +484,7 @@ class TestWorkerArtifactResumeIntegration:
 
             with patch("rouge.cli.resume.RougePaths.get_base_dir", return_value=tmp_path):
                 with patch("rouge.cli.resume.fetch_issue", return_value=mock_issue):
-                    with patch("rouge.cli.resume.update_issue"):
+                    with patch("rouge.cli.resume.transition_issue_status"):
                         with patch("rouge.cli.resume.execute_adw_workflow") as mock_execute:
                             mock_execute.return_value = (True, "adw-789")
 

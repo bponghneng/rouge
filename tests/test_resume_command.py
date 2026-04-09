@@ -139,10 +139,10 @@ class TestResumeCommandArtifactLoading:
     """Tests for workflow state artifact loading in resume command."""
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_loads_workflow_state_artifact(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test resume command loads workflow state artifact."""
         mock_issue = Issue(
@@ -256,10 +256,10 @@ class TestResumeCommandWorkflowInvocation:
     """Tests for workflow execution during resume."""
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_invokes_execute_adw_workflow(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test resume command invokes execute_adw_workflow with correct params."""
         mock_issue = Issue(
@@ -295,10 +295,10 @@ class TestResumeCommandWorkflowInvocation:
             )
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_resets_issue_status_to_started(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test resume command resets issue status from failed to started."""
         mock_issue = Issue(
@@ -326,13 +326,13 @@ class TestResumeCommandWorkflowInvocation:
             result = runner.invoke(app, ["resume", "888"])
 
             assert result.exit_code == 0
-            mock_update_issue.assert_called_once_with(888, status="started")
+            mock_transition_issue_status.assert_called_once_with(888, "started")
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_fails_when_workflow_execution_fails(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test resume command handles workflow execution failure."""
         mock_issue = Issue(
@@ -363,10 +363,10 @@ class TestResumeCommandWorkflowInvocation:
             assert "Error: Workflow execution failed during resume" in result.output
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_outputs_workflow_id_on_success(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test resume command outputs workflow ID on success."""
         mock_issue = Issue(
@@ -403,14 +403,14 @@ class TestResumeCommandWorkerArtifactUpdate:
     @patch("rouge.cli.resume.transition_worker_artifact")
     @patch("rouge.cli.resume.read_worker_artifact")
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     @patch("rouge.cli.resume.RougePaths.get_base_dir")
     def test_resume_updates_worker_with_matching_issue_id(
         self,
         mock_get_base_dir,
         mock_fetch_issue,
-        mock_update_issue,
+        mock_transition_issue_status,
         mock_execute_adw,
         mock_read_worker,
         mock_transition_worker,
@@ -481,14 +481,14 @@ class TestResumeCommandWorkerArtifactUpdate:
     @patch("rouge.cli.resume.transition_worker_artifact")
     @patch("rouge.cli.resume.read_worker_artifact")
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     @patch("rouge.cli.resume.RougePaths.get_base_dir")
     def test_resume_skips_workers_without_matching_issue_id(
         self,
         mock_get_base_dir,
         mock_fetch_issue,
-        mock_update_issue,
+        mock_transition_issue_status,
         mock_execute_adw,
         mock_read_worker,
         mock_transition_worker,
@@ -540,11 +540,16 @@ class TestResumeCommandWorkerArtifactUpdate:
             mock_transition_worker.assert_not_called()
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     @patch("rouge.cli.resume.RougePaths.get_base_dir")
     def test_resume_handles_missing_workers_directory(
-        self, mock_get_base_dir, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self,
+        mock_get_base_dir,
+        mock_fetch_issue,
+        mock_transition_issue_status,
+        mock_execute_adw,
+        tmp_path,
     ) -> None:
         """Test resume handles case when workers directory doesn't exist."""
         # No workers directory created
@@ -582,10 +587,10 @@ class TestResumeCommandResumeFromOverride:
     """Tests for --resume-from CLI option override behavior."""
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_from_with_no_failed_step_succeeds(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test --resume-from provided with failed_step=None succeeds and uses supplied step."""
         mock_issue = Issue(
@@ -622,10 +627,10 @@ class TestResumeCommandResumeFromOverride:
             )
 
     @patch("rouge.cli.resume.execute_adw_workflow")
-    @patch("rouge.cli.resume.update_issue")
+    @patch("rouge.cli.resume.transition_issue_status")
     @patch("rouge.cli.resume.fetch_issue")
     def test_resume_from_overrides_failed_step(
-        self, mock_fetch_issue, mock_update_issue, mock_execute_adw, tmp_path
+        self, mock_fetch_issue, mock_transition_issue_status, mock_execute_adw, tmp_path
     ) -> None:
         """Test --resume-from wins over failed_step when both are set."""
         mock_issue = Issue(
