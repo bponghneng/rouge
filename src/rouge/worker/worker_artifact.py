@@ -169,17 +169,25 @@ def transition_worker_artifact(
         artifact.current_issue_id = None
         artifact.current_adw_id = None
     artifact.refresh_timestamp()
-    write_worker_artifact(artifact)
-    logger.info(
-        "Worker %s transitioned from '%s' to '%s'%s",
-        artifact.worker_id,
-        from_state,
-        state,
-        " (issue cleared)" if clear_issue else "",
-    )
+    wrote = write_worker_artifact(artifact)
+    if wrote:
+        logger.info(
+            "Worker %s transitioned from '%s' to '%s'%s",
+            artifact.worker_id,
+            from_state,
+            state,
+            " (issue cleared)" if clear_issue else "",
+        )
+    else:
+        logger.warning(
+            "Worker %s transition from '%s' to '%s' may not have persisted (write failed)",
+            artifact.worker_id,
+            from_state,
+            state,
+        )
 
 
-def write_worker_artifact(artifact: WorkerArtifact) -> None:
+def write_worker_artifact(artifact: WorkerArtifact) -> bool:
     """Write a worker artifact to disk.
 
     This is a best-effort operation that will not raise exceptions.
@@ -187,12 +195,15 @@ def write_worker_artifact(artifact: WorkerArtifact) -> None:
 
     Args:
         artifact: The WorkerArtifact to persist
+
+    Returns:
+        True if the artifact was successfully written, False otherwise.
     """
     try:
         artifact_path = _get_worker_artifact_path(artifact.worker_id)
     except ValueError as e:
         logger.warning("Invalid worker_id for write: %s", e)
-        return
+        return False
 
     temp_path = None
     try:
@@ -220,6 +231,7 @@ def write_worker_artifact(artifact: WorkerArtifact) -> None:
 
         # Only log success after atomic replace completes
         logger.debug("Wrote worker artifact for %s to %s", artifact.worker_id, artifact_path)
+        return True
     except Exception as e:
         # Best-effort: log but don't raise
         # Clean up temp file on failure
@@ -229,3 +241,4 @@ def write_worker_artifact(artifact: WorkerArtifact) -> None:
             except Exception:
                 pass  # Ignore cleanup errors
         logger.warning("Failed to write worker artifact for %s: %s", artifact.worker_id, e)
+        return False
