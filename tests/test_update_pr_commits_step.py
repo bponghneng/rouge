@@ -6,7 +6,7 @@ verifying that the step works independently without loading parent artifacts.
 
 import json
 import subprocess
-from typing import Callable
+from typing import Any, Callable, Sequence
 from unittest.mock import Mock, patch
 
 import pytest
@@ -136,7 +136,7 @@ class TestDetectPrPlatform:
         """Test handles timeout from gh command gracefully."""
         step = ComposeCommitsStep()
 
-        def raise_timeout(*_args, **_kwargs):
+        def raise_timeout(*_args: Any, **_kwargs: Any) -> None:
             raise subprocess.TimeoutExpired(cmd="gh", timeout=30)
 
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
@@ -254,7 +254,7 @@ class TestComposeCommits:
         branch_result = Mock(returncode=0, stdout="feature-branch\n", stderr="")
         push_result = Mock(returncode=0, stdout="", stderr="")
 
-        def subprocess_side_effect(cmd, **_kwargs):
+        def subprocess_side_effect(cmd: Sequence[str], **_kwargs: Any) -> Mock:
             if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
                 return branch_result
             if cmd[0] == "git" and cmd[1] == "push":
@@ -423,7 +423,7 @@ class TestComposeCommitsMultiRepo:
         mock_exec.return_value = mock_response
         mock_parse.return_value = mock_parse_response
 
-        def subprocess_side_effect(cmd, **kwargs):
+        def subprocess_side_effect(cmd: Sequence[str], **kwargs: Any) -> Mock:
             if cmd == ["git", "symbolic-ref", "--short", "HEAD"]:
                 return Mock(returncode=0, stdout="feature-branch\n", stderr="")
             if cmd[0] == "git" and cmd[1] == "push":
@@ -491,7 +491,7 @@ class TestComposeCommitsMultiRepo:
         mock_exec.return_value = mock_response
         mock_parse.return_value = mock_parse_response
 
-        def subprocess_side_effect(cmd, **kwargs):
+        def subprocess_side_effect(cmd: Sequence[str], **kwargs: Any) -> Mock:
             cwd = kwargs.get("cwd", "")
             if cmd == ["gh", "pr", "view", "--json", "url,number"]:
                 # Only /repo/with-pr has a PR
@@ -547,7 +547,7 @@ class TestPatchReviewContext:
     # -- helpers ----------------------------------------------------------
 
     @staticmethod
-    def _mock_compose_commits(mock_request, mock_exec, mock_parse) -> None:
+    def _mock_compose_commits(mock_request: Mock, mock_exec: Mock, mock_parse: Mock) -> None:
         """Wire up mocks so compose-commits succeeds."""
         mock_request_instance = Mock()
         mock_request_instance.model_dump_json.return_value = "{}"
@@ -567,7 +567,7 @@ class TestPatchReviewContext:
     def _subprocess_github(pr_number: int = 42) -> Callable[..., Mock]:
         """Return a subprocess side-effect for a GitHub repo with a PR."""
 
-        def _side_effect(cmd, **kwargs):
+        def _side_effect(cmd: Sequence[str], **kwargs: Any) -> Mock:
             if cmd == ["gh", "pr", "view", "--json", "url,number"]:
                 return Mock(
                     returncode=0,
@@ -590,7 +590,7 @@ class TestPatchReviewContext:
     def _subprocess_gitlab(mr_number: int = 7) -> Callable[..., Mock]:
         """Return a subprocess side-effect for a GitLab repo with an MR."""
 
-        def _side_effect(cmd, **kwargs):
+        def _side_effect(cmd: Sequence[str], **kwargs: Any) -> Mock:
             if cmd == ["glab", "mr", "view", "--output", "json"]:
                 return Mock(
                     returncode=0,
@@ -801,7 +801,7 @@ class TestPatchReviewContext:
         mock_load_attachment.return_value = "## Review Context"
 
         # gh pr view returns url but no number field
-        def _side_effect(cmd, **kwargs):
+        def _side_effect(cmd: Sequence[str], **kwargs: Any) -> Mock:
             if cmd == ["gh", "pr", "view", "--json", "url,number"]:
                 return Mock(
                     returncode=0,
