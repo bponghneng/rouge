@@ -178,7 +178,7 @@ def reset_worker(
 def main_entry() -> None:
     """Entry point for the rouge-worker CLI."""
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.DEBUG,
         format="%(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
