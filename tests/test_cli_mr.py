@@ -47,6 +47,7 @@ class TestMrListCommand:
         assert "123" in result.output
         assert "https://github.com/org/repo/pull/123" in result.output
         assert "False" in result.output
+        assert "org/repo                       " not in result.output
 
     @patch("rouge.cli.mr.list_mr_comments")
     def test_list_json_output(self, mock_list_mr_comments) -> None:

@@ -122,21 +122,32 @@ def list_command(
         if format == OutputFormat.JSON:
             typer.echo(json.dumps(results, indent=2))
         else:
-            header = (
-                f"{'Issue':<8} {'Platform':<10} {'Repo':<30}"
-                f" {'Number':<8} {'URL':<50} {'Adopted':<8}"
-            )
-            typer.echo(header)
-            typer.echo("-" * 116)
-
+            rows = []
             for row in results:
-                issue = str(row.get("issue_id", ""))
-                plat = row.get("platform") or "(none)"
-                repo = row.get("repo") or "(none)"
-                number = str(row.get("number", ""))
-                url = row.get("url") or "(none)"
-                adopted = str(row.get("adopted", False))
-                typer.echo(f"{issue:<8} {plat:<10} {repo:<30} {number:<8} {url:<50} {adopted:<8}")
+                rows.append(
+                    {
+                        "Issue": str(row.get("issue_id", "")),
+                        "Platform": row.get("platform") or "(none)",
+                        "Repo": row.get("repo") or "(none)",
+                        "Number": str(row.get("number", "")),
+                        "URL": row.get("url") or "(none)",
+                        "Adopted": str(row.get("adopted", False)),
+                    }
+                )
+
+            columns = ["Issue", "Platform", "Repo", "Number", "URL", "Adopted"]
+            widths = {
+                column: max(len(column), *(len(row[column]) for row in rows)) for column in columns
+            }
+
+            def format_row(row: dict[str, str]) -> str:
+                return "  ".join(f"{row[column]:<{widths[column]}}" for column in columns).rstrip()
+
+            header = format_row({column: column for column in columns})
+            typer.echo(header)
+            typer.echo("-" * len(header))
+            for row in rows:
+                typer.echo(format_row(row))
 
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)

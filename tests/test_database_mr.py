@@ -225,6 +225,30 @@ class TestListMrComments:
         assert results == []
 
     @patch("rouge.core.database.get_client")
+    def test_repo_falls_back_to_url_owner_and_repo(self, mock_get_client: Mock) -> None:
+        """Repo display uses owner/repo from URL when stored repo is only a basename."""
+        mock_client = Mock()
+        mock_get_client.return_value = mock_client
+
+        rows = [
+            _make_comment_row(
+                pull_requests=[
+                    {
+                        "repo": "rouge",
+                        "number": 123,
+                        "url": "https://github.com/bponghneng/rouge/pull/123",
+                        "adopted": False,
+                    }
+                ]
+            )
+        ]
+        _build_mock_chain(mock_client, rows)
+
+        results = list_mr_comments()
+
+        assert results[0]["repo"] == "bponghneng/rouge"
+
+    @patch("rouge.core.database.get_client")
     def test_malformed_payload_missing_pull_requests(self, mock_get_client: Mock) -> None:
         """Comment with raw missing artifact.pull_requests is skipped."""
         mock_client = Mock()
