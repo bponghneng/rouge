@@ -464,7 +464,7 @@ class TestTransitionWorkerArtifactLogging:
     """Tests for transition_worker_artifact INFO logging."""
 
     @patch("rouge.worker.worker_artifact.write_worker_artifact")
-    def test_transition_worker_artifact_logs_info(self, _mock_write, caplog):
+    def test_transition_worker_artifact_logs_info(self, _mock_write, caplog) -> None:
         """Test that transition_worker_artifact emits an INFO log with expected format."""
         artifact = WorkerArtifact(worker_id="w1", state="working")
         with caplog.at_level(logging.INFO):
@@ -472,7 +472,7 @@ class TestTransitionWorkerArtifactLogging:
         assert "Worker w1 transitioned from 'working' to 'ready' (issue cleared)" in caplog.text
 
     @patch("rouge.worker.worker_artifact.write_worker_artifact")
-    def test_transition_worker_artifact_logs_without_clear_issue(self, _mock_write, caplog):
+    def test_transition_worker_artifact_logs_without_clear_issue(self, _mock_write, caplog) -> None:
         """Test log message omits '(issue cleared)' when clear_issue is False."""
         artifact = WorkerArtifact(worker_id="w2", state="ready")
         with caplog.at_level(logging.INFO):
@@ -481,7 +481,7 @@ class TestTransitionWorkerArtifactLogging:
         assert "(issue cleared)" not in caplog.text
 
     @patch("rouge.worker.worker_artifact.write_worker_artifact")
-    def test_transition_worker_artifact_updates_state(self, _mock_write):
+    def test_transition_worker_artifact_updates_state(self, _mock_write) -> None:
         """Test that transition_worker_artifact actually updates the artifact state."""
         artifact = WorkerArtifact(
             worker_id="w3",
