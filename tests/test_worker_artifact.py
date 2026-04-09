@@ -1,6 +1,7 @@
 """Unit tests for WorkerArtifact and worker artifact persistence."""
 
 import json
+import logging
 from datetime import datetime
 from unittest.mock import patch
 
@@ -10,6 +11,7 @@ from pydantic import ValidationError
 from rouge.worker.worker_artifact import (
     WorkerArtifact,
     read_worker_artifact,
+    transition_worker_artifact,
     write_worker_artifact,
 )
 
@@ -456,3 +458,38 @@ class TestWorkerArtifactPath:
         assert path1.parent != path2.parent
         assert path1.parent.name == "worker-1"
         assert path2.parent.name == "worker-2"
+
+
+class TestTransitionWorkerArtifactLogging:
+    """Tests for transition_worker_artifact INFO logging."""
+
+    @patch("rouge.worker.worker_artifact.write_worker_artifact")
+    def test_transition_worker_artifact_logs_info(self, _mock_write, caplog):
+        """Test that transition_worker_artifact emits an INFO log with expected format."""
+        artifact = WorkerArtifact(worker_id="w1", state="working")
+        with caplog.at_level(logging.INFO):
+            transition_worker_artifact(artifact, "ready", clear_issue=True)
+        assert "Worker w1 transitioned from 'working' to 'ready' (issue cleared)" in caplog.text
+
+    @patch("rouge.worker.worker_artifact.write_worker_artifact")
+    def test_transition_worker_artifact_logs_without_clear_issue(self, _mock_write, caplog):
+        """Test log message omits '(issue cleared)' when clear_issue is False."""
+        artifact = WorkerArtifact(worker_id="w2", state="ready")
+        with caplog.at_level(logging.INFO):
+            transition_worker_artifact(artifact, "working")
+        assert "Worker w2 transitioned from 'ready' to 'working'" in caplog.text
+        assert "(issue cleared)" not in caplog.text
+
+    @patch("rouge.worker.worker_artifact.write_worker_artifact")
+    def test_transition_worker_artifact_updates_state(self, _mock_write):
+        """Test that transition_worker_artifact actually updates the artifact state."""
+        artifact = WorkerArtifact(
+            worker_id="w3",
+            state="working",
+            current_issue_id=42,
+            current_adw_id="adw-42",
+        )
+        transition_worker_artifact(artifact, "ready", clear_issue=True)
+        assert artifact.state == "ready"
+        assert artifact.current_issue_id is None
+        assert artifact.current_adw_id is None

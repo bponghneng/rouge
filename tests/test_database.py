@@ -15,6 +15,7 @@ from rouge.core.database import (
     fetch_issue,
     get_client,
     list_comments,
+    transition_issue_status,
     update_issue,
 )
 from rouge.core.models import Comment
@@ -2057,3 +2058,68 @@ def test_update_issue_adw_id_empty_raises(_mock_get_client) -> None:
     """Test validation error for empty/whitespace-only adw_id."""
     with pytest.raises(ValueError, match="adw_id cannot be empty/whitespace if provided"):
         update_issue(1, adw_id="  ")
+
+
+# ============================================================================
+# transition_issue_status tests
+# ============================================================================
+
+
+@patch("rouge.core.database.get_client")
+def test_transition_issue_status_logs_info(mock_get_client, caplog) -> None:
+    """Test that transition_issue_status emits an INFO log with issue_id, from_status, to_status."""
+    import logging
+
+    mock_client = Mock()
+    mock_table = Mock()
+
+    # Mock for fetch_issue (called by transition_issue_status)
+    mock_select_fetch = Mock()
+    mock_eq_fetch = Mock()
+    mock_execute_fetch = Mock()
+    mock_execute_fetch.data = [
+        {
+            "id": 123,
+            "description": "Test issue",
+            "status": "failed",
+        }
+    ]
+    mock_eq_fetch.execute.return_value = mock_execute_fetch
+    mock_select_fetch.eq.return_value = mock_eq_fetch
+
+    # Mock for update_issue select check
+    mock_select_check = Mock()
+    mock_eq_check = Mock()
+    mock_execute_check = Mock()
+    mock_execute_check.data = [{"id": 123}]
+    mock_eq_check.execute.return_value = mock_execute_check
+    mock_select_check.eq.return_value = mock_eq_check
+
+    # Mock for update_issue update call
+    mock_update = Mock()
+    mock_eq_update = Mock()
+    mock_execute_update = Mock()
+    mock_execute_update.data = [
+        {
+            "id": 123,
+            "description": "Test issue",
+            "status": "pending",
+        }
+    ]
+    mock_eq_update.execute.return_value = mock_execute_update
+    mock_update.eq.return_value = mock_eq_update
+
+    # Chain the table mock to return the right sub-mocks in order:
+    # 1st call: fetch_issue -> select("*").eq("id", 123)
+    # 2nd call: update_issue -> select("id").eq("id", 123)  (existence check)
+    # 3rd call: update_issue -> update({...}).eq("id", 123)
+    mock_table.select.side_effect = [mock_select_fetch, mock_select_check]
+    mock_table.update.return_value = mock_update
+    mock_client.table.return_value = mock_table
+    mock_get_client.return_value = mock_client
+
+    with caplog.at_level(logging.INFO):
+        result = transition_issue_status(123, "pending", assigned_to=None)
+
+    assert result.id == 123
+    assert "Issue 123 status transitioned from 'failed' to 'pending'" in caplog.text
