@@ -47,9 +47,7 @@ def validate_platform_option(value: Optional[str]) -> Optional[str]:
     if normalized in {"github", "gitlab"}:
         return normalized
 
-    raise typer.BadParameter(
-        f"Must be 'github', 'gitlab', 'all', or omitted. Got: {value!r}"
-    )
+    raise typer.BadParameter(f"Must be 'github', 'gitlab', 'all', or omitted. Got: {value!r}")
 
 
 def validate_positive_int(value: Optional[int], field_name: str) -> None:
@@ -124,9 +122,11 @@ def list_command(
         if format == OutputFormat.JSON:
             typer.echo(json.dumps(results, indent=2))
         else:
-            typer.echo(
-                f"{'Issue':<8} {'Platform':<10} {'Repo':<30} {'Number':<8} {'URL':<50} {'Adopted':<8}"
+            header = (
+                f"{'Issue':<8} {'Platform':<10} {'Repo':<30}"
+                f" {'Number':<8} {'URL':<50} {'Adopted':<8}"
             )
+            typer.echo(header)
             typer.echo("-" * 116)
 
             for row in results:
@@ -136,9 +136,7 @@ def list_command(
                 number = str(row.get("number", ""))
                 url = row.get("url") or "(none)"
                 adopted = str(row.get("adopted", False))
-                typer.echo(
-                    f"{issue:<8} {plat:<10} {repo:<30} {number:<8} {url:<50} {adopted:<8}"
-                )
+                typer.echo(f"{issue:<8} {plat:<10} {repo:<30} {number:<8} {url:<50} {adopted:<8}")
 
     except ValueError as e:
         typer.echo(f"Error: {e}", err=True)

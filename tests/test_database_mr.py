@@ -18,7 +18,7 @@ def _make_comment_row(
     platform="github",
     pull_requests=None,
     created_at="2024-01-01T12:00:00",
-):
+) -> dict:
     """Build a realistic comment row dict for mocking."""
     if pull_requests is None:
         pull_requests = [
@@ -46,7 +46,7 @@ def _make_comment_row(
     }
 
 
-def _build_mock_chain(mock_client, data):
+def _build_mock_chain(mock_client: Mock, data: list) -> dict[str, Mock]:
     """Wire up the Supabase query chain and return the leaf mocks.
 
     Returns a dict of named mocks so callers can assert on intermediate calls.
@@ -89,7 +89,7 @@ class TestListMrComments:
     """Tests for list_mr_comments()."""
 
     @patch("rouge.core.database.get_client")
-    def test_happy_path_two_comments(self, mock_get_client):
+    def test_happy_path_two_comments(self, mock_get_client: Mock) -> None:
         """Two comment rows each with one PR return two flattened dicts."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -129,7 +129,7 @@ class TestListMrComments:
         assert results[1]["adopted"] is True
 
     @patch("rouge.core.database.get_client")
-    def test_multi_pr_artifact(self, mock_get_client):
+    def test_multi_pr_artifact(self, mock_get_client: Mock) -> None:
         """One comment with two PRs produces two flattened rows."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -161,7 +161,7 @@ class TestListMrComments:
         assert results[1]["number"] == 2
 
     @patch("rouge.core.database.get_client")
-    def test_filter_by_issue_id(self, mock_get_client):
+    def test_filter_by_issue_id(self, mock_get_client: Mock) -> None:
         """Passing issue_id inserts an extra .eq call."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -174,7 +174,7 @@ class TestListMrComments:
         mocks["in_"].eq.assert_called_with("issue_id", 5)
 
     @patch("rouge.core.database.get_client")
-    def test_filter_by_platform_github(self, mock_get_client):
+    def test_filter_by_platform_github(self, mock_get_client: Mock) -> None:
         """platform='github' filters to gh-pull-request only."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -187,7 +187,7 @@ class TestListMrComments:
         mocks["eq_source"].in_.assert_called_with("type", ["gh-pull-request"])
 
     @patch("rouge.core.database.get_client")
-    def test_filter_by_platform_gitlab(self, mock_get_client):
+    def test_filter_by_platform_gitlab(self, mock_get_client: Mock) -> None:
         """platform='gitlab' filters to glab-pull-request only."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -200,7 +200,7 @@ class TestListMrComments:
         mocks["eq_source"].in_.assert_called_with("type", ["glab-pull-request"])
 
     @patch("rouge.core.database.get_client")
-    def test_no_platform_filter(self, mock_get_client):
+    def test_no_platform_filter(self, mock_get_client: Mock) -> None:
         """platform=None includes both PR types."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -210,12 +210,10 @@ class TestListMrComments:
 
         list_mr_comments(platform=None)
 
-        mocks["eq_source"].in_.assert_called_with(
-            "type", ["gh-pull-request", "glab-pull-request"]
-        )
+        mocks["eq_source"].in_.assert_called_with("type", ["gh-pull-request", "glab-pull-request"])
 
     @patch("rouge.core.database.get_client")
-    def test_empty_results(self, mock_get_client):
+    def test_empty_results(self, mock_get_client: Mock) -> None:
         """No matching comments returns an empty list."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -227,7 +225,7 @@ class TestListMrComments:
         assert results == []
 
     @patch("rouge.core.database.get_client")
-    def test_malformed_payload_missing_pull_requests(self, mock_get_client):
+    def test_malformed_payload_missing_pull_requests(self, mock_get_client: Mock) -> None:
         """Comment with raw missing artifact.pull_requests is skipped."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -249,7 +247,7 @@ class TestListMrComments:
         assert results == []
 
     @patch("rouge.core.database.get_client")
-    def test_empty_pull_requests_array(self, mock_get_client):
+    def test_empty_pull_requests_array(self, mock_get_client: Mock) -> None:
         """Comment with empty pull_requests list produces no rows."""
         mock_client = Mock()
         mock_get_client.return_value = mock_client
@@ -261,7 +259,7 @@ class TestListMrComments:
 
         assert results == []
 
-    def test_validation_errors(self):
+    def test_validation_errors(self) -> None:
         """Invalid arguments raise ValueError without hitting the DB."""
         with pytest.raises(ValueError, match="limit must be >= 1"):
             list_mr_comments(limit=0)

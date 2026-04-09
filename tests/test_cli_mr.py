@@ -73,9 +73,7 @@ class TestMrListCommand:
 
         result = runner.invoke(app, ["--issue-id", "5"])
         assert result.exit_code == 0
-        mock_list_mr_comments.assert_called_once_with(
-            issue_id=5, platform=None, limit=10, offset=0
-        )
+        mock_list_mr_comments.assert_called_once_with(issue_id=5, platform=None, limit=10, offset=0)
 
     @patch("rouge.cli.mr.list_mr_comments")
     def test_list_filter_by_platform(self, mock_list_mr_comments) -> None:
