@@ -128,4 +128,6 @@ def update_issue_status(
     except Exception:
         if logger:
             logger.exception("Error updating issue %s status", issue_id)
+        else:
+            logging.getLogger(__name__).exception("Error updating issue %s status", issue_id)
         return False
