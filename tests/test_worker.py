@@ -348,9 +348,11 @@ class TestUpdateIssueStatus:
         mock_issue.id = 123
         mock_issue.status = "completed"
 
-        with patch("rouge.worker.database._update_issue", return_value=mock_issue) as mock_update:
+        with patch(
+            "rouge.worker.database._transition_issue_status", return_value=mock_issue
+        ) as mock_transition:
             database.update_issue_status(123, "completed")
-            mock_update.assert_called_once_with(123, status="completed")
+            mock_transition.assert_called_once_with(123, "completed")
 
     def test_update_issue_status_claimed_accepted(self, mock_env) -> None:
         """Test that 'claimed' is accepted as a valid status by update_issue_status."""
@@ -358,13 +360,18 @@ class TestUpdateIssueStatus:
         mock_issue.id = 123
         mock_issue.status = "claimed"
 
-        with patch("rouge.worker.database._update_issue", return_value=mock_issue) as mock_update:
+        with patch(
+            "rouge.worker.database._transition_issue_status", return_value=mock_issue
+        ) as mock_transition:
             database.update_issue_status(123, "claimed")
-            mock_update.assert_called_once_with(123, status="claimed")
+            mock_transition.assert_called_once_with(123, "claimed")
 
     def test_update_issue_status_database_error(self, mock_env) -> None:
         """Test handling database errors during status update."""
-        with patch("rouge.worker.database._update_issue", side_effect=Exception("Database error")):
+        with patch(
+            "rouge.worker.database._transition_issue_status",
+            side_effect=Exception("Database error"),
+        ):
             # Should not raise exception
             database.update_issue_status(123, "completed")
 
@@ -1519,7 +1526,7 @@ class TestWorkerResetCLI:
         ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 0
-        assert "reset to ready" in result.output
+        # Step 4 removed typer.echo; transition is now logged via transition_worker_artifact
         mock_transition.assert_called_once_with(failed_artifact, "ready", clear_issue=True)
 
     def test_worker_reset_succeeds_when_working(self) -> None:
@@ -1538,5 +1545,5 @@ class TestWorkerResetCLI:
         ):
             result = runner.invoke(worker_app, ["reset", "test-worker"])
         assert result.exit_code == 0
-        assert "reset to ready" in result.output
+        # Step 4 removed typer.echo; transition is now logged via transition_worker_artifact
         mock_transition.assert_called_once_with(working_artifact, "ready", clear_issue=True)
