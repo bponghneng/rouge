@@ -722,3 +722,32 @@ def update_issue(
     except APIError as e:
         logger.exception("Database error updating issue %s", issue_id)
         raise ValueError(f"Failed to update issue {issue_id}: {e}") from e
+
+
+def transition_issue_status(
+    issue_id: int,
+    status: str,
+    **kwargs: Any,
+) -> Issue:
+    """Update issue status with standardized transition logging.
+
+    Reads the current issue to capture the from-state, delegates to
+    update_issue() for the actual update, and logs the transition at INFO.
+
+    Args:
+        issue_id: Issue ID to update
+        status: New status value
+        **kwargs: Additional fields to pass to update_issue()
+
+    Returns:
+        Updated Issue object (propagates ValueError/TypeError from update_issue)
+    """
+    current = fetch_issue(issue_id)
+    updated = update_issue(issue_id, status=status, **kwargs)
+    logger.info(
+        "Issue %s status transitioned from '%s' to '%s'",
+        issue_id,
+        current.status,
+        status,
+    )
+    return updated
