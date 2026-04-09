@@ -11,13 +11,6 @@ from .config import WorkerConfig
 from .worker import IssueWorker
 from .worker_artifact import read_worker_artifact, transition_worker_artifact
 
-# Configure logging for worker CLI commands
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
-
 
 # Compute defaults from environment
 def _get_default_timeout() -> int:
@@ -184,4 +177,9 @@ def reset_worker(
 
 def main_entry() -> None:
     """Entry point for the rouge-worker CLI."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
     app()
