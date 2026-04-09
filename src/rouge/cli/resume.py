@@ -127,7 +127,12 @@ def resume(
                 workflow_type=pipeline_type,
             )
         except Exception as e:
-            transition_issue_status(issue_id, "failed")
+            try:
+                transition_issue_status(issue_id, "failed")
+            except Exception as reset_err:
+                logger.warning(
+                    "Failed to reset issue %s to 'failed' after error: %s", issue_id, reset_err
+                )
             logger.exception("Workflow execution failed during resume: %s", e)
             typer.echo(
                 f"Error: Workflow execution failed during resume: {e}",
@@ -136,7 +141,14 @@ def resume(
             raise typer.Exit(1)
 
         if not success:
-            transition_issue_status(issue_id, "failed")
+            try:
+                transition_issue_status(issue_id, "failed")
+            except Exception as reset_err:
+                logger.warning(
+                    "Failed to reset issue %s to 'failed' after workflow failure: %s",
+                    issue_id,
+                    reset_err,
+                )
             typer.echo(
                 "Error: Workflow execution failed during resume",
                 err=True,
