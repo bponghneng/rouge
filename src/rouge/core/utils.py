@@ -5,6 +5,8 @@ import os
 import sys
 import uuid
 from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
 
 
 def make_adw_id() -> str:
@@ -121,3 +123,27 @@ def get_logger(adw_id: str) -> logging.Logger:
     if not adw_id:
         raise ValueError("adw_id must be a non-empty string")
     return logging.getLogger(f"rouge_{adw_id}")
+
+
+def extract_repo_from_pull_request_url(url: Any) -> str | None:
+    """Extract owner/repo (or group/project) from a PR/MR URL."""
+    if not isinstance(url, str) or not url:
+        return None
+
+    parsed = urlparse(url)
+    path_parts = [part for part in parsed.path.split("/") if part]
+    if not path_parts:
+        return None
+
+    if "pull" in path_parts:
+        marker_index = path_parts.index("pull")
+        repo_parts = path_parts[:marker_index]
+    elif "-" in path_parts:
+        marker_index = path_parts.index("-")
+        repo_parts = path_parts[:marker_index]
+    else:
+        repo_parts = path_parts[:2]
+
+    if len(repo_parts) < 2:
+        return None
+    return "/".join(repo_parts)

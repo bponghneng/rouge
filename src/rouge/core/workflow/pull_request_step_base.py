@@ -8,13 +8,12 @@ import os
 import subprocess
 from abc import ABC, abstractmethod
 from typing import ClassVar
-from urllib.parse import urlparse
 
 from rouge.core.notifications.comments import (
     emit_artifact_comment,
     log_artifact_comment_status,
 )
-from rouge.core.utils import get_logger
+from rouge.core.utils import extract_repo_from_pull_request_url, get_logger
 from rouge.core.workflow.artifacts import (
     ArtifactType,
     ComposeRequestArtifact,
@@ -25,30 +24,6 @@ from rouge.core.workflow.shared import get_affected_repo_paths, has_branch_delta
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _emit_and_log, load_and_render_attachment
 from rouge.core.workflow.types import StepResult
-
-
-def _extract_repo_from_pull_request_url(url: str | None) -> str | None:
-    """Extract owner/repo or group/project from a pull/merge request URL."""
-    if not url:
-        return None
-
-    parsed = urlparse(url)
-    path_parts = [part for part in parsed.path.split("/") if part]
-    if not path_parts:
-        return None
-
-    if "pull" in path_parts:
-        marker_index = path_parts.index("pull")
-        repo_parts = path_parts[:marker_index]
-    elif "-" in path_parts:
-        marker_index = path_parts.index("-")
-        repo_parts = path_parts[:marker_index]
-    else:
-        repo_parts = path_parts[:2]
-
-    if len(repo_parts) < 2:
-        return None
-    return "/".join(repo_parts)
 
 
 class PullRequestStepBase(WorkflowStep, ABC):
@@ -232,7 +207,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                     item_url, item_number = self._parse_existing_item(existing_item)
                     if item_url:
                         repo_display_name = (
-                            _extract_repo_from_pull_request_url(item_url) or repo_name
+                            extract_repo_from_pull_request_url(item_url) or repo_name
                         )
                         logger.info(
                             "Adopting existing %s for repo %s: %s",
@@ -449,7 +424,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
             return
 
         item_url, item_number = parsed
-        repo_display_name = _extract_repo_from_pull_request_url(item_url) or repo_name
+        repo_display_name = extract_repo_from_pull_request_url(item_url) or repo_name
         logger.info("%s created for %s: %s", self.entity_name, repo_display_name, item_url)
 
         entry = PullRequestEntry(

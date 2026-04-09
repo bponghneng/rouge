@@ -6,7 +6,6 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import urlparse
 
 import httpx
 from dotenv import find_dotenv, load_dotenv
@@ -14,7 +13,7 @@ from postgrest.exceptions import APIError
 from supabase import Client, ClientOptions, create_client
 
 from rouge.core.models import VALID_ISSUE_STATUSES, Comment, Issue
-from rouge.core.utils import make_adw_id
+from rouge.core.utils import extract_repo_from_pull_request_url, make_adw_id
 
 logger = logging.getLogger(__name__)
 
@@ -469,7 +468,7 @@ def list_mr_comments(
                     continue
                 repo = pr_entry.get("repo")
                 if not isinstance(repo, str) or "/" not in repo:
-                    repo = _extract_repo_from_pull_request_url(pr_entry.get("url")) or repo
+                    repo = extract_repo_from_pull_request_url(pr_entry.get("url")) or repo
                 results.append(
                     {
                         "issue_id": row.get("issue_id"),
@@ -487,30 +486,6 @@ def list_mr_comments(
     except APIError as e:
         logger.exception("Database error listing MR comments")
         raise ValueError(f"Failed to list MR comments: {e}") from e
-
-
-def _extract_repo_from_pull_request_url(url: Any) -> str | None:
-    """Extract owner/repo (or group/project) from a PR/MR URL."""
-    if not isinstance(url, str) or not url:
-        return None
-
-    parsed = urlparse(url)
-    path_parts = [part for part in parsed.path.split("/") if part]
-    if not path_parts:
-        return None
-
-    if "pull" in path_parts:
-        marker_index = path_parts.index("pull")
-        repo_parts = path_parts[:marker_index]
-    elif "-" in path_parts:
-        marker_index = path_parts.index("-")
-        repo_parts = path_parts[:marker_index]
-    else:
-        repo_parts = path_parts[:2]
-
-    if len(repo_parts) < 2:
-        return None
-    return "/".join(repo_parts)
 
 
 # ============================================================================
