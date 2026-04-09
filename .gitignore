@@ -56,6 +56,9 @@ dmypy.json
 # Environments
 .env
 .env.*
+.env.keys
+.env.local
+.env.*.local
 !.env.*.example
 .venv/
 env/
