@@ -165,6 +165,53 @@ class TestGhPullRequestStepWithArtifact:
         # Step should succeed (either skip due to missing gh or GITHUB_PAT)
         assert result.success is True
 
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
+    def test_stores_full_github_repo_name_in_artifact(
+        self,
+        mock_environ,
+        mock_run,
+        mock_which,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit,
+        store: ArtifactStore,
+    ) -> None:
+        """Stored PR artifact uses owner/repo rather than only the repo basename."""
+        mock_environ["GITHUB_PAT"] = "fake-token"
+        mock_environ["PATH"] = "/usr/bin"
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_run.side_effect = _gh_subprocess_side_effect
+
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                title="My PR Title",
+                summary="My PR Summary",
+                commits=[],
+            )
+        )
+
+        context = WorkflowContext(
+            adw_id="test-gh-pr",
+            issue_id=42,
+            artifact_store=store,
+            repo_paths=["/path/to/repo"],
+            pipeline_type="full",
+        )
+
+        step = GhPullRequestStep()
+        result = step.run(context)
+
+        assert result.success is True
+        artifact = store.read_artifact("gh-pull-request")
+        assert artifact.pull_requests[0].repo == "org/repo"
+
 
 class TestGhPullRequestStepDraftFlag:
     """Tests verifying GhPullRequestStep adds --draft flag based on pipeline_type."""

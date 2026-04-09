@@ -447,6 +447,34 @@ class TestGlabPullRequestStepDraftFlag:
     @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
     @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
     @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
+    def test_stores_full_gitlab_repo_name_in_artifact(
+        self,
+        mock_environ,
+        mock_run,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit_and_log,
+        store_mr: ArtifactStore,
+    ) -> None:
+        """Stored MR artifact uses group/project rather than only the repo basename."""
+        mock_environ["GITLAB_PAT"] = "fake-token"
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_run.side_effect = _subprocess_side_effect
+
+        context = _make_context(store_mr, pipeline_type="full")
+
+        step = GlabPullRequestStep()
+        result = step.run(context)
+
+        assert result.success is True
+        artifact = store_mr.read_artifact("glab-pull-request")
+        assert artifact.pull_requests[0].repo == "org/repo"
+
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.os.environ", new_callable=dict)
     def test_patch_pipeline_omits_draft_flag(
         self,
         mock_environ,
