@@ -410,9 +410,7 @@ def list_mr_comments(
     if issue_id is not None and issue_id <= 0:
         raise ValueError(f"issue_id must be > 0, got {issue_id}")
     if platform not in {"github", "gitlab", None}:
-        raise ValueError(
-            f"platform must be 'github', 'gitlab', or None, got {platform!r}"
-        )
+        raise ValueError(f"platform must be 'github', 'gitlab', or None, got {platform!r}")
 
     # -- determine type filter --
     _PLATFORM_TYPE_MAP = {
@@ -428,9 +426,7 @@ def list_mr_comments(
         query = query.in_("type", type_values)
         if issue_id is not None:
             query = query.eq("issue_id", issue_id)
-        response = (
-            query.order("created_at", desc=True).limit(limit).offset(offset).execute()
-        )
+        response = query.order("created_at", desc=True).limit(limit).offset(offset).execute()
 
         if not response.data:
             return []
@@ -438,16 +434,12 @@ def list_mr_comments(
         results: list[dict] = []
         for row in response.data:
             if not isinstance(row, dict):
-                logger.warning(
-                    "Skipping non-dict comment row: %s", type(row).__name__
-                )
+                logger.warning("Skipping non-dict comment row: %s", type(row).__name__)
                 continue
 
             raw = row.get("raw")
             if not isinstance(raw, dict):
-                logger.warning(
-                    "Skipping comment %s: 'raw' is not a dict", row.get("id")
-                )
+                logger.warning("Skipping comment %s: 'raw' is not a dict", row.get("id"))
                 continue
 
             artifact = raw.get("artifact")
