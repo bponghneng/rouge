@@ -46,7 +46,7 @@ def reset(
             raise typer.Exit(1)
 
         # Call update_issue with explicit parameters
-        # For full/thin type, clear branch; for patch type, preserve existing branch
+        # For full/thin type, clear branch; for patch/direct type, preserve existing branch
         if issue.type in ("full", "thin"):
             updated_issue = update_issue(
                 issue_id, assigned_to=None, status="pending", branch=None, adw_id=None
