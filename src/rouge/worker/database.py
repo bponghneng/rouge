@@ -7,7 +7,7 @@ import httpx
 
 from rouge.core.database import get_client as _get_client
 from rouge.core.database import reset_client
-from rouge.core.database import update_issue as _update_issue
+from rouge.core.database import transition_issue_status as _transition_issue_status
 from rouge.core.models import VALID_ISSUE_STATUSES
 from rouge.worker.exceptions import TransientDatabaseError
 
@@ -122,10 +122,7 @@ def update_issue_status(
         return False
 
     try:
-        _update_issue(issue_id, status=status)
-
-        if logger:
-            logger.debug("Updated issue %s status to %s", issue_id, status)
+        _transition_issue_status(issue_id, status)
         return True
 
     except Exception:
