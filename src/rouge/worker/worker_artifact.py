@@ -163,12 +163,20 @@ def transition_worker_artifact(
         state: New state to set
         clear_issue: If True, clears current_issue_id and current_adw_id
     """
+    from_state = artifact.state
     artifact.state = state
     if clear_issue:
         artifact.current_issue_id = None
         artifact.current_adw_id = None
     artifact.refresh_timestamp()
     write_worker_artifact(artifact)
+    logger.info(
+        "Worker %s transitioned from '%s' to '%s'%s",
+        artifact.worker_id,
+        from_state,
+        state,
+        " (issue cleared)" if clear_issue else "",
+    )
 
 
 def write_worker_artifact(artifact: WorkerArtifact) -> None:

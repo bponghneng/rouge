@@ -1,5 +1,6 @@
 """Command-line interface for the Rouge Worker."""
 
+import logging
 import os
 import sys
 from typing import Optional
@@ -9,6 +10,13 @@ import typer
 from .config import WorkerConfig
 from .worker import IssueWorker
 from .worker_artifact import read_worker_artifact, transition_worker_artifact
+
+# Configure logging for worker CLI commands
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
 
 
 # Compute defaults from environment
@@ -172,7 +180,6 @@ def reset_worker(
         )
         raise typer.Exit(1)
     transition_worker_artifact(artifact, "ready", clear_issue=True)
-    typer.echo(f"Worker '{worker_id}' reset to ready.")
 
 
 def main_entry() -> None:

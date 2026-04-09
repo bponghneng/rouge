@@ -119,7 +119,6 @@ def resume(
         try:
             # Reset issue status from 'failed' to 'started'
             update_issue(issue_id, status="started")
-            logger.info("Reset issue %s status from 'failed' to 'started'", issue_id)
 
             success, workflow_id = execute_adw_workflow(
                 issue.adw_id,
@@ -161,12 +160,15 @@ def resume(
                         # Update worker to ready state
                         transition_worker_artifact(worker_artifact, "ready", clear_issue=True)
                         updated_workers.append(worker_id)
-                        logger.info("Updated worker %s to ready state", worker_id)
 
                 if updated_workers:
-                    logger.info("Updated %s worker(s) to ready state", len(updated_workers))
+                    logger.info(
+                        "Resume reset %s worker artifact(s) for issue %s",
+                        len(updated_workers),
+                        issue_id,
+                    )
                 else:
-                    logger.info("No workers found with current_issue_id=%s", issue_id)
+                    logger.debug("No workers found with current_issue_id=%s", issue_id)
         except OSError as e:
             logger.warning(
                 "Failed to scan/update worker artifacts for issue_id=%s: %s",
