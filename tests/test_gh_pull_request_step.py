@@ -491,20 +491,22 @@ def _write_fetch_issue_and_plan_artifacts(store: ArtifactStore) -> None:
 
 def _make_subprocess_side_effect(
     *,
-    existing_comment_id: str | None = None,
+    existing_comment_id: int | None = None,
     attachment_error: bool = False,
+    list_comments_error: bool = False,
 ) -> object:
     """Build a side_effect callable for subprocess.run.
 
     Handles the standard sequence of subprocess calls made by the step:
     git rev-parse, gh pr list (adopt check), git push, gh pr create,
-    gh pr view (attachment list), and gh pr comment / gh api PATCH.
+    gh api issue-comments list, and gh pr comment / gh api PATCH.
 
     Args:
-        existing_comment_id: If set, the ``gh pr view`` call returns this
+        existing_comment_id: If set, the comment-list API returns this
             comment ID so the step uses PATCH instead of a new comment.
         attachment_error: If True, raise OSError for the attachment comment
             subprocess call.
+        list_comments_error: If True, the comment-list API returns a failure.
     """
 
     def _side_effect(cmd: list[str], **_kwargs: object) -> MagicMock:
@@ -538,13 +540,30 @@ def _make_subprocess_side_effect(
             result.stdout = "https://github.com/org/repo/pull/99\n"
             return result
 
-        # gh pr view (attachment comment listing)
-        if "pr" in cmd_str and "view" in cmd_str:
+        # gh api repos/{owner}/{repo}/issues/<pr>/comments (attachment comment listing)
+        if (
+            "api" in cmd_str
+            and "/issues/" in cmd_str
+            and "/comments" in cmd_str
+            and "PATCH" not in cmd_str
+        ):
             if attachment_error:
                 raise OSError("network error")
             result = MagicMock()
-            result.returncode = 0
-            result.stdout = existing_comment_id or ""
+            if list_comments_error:
+                result.returncode = 1
+                result.stdout = ""
+                result.stderr = "HTTP 403: Forbidden"
+            else:
+                result.returncode = 0
+                result.stdout = (
+                    (
+                        f'[{{"id": {existing_comment_id}, '
+                        '"body": "<!-- rouge-review-context -->\\nold"}]'
+                    )
+                    if existing_comment_id is not None
+                    else "[]"
+                )
             return result
 
         # gh pr comment (new attachment comment)
@@ -554,6 +573,7 @@ def _make_subprocess_side_effect(
             result = MagicMock()
             result.returncode = 0
             result.stdout = ""
+            result.stderr = ""
             return result
 
         # gh api PATCH (update attachment comment)
@@ -563,12 +583,14 @@ def _make_subprocess_side_effect(
             result = MagicMock()
             result.returncode = 0
             result.stdout = ""
+            result.stderr = ""
             return result
 
         # Fallback
         result = MagicMock()
         result.returncode = 0
         result.stdout = ""
+        result.stderr = ""
         return result
 
     return _side_effect
@@ -682,11 +704,11 @@ class TestGhPullRequestStepAttachment:
                 r.stdout = '[{"url": "https://github.com/org/repo/pull/77", "number": 77}]'
                 return r
 
-            # gh pr view (attachment comment listing) — no existing comment
-            if "pr" in cmd_str and "view" in cmd_str:
+            # gh api issue comments listing — no existing comment
+            if "api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str:
                 r = MagicMock()
                 r.returncode = 0
-                r.stdout = ""
+                r.stdout = "[]"
                 return r
 
             # gh pr comment (new attachment)
@@ -752,12 +774,12 @@ class TestGhPullRequestStepAttachment:
 
         assert result.success is True
 
-        # No attachment-related calls: no gh pr view (comments), no gh pr comment, no gh api PATCH
+        # No attachment-related calls: no comment listing, no gh pr comment, no gh api PATCH
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
             assert not (
-                "pr" in cmd_str and "view" in cmd_str
-            ), "gh pr view should not be called when attachment is None"
+                "api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str
+            ), "GitHub issue-comments API should not be called when attachment is None"
             has_attachment_comment = (
                 "pr" in cmd_str and "comment" in cmd_str and "rouge-review-context" in cmd_str
             )
@@ -779,7 +801,7 @@ class TestGhPullRequestStepAttachment:
         base_context: WorkflowContext,
         store: ArtifactStore,
     ) -> None:
-        """Existing attachment comment found via gh pr view triggers PATCH update."""
+        """Existing attachment comment found via issue-comments API triggers PATCH update."""
         _write_fetch_issue_and_plan_artifacts(store)
         store.write_artifact(
             ComposeRequestArtifact(
@@ -792,8 +814,8 @@ class TestGhPullRequestStepAttachment:
 
         mock_emit_artifact.return_value = ("success", "ok")
         mock_which.return_value = "/usr/bin/gh"
-        # Existing comment ID returned by gh pr view
-        mock_subprocess.side_effect = _make_subprocess_side_effect(existing_comment_id="12345678")
+        # Existing comment ID returned by issue-comments API
+        mock_subprocess.side_effect = _make_subprocess_side_effect(existing_comment_id=12345678)
 
         step = GhPullRequestStep()
         result = step.run(base_context)
@@ -855,3 +877,55 @@ class TestGhPullRequestStepAttachment:
 
         # Step should still succeed despite attachment posting failure
         assert result.success is True
+
+    @patch("rouge.core.workflow.step_utils.get_logger")
+    @patch(_ATTACHMENT_PATCHES[0])
+    @patch(_ATTACHMENT_PATCHES[1])
+    @patch(_ATTACHMENT_PATCHES[2])
+    @patch(_ATTACHMENT_PATCHES[3])
+    @patch(_ATTACHMENT_PATCHES[4])
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_attachment_list_failure_logs_warning_and_falls_back_to_create(
+        self,
+        mock_subprocess,
+        mock_which,
+        _mock_log,
+        mock_emit_artifact,
+        mock_emit,
+        mock_get_logger,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """A list-comments failure is logged and does not prevent create-comment fallback."""
+        _write_fetch_issue_and_plan_artifacts(store)
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                title="Test PR",
+                summary="Summary",
+                commits=[],
+            )
+        )
+
+        mock_logger = MagicMock()
+        mock_get_logger.return_value = mock_logger
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_which.return_value = "/usr/bin/gh"
+        mock_subprocess.side_effect = _make_subprocess_side_effect(list_comments_error=True)
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is True
+        comment_calls = [
+            c for c in mock_subprocess.call_args_list if c[0][0][:3] == ["gh", "pr", "comment"]
+        ]
+        assert len(comment_calls) == 1
+        mock_logger.warning.assert_any_call(
+            "Failed to list review-context comments on PR #%d in %s "
+            "(phase=list-existing, exit_code=%d): %s",
+            99,
+            "/path/to/repo",
+            1,
+            "HTTP 403: Forbidden",
+        )
