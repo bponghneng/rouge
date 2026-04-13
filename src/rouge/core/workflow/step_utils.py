@@ -228,25 +228,34 @@ def post_gh_attachment_comment(
 
     list_cmd = [
         "gh",
-        "pr",
-        "view",
-        str(pr_number),
-        "--json",
-        "comments",
-        "--jq",
-        f'.comments[] | select(.body | startswith("{_REVIEW_CONTEXT_MARKER}")) | .databaseId',
+        "api",
+        f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments?per_page=100",
     ]
     result = subprocess.run(
         list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
     )
 
-    existing_comment_id = (
-        result.stdout.strip().split("\n")[0]
-        if result.returncode == 0 and result.stdout.strip()
-        else None
-    )
+    existing_comment_id: int | None = None
+    if result.returncode == 0 and result.stdout.strip():
+        try:
+            comments = json.loads(result.stdout)
+            for comment in comments:
+                if comment.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
+                    existing_comment_id = int(comment["id"])
+                    break
+        except (ValueError, KeyError, TypeError, AttributeError):
+            logger.debug("Failed to parse GitHub issue comments response for PR #%d", pr_number)
+    elif result.returncode != 0:
+        logger.warning(
+            "Failed to list review-context comments on PR #%d in %s "
+            "(phase=list-existing, exit_code=%d): %s",
+            pr_number,
+            repo_path,
+            result.returncode,
+            _sanitize_for_logging(result.stderr),
+        )
 
-    if existing_comment_id and existing_comment_id.isdigit():
+    if existing_comment_id is not None:
         update_cmd = [
             "gh",
             "api",
@@ -261,9 +270,12 @@ def post_gh_attachment_comment(
         )
         if update_result.returncode != 0:
             logger.warning(
-                "Failed to update review-context comment on PR #%d: %s",
+                "Failed to update review-context comment on PR #%d in %s "
+                "(phase=update, exit_code=%d): %s",
                 pr_number,
-                update_result.stderr,
+                repo_path,
+                update_result.returncode,
+                _sanitize_for_logging(update_result.stderr),
             )
         else:
             logger.info("Updated review-context comment on PR #%d", pr_number)
@@ -274,9 +286,12 @@ def post_gh_attachment_comment(
         )
         if create_result.returncode != 0:
             logger.warning(
-                "Failed to post review-context comment on PR #%d: %s",
+                "Failed to post review-context comment on PR #%d in %s "
+                "(phase=create, exit_code=%d): %s",
                 pr_number,
-                create_result.stderr,
+                repo_path,
+                create_result.returncode,
+                _sanitize_for_logging(create_result.stderr),
             )
         else:
             logger.info("Posted review-context comment on PR #%d", pr_number)
