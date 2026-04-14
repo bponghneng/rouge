@@ -226,6 +226,7 @@ def post_gh_attachment_comment(
     logger = get_logger(__name__)
     tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
 
+    # NOTE: per_page=100 without pagination; duplicates possible on PRs with 100+ comments.
     list_cmd = [
         "gh",
         "api",
@@ -244,7 +245,7 @@ def post_gh_attachment_comment(
                     existing_comment_id = int(comment["id"])
                     break
         except (ValueError, KeyError, TypeError, AttributeError):
-            logger.debug("Failed to parse GitHub issue comments response for PR #%d", pr_number)
+            logger.warning("Failed to parse GitHub issue comments response for PR #%d", pr_number)
     elif result.returncode != 0:
         logger.warning(
             "Failed to list review-context comments on PR #%d in %s "
