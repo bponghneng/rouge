@@ -177,8 +177,10 @@ def reset_worker(
 
 def main_entry() -> None:
     """Entry point for the rouge-worker CLI."""
+    from rouge.core.utils import _get_log_level
+
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=_get_log_level(),
         format="%(message)s",
         handlers=[logging.StreamHandler(sys.stdout)],
     )
