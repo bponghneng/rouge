@@ -41,6 +41,29 @@ uv run rouge --help
 Rouge loads a `.env` file from the current directory when available, otherwise
 from the parent directory, or directly from the shell environment.
 
+### Global vs per-workspace configuration
+
+The following environment variables are recommended to be set in your terminal
+profile (e.g., `~/.zshrc`) so they apply globally for all invocations of `rouge`
+and `rouge-worker`:
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `ANTHROPIC_API_KEY`
+- `ROUGE_PROMPT_TIMEOUT`
+- `GITHUB_PAT`
+- `GITLAB_PAT`
+- `CODERABBIT_TIMEOUT_SECONDS`
+- `ROUGE_WORKFLOW_TIMEOUT_SECONDS`
+
+The only per-workspace or per-project configuration overrides that are
+recommended are the following (shown with their defaults in `.env.example`):
+
+- `DEV_SEC_OPS_PLATFORM=github`
+- `ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true`
+
+### Required Supabase credentials
+
 Required to talk to Supabase:
 
 - `SUPABASE_URL`
