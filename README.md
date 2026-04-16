@@ -53,7 +53,6 @@ and `rouge-worker`:
 - `ROUGE_PROMPT_TIMEOUT`
 - `GITHUB_PAT`
 - `GITLAB_PAT`
-- `CODERABBIT_TIMEOUT_SECONDS`
 - `ROUGE_WORKFLOW_TIMEOUT_SECONDS`
 
 The only per-workspace or per-project configuration overrides that are
