@@ -11,11 +11,10 @@ from rouge.core.database import fetch_issue, update_issue
 def reset(
     issue_id: int = typer.Argument(..., help="The issue ID to reset"),
 ) -> None:
-    """Reset a failed or pending issue back to pending status.
+    """Reset an issue back to pending status.
 
-    This command resets a failed or pending issue back to pending status, clears the
-    assigned_to field, and optionally clears the branch field depending on
-    the issue type.
+    This command resets an issue back to pending status, clears the assigned_to
+    field, and optionally clears the branch field depending on the issue type.
 
     Issue type behavior:
     - full: Clears branch and adw_id
@@ -23,7 +22,7 @@ def reset(
     - patch: Preserves existing branch, clears adw_id
     - direct: Preserves existing branch, clears adw_id
 
-    The issue must be in 'failed' or 'pending' status to be reset.
+    The issue must not be in 'claimed' status to be reset.
 
     Args:
         issue_id: The ID of the issue to reset
@@ -36,11 +35,11 @@ def reset(
         # Fetch the current issue
         issue = fetch_issue(issue_id)
 
-        # Validate issue status is 'failed' or 'pending'
-        if issue.status not in ("failed", "pending"):
+        # Validate issue status — 'claimed' cannot be reset
+        if issue.status == "claimed":
             typer.echo(
                 f"Error: Issue {issue_id} has status '{issue.status}', "
-                "can only reset 'failed' or 'pending' issues",
+                "cannot reset a 'claimed' issue",
                 err=True,
             )
             raise typer.Exit(1)
