@@ -1,20 +1,24 @@
 """Tests for ThinPlanStep workflow step.
 
-Tests verify that ThinPlanStep loads the issue from the fetch-issue
-artifact and writes a PlanArtifact.
+After the Phase 5 refactor, ThinPlanStep is a zero-argument shim that
+subclasses :class:`PromptJsonStep` with the built-in thin-plan
+configuration.  These tests verify the shim preserves the original behaviour
+of the legacy step: it loads the issue from the fetch-issue artifact and
+writes a :class:`PlanArtifact`.
 """
 
 from pathlib import Path
-from unittest.mock import patch
+from typing import Generator
+from unittest.mock import MagicMock, patch
 
 import pytest
 
+from rouge.core.agents.claude import ClaudeAgentPromptResponse
 from rouge.core.models import Issue
 from rouge.core.prompts import PromptId
 from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext
 from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
-from rouge.core.workflow.types import PlanData, StepResult
 
 
 @pytest.fixture
@@ -61,45 +65,76 @@ def context_without_artifact(store: ArtifactStore) -> WorkflowContext:
     )
 
 
+def _make_response(
+    *,
+    success: bool,
+    output: str,
+    session_id: str | None = "sess-xyz",
+) -> ClaudeAgentPromptResponse:
+    """Build a ClaudeAgentPromptResponse for mocking execute_template."""
+    return ClaudeAgentPromptResponse(
+        output=output,
+        success=success,
+        session_id=session_id,
+    )
+
+
+@pytest.fixture
+def patched_executor() -> Generator[dict, None, None]:
+    """Patch helpers and execute_template inside the PromptJsonStep executor module."""
+    with (
+        patch("rouge.core.workflow.executors.prompt_json_step.execute_template") as mock_execute,
+        patch(
+            "rouge.core.workflow.executors.prompt_json_step.emit_artifact_comment"
+        ) as mock_emit_artifact,
+        patch(
+            "rouge.core.workflow.executors.prompt_json_step.emit_comment_from_payload"
+        ) as mock_emit_payload,
+        patch("rouge.core.workflow.executors.prompt_json_step.log_artifact_comment_status"),
+    ):
+        mock_emit_artifact.return_value = ("success", "ok")
+        mock_emit_payload.return_value = ("success", "ok")
+        yield {
+            "execute_template": mock_execute,
+            "emit_artifact_comment": mock_emit_artifact,
+            "emit_comment_from_payload": mock_emit_payload,
+        }
+
+
 class TestThinPlanStepLoadsFromArtifact:
     """Tests verifying ThinPlanStep loads the issue from fetch-issue artifact."""
 
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
     def test_loads_issue_from_fetch_issue_artifact(
         self,
-        mock_build_template,
-        mock_emit_artifact,
-        mock_emit,
-        context_with_artifact,
-        issue,
+        context_with_artifact: WorkflowContext,
+        patched_executor: dict,
+        issue: Issue,
     ) -> None:
         """Step loads the issue from the fetch-issue artifact and writes a PlanArtifact."""
-        plan_data = PlanData(
-            plan="## Thin Plan\nAdd utility function",
-            summary="Plan for adding string sanitization utility",
+        patched_executor["execute_template"].return_value = _make_response(
+            success=True,
+            output=(
+                '{"type": "chore", "output": "plan", '
+                '"plan": "## Thin Plan\\nAdd utility function", '
+                '"summary": "Plan for adding string sanitization utility"}'
+            ),
         )
-        mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
-        mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
-        # Verify build_plan_from_template was called with the issue from the artifact
-        mock_build_template.assert_called_once_with(
-            issue,
-            PromptId.THIN_PLAN,
-            context_with_artifact.adw_id,
-        )
-        # Verify a PlanArtifact was saved
+        # Verify execute_template was called with the issue description.
+        request = patched_executor["execute_template"].call_args.args[0]
+        assert request.args == [issue.description]
+        assert request.issue_id == issue.id
+        # Verify a PlanArtifact was saved.
         assert context_with_artifact.artifact_store.artifact_exists("plan")
 
     def test_fails_when_fetch_issue_artifact_missing(
         self,
-        context_without_artifact,
+        context_without_artifact: WorkflowContext,
+        patched_executor: dict,
     ) -> None:
         """Step fails when fetch-issue artifact is absent (required dependency)."""
         step = ThinPlanStep()
@@ -107,69 +142,66 @@ class TestThinPlanStepLoadsFromArtifact:
 
         assert result.success is False
         assert result.error is not None
-        assert "Cannot build thin plan" in result.error
+        assert "fetch-issue" in result.error
 
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.thin_plan_step.emit_artifact_comment")
-    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
-    def test_calls_build_plan_with_thin_plan_prompt_id(
+    def test_calls_execute_template_with_thin_plan_prompt_id(
         self,
-        mock_build_template,
-        mock_emit_artifact,
-        mock_emit,
-        context_with_artifact,
-        issue,
+        context_with_artifact: WorkflowContext,
+        patched_executor: dict,
+        issue: Issue,
     ) -> None:
-        """build_plan_from_template is called with PromptId.THIN_PLAN."""
-        plan_data = PlanData(
-            plan="## Thin Plan\nImplement feature",
-            summary="Summary",
+        """execute_template is called with PromptId.THIN_PLAN."""
+        patched_executor["execute_template"].return_value = _make_response(
+            success=True,
+            output=(
+                '{"type": "feature", "output": "plan", '
+                '"plan": "## Thin Plan\\nImplement feature", "summary": "Summary"}'
+            ),
         )
-        mock_build_template.return_value = StepResult.ok(plan_data, metadata={"parsed_data": {}})
-        mock_emit.return_value = ("success", "ok")
-        mock_emit_artifact.return_value = ("success", "ok")
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
-        mock_build_template.assert_called_once_with(
-            issue,
-            PromptId.THIN_PLAN,
-            context_with_artifact.adw_id,
+        request = patched_executor["execute_template"].call_args.args[0]
+        assert request.prompt_id == PromptId.THIN_PLAN
+        assert request.args == [issue.description]
+
+    def test_fails_when_execute_template_fails(
+        self,
+        context_with_artifact: WorkflowContext,
+        patched_executor: dict,
+    ) -> None:
+        """Step returns failure when execute_template reports a failed response."""
+        patched_executor["execute_template"].return_value = _make_response(
+            success=False,
+            output="Template execution error",
         )
 
-    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
-    def test_fails_when_build_plan_fails(
+        step = ThinPlanStep()
+        result = step.run(context_with_artifact)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "Template execution error" in result.error
+
+    def test_fails_when_output_is_empty(
         self,
-        mock_build_template,
-        context_with_artifact,
+        context_with_artifact: WorkflowContext,
+        patched_executor: dict,
     ) -> None:
-        """Step returns failure when build_plan_from_template returns a failed StepResult."""
-        mock_build_template.return_value = StepResult.fail("Template execution error")
+        """Step fails when the agent response has empty output (no artifact written)."""
+        patched_executor["execute_template"].return_value = _make_response(
+            success=True,
+            output="",
+        )
 
         step = ThinPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is False
         assert result.error is not None
-        assert "Error building thin plan" in result.error
-
-    @patch("rouge.core.workflow.steps.thin_plan_step.build_plan_from_template")
-    def test_fails_when_plan_data_is_none(
-        self,
-        mock_build_template,
-        context_with_artifact,
-    ) -> None:
-        """Step fails when plan succeeds but returns None data (no artifact written)."""
-        mock_build_template.return_value = StepResult.ok(None, metadata={"parsed_data": {}})
-
-        step = ThinPlanStep()
-        result = step.run(context_with_artifact)
-
-        assert result.success is False
-        assert result.error is not None
-        assert "no plan data" in result.error
+        assert "No output" in result.error
         assert not context_with_artifact.artifact_store.artifact_exists("plan")
 
 
@@ -185,3 +217,14 @@ class TestThinPlanStepProperties:
         """Test step is critical."""
         step = ThinPlanStep()
         assert step.is_critical is True
+
+    def test_step_id(self) -> None:
+        """Step exposes the thin-plan slug as ``step_id``."""
+        step = ThinPlanStep()
+        assert step.step_id == "thin-plan"
+
+
+# Silence unused-MagicMock import lint warnings in environments where the
+# helper is referenced only implicitly; MagicMock is kept here for type-check
+# clarity when fixtures return dicts of mocks.
+_ = MagicMock
