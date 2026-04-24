@@ -64,15 +64,25 @@ class WorkflowRunner:
         logger.info("ADW ID: %s", adw_id)
         logger.info("Processing issue ID: %s", issue_id)
 
-        # Build index for fast step-name -> position lookup
+        # Build indexes for fast lookup. Prefer slug (step_id) over display name
+        # so callers can key resume/rerun requests by stable identifier.
+        step_id_to_index: Dict[str, int] = {s.step_id: i for i, s in enumerate(self._steps)}
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
         step_index = 0
 
-        # Handle resume: skip all steps before the resume target
+        # Handle resume: skip all steps before the resume target.
+        # Resolve slug first, then fall back to display name for back-compat.
         if resume_from is not None:
-            if resume_from in step_name_to_index:
+            if resume_from in step_id_to_index:
+                step_index = step_id_to_index[resume_from]
+                logger.info("Resuming workflow from step '%s' (index %d)", resume_from, step_index)
+            elif resume_from in step_name_to_index:
                 step_index = step_name_to_index[resume_from]
+                logger.debug(
+                    "Resume target '%s' resolved by display name (slug lookup failed)",
+                    resume_from,
+                )
                 logger.info("Resuming workflow from step '%s' (index %d)", resume_from, step_index)
             else:
                 logger.warning(
@@ -126,12 +136,23 @@ class WorkflowRunner:
                     pipeline_type=pipeline_type,
                 )
 
-            # Handle rerun requests
+            # Handle rerun requests; resolve slug first, then display name.
             if result.rerun_from is not None:
                 target = result.rerun_from
                 count = rerun_counts.get(target, 0)
                 if count < self.max_step_reruns:
-                    if target not in step_name_to_index:
+                    if target in step_id_to_index:
+                        target_index = step_id_to_index[target]
+                    elif target in step_name_to_index:
+                        target_index = step_name_to_index[target]
+                        logger.debug(
+                            "Rerun target '%s' resolved by display name (slug lookup failed)",
+                            target,
+                        )
+                    else:
+                        target_index = None
+
+                    if target_index is None:
                         logger.warning(
                             "Rerun requested for unknown step '%s', ignoring",
                             target,
@@ -144,7 +165,7 @@ class WorkflowRunner:
                             rerun_counts[target],
                             self.max_step_reruns,
                         )
-                        step_index = step_name_to_index[target]
+                        step_index = target_index
                         continue
                 else:
                     logger.warning(
@@ -228,10 +249,11 @@ class WorkflowRunner:
         """
         logger = get_logger(adw_id)
 
-        # Find the step by name
+        # Find the step by slug (step_id) first, falling back to display name
+        # so callers can pass either identifier.
         target_step: Optional[WorkflowStep] = None
         for step in self._steps:
-            if step.name == step_name:
+            if step.step_id == step_name or step.name == step_name:
                 target_step = step
                 break
 
@@ -320,24 +342,10 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     Returns:
         List of WorkflowStep instances in execution order for patch processing
     """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
-    from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
-    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
-    from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
+    from rouge.core.workflow.builtin_configs import PATCH_WORKFLOW_CONFIG
+    from rouge.core.workflow.resolver import resolve_workflow
 
-    steps: List[WorkflowStep] = [
-        FetchPatchStep(),
-        GitCheckoutStep(),
-        PatchPlanStep(),
-        ImplementPlanStep(plan_step_name="Building patch plan"),
-        CodeQualityStep(),
-        ComposeCommitsStep(),
-    ]
-
-    return steps
+    return resolve_workflow(PATCH_WORKFLOW_CONFIG)
 
 
 def get_thin_pipeline() -> List[WorkflowStep]:
@@ -350,33 +358,14 @@ def get_thin_pipeline() -> List[WorkflowStep]:
     1. FetchIssueStep
     2. GitBranchStep
     3. ThinPlanStep
-    4. ImplementStep (plan_step_name="Building thin implementation plan")
+    4. ImplementStep (plan_step_id="thin-plan")
     5. ComposeRequestStep
     6. GhPullRequestStep/GlabPullRequestStep (conditional, creates draft)
     """
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
-    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
-    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
-    from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
+    from rouge.core.workflow.builtin_configs import THIN_WORKFLOW_CONFIG
+    from rouge.core.workflow.resolver import resolve_workflow
 
-    steps: List[WorkflowStep] = [
-        FetchIssueStep(),
-        GitBranchStep(),
-        ThinPlanStep(),
-        ImplementPlanStep(plan_step_name="Building thin implementation plan"),
-        ComposeRequestStep(),
-    ]
-
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
+    return resolve_workflow(THIN_WORKFLOW_CONFIG)
 
 
 def get_direct_pipeline() -> List[WorkflowStep]:
@@ -390,15 +379,10 @@ def get_direct_pipeline() -> List[WorkflowStep]:
     2. GitPrepareStep (branch-aware: creates or checks out branch)
     3. ImplementDirectStep
     """
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
-    from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
+    from rouge.core.workflow.builtin_configs import DIRECT_WORKFLOW_CONFIG
+    from rouge.core.workflow.resolver import resolve_workflow
 
-    return [
-        FetchIssueStep(),
-        GitPrepareStep(),
-        ImplementDirectStep(),
-    ]
+    return resolve_workflow(DIRECT_WORKFLOW_CONFIG)
 
 
 def get_full_pipeline() -> List[WorkflowStep]:
@@ -423,34 +407,7 @@ def get_full_pipeline() -> List[WorkflowStep]:
     Returns:
         List of WorkflowStep instances in execution order
     """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import (
-        GhPullRequestStep,
-    )
-    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
-    from rouge.core.workflow.steps.glab_pull_request_step import (
-        GlabPullRequestStep,
-    )
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
+    from rouge.core.workflow.builtin_configs import FULL_WORKFLOW_CONFIG
+    from rouge.core.workflow.resolver import resolve_workflow
 
-    steps: List[WorkflowStep] = [
-        FetchIssueStep(),
-        GitBranchStep(),
-        ClaudeCodePlanStep(),
-        ImplementPlanStep(plan_step_name="Building implementation plan"),
-        CodeQualityStep(),
-        ComposeRequestStep(),
-    ]
-
-    # Conditionally add PR/MR creation step based on platform
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
+    return resolve_workflow(FULL_WORKFLOW_CONFIG)

@@ -88,14 +88,16 @@ IMPLEMENT_DIRECT_JSON_SCHEMA = """{
 class ImplementPlanStep(WorkflowStep):
     """Execute plan-based implementation."""
 
-    def __init__(self, plan_step_name: str | None = None) -> None:
+    def __init__(self, plan_step_id: str | None = None) -> None:
         """Initialize ImplementPlanStep.
 
         Args:
-            plan_step_name: Name of the preceding plan step for rerun messages.
-                Defaults to "Building implementation plan" when not provided.
+            plan_step_id: Stable slug of the preceding plan step to target for
+                rerun requests. Defaults to ``"claude-code-plan"`` when not
+                provided. The runner resolves this value by slug first, then
+                falls back to matching on display name for back-compat.
         """
-        self.plan_step_name = plan_step_name or "Building implementation plan"
+        self.plan_step_id = plan_step_id or "claude-code-plan"
 
     @property
     def name(self) -> str:
@@ -192,7 +194,7 @@ class ImplementPlanStep(WorkflowStep):
             logger.error("Cannot implement: no plan available: %s", e)
             return StepResult.fail(
                 f"Cannot implement: no plan available: {e}",
-                rerun_from=self.plan_step_name,
+                rerun_from=self.plan_step_id,
             )
         plan_text = plan_data.plan if plan_data is not None else None
 
@@ -200,7 +202,7 @@ class ImplementPlanStep(WorkflowStep):
             logger.error("Cannot implement: no plan available")
             return StepResult.fail(
                 "Cannot implement: no plan available",
-                rerun_from=self.plan_step_name,
+                rerun_from=self.plan_step_id,
             )
 
         implement_response = self._implement_plan(

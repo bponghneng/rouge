@@ -86,8 +86,8 @@ def run_step(
         )
         raise typer.Exit(1)
 
-    # Get the step name for use with WorkflowRunner
-    step_name = step_metadata.step_class().name
+    # WorkflowRunner.run_single_step accepts either slug or display name;
+    # pass the slug to key execution off the stable identifier.
     has_dependencies = len(step_metadata.dependencies) > 0
 
     # Validate adw_id based on dependencies
@@ -115,7 +115,7 @@ def run_step(
 
     try:
         success = runner.run_single_step(
-            step_name, issue_id, adw_id, has_dependencies=has_dependencies
+            step_slug, issue_id, adw_id, has_dependencies=has_dependencies
         )
         if success:
             typer.echo(f"Step '{step_slug}' completed successfully")

@@ -168,11 +168,47 @@ class WorkflowStep(ABC):
     Steps can be marked as critical (default) or best-effort.
     """
 
+    # Class-level set tracking step classes that have already emitted a
+    # "missing slug" warning.  Used to log the fallback at most once per class
+    # rather than on every ``step_id`` access.
+    _missing_slug_warned: "set[type]" = set()
+
     @property
     @abstractmethod
     def name(self) -> str:
         """Human-readable name for logging/identification."""
         ...
+
+    @property
+    def step_id(self) -> str:
+        """Stable slug-based identifier for this step.
+
+        Looks up the slug registered for this step class in the step registry.
+        Falls back to ``self.name`` when no slug is registered (legacy steps),
+        emitting a one-shot WARNING per class so missing registrations are
+        visible without log spam.
+
+        Returns:
+            The registered slug if available, otherwise ``self.name``.
+        """
+        # Import here to avoid circular imports
+        from rouge.core.workflow.step_registry import get_step_registry
+
+        registry = get_step_registry()
+        metadata = registry.get_step_metadata(self.name)
+        if metadata is not None and metadata.slug:
+            return metadata.slug
+
+        cls = type(self)
+        if cls not in WorkflowStep._missing_slug_warned:
+            WorkflowStep._missing_slug_warned.add(cls)
+            module_logger = logging.getLogger(__name__)
+            module_logger.warning(
+                "Step %s has no registered slug; falling back to name '%s' for step_id",
+                cls.__name__,
+                self.name,
+            )
+        return self.name
 
     @property
     def is_critical(self) -> bool:

@@ -50,6 +50,32 @@ class DummyStep(WorkflowStep):
         return StepResult.ok(None)
 
 
+class SluggedCountingStep(WorkflowStep):
+    """Counting step with a custom ``step_id`` slug for rerun-by-slug tests."""
+
+    def __init__(self, name: str, slug: str, critical: bool = True) -> None:
+        self._name = name
+        self._slug = slug
+        self._critical = critical
+        self.call_count = 0
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def step_id(self) -> str:
+        return self._slug
+
+    @property
+    def is_critical(self) -> bool:
+        return self._critical
+
+    def run(self, _context: WorkflowContext) -> StepResult:
+        self.call_count += 1
+        return StepResult.ok(None)
+
+
 class FailingStep(WorkflowStep):
     def __init__(self, name: str, critical: bool = True):
         self._name = name
@@ -215,8 +241,13 @@ class TestWorkflowRunner:
         assert call_args.issue_id == 123
         assert call_args.adw_id == "test-adw-4"
 
-    def test_rerun_signal_restarts_from_target_step(self, caplog, tmp_path):
-        """When a step returns rerun_from, the pipeline rewinds to the named step."""
+    def test_rerun_signal_restarts_from_target_step(self, caplog, tmp_path) -> None:
+        """When a step returns rerun_from, the pipeline rewinds to the named step.
+
+        This test uses unregistered custom steps whose ``step_id`` falls back
+        to ``name``, so it exercises the back-compat display-name resolution
+        path in the runner.
+        """
         step_a = CountingStep("Step A")
         step_b = CountingStep("Step B")
         # On its first execution, request a rerun from "Step A", then succeed normally.
@@ -235,6 +266,25 @@ class TestWorkflowRunner:
         # Step C: first call triggers rerun, second call succeeds normally
         assert step_c.call_count == 2
         assert "Rerun requested: rewinding to step 'Step A'" in caplog.text
+
+    def test_rerun_signal_resolves_by_slug(self, caplog, tmp_path) -> None:
+        """A rerun request keyed by slug (step_id) resolves to the slugged step."""
+        step_a = SluggedCountingStep("Slugged Step A", slug="slug-a")
+        step_b = CountingStep("Step B")
+        # Request rerun by slug (step_id), not display name.
+        step_c = RerunStep("Step C", target="slug-a", rerun_times=1)
+        runner = WorkflowRunner([step_a, step_b, step_c])
+
+        with caplog.at_level(logging.INFO):
+            with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
+                success = runner.run(issue_id=1, adw_id="test-rerun-by-slug")
+
+        assert success
+        # Slug-resolved rerun should rewind to step_a: 1 initial + 1 rewind = 2
+        assert step_a.call_count == 2
+        assert step_b.call_count == 2
+        assert step_c.call_count == 2
+        assert "rewinding to step 'slug-a'" in caplog.text
 
     def test_max_rerun_limit_logs_warning_and_continues(self, caplog, tmp_path):
         """When max reruns are exceeded, the pipeline logs a warning and moves on."""
@@ -309,29 +359,34 @@ class TestWorkflowRunner:
 
 
 class TestGetPatchPipeline:
-    def test_patch_pipeline_structure_no_platform(self, monkeypatch):
+    def test_patch_pipeline_structure_no_platform(self, monkeypatch) -> None:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
         # Check step count (should be 6)
         assert len(pipeline) == 6
 
-        # Verify order and types
-        expected_types = [
-            FetchPatchStep,
-            GitCheckoutStep,
-            PatchPlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeCommitsStep,
+        # Verify order by step_id.  The patch-plan step is now a PromptJsonStep
+        # driven by PATCH_PLAN_CONFIG, so we check its step_id rather than its
+        # concrete class.
+        expected_slugs = [
+            "fetch-patch",
+            "git-checkout",
+            "patch-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-commits",
         ]
+        assert [step.step_id for step in pipeline] == expected_slugs
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan legacy steps still instantiate as their concrete classes.
+        assert isinstance(pipeline[0], FetchPatchStep)
+        assert isinstance(pipeline[1], GitCheckoutStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeCommitsStep)
 
-        assert pipeline[3].plan_step_name == "Building patch plan"
+        assert pipeline[3].plan_step_id == "patch-plan"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # Fetch patch
@@ -366,23 +421,19 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        expected_types = [
-            FetchPatchStep,
-            GitCheckoutStep,
-            PatchPlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeCommitsStep,
+        expected_slugs = [
+            "fetch-patch",
+            "git-checkout",
+            "patch-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-commits",
         ]
-
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        assert [step.step_id for step in pipeline] == expected_slugs
 
 
 class TestGetFullPipeline:
-    def test_pipeline_structure_no_platform(self, monkeypatch):
+    def test_pipeline_structure_no_platform(self, monkeypatch) -> None:
         """Test full pipeline structure without platform set."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
@@ -390,23 +441,28 @@ class TestGetFullPipeline:
         # Check step count (should be 6 without PR step)
         assert len(pipeline) == 6
 
-        # Verify order and types
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ClaudeCodePlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeRequestStep,
+        # Verify order by step_id.  The claude-code-plan step is now a
+        # PromptJsonStep driven by CLAUDE_CODE_PLAN_CONFIG, so we check its
+        # step_id rather than its concrete class.
+        expected_slugs = [
+            "fetch-issue",
+            "git-branch",
+            "claude-code-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-request",
         ]
+        assert [step.step_id for step in pipeline] == expected_slugs
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan legacy steps still instantiate as their concrete classes.
+        assert isinstance(pipeline[0], FetchIssueStep)
+        assert isinstance(pipeline[1], GitBranchStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeRequestStep)
 
-        # Verify ImplementPlanStep is configured with correct plan_step_name
-        assert pipeline[3].plan_step_name == "Building implementation plan"
+        # Verify ImplementPlanStep is configured with correct plan_step_id
+        assert pipeline[3].plan_step_id == "claude-code-plan"
 
         # Verify critical flags
         assert pipeline[0].is_critical  # FetchIssueStep
@@ -436,13 +492,13 @@ class TestGetFullPipeline:
         assert not pipeline[-1].is_critical  # MR creation is best effort
 
     def test_claude_code_plan_step_present_at_index_2(self, monkeypatch):
-        """Verify ClaudeCodePlanStep is present at index 2."""
+        """Verify the claude-code-plan step is present at index 2."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        assert isinstance(
-            pipeline[2], ClaudeCodePlanStep
-        ), "ClaudeCodePlanStep should be at index 2"
+        assert (
+            pipeline[2].step_id == "claude-code-plan"
+        ), "claude-code-plan step should be at index 2"
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""
@@ -484,21 +540,15 @@ class TestGetFullPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ClaudeCodePlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeRequestStep,
+        expected_slugs = [
+            "fetch-issue",
+            "git-branch",
+            "claude-code-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-request",
         ]
-
-        assert len(pipeline) == len(expected_types)
-
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        assert [step.step_id for step in pipeline] == expected_slugs
 
 
 class TestGetThinPipeline:
@@ -510,22 +560,25 @@ class TestGetThinPipeline:
         # Check step count (should be 5 without PR step)
         assert len(pipeline) == 5
 
-        # Verify order and types
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ThinPlanStep,
-            ImplementPlanStep,
-            ComposeRequestStep,
+        # Verify order by step_id.  The thin-plan step is now a PromptJsonStep
+        # driven by THIN_PLAN_CONFIG.
+        expected_slugs = [
+            "fetch-issue",
+            "git-branch",
+            "thin-plan",
+            "implement-plan",
+            "compose-request",
         ]
+        assert [step.step_id for step in pipeline] == expected_slugs
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan legacy steps still instantiate as their concrete classes.
+        assert isinstance(pipeline[0], FetchIssueStep)
+        assert isinstance(pipeline[1], GitBranchStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], ComposeRequestStep)
 
-        # Verify ImplementPlanStep is configured with correct plan_step_name
-        assert pipeline[3].plan_step_name == "Building thin implementation plan"
+        # Verify ImplementPlanStep is configured with correct plan_step_id
+        assert pipeline[3].plan_step_id == "thin-plan"
 
     def test_thin_pipeline_no_code_quality_step(self, monkeypatch) -> None:
         """Verify thin pipeline does not include CodeQualityStep."""

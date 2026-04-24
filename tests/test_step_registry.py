@@ -874,3 +874,35 @@ class TestRegistryContractConstraints:
         assert (
             cr_meta.dependency_kinds.get("implement") == "optional"
         ), "compose-request must declare implement as optional"
+
+
+def test_builtin_workflow_slugs_all_registered() -> None:
+    """Every step_id in the built-in workflow configs must be a registered slug."""
+    from rouge.core.workflow.builtin_configs import (
+        DIRECT_WORKFLOW_CONFIG,
+        FULL_WORKFLOW_CONFIG,
+        PATCH_WORKFLOW_CONFIG,
+        THIN_WORKFLOW_CONFIG,
+    )
+
+    reset_step_registry()
+    try:
+        configs = (
+            FULL_WORKFLOW_CONFIG,
+            THIN_WORKFLOW_CONFIG,
+            PATCH_WORKFLOW_CONFIG,
+            DIRECT_WORKFLOW_CONFIG,
+        )
+        slugs: set[str] = set()
+        for config in configs:
+            for entry in config.steps:
+                slugs.add(entry.step_id)
+
+        registry = get_step_registry()
+        for slug in sorted(slugs):
+            metadata = registry.get_step_metadata_by_slug(slug)
+            assert (
+                metadata is not None
+            ), f"Built-in workflow slug '{slug}' is not registered in the step registry"
+    finally:
+        reset_step_registry()
