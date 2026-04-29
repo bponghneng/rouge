@@ -127,28 +127,28 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
         WorkflowDefinition(
             type_id="patch",
             pipeline=get_patch_pipeline,
-            description="Patch workflow pipeline",
+            description=PATCH_WORKFLOW_CONFIG.description,
         )
     )
     registry.register(
         WorkflowDefinition(
             type_id="full",
             pipeline=get_full_pipeline,
-            description="Full workflow pipeline",
+            description=FULL_WORKFLOW_CONFIG.description,
         )
     )
     registry.register(
         WorkflowDefinition(
             type_id="thin",
             pipeline=get_thin_pipeline,
-            description="Thin workflow pipeline for straightforward issues",
+            description=THIN_WORKFLOW_CONFIG.description,
         )
     )
     registry.register(
         WorkflowDefinition(
             type_id="direct",
             pipeline=get_direct_pipeline,
-            description="Direct workflow — implements from issue description without planning",
+            description=DIRECT_WORKFLOW_CONFIG.description,
         )
     )
 

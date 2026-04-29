@@ -63,6 +63,11 @@ class PromptJsonStepSettings(BaseModel):
             (e.g. ``"fetch-issue"``).
         input_field: Attribute name on the loaded artifact to pass into the
             prompt (e.g. ``"issue"`` or ``"patch"``).
+        description_field: Attribute on the extracted input value that holds the
+            text description passed as the first argument to the prompt template.
+            Defaults to ``"description"`` — the field present on ``Issue``.
+        id_field: Attribute on the extracted input value that holds the numeric
+            issue ID forwarded to the comment payload.  Defaults to ``"id"``.
         json_schema_kind: Selects the required-fields / JSON-schema variant to
             validate the agent output against.
         title_keys: Keys to scan in the parsed JSON when picking the progress
@@ -74,6 +79,8 @@ class PromptJsonStepSettings(BaseModel):
     model: Literal["sonnet", "opus", "haiku"] = "sonnet"
     input_artifact: ArtifactType
     input_field: str = Field(min_length=1)
+    description_field: str = Field(default="description", min_length=1)
+    id_field: str = Field(default="id", min_length=1)
     json_schema_kind: Literal["plan_chore_bug_feature", "plan_task"]
     title_keys: List[str] = Field(default_factory=lambda: list(DEFAULT_TITLE_KEYS))
 
@@ -97,19 +104,18 @@ class PromptJsonStep(WorkflowStep):
     def __init__(
         self,
         settings: PromptJsonStepSettings,
-        display_name: str = "Building implementation plan",
     ) -> None:
         """Initialise the step.
 
         Args:
             settings: The validated executor configuration.
-            display_name: Human-readable name for logs and comments.  Defaults
-                to a generic plan-step label; the resolver typically overrides
-                this from ``StepInvocation.display_name``.
         """
         super().__init__()
         self._settings = settings
-        self._display_name = display_name
+        # Default display name; the resolver overwrites this via ``step.name =
+        # invocation.display_name`` after construction, so this value is only
+        # visible when the step is constructed outside the resolver (e.g. tests).
+        self._display_name = "Building implementation plan"
 
     @property
     def name(self) -> str:
@@ -173,13 +179,17 @@ class PromptJsonStep(WorkflowStep):
 
         # The prompt templates expect the issue description as the first arg
         # (matches legacy ThinPlanStep/PatchPlanStep/ClaudeCodePlanStep).
-        description = getattr(input_value, "description", None)
+        # ``description_field`` and ``id_field`` are configurable so the executor
+        # is not silently coupled to ``Issue``-shaped inputs.
+        description = getattr(input_value, settings.description_field, None)
         if description is None:
             return StepResult.fail(
-                f"Input '{settings.input_field}' has no 'description' attribute; "
-                "PromptJsonStep currently expects an Issue-shaped input."
+                f"Input '{settings.input_field}' has no "
+                f"'{settings.description_field}' attribute; "
+                "configure 'description_field' in PromptJsonStepSettings "
+                "if your input shape differs."
             )
-        issue_id = getattr(input_value, "id", None)
+        issue_id = getattr(input_value, settings.id_field, None)
 
         required_fields, json_schema_str = get_plan_json_schema_kind(settings.json_schema_kind)
 
@@ -235,6 +245,10 @@ class PromptJsonStep(WorkflowStep):
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved plan artifact for workflow %s", context.adw_id)
 
+        # ``emit_artifact_comment`` is best-effort: comment emission failures are
+        # logged by ``log_artifact_comment_status`` but do not propagate to the
+        # step result.  The ``PlanArtifact`` has already been written at this
+        # point, so the plan data is not lost even if the comment fails.
         status, msg = emit_artifact_comment(context.issue_id, context.adw_id, artifact)
         log_artifact_comment_status(status, msg)
 
@@ -251,7 +265,7 @@ class PromptJsonStep(WorkflowStep):
         comment_text = f"{title}\n\n{summary}" if summary else title
 
         payload = CommentPayload(
-            issue_id=issue_id if isinstance(issue_id, int) else context.issue_id or 0,
+            issue_id=issue_id if isinstance(issue_id, int) else context.issue_id,
             adw_id=context.adw_id,
             text=comment_text,
             raw={"text": comment_text, "parsed": parsed_data},

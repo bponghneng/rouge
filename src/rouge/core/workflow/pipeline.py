@@ -69,11 +69,12 @@ class WorkflowRunner:
         # Build indexes for fast lookup. ``step_id`` (if set) takes priority over
         # ``step.name`` for resume/rerun targets so declarative pipelines can use
         # stable identifiers; ``step.name`` remains as a fallback for steps that
-        # do not declare a ``step_id``. Use ``getattr`` so test mocks built with
-        # ``Mock(spec=WorkflowStep)`` — which lack the instance attribute set in
-        # ``__init__`` — degrade to ``None`` instead of raising ``AttributeError``.
+        # do not declare a ``step_id``. Direct attribute access is safe because
+        # ``WorkflowStep`` declares a class-level default ``step_id = None``, so
+        # ``Mock(spec=WorkflowStep)`` exposes the attribute; we filter to ``str``
+        # to exclude Mock proxy objects in tests that do not set step_id.
         step_id_to_index: Dict[str, int] = {
-            sid: i for i, s in enumerate(self._steps) if (sid := getattr(s, "step_id", None))
+            sid: i for i, s in enumerate(self._steps) if isinstance(sid := s.step_id, str) and sid
         }
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
@@ -142,7 +143,8 @@ class WorkflowRunner:
 
                 # Update last completed step and write WorkflowStateArtifact (best-effort)
                 last_completed_step = step.name
-                last_completed_step_id = getattr(step, "step_id", None) or None
+                _sid = step.step_id
+                last_completed_step_id = _sid if isinstance(_sid, str) else None
                 self._write_workflow_state(
                     artifact_store,
                     adw_id,
@@ -162,7 +164,7 @@ class WorkflowRunner:
                         valid_keys = sorted(
                             set(step_id_to_index.keys()) | set(step_name_to_index.keys())
                         )
-                        logger.error(
+                        logger.warning(
                             "Rerun requested for unknown step '%s'; ignoring. "
                             "Valid step IDs/names: %s",
                             target,
@@ -265,10 +267,13 @@ class WorkflowRunner:
         """
         logger = get_logger(adw_id)
 
-        # Find the step by name
+        # Find the step by step_id (stable slug, preferred) or by name (fallback).
+        # Preferring step_id ensures single-step execution parity with the full
+        # pipeline's resume/rerun resolution, which also tries step_id first.
         target_step: Optional[WorkflowStep] = None
         for step in self._steps:
-            if step.name == step_name:
+            sid = step.step_id
+            if (isinstance(sid, str) and sid == step_name) or step.name == step_name:
                 target_step = step
                 break
 
@@ -331,6 +336,8 @@ class WorkflowRunner:
 #     ``settings`` can stay empty here.
 #   * ``StepCondition`` evaluation for the GitHub / GitLab PR steps, replacing
 #     the previous ``DEV_SEC_OPS_PLATFORM`` env-var branch in this module.
+#     A ``when`` clause with no ``equals``/``in_`` test includes the step only
+#     when the env var is **set and non-empty** (not just set to any value).
 
 PATCH_WORKFLOW_CONFIG = WorkflowConfig(
     type_id="patch",
@@ -339,10 +346,9 @@ PATCH_WORKFLOW_CONFIG = WorkflowConfig(
         StepInvocation(id="fetch-patch"),
         StepInvocation(id="git-checkout"),
         StepInvocation(id="patch-plan", display_name="Building patch plan"),
-        StepInvocation(
-            id="implement-plan",
-            settings={"plan_step_name": "Building patch plan"},
-        ),
+        # ``plan_step_name`` is resolved from the preceding invocation's
+        # ``display_name`` ("Building patch plan") — no settings block needed.
+        StepInvocation(id="implement-plan"),
         StepInvocation(id="code-quality"),
         StepInvocation(id="compose-commits"),
     ],
@@ -356,10 +362,9 @@ THIN_WORKFLOW_CONFIG = WorkflowConfig(
         StepInvocation(id="fetch-issue"),
         StepInvocation(id="git-branch"),
         StepInvocation(id="thin-plan", display_name="Building thin implementation plan"),
-        StepInvocation(
-            id="implement-plan",
-            settings={"plan_step_name": "Building thin implementation plan"},
-        ),
+        # ``plan_step_name`` resolved from the preceding invocation's
+        # ``display_name`` ("Building thin implementation plan").
+        StepInvocation(id="implement-plan"),
         StepInvocation(id="compose-request"),
         StepInvocation(
             id="gh-pull-request",
@@ -390,11 +395,10 @@ FULL_WORKFLOW_CONFIG = WorkflowConfig(
     steps=[
         StepInvocation(id="fetch-issue"),
         StepInvocation(id="git-branch"),
+        # claude-code-plan uses the default display_name ("Building implementation plan")
+        # from PromptJsonStep; implement-plan picks it up from previous_invocation.display_name.
         StepInvocation(id="claude-code-plan"),
-        StepInvocation(
-            id="implement-plan",
-            settings={"plan_step_name": "Building implementation plan"},
-        ),
+        StepInvocation(id="implement-plan"),
         StepInvocation(id="code-quality"),
         StepInvocation(id="compose-request"),
         StepInvocation(

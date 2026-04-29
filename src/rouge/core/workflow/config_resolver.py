@@ -124,20 +124,25 @@ def _build_prompt_json_step_for_slug(
     merged: Dict[str, Any] = {**defaults_by_slug[slug], **(invocation.settings or {})}
     settings = PromptJsonStepSettings(**merged)
 
-    display_name = invocation.display_name
-    step = (
-        PromptJsonStep(settings=settings, display_name=display_name)
-        if display_name
-        else PromptJsonStep(settings=settings)
-    )
-    return step
+    # ``display_name`` is not passed here; ``resolve_workflow``'s post-construction
+    # ``step.name = invocation.display_name`` block is the sole source of the
+    # display-name override, avoiding the dual-write that existed before.
+    return PromptJsonStep(settings=settings)
 
 
-def _factory_implement_plan(
+def _build_implement_plan_step(
     invocation: StepInvocation,
-    _metadata: StepMetadata,
+    previous_invocation: Optional[StepInvocation],
 ) -> WorkflowStep:
-    """Build ``ImplementPlanStep`` honouring ``settings['plan_step_name']``."""
+    """Build ``ImplementPlanStep``, resolving ``plan_step_name`` from settings or
+    the preceding invocation's ``display_name``.
+
+    Resolution order (plan):
+      1. ``settings["plan_step_name"]`` — explicit override in the invocation.
+      2. ``previous_invocation.display_name`` — display name of the preceding step;
+         avoids repeating the same string in both the plan step and implement step.
+      3. ``None`` — ``ImplementPlanStep`` uses its own default.
+    """
     # Lazy import: ImplementPlanStep imports heavy dependencies.
     from rouge.core.workflow.steps.implement_step import ImplementPlanStep
 
@@ -147,6 +152,11 @@ def _factory_implement_plan(
             f"implement-plan settings.plan_step_name must be a string, "
             f"got {type(plan_step_name).__name__}"
         )
+    # Fall back to the preceding invocation's display_name so the two sources
+    # of truth can be collapsed to one; when that is also absent, ImplementPlanStep
+    # uses its own default.
+    if plan_step_name is None and previous_invocation is not None:
+        plan_step_name = previous_invocation.display_name
     return ImplementPlanStep(plan_step_name=plan_step_name)
 
 
@@ -158,33 +168,18 @@ def _factory_default(
     return metadata.step_class()
 
 
-def _factory_thin_plan(
-    invocation: StepInvocation,
-    _metadata: StepMetadata,
-) -> WorkflowStep:
-    return _build_prompt_json_step_for_slug("thin-plan", invocation)
-
-
-def _factory_patch_plan(
-    invocation: StepInvocation,
-    _metadata: StepMetadata,
-) -> WorkflowStep:
-    return _build_prompt_json_step_for_slug("patch-plan", invocation)
-
-
-def _factory_claude_code_plan(
-    invocation: StepInvocation,
-    _metadata: StepMetadata,
-) -> WorkflowStep:
-    return _build_prompt_json_step_for_slug("claude-code-plan", invocation)
-
-
 # Per-slug factory map.  Slugs not listed here use ``_factory_default``.
+# The three plan slugs are registered as lambdas that bind the slug into
+# ``_build_prompt_json_step_for_slug``, so adding a new plan slug only
+# requires one entry here rather than a separate wrapper function.
+# Note: ``implement-plan`` is handled directly in ``resolve_workflow`` so that
+# the previous invocation can be passed; it is excluded from this map.
 _FACTORIES: Dict[str, StepFactory] = {
-    "implement-plan": _factory_implement_plan,
-    "thin-plan": _factory_thin_plan,
-    "patch-plan": _factory_patch_plan,
-    "claude-code-plan": _factory_claude_code_plan,
+    "thin-plan": lambda inv, _meta: _build_prompt_json_step_for_slug("thin-plan", inv),
+    "patch-plan": lambda inv, _meta: _build_prompt_json_step_for_slug("patch-plan", inv),
+    "claude-code-plan": lambda inv, _meta: _build_prompt_json_step_for_slug(
+        "claude-code-plan", inv
+    ),
 }
 
 
@@ -246,17 +241,32 @@ def resolve_workflow(config: WorkflowConfig) -> List[WorkflowStep]:
     """
     registry = get_step_registry()
     resolved: List[WorkflowStep] = []
+    previous_invocation: Optional[StepInvocation] = None
 
     for invocation in config.steps:
         if not _evaluate_when(invocation):
             continue
 
+        # Precondition: the caller (or the registry-init path via
+        # ``validate_config_against_registry``) should have already verified
+        # all slugs.  This guard is a defensive backstop for ``resolve_workflow``
+        # callers that bypass ``get_workflow_registry()`` (e.g. tests or YAML
+        # loaders that call ``resolve_workflow`` directly).  The same slug check
+        # lives in ``validate_config_against_registry``; both ultimately express
+        # the same rule so they should be kept consistent.
         metadata: Optional[StepMetadata] = registry.get_step_metadata_by_slug(invocation.id)
         if metadata is None:
             raise ValueError(f"Step slug '{invocation.id}' is not registered in the step registry")
 
-        factory: StepFactory = _FACTORIES.get(invocation.id, _factory_default)
-        step = factory(invocation, metadata)
+        # ``implement-plan`` needs the previous invocation to resolve
+        # ``plan_step_name`` from the preceding step's ``display_name`` when
+        # ``settings["plan_step_name"]`` is absent; handle it outside the
+        # generic factory map.
+        if invocation.id == "implement-plan":
+            step: WorkflowStep = _build_implement_plan_step(invocation, previous_invocation)
+        else:
+            factory: StepFactory = _FACTORIES.get(invocation.id, _factory_default)
+            step = factory(invocation, metadata)
 
         # Tag with stable ID so the runner can use it for resume/rerun lookup.
         step.step_id = invocation.id
@@ -278,5 +288,6 @@ def resolve_workflow(config: WorkflowConfig) -> List[WorkflowStep]:
                 )
 
         resolved.append(step)
+        previous_invocation = invocation
 
     return resolved

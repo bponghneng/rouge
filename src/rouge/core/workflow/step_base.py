@@ -183,6 +183,11 @@ class WorkflowStep(ABC):
             the runner falls back to ``name`` to preserve existing behavior.
     """
 
+    # Class-level default so ``Mock(spec=WorkflowStep)`` exposes ``step_id``
+    # without requiring subclasses to call ``super().__init__()``. The instance
+    # attribute set in ``__init__`` shadows this when the real class is used.
+    step_id: Optional[str] = None
+
     def __init__(self) -> None:
         self.step_id: Optional[str] = None
 
