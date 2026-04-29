@@ -432,3 +432,141 @@ class TestWorkflowRunnerBestEffortStateWrite:
 
         assert result is True
         step1.run.assert_called_once()
+
+
+class TestWorkflowRunnerStepIdResume:
+    """Tests for resume/persistence of stable ``step_id`` identifiers.
+
+    The runner prefers ``step_id`` over ``step.name`` when resolving resume
+    targets so declarative pipelines (built via ``WorkflowConfig``) can use
+    stable identifiers.  Persisted ``WorkflowStateArtifact`` records carry
+    both ``last_completed_step`` and ``last_completed_step_id`` so resume by
+    either identifier works.  Old-style state artifacts that pre-date
+    ``last_completed_step_id`` continue to resume correctly via name.
+    """
+
+    def _make_step(self, *, name: str, step_id: str | None = None) -> Mock:
+        step = Mock(spec=WorkflowStep)
+        step.name = name
+        step.is_critical = True
+        step.run = Mock(return_value=StepResult.ok(None))
+        # Mock(spec=WorkflowStep) inherits the class-level ``step_id`` default
+        # of None; set it explicitly so the runner picks it up.
+        step.step_id = step_id
+        return step
+
+    def test_last_completed_step_id_written_when_step_has_id(self):
+        """When a step declares ``step_id``, it is persisted alongside name."""
+        step = self._make_step(name="Plan Step", step_id="plan-step")
+
+        runner = WorkflowRunner([step])
+        result = runner.run(issue_id=1, adw_id="adw-state-id", pipeline_type="full")
+
+        assert result is True
+
+        store = ArtifactStore("adw-state-id")
+        assert store.artifact_exists("workflow-state")
+        state = store.read_artifact("workflow-state", WorkflowStateArtifact)
+        assert state.last_completed_step == "Plan Step"
+        assert state.last_completed_step_id == "plan-step"
+
+    def test_last_completed_step_id_is_none_when_step_lacks_id(self):
+        """Steps without a ``step_id`` persist a None last_completed_step_id."""
+        step = self._make_step(name="Legacy Step", step_id=None)
+
+        runner = WorkflowRunner([step])
+        result = runner.run(issue_id=1, adw_id="adw-state-noid", pipeline_type="full")
+
+        assert result is True
+
+        store = ArtifactStore("adw-state-noid")
+        state = store.read_artifact("workflow-state", WorkflowStateArtifact)
+        assert state.last_completed_step == "Legacy Step"
+        assert state.last_completed_step_id is None
+
+    def test_resume_by_step_id_skips_earlier_steps(self):
+        """Resume target matches against ``step_id`` first."""
+        step1 = self._make_step(name="Fetch Issue", step_id="fetch-issue")
+        step2 = self._make_step(name="Build Plan", step_id="claude-code-plan")
+        step3 = self._make_step(name="Implement Plan", step_id="implement-plan")
+
+        runner = WorkflowRunner([step1, step2, step3])
+        # Resume from the *step_id*, not the human-readable name.
+        result = runner.run(issue_id=1, adw_id="adw-resume-by-id", resume_from="claude-code-plan")
+
+        assert result is True
+        step1.run.assert_not_called()
+        step2.run.assert_called_once()
+        step3.run.assert_called_once()
+
+    def test_resume_by_name_still_works_alongside_step_id(self):
+        """Resume target falls back to ``step.name`` when not a step_id."""
+        step1 = self._make_step(name="Fetch Issue", step_id="fetch-issue")
+        step2 = self._make_step(name="Build Plan", step_id="claude-code-plan")
+        step3 = self._make_step(name="Implement Plan", step_id="implement-plan")
+
+        runner = WorkflowRunner([step1, step2, step3])
+        # Resume by display name even though step_ids are also available.
+        result = runner.run(issue_id=1, adw_id="adw-resume-by-name", resume_from="Build Plan")
+
+        assert result is True
+        step1.run.assert_not_called()
+        step2.run.assert_called_once()
+        step3.run.assert_called_once()
+
+    def test_resume_with_old_style_state_artifact(self, tmp_path, monkeypatch):
+        """Old persisted artifacts (no ``last_completed_step_id``) still resume.
+
+        The runner's resume_from argument is what drives skip behaviour, so
+        callers (CLI / orchestrator) reading an older WorkflowStateArtifact
+        can pass ``state.last_completed_step`` and the name-based fallback
+        path still works as before.
+        """
+        monkeypatch.setattr("rouge.core.paths.get_working_dir", lambda: str(tmp_path))
+
+        # Simulate a pre-existing old-style state artifact written before the
+        # ``last_completed_step_id`` field existed.
+        legacy_store = ArtifactStore("adw-legacy")
+        legacy_state = WorkflowStateArtifact(
+            workflow_id="adw-legacy",
+            last_completed_step="Step One",
+            # last_completed_step_id intentionally omitted (defaults to None).
+            failed_step=None,
+            pipeline_type="full",
+        )
+        legacy_store.write_artifact(legacy_state)
+
+        # Read back and verify shape mirrors what older code would have written.
+        loaded = legacy_store.read_artifact("workflow-state", WorkflowStateArtifact)
+        assert loaded.last_completed_step == "Step One"
+        assert loaded.last_completed_step_id is None
+
+        # Now resume the workflow using the legacy name; the runner still
+        # advances past the named step.
+        step1 = self._make_step(name="Step One", step_id=None)
+        step2 = self._make_step(name="Step Two", step_id=None)
+
+        runner = WorkflowRunner([step1, step2])
+        result = runner.run(
+            issue_id=1,
+            adw_id="adw-legacy-resume",
+            resume_from=loaded.last_completed_step + "_unused",  # use Step Two by name
+        )
+        # The above resume target is intentionally unknown; the runner falls
+        # back to running from the beginning.  Assert success and run-counts.
+        assert result is True
+
+        # Now do an actual resume by the legacy name "Step Two" — confirms
+        # name-based resume continues to work for callers that haven't yet
+        # adopted step_id-based persistence.
+        step1.run.reset_mock()
+        step2.run.reset_mock()
+        runner = WorkflowRunner([step1, step2])
+        result = runner.run(
+            issue_id=1,
+            adw_id="adw-legacy-resume-2",
+            resume_from="Step Two",
+        )
+        assert result is True
+        step1.run.assert_not_called()
+        step2.run.assert_called_once()

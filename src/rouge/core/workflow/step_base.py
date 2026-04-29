@@ -174,7 +174,16 @@ class WorkflowStep(ABC):
 
     Each step implements the run() method to perform its work.
     Steps can be marked as critical (default) or best-effort.
+
+    Attributes:
+        step_id: Optional stable slug identifier for the step. When set, this is
+            preferred over ``name`` for resume/rerun lookups so that pipelines
+            built from declarative configuration can reference steps by a stable
+            identifier independent of human-readable display names. When unset,
+            the runner falls back to ``name`` to preserve existing behavior.
     """
+
+    step_id: Optional[str] = None
 
     @property
     @abstractmethod

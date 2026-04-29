@@ -352,6 +352,12 @@ class WorkflowStateArtifact(Artifact):
 
     Attributes:
         last_completed_step: The name of the last successfully completed step
+        last_completed_step_id: Optional stable ``step_id`` of the last successfully
+            completed step. Populated when steps declare a ``step_id``; left as
+            ``None`` for steps that only have a human-readable ``name``. Added
+            alongside ``last_completed_step`` so resume logic can prefer the
+            stable ID while remaining backward-compatible with persisted
+            artifacts that predate this field.
         failed_step: The name of the step that failed (if any)
         pipeline_type: The type of pipeline being executed
     """
@@ -360,6 +366,14 @@ class WorkflowStateArtifact(Artifact):
     last_completed_step: Optional[str] = Field(
         default=None,
         description="The name of the last successfully completed workflow step",
+    )
+    last_completed_step_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Stable step_id of the last successfully completed step, when the "
+            "step declares a step_id. Optional and additive; older persisted "
+            "artifacts without this field still parse correctly."
+        ),
     )
     failed_step: Optional[str] = Field(
         default=None,
