@@ -1,6 +1,7 @@
 """Shared utility helpers for workflow step implementations."""
 
 import json
+import logging
 import re
 import subprocess
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar
@@ -63,7 +64,7 @@ def coerce_repos(
     data: Dict[str, Any],
     submodel: Type[_M],
     step_name: str,
-    logger: Any,
+    logger: logging.Logger,
 ) -> List[_M]:
     """Coerce raw LLM repo dicts into typed Pydantic submodel instances.
 
@@ -97,12 +98,54 @@ def coerce_repos(
             valid.append(submodel.model_validate(r))
         except ValidationError as exc:
             logger.warning(
-                "[%s] repo entry %d failed validation — dropped: %s",
+                "[%s] repo entry %d failed validation — dropped: %s | entry: %s",
                 step_name,
                 i,
                 exc,
+                _sanitize_for_logging(json.dumps(r, default=str)),
             )
     return valid
+
+
+def build_repos_schema(repo_submodel: Type[_M], output_const: str) -> str:
+    """Build the LLM-facing JSON schema string for a repos-array step output.
+
+    All three orchestrator steps (code-quality, compose-commits, pull-request)
+    produce the same envelope shape::
+
+        {
+          "output": "<step-discriminator>",
+          "repos": [ <RepoSubmodel schema> ]
+        }
+
+    This helper centralises that envelope so the per-step modules stay DRY and
+    the ``const`` vs ``enum`` drift (previously visible in compose_request_step)
+    cannot recur.
+
+    Args:
+        repo_submodel: The Pydantic model class whose ``model_json_schema()``
+            describes one element of the ``repos`` array.
+        output_const: The literal string value the LLM must emit for
+            ``"output"`` (e.g. ``"code-quality"``, ``"pull-request"``).
+
+    Returns:
+        A ``json.dumps``-rendered JSON Schema string, indented with 2 spaces,
+        ready to be embedded in a prompt template.
+    """
+    return json.dumps(
+        {
+            "type": "object",
+            "properties": {
+                "output": {"type": "string", "const": output_const},
+                "repos": {
+                    "type": "array",
+                    "items": repo_submodel.model_json_schema(),
+                },
+            },
+            "required": ["output", "repos"],
+        },
+        indent=2,
+    )
 
 
 # GitHub imposes a 65 536-char limit on issue/PR comments.

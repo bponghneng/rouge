@@ -21,6 +21,7 @@ from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import (
     _emit_and_log,
     _sanitize_for_logging,
+    build_repos_schema,
     coerce_repos,
     load_and_render_patch_attachment,
     post_gh_attachment_comment,
@@ -33,21 +34,7 @@ COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str, "repos": list}
 
 # JSON schema generated from the Pydantic submodel so the LLM-facing schema and
 # the artifact model stay in sync automatically.  Generated once at import time.
-_REPO_SCHEMA = ComposeCommitsRepoResult.model_json_schema()
-COMPOSE_COMMITS_JSON_SCHEMA = json.dumps(
-    {
-        "type": "object",
-        "properties": {
-            "output": {"type": "string", "const": "compose-commits"},
-            "repos": {
-                "type": "array",
-                "items": _REPO_SCHEMA,
-            },
-        },
-        "required": ["output", "repos"],
-    },
-    indent=2,
-)
+COMPOSE_COMMITS_JSON_SCHEMA = build_repos_schema(ComposeCommitsRepoResult, "compose-commits")
 
 
 class ComposeCommitsStep(WorkflowStep):

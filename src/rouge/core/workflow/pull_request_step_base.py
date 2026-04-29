@@ -118,7 +118,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
     def _check_preconditions(
         self,
         context: WorkflowContext,
-        pr_details: dict | None,
+        pr_details: list | None,
         logger: logging.Logger,
     ) -> StepResult | None:
         """Validate preconditions for PR/MR creation.
@@ -140,7 +140,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         # Require at least one entry with a non-empty repo path.
         # Empty-title entries are handled per-repo in the main loop, so we do
         # not gate on title here to avoid duplicating that logic.
-        valid_repos = [r for r in pr_details.get("repos", []) if r.get("repo")]
+        valid_repos = [r for r in pr_details if getattr(r, "repo", None)]
         if not valid_repos:
             skip_msg = f"{self.entity_name} creation skipped: no repositories with PR details"
             logger.info(skip_msg)
@@ -469,6 +469,155 @@ class PullRequestStepBase(WorkflowStep, ABC):
                     exc,
                 )
 
+    def _seed_pull_requests(self, context: WorkflowContext) -> list[PullRequestEntry]:
+        """Load existing pull request entries from the artifact store for rerun continuity.
+
+        Must be called before the preconditions check so that re-runs with no
+        uncommitted changes can still adopt existing PRs.
+
+        Args:
+            context: Workflow context.
+
+        Returns:
+            List of previously written ``PullRequestEntry`` objects, or ``[]``
+            if no artifact exists yet.
+        """
+        logger = get_logger(context.adw_id)
+        pull_requests: list[PullRequestEntry] = []
+        if context.artifact_store.artifact_exists(self.artifact_slug):
+            try:
+                existing_artifact = context.artifact_store.read_artifact(
+                    self.artifact_slug,
+                    self.artifact_class,
+                )
+                pull_requests = list(existing_artifact.pull_requests)
+                logger.debug(
+                    "Seeded %d existing %s entries from artifact",
+                    len(pull_requests),
+                    self.entity_name,
+                )
+            except (FileNotFoundError, ValueError) as e:
+                logger.debug(
+                    "Could not load existing %s artifact: %s",
+                    self.artifact_slug,
+                    e,
+                )
+        return pull_requests
+
+    def _build_pr_lookup(self, pr_details: list) -> tuple[dict, list]:
+        """Build a normalized path-keyed lookup and flat commit list from *pr_details*.
+
+        Args:
+            pr_details: The typed list of ``ComposeRequestRepoResult`` instances
+                loaded from context.
+
+        Returns:
+            A 2-tuple ``(pr_by_repo, all_commits)`` where *pr_by_repo* maps
+            ``os.path.realpath(os.path.normpath(repo))`` → repo entry and
+            *all_commits* is the flat list of commit entries across all repos
+            that have a non-empty ``repo`` attribute.
+        """
+        pr_by_repo = {
+            os.path.realpath(os.path.normpath(r.repo)): r
+            for r in pr_details
+            if getattr(r, "repo", None)
+        }
+        all_commits = [
+            c for r in pr_details if getattr(r, "repo", None) for c in getattr(r, "commits", [])
+        ]
+        return pr_by_repo, all_commits
+
+    def _dispatch_repos(
+        self,
+        context: WorkflowContext,
+        affected_repos: list[str],
+        pr_by_repo: dict,
+        pull_requests: list[PullRequestEntry],
+        env: dict[str, str],
+        attachment_md: str | None,
+        logger: logging.Logger,
+    ) -> bool:
+        """Iterate *affected_repos* and dispatch each matched entry to ``_process_repo``.
+
+        Logs a warning for repos with no matching PR-details entry and an info
+        message for repos whose matched entry has an empty title.  Distinguishes
+        between lookup misses and empty-title skips in the summary message so
+        operators can tell which failure mode occurred.
+
+        Args:
+            context: Workflow context.
+            affected_repos: Repo paths that have active git changes.
+            pr_by_repo: Normalized-path-keyed lookup built by ``_build_pr_lookup``.
+            pull_requests: Mutable list that ``_process_repo`` appends results to.
+            env: Environment dict with the platform token set.
+            attachment_md: Rendered attachment Markdown (may be ``None``).
+            logger: Logger for the current workflow run.
+
+        Returns:
+            ``True`` if at least one repo was dispatched; ``False`` otherwise.
+        """
+        dispatched_any = False
+        lookup_misses = 0
+        empty_title_skips = 0
+
+        for repo_path in affected_repos:
+            normalized_key = os.path.realpath(os.path.normpath(repo_path))
+            repo_pr = pr_by_repo.get(normalized_key)
+            if repo_pr is None:
+                logger.warning(
+                    "No PR details found for repo %s — skipping %s creation",
+                    repo_path,
+                    self.entity_name,
+                )
+                lookup_misses += 1
+                continue
+            title = getattr(repo_pr, "title", "") or ""
+            if not title:
+                logger.info(
+                    "Skipping %s creation for %s: empty title in PR details",
+                    self.entity_name,
+                    repo_path,
+                )
+                empty_title_skips += 1
+                continue
+            dispatched_any = True
+            self._process_repo(
+                context,
+                repo_path,
+                title,
+                getattr(repo_pr, "summary", "") or "",
+                pull_requests,
+                env,
+                attachment_md,
+            )
+
+        if not dispatched_any:
+            if empty_title_skips > 0 and lookup_misses == 0:
+                skip_msg = (
+                    f"{self.entity_name} creation skipped: "
+                    f"all matched repo entries had empty titles ({empty_title_skips} skipped)"
+                )
+            elif lookup_misses > 0 and empty_title_skips == 0:
+                skip_msg = (
+                    f"{self.entity_name} creation skipped: "
+                    "no LLM repo entries matched affected paths"
+                )
+            else:
+                skip_msg = (
+                    f"{self.entity_name} creation skipped: "
+                    f"no LLM repo entries matched affected paths "
+                    f"({lookup_misses} lookup misses, {empty_title_skips} empty-title skips)"
+                )
+            logger.warning(skip_msg)
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                skip_msg,
+                {"output": f"{self.output_key_prefix}-skipped", "reason": skip_msg},
+            )
+
+        return dispatched_any
+
     def run(self, context: WorkflowContext) -> StepResult:
         """Create a pull request / merge request using the platform CLI.
 
@@ -489,7 +638,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
             "pr_details",
             "compose-request",
             ComposeRequestArtifact,
-            lambda a: {"repos": [r.model_dump() for r in a.repos]},
+            lambda a: list(a.repos),
         )
 
         attachment_md = load_and_render_attachment(context)
@@ -502,47 +651,15 @@ class PullRequestStepBase(WorkflowStep, ABC):
             env[self.token_env_key] = pat_value
 
             # Layer 0: Seed pull_requests from existing artifact for rerun continuity.
-            # This must happen before the repos-empty precondition check so that
-            # re-runs with no uncommitted changes can still adopt existing PRs.
-            pull_requests: list[PullRequestEntry] = []
-            if context.artifact_store.artifact_exists(self.artifact_slug):
-                try:
-                    existing_artifact = context.artifact_store.read_artifact(
-                        self.artifact_slug,
-                        self.artifact_class,
-                    )
-                    pull_requests = list(existing_artifact.pull_requests)
-                    logger.debug(
-                        "Seeded %d existing %s entries from artifact",
-                        len(pull_requests),
-                        self.entity_name,
-                    )
-                except (FileNotFoundError, ValueError) as e:
-                    logger.debug(
-                        "Could not load existing %s artifact: %s",
-                        self.artifact_slug,
-                        e,
-                    )
+            pull_requests = self._seed_pull_requests(context)
 
             if result := self._check_preconditions(context, pr_details, logger):
                 return result
 
-            # pr_details is guaranteed non-None and has valid repos after preconditions pass
+            # pr_details is guaranteed non-None and non-empty after preconditions pass
             assert pr_details is not None
 
-            # Build normalized path-keyed lookup for LLM-emitted repo entries.
-            # Use .get() with a falsy filter to avoid KeyError when "repo" is absent.
-            pr_by_repo = {
-                os.path.realpath(os.path.normpath(r.get("repo", ""))): r
-                for r in pr_details.get("repos", [])
-                if r.get("repo")
-            }
-            all_commits = [
-                c
-                for r in pr_details.get("repos", [])
-                if r.get("repo")
-                for c in r.get("commits", [])
-            ]
+            pr_by_repo, all_commits = self._build_pr_lookup(pr_details)
 
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
@@ -557,55 +674,15 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
 
-            # Track whether any repo was dispatched to _process_repo so we can
-            # surface a clear summary when all repos failed the lookup/title check.
-            dispatched_any = False
-
-            for repo_path in affected_repos:
-                normalized_key = os.path.realpath(os.path.normpath(repo_path))
-                repo_pr = pr_by_repo.get(normalized_key, {})
-                if not repo_pr:
-                    logger.warning(
-                        "No PR details found for repo %s — skipping %s creation",
-                        repo_path,
-                        self.entity_name,
-                    )
-                    continue
-                title = repo_pr.get("title", "")
-                if not title:
-                    logger.info(
-                        "Skipping %s creation for %s: empty title in PR details",
-                        self.entity_name,
-                        repo_path,
-                    )
-                    continue
-                dispatched_any = True
-                self._process_repo(
-                    context,
-                    repo_path,
-                    title,
-                    repo_pr.get("summary", ""),
-                    pull_requests,
-                    env,
-                    attachment_md,
-                )
-
-            # Surface a visible summary when every repo failed the lookup or title check
-            # (i.e., no repo was dispatched at all).  This typically indicates LLM repo
-            # paths that don't normalize to any affected_repos path (relative path,
-            # off-by-one, or symlink resolution differences).
-            if not dispatched_any:
-                skip_msg = (
-                    f"{self.entity_name} creation skipped: "
-                    "no LLM repo entries matched affected paths"
-                )
-                logger.warning(skip_msg)
-                _emit_and_log(
-                    context.require_issue_id,
-                    context.adw_id,
-                    skip_msg,
-                    {"output": f"{self.output_key_prefix}-skipped", "reason": skip_msg},
-                )
+            self._dispatch_repos(
+                context,
+                affected_repos,
+                pr_by_repo,
+                pull_requests,
+                env,
+                attachment_md,
+                logger,
+            )
 
             # Emit artifact comment and progress comment after all repos are processed
             if pull_requests:

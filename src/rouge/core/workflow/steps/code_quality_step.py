@@ -1,7 +1,5 @@
 """Code quality step implementation."""
 
-import json
-
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -16,7 +14,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeQualityArtifact, CodeQualityRepoResult
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import coerce_repos
+from rouge.core.workflow.step_utils import build_repos_schema, coerce_repos
 from rouge.core.workflow.types import StepResult
 
 # Required fields for code quality output JSON
@@ -27,21 +25,7 @@ CODE_QUALITY_REQUIRED_FIELDS = {
 
 # JSON schema generated from the Pydantic submodel so the LLM-facing schema and
 # the artifact model stay in sync automatically.  Generated once at import time.
-_REPO_SCHEMA = CodeQualityRepoResult.model_json_schema()
-CODE_QUALITY_JSON_SCHEMA = json.dumps(
-    {
-        "type": "object",
-        "properties": {
-            "output": {"type": "string", "const": "code-quality"},
-            "repos": {
-                "type": "array",
-                "items": _REPO_SCHEMA,
-            },
-        },
-        "required": ["output", "repos"],
-    },
-    indent=2,
-)
+CODE_QUALITY_JSON_SCHEMA = build_repos_schema(CodeQualityRepoResult, "code-quality")
 
 
 class CodeQualityStep(WorkflowStep):
