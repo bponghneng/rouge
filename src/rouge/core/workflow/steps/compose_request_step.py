@@ -1,6 +1,5 @@
 """Pull request preparation step implementation."""
 
-import json
 from typing import Any, Dict
 
 from rouge.core.agent import execute_template
@@ -17,7 +16,7 @@ from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact, ComposeRequestRepoResult
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _sanitize_for_logging, coerce_repos
+from rouge.core.workflow.step_utils import _sanitize_for_logging, build_repos_schema, coerce_repos
 from rouge.core.workflow.types import StepResult
 
 # Required fields for pull request output JSON
@@ -28,21 +27,7 @@ PR_REQUIRED_FIELDS = {
 
 # JSON schema generated from the Pydantic submodel so the LLM-facing schema and
 # the artifact model stay in sync automatically.  Generated once at import time.
-_REPO_SCHEMA = ComposeRequestRepoResult.model_json_schema()
-PULL_REQUEST_JSON_SCHEMA = json.dumps(
-    {
-        "type": "object",
-        "properties": {
-            "output": {"type": "string", "enum": ["pull-request"]},
-            "repos": {
-                "type": "array",
-                "items": _REPO_SCHEMA,
-            },
-        },
-        "required": ["output", "repos"],
-    },
-    indent=2,
-)
+PULL_REQUEST_JSON_SCHEMA = build_repos_schema(ComposeRequestRepoResult, "pull-request")
 
 
 class ComposeRequestStep(WorkflowStep):
@@ -199,14 +184,11 @@ class ComposeRequestStep(WorkflowStep):
         logger = get_logger(context.adw_id)
         # Coerce to typed models for artifact construction (surfaces validation errors early).
         typed_repos = coerce_repos(pr_data, ComposeRequestRepoResult, "compose_request", logger)
-        # Keep raw dicts in context.data for the pull-request step's existing dict-keyed access.
-        pr_details = {
-            "repos": [r.model_dump() for r in typed_repos],
-        }
-        context.data["pr_details"] = pr_details
+        # Store the typed list directly so downstream code can use attribute access.
+        context.data["pr_details"] = typed_repos
         logger.debug(
             "Stored PR details in context: %d repos",
-            len(pr_details["repos"]),
+            len(typed_repos),
         )
 
         # Save artifact to the artifact store
