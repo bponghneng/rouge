@@ -427,24 +427,28 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Execute the plan-based implementation",
     )
 
-    # 5. CodeQualityStep: requires implement (optional), produces code-quality artifact
+    # 5. CodeQualityStep: optionally reads implement to determine affected repos
     registry.register(
         CodeQualityStep,
         slug="code-quality",
         dependencies=["implement"],
         outputs=["code-quality"],
-        description="Run code quality checks. Optional dependency on implement for repo targeting.",
+        description=(
+            "Run code quality checks. "
+            "Reads the implement artifact to determine which repos to target."
+        ),
         dependency_kinds={"implement": "optional"},
     )
 
-    # 10. ComposeRequestStep: requires implement (optional), produces compose-request artifact
+    # 10. ComposeRequestStep: optionally reads implement to determine affected repos
     registry.register(
         ComposeRequestStep,
         slug="compose-request",
         dependencies=["implement"],
         outputs=["compose-request"],
         description=(
-            "Prepare pull request metadata. Optional dependency on implement for repo targeting."
+            "Prepare pull request metadata. "
+            "Reads the implement artifact to determine which repos to target."
         ),
         dependency_kinds={"implement": "optional"},
     )

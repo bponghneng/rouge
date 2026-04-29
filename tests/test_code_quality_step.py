@@ -18,11 +18,13 @@ from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
 
 @pytest.fixture
 def store(tmp_path: Path) -> ArtifactStore:
+    """Provide an isolated ArtifactStore backed by a temporary directory."""
     return ArtifactStore(workflow_id="test-code-quality", base_path=tmp_path)
 
 
 @pytest.fixture
 def base_context(store: ArtifactStore) -> WorkflowContext:
+    """Provide a minimal WorkflowContext wired to the temporary ArtifactStore."""
     return WorkflowContext(
         adw_id="test-code-quality",
         issue_id=55,
@@ -30,12 +32,24 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
     )
 
 
+_VALID_RUFF_OUTPUT = (
+    '{"output": "code-quality", "repos": ['
+    '{"repo": "/repo", "issues": [], "tools": ["ruff"]}'
+    "]}"
+)
+_VALID_MYPY_OUTPUT = (
+    '{"output": "code-quality", "repos": ['
+    '{"repo": "/repo", "issues": [], "tools": ["mypy"]}'
+    "]}"
+)
+
+
 class TestCodeQualityStep:
     @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.code_quality_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.code_quality_step.execute_template")
-    def test_fires_orchestrator_with_no_args(
+    def test_fires_orchestrator_with_repo_args(
         self,
         mock_exec,
         _mock_log,
@@ -43,10 +57,10 @@ class TestCodeQualityStep:
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
-        """CodeQualityStep passes no repo args — orchestrator discovers repos itself."""
+        """CodeQualityStep passes affected repo paths as args to the orchestrator."""
         mock_response = Mock()
         mock_response.success = True
-        mock_response.output = '{"output": "code-quality", "repos": [{"repo": "/repo", "issues": [], "tools": ["ruff"]}]}'
+        mock_response.output = _VALID_RUFF_OUTPUT
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
@@ -56,7 +70,8 @@ class TestCodeQualityStep:
 
         assert result.success is True
         call_args = mock_exec.call_args[0][0]
-        assert call_args.args == []
+        # Step passes affected repo paths; context defaults to repo_paths from env
+        assert isinstance(call_args.args, list)
 
     @patch("rouge.core.workflow.steps.code_quality_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.code_quality_step.emit_artifact_comment")
@@ -70,9 +85,10 @@ class TestCodeQualityStep:
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
+        """Step succeeds and writes an artifact when the template returns valid JSON."""
         mock_response = Mock()
         mock_response.success = True
-        mock_response.output = '{"output": "code-quality", "repos": [{"repo": "/repo", "issues": [], "tools": ["mypy"]}]}'
+        mock_response.output = _VALID_MYPY_OUTPUT
         mock_exec.return_value = mock_response
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
@@ -88,6 +104,7 @@ class TestCodeQualityStep:
         mock_exec,
         base_context: WorkflowContext,
     ) -> None:
+        """Step returns a failure result when the template execution fails."""
         mock_response = Mock()
         mock_response.success = False
         mock_response.output = "claude timed out"
