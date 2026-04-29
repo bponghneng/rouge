@@ -17,6 +17,7 @@ from rouge.core.utils import extract_repo_from_pull_request_url, get_logger
 from rouge.core.workflow.artifacts import (
     ArtifactType,
     ComposeRequestArtifact,
+    ComposeRequestRepoResult,
     PullRequestArtifactBase,
     PullRequestEntry,
 )
@@ -118,7 +119,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
     def _check_preconditions(
         self,
         context: WorkflowContext,
-        pr_details: list | None,
+        pr_details: list[ComposeRequestRepoResult] | None,
         logger: logging.Logger,
     ) -> StepResult | None:
         """Validate preconditions for PR/MR creation.
@@ -140,7 +141,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         # Require at least one entry with a non-empty repo path.
         # Empty-title entries are handled per-repo in the main loop, so we do
         # not gate on title here to avoid duplicating that logic.
-        valid_repos = [r for r in pr_details if getattr(r, "repo", None)]
+        valid_repos = [r for r in pr_details if r.repo]
         if not valid_repos:
             skip_msg = f"{self.entity_name} creation skipped: no repositories with PR details"
             logger.info(skip_msg)
@@ -504,7 +505,9 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 )
         return pull_requests
 
-    def _build_pr_lookup(self, pr_details: list) -> tuple[dict, list]:
+    def _build_pr_lookup(
+        self, pr_details: list[ComposeRequestRepoResult]
+    ) -> tuple[dict[str, ComposeRequestRepoResult], list[dict]]:
         """Build a normalized path-keyed lookup and flat commit list from *pr_details*.
 
         Args:
@@ -514,24 +517,18 @@ class PullRequestStepBase(WorkflowStep, ABC):
         Returns:
             A 2-tuple ``(pr_by_repo, all_commits)`` where *pr_by_repo* maps
             ``os.path.realpath(os.path.normpath(repo))`` → repo entry and
-            *all_commits* is the flat list of commit entries across all repos
+            *all_commits* is the flat list of commit dicts across all repos
             that have a non-empty ``repo`` attribute.
         """
-        pr_by_repo = {
-            os.path.realpath(os.path.normpath(r.repo)): r
-            for r in pr_details
-            if getattr(r, "repo", None)
-        }
-        all_commits = [
-            c for r in pr_details if getattr(r, "repo", None) for c in getattr(r, "commits", [])
-        ]
+        pr_by_repo = {os.path.realpath(os.path.normpath(r.repo)): r for r in pr_details if r.repo}
+        all_commits = [c.model_dump(mode="json") for r in pr_details if r.repo for c in r.commits]
         return pr_by_repo, all_commits
 
     def _dispatch_repos(
         self,
         context: WorkflowContext,
         affected_repos: list[str],
-        pr_by_repo: dict,
+        pr_by_repo: dict[str, ComposeRequestRepoResult],
         pull_requests: list[PullRequestEntry],
         env: dict[str, str],
         attachment_md: str | None,
@@ -571,7 +568,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 )
                 lookup_misses += 1
                 continue
-            title = getattr(repo_pr, "title", "") or ""
+            title = repo_pr.title
             if not title:
                 logger.info(
                     "Skipping %s creation for %s: empty title in PR details",
@@ -585,7 +582,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 context,
                 repo_path,
                 title,
-                getattr(repo_pr, "summary", "") or "",
+                repo_pr.summary,
                 pull_requests,
                 env,
                 attachment_md,
@@ -674,7 +671,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
 
-            self._dispatch_repos(
+            dispatched_any = self._dispatch_repos(
                 context,
                 affected_repos,
                 pr_by_repo,
@@ -684,8 +681,11 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 logger,
             )
 
-            # Emit artifact comment and progress comment after all repos are processed
-            if pull_requests:
+            # Emit artifact comment and progress comment after all repos are processed.
+            # Only emit the "created" comment when at least one new PR/MR was dispatched
+            # this run; otherwise seeded (prior-run) URLs would generate a duplicate
+            # "created" comment alongside the "skipped" comment from _dispatch_repos.
+            if dispatched_any and pull_requests:
                 artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
                     workflow_id=context.adw_id,
                     pull_requests=pull_requests,
