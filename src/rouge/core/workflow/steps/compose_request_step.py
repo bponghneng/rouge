@@ -1,5 +1,6 @@
 """Pull request preparation step implementation."""
 
+import json
 from typing import Any, Dict
 
 from rouge.core.agent import execute_template
@@ -13,10 +14,10 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import ComposeRequestArtifact
+from rouge.core.workflow.artifacts import ComposeRequestArtifact, ComposeRequestRepoResult
 from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
-from rouge.core.workflow.step_utils import _sanitize_for_logging
+from rouge.core.workflow.step_utils import _sanitize_for_logging, coerce_repos
 from rouge.core.workflow.types import StepResult
 
 # Required fields for pull request output JSON
@@ -25,37 +26,23 @@ PR_REQUIRED_FIELDS = {
     "repos": list,
 }
 
-PULL_REQUEST_JSON_SCHEMA = """{
-  "type": "object",
-  "properties": {
-    "output": { "type": "string", "enum": ["pull-request"] },
-    "repos": {
-      "type": "array",
-      "items": {
+# JSON schema generated from the Pydantic submodel so the LLM-facing schema and
+# the artifact model stay in sync automatically.  Generated once at import time.
+_REPO_SCHEMA = ComposeRequestRepoResult.model_json_schema()
+PULL_REQUEST_JSON_SCHEMA = json.dumps(
+    {
         "type": "object",
-        "required": ["repo", "title", "summary", "commits"],
         "properties": {
-          "repo": { "type": "string" },
-          "title": { "type": "string" },
-          "summary": { "type": "string" },
-          "commits": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["message", "sha"],
-              "properties": {
-                "message": { "type": "string" },
-                "sha": { "type": "string" },
-                "files": { "type": "array", "items": { "type": "string" } }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "required": ["output", "repos"]
-}"""
+            "output": {"type": "string", "enum": ["pull-request"]},
+            "repos": {
+                "type": "array",
+                "items": _REPO_SCHEMA,
+            },
+        },
+        "required": ["output", "repos"],
+    },
+    indent=2,
+)
 
 
 class ComposeRequestStep(WorkflowStep):
@@ -210,8 +197,11 @@ class ComposeRequestStep(WorkflowStep):
             context: Workflow context
         """
         logger = get_logger(context.adw_id)
+        # Coerce to typed models for artifact construction (surfaces validation errors early).
+        typed_repos = coerce_repos(pr_data, ComposeRequestRepoResult, "compose_request", logger)
+        # Keep raw dicts in context.data for the pull-request step's existing dict-keyed access.
         pr_details = {
-            "repos": pr_data.get("repos", []),
+            "repos": [r.model_dump() for r in typed_repos],
         }
         context.data["pr_details"] = pr_details
         logger.debug(
@@ -222,7 +212,7 @@ class ComposeRequestStep(WorkflowStep):
         # Save artifact to the artifact store
         artifact = ComposeRequestArtifact(
             workflow_id=context.adw_id,
-            repos=pr_details["repos"],
+            repos=typed_repos,
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)
