@@ -16,29 +16,15 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import FetchIssueArtifact, PlanArtifact
+from rouge.core.workflow.plan_common import (
+    PLAN_TASK_JSON_SCHEMA as PLAN_JSON_SCHEMA,
+)
+from rouge.core.workflow.plan_common import (
+    PLAN_TASK_REQUIRED_FIELDS as PLAN_REQUIRED_FIELDS,
+)
 from rouge.core.workflow.shared import AGENT_PLANNER
 from rouge.core.workflow.step_base import StepInputError, WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import PlanData, StepResult
-
-# Required fields for plan output JSON
-# Plan output must have task, output, plan (inline content), summary
-PLAN_REQUIRED_FIELDS = {
-    "task": str,
-    "output": str,
-    "plan": str,
-    "summary": str,
-}
-
-PLAN_JSON_SCHEMA = """{
-  "type": "object",
-  "properties": {
-    "task": { "type": "string", "minLength": 1 },
-    "output": { "type": "string", "const": "plan" },
-    "plan": { "type": "string", "minLength": 1 },
-    "summary": { "type": "string", "minLength": 1 }
-  },
-  "required": ["task", "output", "plan", "summary"]
-}"""
 
 
 class ClaudeCodePlanStep(WorkflowStep):

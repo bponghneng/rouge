@@ -99,13 +99,29 @@ def _register_default_workflows(registry: WorkflowRegistry) -> None:
     """Populate *registry* with the built-in workflow types.
 
     Uses local imports to avoid circular dependencies with pipeline.py.
+    Eagerly validates all ``WorkflowConfig`` step slugs against the step
+    registry so that typos are caught at startup rather than at first run.
     """
+    from rouge.core.workflow.config_resolver import validate_config_against_registry
     from rouge.core.workflow.pipeline import (
+        DIRECT_WORKFLOW_CONFIG,
+        FULL_WORKFLOW_CONFIG,
+        PATCH_WORKFLOW_CONFIG,
+        THIN_WORKFLOW_CONFIG,
         get_direct_pipeline,
         get_full_pipeline,
         get_patch_pipeline,
         get_thin_pipeline,
     )
+
+    # Eager registry-existence check: raises ValueError on any unknown slug.
+    for _config in (
+        PATCH_WORKFLOW_CONFIG,
+        FULL_WORKFLOW_CONFIG,
+        THIN_WORKFLOW_CONFIG,
+        DIRECT_WORKFLOW_CONFIG,
+    ):
+        validate_config_against_registry(_config)
 
     registry.register(
         WorkflowDefinition(

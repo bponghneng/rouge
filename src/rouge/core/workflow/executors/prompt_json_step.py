@@ -61,16 +61,10 @@ class PromptJsonStepSettings(BaseModel):
         model: Claude model selector passed through to the template request.
         input_artifact: Artifact-type slug to load as input
             (e.g. ``"fetch-issue"``).
-        input_artifact_class_name: Name of the input-artifact class.  Resolved
-            via :func:`rouge.core.workflow.plan_common.get_input_artifact_class`.
-            Accepts either the artifact-type slug (``"fetch-issue"``) or the
-            class name (``"FetchIssueArtifact"``).
         input_field: Attribute name on the loaded artifact to pass into the
             prompt (e.g. ``"issue"`` or ``"patch"``).
         json_schema_kind: Selects the required-fields / JSON-schema variant to
             validate the agent output against.
-        output_artifact_kind: Kind of artifact produced.  Currently only
-            ``"plan"`` (i.e. ``PlanArtifact``) is supported.
         title_keys: Keys to scan in the parsed JSON when picking the progress
             comment title; first non-empty match wins.
     """
@@ -79,17 +73,15 @@ class PromptJsonStepSettings(BaseModel):
     agent_name: str = AGENT_PLANNER
     model: Literal["sonnet", "opus", "haiku"] = "sonnet"
     input_artifact: ArtifactType
-    input_artifact_class_name: str
     input_field: str = Field(min_length=1)
     json_schema_kind: Literal["plan_chore_bug_feature", "plan_task"]
-    output_artifact_kind: Literal["plan"] = "plan"
     title_keys: List[str] = Field(default_factory=lambda: list(DEFAULT_TITLE_KEYS))
 
-    @field_validator("input_artifact_class_name")
+    @field_validator("input_artifact")
     @classmethod
-    def _validate_input_artifact_class_name(cls, value: str) -> str:
-        # Force resolution at config-load time so misconfigured names fail
-        # fast rather than at first run.
+    def _validate_input_artifact(cls, value: ArtifactType) -> ArtifactType:
+        # Force resolution at config-load time so unregistered artifact types
+        # fail fast rather than at first run.
         get_input_artifact_class(value)
         return value
 
@@ -115,6 +107,7 @@ class PromptJsonStep(WorkflowStep):
                 to a generic plan-step label; the resolver typically overrides
                 this from ``StepInvocation.display_name``.
         """
+        super().__init__()
         self._settings = settings
         self._display_name = display_name
 
@@ -144,11 +137,9 @@ class PromptJsonStep(WorkflowStep):
         logger = get_logger(context.adw_id)
         settings = self._settings
 
-        # Resolve the input artifact class once.  Validation in
-        # ``PromptJsonStepSettings`` already ensured the name is registered.
-        artifact_class: Type[Artifact] = get_input_artifact_class(
-            settings.input_artifact_class_name
-        )
+        # Resolve the input artifact class from the artifact-type slug.
+        # Validation in ``PromptJsonStepSettings`` already ensured the slug is registered.
+        artifact_class: Type[Artifact] = get_input_artifact_class(settings.input_artifact)
 
         # Load the input artifact and extract the configured field.  Mirrors
         # the load_required_artifact pattern used by the legacy steps so the

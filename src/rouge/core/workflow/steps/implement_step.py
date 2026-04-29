@@ -95,6 +95,7 @@ class ImplementPlanStep(WorkflowStep):
             plan_step_name: Name of the preceding plan step for rerun messages.
                 Defaults to "Building implementation plan" when not provided.
         """
+        super().__init__()
         self.plan_step_name = plan_step_name or "Building implementation plan"
 
     @property

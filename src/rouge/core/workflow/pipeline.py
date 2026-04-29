@@ -69,11 +69,11 @@ class WorkflowRunner:
         # Build indexes for fast lookup. ``step_id`` (if set) takes priority over
         # ``step.name`` for resume/rerun targets so declarative pipelines can use
         # stable identifiers; ``step.name`` remains as a fallback for steps that
-        # do not declare a ``step_id``.
+        # do not declare a ``step_id``. Use ``getattr`` so test mocks built with
+        # ``Mock(spec=WorkflowStep)`` — which lack the instance attribute set in
+        # ``__init__`` — degrade to ``None`` instead of raising ``AttributeError``.
         step_id_to_index: Dict[str, int] = {
-            s.step_id: i
-            for i, s in enumerate(self._steps)
-            if isinstance(s.step_id, str) and s.step_id
+            sid: i for i, s in enumerate(self._steps) if (sid := getattr(s, "step_id", None))
         }
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
@@ -142,12 +142,7 @@ class WorkflowRunner:
 
                 # Update last completed step and write WorkflowStateArtifact (best-effort)
                 last_completed_step = step.name
-                # Only treat ``step_id`` as set when it is a non-empty string;
-                # this guards against test doubles that auto-generate non-string
-                # attribute values for the optional class attribute.
-                last_completed_step_id = (
-                    step.step_id if isinstance(step.step_id, str) and step.step_id else None
-                )
+                last_completed_step_id = getattr(step, "step_id", None) or None
                 self._write_workflow_state(
                     artifact_store,
                     adw_id,
@@ -164,9 +159,14 @@ class WorkflowRunner:
                 if count < self.max_step_reruns:
                     resolved_index = _resolve_target(target)
                     if resolved_index is None:
-                        logger.warning(
-                            "Rerun requested for unknown step '%s', ignoring",
+                        valid_keys = sorted(
+                            set(step_id_to_index.keys()) | set(step_name_to_index.keys())
+                        )
+                        logger.error(
+                            "Rerun requested for unknown step '%s'; ignoring. "
+                            "Valid step IDs/names: %s",
                             target,
+                            valid_keys,
                         )
                     else:
                         rerun_counts[target] = count + 1
@@ -226,8 +226,7 @@ class WorkflowRunner:
             )
             artifact_store.write_artifact(state_artifact)
             logger.debug(
-                "Wrote workflow state: last_completed=%s, last_completed_id=%s, "
-                "failed=%s, type=%s",
+                "Wrote workflow state: last_completed=%s, last_completed_id=%s, failed=%s, type=%s",
                 last_completed_step,
                 last_completed_step_id,
                 failed_step,
@@ -339,7 +338,7 @@ PATCH_WORKFLOW_CONFIG = WorkflowConfig(
     steps=[
         StepInvocation(id="fetch-patch"),
         StepInvocation(id="git-checkout"),
-        StepInvocation(id="patch-plan"),
+        StepInvocation(id="patch-plan", display_name="Building patch plan"),
         StepInvocation(
             id="implement-plan",
             settings={"plan_step_name": "Building patch plan"},
@@ -356,7 +355,7 @@ THIN_WORKFLOW_CONFIG = WorkflowConfig(
     steps=[
         StepInvocation(id="fetch-issue"),
         StepInvocation(id="git-branch"),
-        StepInvocation(id="thin-plan"),
+        StepInvocation(id="thin-plan", display_name="Building thin implementation plan"),
         StepInvocation(
             id="implement-plan",
             settings={"plan_step_name": "Building thin implementation plan"},

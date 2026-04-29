@@ -31,12 +31,15 @@ Default settings for the three plan slugs (see Step 6 of the Phase 2 plan):
 
 from __future__ import annotations
 
+import logging
 import os
 from typing import Any, Callable, Dict, List, Optional
 
 from rouge.core.workflow.config import StepInvocation, WorkflowConfig
 from rouge.core.workflow.step_base import WorkflowStep
 from rouge.core.workflow.step_registry import StepMetadata, get_step_registry
+
+logger = logging.getLogger(__name__)
 
 # Type alias for per-slug factories.  A factory receives the
 # ``StepInvocation`` (so it can read ``settings``) and the ``StepMetadata``
@@ -96,28 +99,22 @@ def _build_prompt_json_step_for_slug(
         "thin-plan": {
             "prompt_id": PromptId.THIN_PLAN,
             "input_artifact": "fetch-issue",
-            "input_artifact_class_name": "fetch-issue",
             "input_field": "issue",
             "json_schema_kind": "plan_chore_bug_feature",
-            "output_artifact_kind": "plan",
             "title_keys": ["chore", "bug", "feature"],
         },
         "patch-plan": {
             "prompt_id": PromptId.PATCH_PLAN,
             "input_artifact": "fetch-patch",
-            "input_artifact_class_name": "fetch-patch",
             "input_field": "patch",
             "json_schema_kind": "plan_chore_bug_feature",
-            "output_artifact_kind": "plan",
             "title_keys": ["chore", "bug", "feature"],
         },
         "claude-code-plan": {
             "prompt_id": PromptId.CLAUDE_CODE_PLAN,
             "input_artifact": "fetch-issue",
-            "input_artifact_class_name": "fetch-issue",
             "input_field": "issue",
             "json_schema_kind": "plan_task",
-            "output_artifact_kind": "plan",
             "title_keys": ["task"],
         },
     }
@@ -196,6 +193,33 @@ _FACTORIES: Dict[str, StepFactory] = {
 # ---------------------------------------------------------------------------
 
 
+def validate_config_against_registry(config: WorkflowConfig) -> None:
+    """Eagerly verify that every ``StepInvocation.id`` in *config* is registered.
+
+    Raises ``ValueError`` immediately (at registry-build time, before any
+    run-time invocation) when a slug is missing.  This catches typos in
+    :class:`~rouge.core.workflow.config.WorkflowConfig` definitions without
+    waiting for the first pipeline build.
+
+    Args:
+        config: The declarative workflow configuration to validate.
+
+    Raises:
+        ValueError: If any step slug is not registered in the step registry.
+    """
+    registry = get_step_registry()
+    unknown: List[str] = [
+        invocation.id
+        for invocation in config.steps
+        if registry.get_step_metadata_by_slug(invocation.id) is None
+    ]
+    if unknown:
+        raise ValueError(
+            f"WorkflowConfig '{config.type_id}' references unregistered step slug(s): "
+            f"{unknown}. Register them in the step registry before use."
+        )
+
+
 def resolve_workflow(config: WorkflowConfig) -> List[WorkflowStep]:
     """Resolve a :class:`WorkflowConfig` into an ordered list of steps.
 
@@ -244,8 +268,14 @@ def resolve_workflow(config: WorkflowConfig) -> List[WorkflowStep]:
             try:
                 step.name = invocation.display_name  # type: ignore[misc]
             except AttributeError:
-                # Read-only property on legacy classes; no-op.
-                pass
+                # Read-only property on legacy classes; log and skip.
+                logger.warning(
+                    "Step '%s' (slug '%s') has a read-only 'name' property; "
+                    "display_name override '%s' was not applied.",
+                    type(step).__name__,
+                    invocation.id,
+                    invocation.display_name,
+                )
 
         resolved.append(step)
 

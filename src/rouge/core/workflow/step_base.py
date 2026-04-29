@@ -183,7 +183,8 @@ class WorkflowStep(ABC):
             the runner falls back to ``name`` to preserve existing behavior.
     """
 
-    step_id: Optional[str] = None
+    def __init__(self) -> None:
+        self.step_id: Optional[str] = None
 
     @property
     @abstractmethod
