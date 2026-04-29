@@ -154,6 +154,14 @@ class WorkflowContext:
                 artifact_type,
             )
             return None
+        except ValueError as e:
+            logger.warning(
+                "Optional artifact '%s' failed validation (schema may have changed); "
+                "proceeding without it: %s",
+                artifact_type,
+                e,
+            )
+            return None
 
         value = extract_fn(artifact)
         self.data[context_key] = value
