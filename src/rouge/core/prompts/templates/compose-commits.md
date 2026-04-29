@@ -13,11 +13,9 @@ Discover all repositories with uncommitted changes, launch a parallel commit-com
 
 ### 1. Discover Repositories
 
-Find all repositories by locating directories that contain a `.git` folder.
+The arguments passed to this step are the absolute paths of the repositories to process. Do not perform filesystem discovery — use only the paths provided as arguments.
 
-Repositories will be found either at the top-level working directory or as an immediate subdirectory of it — discovery does not need to recurse more than one level deep.
-
-After locating repositories, filter to only those with uncommitted changes by running `git status --porcelain` in each. A repository has changes if the output is non-empty (covers modified, untracked, and deleted files). Skip any repository with no changes.
+After receiving the repository paths, filter to only those with uncommitted changes by running `git status --porcelain` in each. A repository has changes if the output is non-empty (covers modified, untracked, and deleted files). Skip any repository with no changes.
 
 ### 2. Launch a Sub-Agent per Repository
 

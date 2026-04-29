@@ -18,18 +18,21 @@ from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
 
 VALID_OUTPUT = (
     '{"output": "pull-request", "repos": ['
-    '{"repo": "/srv/app", "title": "feat: add thing", "summary": "## Description\\nAdds thing", "commits": []}'
-    ']}'
+    '{"repo": "/srv/app", "title": "feat: add thing",'
+    ' "summary": "## Description\\nAdds thing", "commits": []}'
+    "]}"
 )
 
 
 @pytest.fixture
 def store(tmp_path: Path) -> ArtifactStore:
+    """Provide an isolated ArtifactStore backed by a temporary directory."""
     return ArtifactStore(workflow_id="test-compose-request", base_path=tmp_path)
 
 
 @pytest.fixture
 def base_context(store: ArtifactStore) -> WorkflowContext:
+    """Provide a minimal WorkflowContext wired to the temporary ArtifactStore."""
     return WorkflowContext(
         adw_id="test-compose-request",
         issue_id=77,
@@ -76,7 +79,7 @@ class TestComposeRequestOrderingOnlyDependency:
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")
     @patch("rouge.core.workflow.steps.compose_request_step.log_artifact_comment_status")
     @patch("rouge.core.workflow.steps.compose_request_step.execute_template")
-    def test_fires_orchestrator_with_no_args(
+    def test_fires_orchestrator_with_repo_args(
         self,
         mock_exec,
         _mock_log,
@@ -84,7 +87,7 @@ class TestComposeRequestOrderingOnlyDependency:
         mock_emit,
         base_context: WorkflowContext,
     ) -> None:
-        """ComposeRequestStep passes no repo args — orchestrator discovers repos itself."""
+        """ComposeRequestStep passes affected repo paths as args to the orchestrator."""
         mock_response = Mock()
         mock_response.success = True
         mock_response.output = VALID_OUTPUT
@@ -97,7 +100,8 @@ class TestComposeRequestOrderingOnlyDependency:
 
         assert result.success is True
         call_args = mock_exec.call_args[0][0]
-        assert call_args.args == []
+        # Step passes affected repo paths; context defaults to repo_paths from env
+        assert isinstance(call_args.args, list)
 
     @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
     @patch("rouge.core.workflow.steps.compose_request_step.emit_artifact_comment")

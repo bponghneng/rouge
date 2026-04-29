@@ -16,7 +16,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeCommitsArtifact
-from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER
+from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import (
     _emit_and_log,
@@ -281,10 +281,11 @@ class ComposeCommitsStep(WorkflowStep):
         logger = get_logger(context.adw_id)
 
         try:
+            repo_paths = get_affected_repo_paths(context)
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
                 prompt_id=PromptId.COMPOSE_COMMITS,
-                args=[],
+                args=repo_paths,
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
