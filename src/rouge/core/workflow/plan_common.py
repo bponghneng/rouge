@@ -131,7 +131,7 @@ def get_plan_json_schema_kind(kind: str) -> tuple[Mapping[str, type[Any]], str]:
         return PLAN_JSON_SCHEMA_KINDS[kind]
     except KeyError as exc:
         raise ValueError(
-            f"Unknown plan json_schema_kind '{kind}'. " f"Known: {sorted(PLAN_JSON_SCHEMA_KINDS)}"
+            f"Unknown plan json_schema_kind '{kind}'. Known: {sorted(PLAN_JSON_SCHEMA_KINDS)}"
         ) from exc
 
 

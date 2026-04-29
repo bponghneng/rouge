@@ -33,14 +33,10 @@ def base_context(store: ArtifactStore) -> WorkflowContext:
 
 
 _VALID_RUFF_OUTPUT = (
-    '{"output": "code-quality", "repos": ['
-    '{"repo": "/repo", "issues": [], "tools": ["ruff"]}'
-    "]}"
+    '{"output": "code-quality", "repos": [{"repo": "/repo", "issues": [], "tools": ["ruff"]}]}'
 )
 _VALID_MYPY_OUTPUT = (
-    '{"output": "code-quality", "repos": ['
-    '{"repo": "/repo", "issues": [], "tools": ["mypy"]}'
-    "]}"
+    '{"output": "code-quality", "repos": [{"repo": "/repo", "issues": [], "tools": ["mypy"]}]}'
 )
 
 

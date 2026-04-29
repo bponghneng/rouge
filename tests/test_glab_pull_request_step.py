@@ -87,9 +87,9 @@ def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
         for call in mock_run.call_args_list
         if call[0][0][0] == "glab" and call[0][0][2] == "create"
     ]
-    assert (
-        len(glab_create_calls) == 1
-    ), f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
+    assert len(glab_create_calls) == 1, (
+        f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
+    )
     return glab_create_calls[0][0][0]
 
 
@@ -675,9 +675,9 @@ class TestGlabPullRequestStepAttachment:
         # No attachment-related calls: no notes listing, no note create, no api PUT
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
-            assert not (
-                "api" in cmd_str and "notes" in cmd_str
-            ), "glab api notes listing should not be called when attachment is None"
+            assert not ("api" in cmd_str and "notes" in cmd_str), (
+                "glab api notes listing should not be called when attachment is None"
+            )
             has_note_cmd = (
                 "glab" in cmd_str and "mr" in cmd_str and "note" in cmd_str and "api" not in cmd_str
             )
