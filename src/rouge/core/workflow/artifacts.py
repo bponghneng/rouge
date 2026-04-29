@@ -154,12 +154,13 @@ class CommitEntry(BaseModel):
 
     Attributes:
         message: Full conventional commit message
-        sha: Commit SHA identifier (may be empty if not yet committed)
+        sha: Commit SHA identifier. ``None`` indicates the commit has not yet
+            been created; a non-None empty string is treated as unknown SHA.
         files: Repo-relative paths of files changed in this commit
     """
 
     message: str
-    sha: str = ""
+    sha: Optional[str] = None
     files: List[str] = Field(default_factory=list)
 
 
@@ -197,25 +198,17 @@ class CodeQualityArtifact(Artifact):
     """Artifact containing code quality check results.
 
     Attributes:
-        output: Step-result indicator ("code-quality" on success, "skipped" when no repos affected)
-        repos: Per-repository results, each containing repo path, issues, and tools run
-        parsed_data: Optional parsed JSON data from the check
+        repos: Per-repository results, each containing repo path, issues, and tools run.
+            An empty list signals that the step was skipped (no repos affected).
     """
 
     artifact_type: Literal["code-quality"] = "code-quality"
-    output: str = Field(
-        description=(
-            'Step-result indicator. Populated with "code-quality" on success '
-            'or "skipped" when no repos are affected.'
-        ),
-        min_length=1,
-    )
     repos: List[CodeQualityRepoResult] = Field(
         default_factory=list,
-        description="Per-repository code quality results",
-    )
-    parsed_data: Optional[Dict[str, Any]] = Field(
-        default=None, description="Structured JSON data parsed from tool output"
+        description=(
+            "Per-repository code quality results. "
+            "An empty list signals that the step was skipped (no repos affected)."
+        ),
     )
 
 
