@@ -1,6 +1,7 @@
 import logging
 from unittest.mock import MagicMock, patch
 
+from rouge.core.workflow.executors.prompt_json_step import PromptJsonStep
 from rouge.core.workflow.pipeline import (
     WorkflowRunner,
     get_direct_pipeline,
@@ -316,20 +317,26 @@ class TestGetPatchPipeline:
         # Check step count (should be 6)
         assert len(pipeline) == 6
 
-        # Verify order and types
-        expected_types = [
-            FetchPatchStep,
-            GitCheckoutStep,
-            PatchPlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeCommitsStep,
+        # Verify order via stable step_id (resolver maps patch-plan to
+        # PromptJsonStep, so isinstance against PatchPlanStep no longer applies).
+        expected_step_ids = [
+            "fetch-patch",
+            "git-checkout",
+            "patch-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-commits",
         ]
+        assert [step.step_id for step in pipeline] == expected_step_ids
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Verify the non-plan steps still resolve to their concrete classes.
+        assert isinstance(pipeline[0], FetchPatchStep)
+        assert isinstance(pipeline[1], GitCheckoutStep)
+        # patch-plan is now a PromptJsonStep (declarative executor).
+        assert isinstance(pipeline[2], PromptJsonStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeCommitsStep)
 
         assert pipeline[3].plan_step_name == "Building patch plan"
 
@@ -366,19 +373,26 @@ class TestGetPatchPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_patch_pipeline()
 
-        expected_types = [
-            FetchPatchStep,
-            GitCheckoutStep,
-            PatchPlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeCommitsStep,
+        # Step ordering is asserted by stable step_id; the patch-plan slug now
+        # resolves to PromptJsonStep rather than PatchPlanStep, so isinstance
+        # against the legacy class no longer holds for index 2.
+        expected_step_ids = [
+            "fetch-patch",
+            "git-checkout",
+            "patch-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-commits",
         ]
+        assert [step.step_id for step in pipeline] == expected_step_ids
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan steps still use their concrete classes.
+        assert isinstance(pipeline[0], FetchPatchStep)
+        assert isinstance(pipeline[1], GitCheckoutStep)
+        assert isinstance(pipeline[2], PromptJsonStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeCommitsStep)
 
 
 class TestGetFullPipeline:
@@ -390,20 +404,26 @@ class TestGetFullPipeline:
         # Check step count (should be 6 without PR step)
         assert len(pipeline) == 6
 
-        # Verify order and types
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ClaudeCodePlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeRequestStep,
+        # Step ordering is asserted via stable step_id since claude-code-plan
+        # now resolves to PromptJsonStep rather than the legacy class.
+        expected_step_ids = [
+            "fetch-issue",
+            "git-branch",
+            "claude-code-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-request",
         ]
+        assert [step.step_id for step in pipeline] == expected_step_ids
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan steps continue to use their concrete classes.
+        assert isinstance(pipeline[0], FetchIssueStep)
+        assert isinstance(pipeline[1], GitBranchStep)
+        # claude-code-plan is now a PromptJsonStep.
+        assert isinstance(pipeline[2], PromptJsonStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeRequestStep)
 
         # Verify ImplementPlanStep is configured with correct plan_step_name
         assert pipeline[3].plan_step_name == "Building implementation plan"
@@ -411,7 +431,7 @@ class TestGetFullPipeline:
         # Verify critical flags
         assert pipeline[0].is_critical  # FetchIssueStep
         assert pipeline[1].is_critical  # GitBranchStep
-        assert pipeline[2].is_critical  # ClaudeCodePlanStep
+        assert pipeline[2].is_critical  # claude-code-plan (PromptJsonStep)
         assert pipeline[3].is_critical  # ImplementPlanStep
         assert not pipeline[4].is_critical  # CodeQualityStep
 
@@ -436,13 +456,22 @@ class TestGetFullPipeline:
         assert not pipeline[-1].is_critical  # MR creation is best effort
 
     def test_claude_code_plan_step_present_at_index_2(self, monkeypatch):
-        """Verify ClaudeCodePlanStep is present at index 2."""
+        """Verify the claude-code-plan slug resolves at index 2.
+
+        Post-refactor, the slug ``claude-code-plan`` is resolved by the
+        config_resolver to a :class:`PromptJsonStep` (not the legacy
+        ``ClaudeCodePlanStep`` class).  Identity is asserted via the stable
+        ``step_id`` carried on every resolved step.
+        """
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
         assert isinstance(
-            pipeline[2], ClaudeCodePlanStep
-        ), "ClaudeCodePlanStep should be at index 2"
+            pipeline[2], PromptJsonStep
+        ), "claude-code-plan slug should resolve to PromptJsonStep at index 2"
+        assert (
+            pipeline[2].step_id == "claude-code-plan"
+        ), "Step at index 2 must carry step_id='claude-code-plan'"
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""
@@ -480,25 +509,33 @@ class TestGetFullPipeline:
             ), "No PR/MR step should be present with unsupported platform"
 
     def test_step_order_matches_spec(self, monkeypatch):
-        """Verify the exact sequence of steps matches the specification."""
+        """Verify the exact sequence of steps matches the specification.
+
+        Step identity is asserted via stable ``step_id``; the claude-code-plan
+        slug now resolves to :class:`PromptJsonStep` rather than the legacy
+        ``ClaudeCodePlanStep`` class.
+        """
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ClaudeCodePlanStep,
-            ImplementPlanStep,
-            CodeQualityStep,
-            ComposeRequestStep,
+        expected_step_ids = [
+            "fetch-issue",
+            "git-branch",
+            "claude-code-plan",
+            "implement-plan",
+            "code-quality",
+            "compose-request",
         ]
+        assert len(pipeline) == len(expected_step_ids)
+        assert [step.step_id for step in pipeline] == expected_step_ids
 
-        assert len(pipeline) == len(expected_types)
-
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Spot-check the non-plan classes.
+        assert isinstance(pipeline[0], FetchIssueStep)
+        assert isinstance(pipeline[1], GitBranchStep)
+        assert isinstance(pipeline[2], PromptJsonStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], CodeQualityStep)
+        assert isinstance(pipeline[5], ComposeRequestStep)
 
 
 class TestGetThinPipeline:
@@ -510,19 +547,24 @@ class TestGetThinPipeline:
         # Check step count (should be 5 without PR step)
         assert len(pipeline) == 5
 
-        # Verify order and types
-        expected_types = [
-            FetchIssueStep,
-            GitBranchStep,
-            ThinPlanStep,
-            ImplementPlanStep,
-            ComposeRequestStep,
+        # Step ordering is asserted by stable step_id; the thin-plan slug
+        # resolves to PromptJsonStep so isinstance against ThinPlanStep no
+        # longer applies.
+        expected_step_ids = [
+            "fetch-issue",
+            "git-branch",
+            "thin-plan",
+            "implement-plan",
+            "compose-request",
         ]
+        assert [step.step_id for step in pipeline] == expected_step_ids
 
-        for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+        # Non-plan steps still use their concrete classes.
+        assert isinstance(pipeline[0], FetchIssueStep)
+        assert isinstance(pipeline[1], GitBranchStep)
+        assert isinstance(pipeline[2], PromptJsonStep)
+        assert isinstance(pipeline[3], ImplementPlanStep)
+        assert isinstance(pipeline[4], ComposeRequestStep)
 
         # Verify ImplementPlanStep is configured with correct plan_step_name
         assert pipeline[3].plan_step_name == "Building thin implementation plan"

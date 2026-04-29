@@ -22,6 +22,11 @@ from rouge.core.workflow.types import StepResult
 class PatchPlanStep(WorkflowStep):
     """Standalone plan building step for patch issues.
 
+    .. deprecated::
+        Superseded by ``PromptJsonStep`` at workflow-build time. This concrete
+        class is preserved for direct ``rouge step run`` invocation and will
+        be retired in a follow-up issue.
+
     This step builds an implementation plan directly from the patch issue
     description, without referencing any parent workflow artifacts. It:
     1. Uses the patch issue from context (set by FetchPatchStep on context.issue)

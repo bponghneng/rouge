@@ -44,6 +44,11 @@ PLAN_JSON_SCHEMA = """{
 class ClaudeCodePlanStep(WorkflowStep):
     """Task-oriented plan building step for full workflow.
 
+    .. deprecated::
+        Superseded by ``PromptJsonStep`` at workflow-build time. This concrete
+        class is preserved for direct ``rouge step run`` invocation and will
+        be retired in a follow-up issue.
+
     This step builds an implementation plan directly from the issue
     description, without requiring classification. It:
     1. Uses the issue from FetchIssueArtifact

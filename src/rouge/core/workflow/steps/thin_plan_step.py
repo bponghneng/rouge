@@ -22,6 +22,11 @@ from rouge.core.workflow.types import StepResult
 class ThinPlanStep(WorkflowStep):
     """Thin plan building step for issue workflows.
 
+    .. deprecated::
+        Superseded by ``PromptJsonStep`` at workflow-build time. This concrete
+        class is preserved for direct ``rouge step run`` invocation and will
+        be retired in a follow-up issue.
+
     This step builds a lightweight implementation plan directly from the issue
     description using the thin-plan prompt template.  It:
     1. Loads the issue from the FetchIssueArtifact (set by FetchIssueStep)

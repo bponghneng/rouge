@@ -5,6 +5,8 @@ from typing import Dict, List, Optional
 
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ArtifactStore
+from rouge.core.workflow.config import StepCondition, StepInvocation, WorkflowConfig
+from rouge.core.workflow.config_resolver import resolve_workflow
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.workflow_io import log_step_end, log_step_start
 
@@ -64,15 +66,35 @@ class WorkflowRunner:
         logger.info("ADW ID: %s", adw_id)
         logger.info("Processing issue ID: %s", issue_id)
 
-        # Build index for fast step-name -> position lookup
+        # Build indexes for fast lookup. ``step_id`` (if set) takes priority over
+        # ``step.name`` for resume/rerun targets so declarative pipelines can use
+        # stable identifiers; ``step.name`` remains as a fallback for steps that
+        # do not declare a ``step_id``.
+        step_id_to_index: Dict[str, int] = {
+            s.step_id: i
+            for i, s in enumerate(self._steps)
+            if isinstance(s.step_id, str) and s.step_id
+        }
         step_name_to_index: Dict[str, int] = {s.name: i for i, s in enumerate(self._steps)}
         rerun_counts: Dict[str, int] = {}
         step_index = 0
 
+        def _resolve_target(target: str) -> Optional[int]:
+            """Resolve a resume/rerun target to a step index.
+
+            Tries ``step_id`` first, then falls back to ``step.name``.
+            """
+            if target in step_id_to_index:
+                return step_id_to_index[target]
+            if target in step_name_to_index:
+                return step_name_to_index[target]
+            return None
+
         # Handle resume: skip all steps before the resume target
         if resume_from is not None:
-            if resume_from in step_name_to_index:
-                step_index = step_name_to_index[resume_from]
+            resolved = _resolve_target(resume_from)
+            if resolved is not None:
+                step_index = resolved
                 logger.info("Resuming workflow from step '%s' (index %d)", resume_from, step_index)
             else:
                 logger.warning(
@@ -80,8 +102,9 @@ class WorkflowRunner:
                     resume_from,
                 )
 
-        # Track the name of the last successfully completed step
+        # Track the name (and optional step_id) of the last successfully completed step
         last_completed_step: Optional[str] = None
+        last_completed_step_id: Optional[str] = None
 
         while step_index < len(self._steps):
             step = self._steps[step_index]
@@ -102,6 +125,7 @@ class WorkflowRunner:
                         artifact_store,
                         adw_id,
                         last_completed_step=last_completed_step,
+                        last_completed_step_id=last_completed_step_id,
                         failed_step=step.name,
                         pipeline_type=pipeline_type,
                     )
@@ -118,10 +142,17 @@ class WorkflowRunner:
 
                 # Update last completed step and write WorkflowStateArtifact (best-effort)
                 last_completed_step = step.name
+                # Only treat ``step_id`` as set when it is a non-empty string;
+                # this guards against test doubles that auto-generate non-string
+                # attribute values for the optional class attribute.
+                last_completed_step_id = (
+                    step.step_id if isinstance(step.step_id, str) and step.step_id else None
+                )
                 self._write_workflow_state(
                     artifact_store,
                     adw_id,
                     last_completed_step=last_completed_step,
+                    last_completed_step_id=last_completed_step_id,
                     failed_step=None,
                     pipeline_type=pipeline_type,
                 )
@@ -131,7 +162,8 @@ class WorkflowRunner:
                 target = result.rerun_from
                 count = rerun_counts.get(target, 0)
                 if count < self.max_step_reruns:
-                    if target not in step_name_to_index:
+                    resolved_index = _resolve_target(target)
+                    if resolved_index is None:
                         logger.warning(
                             "Rerun requested for unknown step '%s', ignoring",
                             target,
@@ -144,7 +176,7 @@ class WorkflowRunner:
                             rerun_counts[target],
                             self.max_step_reruns,
                         )
-                        step_index = step_name_to_index[target]
+                        step_index = resolved_index
                         continue
                 else:
                     logger.warning(
@@ -165,6 +197,7 @@ class WorkflowRunner:
         last_completed_step: Optional[str],
         failed_step: Optional[str],
         pipeline_type: str,
+        last_completed_step_id: Optional[str] = None,
     ) -> None:
         """Write WorkflowStateArtifact in a best-effort manner.
 
@@ -177,6 +210,8 @@ class WorkflowRunner:
             last_completed_step: Name of the last successfully completed step (or None)
             failed_step: Name of the step that failed (or None)
             pipeline_type: The type of pipeline being executed
+            last_completed_step_id: Optional stable step_id of the last successfully
+                completed step (or None when the step has no ``step_id`` set)
         """
         logger = get_logger(workflow_id)
         try:
@@ -185,13 +220,16 @@ class WorkflowRunner:
             state_artifact = WorkflowStateArtifact(
                 workflow_id=workflow_id,
                 last_completed_step=last_completed_step,
+                last_completed_step_id=last_completed_step_id,
                 failed_step=failed_step,
                 pipeline_type=pipeline_type,
             )
             artifact_store.write_artifact(state_artifact)
             logger.debug(
-                "Wrote workflow state: last_completed=%s, failed=%s, type=%s",
+                "Wrote workflow state: last_completed=%s, last_completed_id=%s, "
+                "failed=%s, type=%s",
                 last_completed_step,
+                last_completed_step_id,
                 failed_step,
                 pipeline_type,
             )
@@ -280,177 +318,138 @@ class WorkflowRunner:
         return True
 
 
+# ---------------------------------------------------------------------------
+# Built-in workflow configurations
+# ---------------------------------------------------------------------------
+#
+# Each ``WorkflowConfig`` below is the declarative analogue of one of the
+# legacy ``get_*_pipeline`` functions. The resolver in
+# ``config_resolver.resolve_workflow`` translates these configs into runnable
+# step lists, including:
+#
+#   * Per-slug factory overrides (e.g. ``claude-code-plan`` -> ``PromptJsonStep``).
+#   * Default settings injected for the three plan slugs, so invocation
+#     ``settings`` can stay empty here.
+#   * ``StepCondition`` evaluation for the GitHub / GitLab PR steps, replacing
+#     the previous ``DEV_SEC_OPS_PLATFORM`` env-var branch in this module.
+
+PATCH_WORKFLOW_CONFIG = WorkflowConfig(
+    type_id="patch",
+    description="Patch workflow pipeline",
+    steps=[
+        StepInvocation(id="fetch-patch"),
+        StepInvocation(id="git-checkout"),
+        StepInvocation(id="patch-plan"),
+        StepInvocation(
+            id="implement-plan",
+            settings={"plan_step_name": "Building patch plan"},
+        ),
+        StepInvocation(id="code-quality"),
+        StepInvocation(id="compose-commits"),
+    ],
+)
+
+
+THIN_WORKFLOW_CONFIG = WorkflowConfig(
+    type_id="thin",
+    description="Thin workflow pipeline for straightforward issues",
+    steps=[
+        StepInvocation(id="fetch-issue"),
+        StepInvocation(id="git-branch"),
+        StepInvocation(id="thin-plan"),
+        StepInvocation(
+            id="implement-plan",
+            settings={"plan_step_name": "Building thin implementation plan"},
+        ),
+        StepInvocation(id="compose-request"),
+        StepInvocation(
+            id="gh-pull-request",
+            when=StepCondition(env="DEV_SEC_OPS_PLATFORM", equals="github"),
+        ),
+        StepInvocation(
+            id="glab-pull-request",
+            when=StepCondition(env="DEV_SEC_OPS_PLATFORM", equals="gitlab"),
+        ),
+    ],
+)
+
+
+DIRECT_WORKFLOW_CONFIG = WorkflowConfig(
+    type_id="direct",
+    description="Direct workflow — implements from issue description without planning",
+    steps=[
+        StepInvocation(id="fetch-issue"),
+        StepInvocation(id="git-prepare"),
+        StepInvocation(id="implement-direct"),
+    ],
+)
+
+
+FULL_WORKFLOW_CONFIG = WorkflowConfig(
+    type_id="full",
+    description="Full workflow pipeline",
+    steps=[
+        StepInvocation(id="fetch-issue"),
+        StepInvocation(id="git-branch"),
+        StepInvocation(id="claude-code-plan"),
+        StepInvocation(
+            id="implement-plan",
+            settings={"plan_step_name": "Building implementation plan"},
+        ),
+        StepInvocation(id="code-quality"),
+        StepInvocation(id="compose-request"),
+        StepInvocation(
+            id="gh-pull-request",
+            when=StepCondition(env="DEV_SEC_OPS_PLATFORM", equals="github"),
+        ),
+        StepInvocation(
+            id="glab-pull-request",
+            when=StepCondition(env="DEV_SEC_OPS_PLATFORM", equals="gitlab"),
+        ),
+    ],
+)
+
+
 def get_patch_pipeline() -> List[WorkflowStep]:
     """Create the patch workflow pipeline.
 
-    The patch workflow is a fully decoupled pipeline designed to process patch
-    issues independently. Each patch workflow receives its own unique ADW ID and
-    operates in a separate artifact directory, without accessing or depending on
-    any parent workflow's artifacts.
-
-    Routing:
-    --------
-    Worker routing uses the `issues.type` column to determine which pipeline to run:
-    - `type='full'`: Routes to the full pipeline (get_full_pipeline)
-    - `type='patch'`: Routes to this patch pipeline
-
-    Patch workflows are represented as issue rows with `type='patch'` rather than
-    as separate patch table entries. This type-based routing replaced the previous
-    status-based routing (which used 'pending' vs 'patch pending' statuses).
-
-    Assumptions:
-    - SetupStep is NOT needed: The repository is already set up from the full workflow
-    - PR/MR creation steps are NOT needed: Patch commits are pushed to the
-      existing branch and the associated PR/MR updates automatically
-
-    Each patch workflow has a unique ADW ID and its own artifact directory. All
-    steps read and write artifacts within this directory; no artifacts are loaded
-    from any parent or prior workflow.
-
-    The patch workflow sequence is:
-    1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
-    2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
-       writes a standard PlanArtifact (no parent issue or plan is referenced)
-    3. ImplementPlanStep - Implement the plan by loading PlanArtifact from the current
-       patch workflow's artifact directory
-    4. CodeQualityStep - Run code quality checks
-    5. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
-       PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
+    Resolves :data:`PATCH_WORKFLOW_CONFIG` into a list of step instances. See
+    that constant for the declarative shape; the resolver handles step
+    construction and any conditional ``StepCondition`` gating.
 
     Returns:
         List of WorkflowStep instances in execution order for patch processing
     """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
-    from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
-    from rouge.core.workflow.steps.git_checkout_step import GitCheckoutStep
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
-    from rouge.core.workflow.steps.patch_plan_step import PatchPlanStep
-
-    steps: List[WorkflowStep] = [
-        FetchPatchStep(),
-        GitCheckoutStep(),
-        PatchPlanStep(),
-        ImplementPlanStep(plan_step_name="Building patch plan"),
-        CodeQualityStep(),
-        ComposeCommitsStep(),
-    ]
-
-    return steps
+    return resolve_workflow(PATCH_WORKFLOW_CONFIG)
 
 
 def get_thin_pipeline() -> List[WorkflowStep]:
     """Create the thin workflow pipeline for straightforward issues.
 
-    Omits CodeQualityStep. Uses ThinPlanStep for lightweight planning.
-    PR/MR steps create draft PRs/MRs (controlled by pipeline_type in the step).
-
-    Pipeline sequence:
-    1. FetchIssueStep
-    2. GitBranchStep
-    3. ThinPlanStep
-    4. ImplementStep (plan_step_name="Building thin implementation plan")
-    5. ComposeRequestStep
-    6. GhPullRequestStep/GlabPullRequestStep (conditional, creates draft)
+    Resolves :data:`THIN_WORKFLOW_CONFIG`. The PR/MR creation step is gated by
+    the ``DEV_SEC_OPS_PLATFORM`` environment variable via ``StepCondition``;
+    no Python-level branching happens in this function.
     """
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
-    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
-    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
-    from rouge.core.workflow.steps.thin_plan_step import ThinPlanStep
-
-    steps: List[WorkflowStep] = [
-        FetchIssueStep(),
-        GitBranchStep(),
-        ThinPlanStep(),
-        ImplementPlanStep(plan_step_name="Building thin implementation plan"),
-        ComposeRequestStep(),
-    ]
-
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
+    return resolve_workflow(THIN_WORKFLOW_CONFIG)
 
 
 def get_direct_pipeline() -> List[WorkflowStep]:
     """Create the direct workflow pipeline for straightforward issues.
 
-    Skips planning and implements directly from the issue description.
-    Uses GitPrepareStep for branch-aware git setup.
-
-    Pipeline sequence:
-    1. FetchIssueStep
-    2. GitPrepareStep (branch-aware: creates or checks out branch)
-    3. ImplementDirectStep
+    Resolves :data:`DIRECT_WORKFLOW_CONFIG`. Skips planning and implements
+    directly from the issue description.
     """
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.git_prepare_step import GitPrepareStep
-    from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
-
-    return [
-        FetchIssueStep(),
-        GitPrepareStep(),
-        ImplementDirectStep(),
-    ]
+    return resolve_workflow(DIRECT_WORKFLOW_CONFIG)
 
 
 def get_full_pipeline() -> List[WorkflowStep]:
     """Create the full workflow pipeline with Claude Code planning.
 
-    The full workflow uses ClaudeCodePlanStep for task-oriented planning. It
-    conditionally includes a PR/MR creation step based on the
-    DEV_SEC_OPS_PLATFORM environment variable:
-    - "github": includes GhPullRequestStep
-    - "gitlab": includes GlabPullRequestStep
-    - unset or other value: no PR/MR step included
-
-    Pipeline sequence:
-    1. FetchIssueStep - Fetch the issue from the database
-    2. GitBranchStep - Create and checkout a new branch
-    3. ClaudeCodePlanStep - Build implementation plan using the claude-code-plan prompt template
-    4. ImplementPlanStep - Execute the plan
-    5. CodeQualityStep - Run code quality checks
-    6. ComposeRequestStep - Compose PR/MR description
-    7. GhPullRequestStep/GlabPullRequestStep - Create PR/MR (conditional)
+    Resolves :data:`FULL_WORKFLOW_CONFIG`. The PR/MR creation step is gated by
+    the ``DEV_SEC_OPS_PLATFORM`` environment variable via ``StepCondition``;
+    no Python-level branching happens in this function.
 
     Returns:
         List of WorkflowStep instances in execution order
     """
-    # Import here to avoid circular imports
-    from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
-    from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
-    from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
-    from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
-    from rouge.core.workflow.steps.gh_pull_request_step import (
-        GhPullRequestStep,
-    )
-    from rouge.core.workflow.steps.git_branch_step import GitBranchStep
-    from rouge.core.workflow.steps.glab_pull_request_step import (
-        GlabPullRequestStep,
-    )
-    from rouge.core.workflow.steps.implement_step import ImplementPlanStep
-
-    steps: List[WorkflowStep] = [
-        FetchIssueStep(),
-        GitBranchStep(),
-        ClaudeCodePlanStep(),
-        ImplementPlanStep(plan_step_name="Building implementation plan"),
-        CodeQualityStep(),
-        ComposeRequestStep(),
-    ]
-
-    # Conditionally add PR/MR creation step based on platform
-    platform = os.environ.get("DEV_SEC_OPS_PLATFORM", "").lower()
-    if platform == "github":
-        steps.append(GhPullRequestStep())
-    elif platform == "gitlab":
-        steps.append(GlabPullRequestStep())
-
-    return steps
+    return resolve_workflow(FULL_WORKFLOW_CONFIG)
