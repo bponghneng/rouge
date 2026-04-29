@@ -114,17 +114,13 @@ class TestArtifactModels:
         repos = [{"repo": "/srv/app", "issues": [], "tools": ["ruff", "mypy"]}]
         artifact = CodeQualityArtifact(
             workflow_id="adw-123",
-            output="code-quality",
             repos=repos,
-            parsed_data={"repos": repos},
         )
 
         assert artifact.artifact_type == "code-quality"
-        assert artifact.output == "code-quality"
         assert len(artifact.repos) == 1
         assert artifact.repos[0].repo == "/srv/app"
         assert artifact.repos[0].tools == ["ruff", "mypy"]
-        assert artifact.parsed_data == {"repos": repos}
 
     def test_pr_metadata_artifact_creation(self) -> None:
         """Test ComposeRequestArtifact can be created with valid data."""
@@ -718,7 +714,8 @@ class TestArtifactStoreIntegration:
         # 4. Quality check artifact
         store.write_artifact(
             CodeQualityArtifact(
-                workflow_id=workflow_id, output="All checks passed", tools=["ruff", "mypy"]
+                workflow_id=workflow_id,
+                repos=[{"repo": "/srv/app", "issues": [], "tools": ["ruff", "mypy"]}],
             )
         )
 
