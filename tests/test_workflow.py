@@ -1245,10 +1245,11 @@ def test_prepare_pr_step_store_pr_details_success() -> None:
     assert "pr_details" in context.data
     assert context.data["pr_details"]["repos"][0]["title"] == "feat: add feature"
     assert context.data["pr_details"]["repos"][0]["summary"] == "This adds a feature."
-    assert context.data["pr_details"]["repos"][0]["commits"] == [
-        {"message": "abc123"},
-        {"message": "def456"},
-    ]
+    # Commits are coerced through CommitEntry so sha/files defaults are included.
+    commits = context.data["pr_details"]["repos"][0]["commits"]
+    assert len(commits) == 2
+    assert commits[0]["message"] == "abc123"
+    assert commits[1]["message"] == "def456"
 
 
 def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
