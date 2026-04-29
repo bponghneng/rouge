@@ -257,6 +257,12 @@ class ComposeCommitsStep(WorkflowStep):
 
         try:
             repo_paths = get_affected_repo_paths(context)
+            if not repo_paths:
+                logger.info("No affected repos — skipping compose-commits")
+                context.artifact_store.write_artifact(
+                    ComposeCommitsArtifact(workflow_id=context.adw_id, repos=[])
+                )
+                return None
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
                 prompt_id=PromptId.COMPOSE_COMMITS,
