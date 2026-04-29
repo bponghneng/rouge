@@ -123,18 +123,94 @@ class ImplementDirectArtifact(Artifact):
     )
 
 
+class CodeQualityIssue(BaseModel):
+    """A single code quality issue reported for a file.
+
+    Attributes:
+        file: Path to the file with the issue
+        issue: Description of the issue fixed in this file
+    """
+
+    file: str
+    issue: str
+
+
+class CodeQualityRepoResult(BaseModel):
+    """Per-repository code quality result.
+
+    Attributes:
+        repo: Absolute path to the repository
+        issues: List of issues found and fixed
+        tools: List of tool commands run, in execution order
+    """
+
+    repo: str
+    issues: List[CodeQualityIssue] = Field(default_factory=list)
+    tools: List[str] = Field(default_factory=list)
+
+
+class CommitEntry(BaseModel):
+    """A single commit entry within a repository result.
+
+    Attributes:
+        message: Full conventional commit message
+        sha: Commit SHA identifier (may be empty if not yet committed)
+        files: Repo-relative paths of files changed in this commit
+    """
+
+    message: str
+    sha: str = ""
+    files: List[str] = Field(default_factory=list)
+
+
+class ComposeRequestRepoResult(BaseModel):
+    """Per-repository PR metadata produced by the compose-request step.
+
+    Attributes:
+        repo: Absolute path to the repository
+        title: Pull request title
+        summary: Markdown PR summary
+        commits: List of commits included in the PR
+    """
+
+    repo: str
+    title: str = ""
+    summary: str = ""
+    commits: List[CommitEntry] = Field(default_factory=list)
+
+
+class ComposeCommitsRepoResult(BaseModel):
+    """Per-repository commit composition result.
+
+    Attributes:
+        repo: Absolute path to the repository
+        summary: Concise summary of the commits
+        commits: List of commits created
+    """
+
+    repo: str
+    summary: str = ""
+    commits: List[CommitEntry] = Field(default_factory=list)
+
+
 class CodeQualityArtifact(Artifact):
     """Artifact containing code quality check results.
 
     Attributes:
-        output: The quality check output text
+        output: Step-result indicator ("code-quality" on success, "skipped" when no repos affected)
         repos: Per-repository results, each containing repo path, issues, and tools run
         parsed_data: Optional parsed JSON data from the check
     """
 
     artifact_type: Literal["code-quality"] = "code-quality"
-    output: str = Field(description="Raw output text from code quality tools", min_length=1)
-    repos: List[Dict[str, Any]] = Field(
+    output: str = Field(
+        description=(
+            'Step-result indicator. Populated with "code-quality" on success '
+            'or "skipped" when no repos are affected.'
+        ),
+        min_length=1,
+    )
+    repos: List[CodeQualityRepoResult] = Field(
         default_factory=list,
         description="Per-repository code quality results",
     )
@@ -151,7 +227,7 @@ class ComposeRequestArtifact(Artifact):
     """
 
     artifact_type: Literal["compose-request"] = "compose-request"
-    repos: List[Dict[str, Any]] = Field(
+    repos: List[ComposeRequestRepoResult] = Field(
         default_factory=list,
         description="Per-repository PR metadata",
     )
@@ -260,7 +336,7 @@ class ComposeCommitsArtifact(Artifact):
     """
 
     artifact_type: Literal["compose-commits"] = "compose-commits"
-    repos: List[Dict[str, Any]] = Field(
+    repos: List[ComposeCommitsRepoResult] = Field(
         default_factory=list,
         description="Per-repository commit composition results",
     )

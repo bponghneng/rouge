@@ -121,7 +121,9 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "code-quality"
         assert artifact.output == "code-quality"
-        assert artifact.repos == repos
+        assert len(artifact.repos) == 1
+        assert artifact.repos[0].repo == "/srv/app"
+        assert artifact.repos[0].tools == ["ruff", "mypy"]
         assert artifact.parsed_data == {"repos": repos}
 
     def test_pr_metadata_artifact_creation(self) -> None:
@@ -141,8 +143,8 @@ class TestArtifactModels:
 
         assert artifact.artifact_type == "compose-request"
         assert len(artifact.repos) == 1
-        assert artifact.repos[0]["title"] == "Add new feature"
-        assert artifact.repos[0]["commits"][0]["sha"] == "abc123"
+        assert artifact.repos[0].title == "Add new feature"
+        assert artifact.repos[0].commits[0].sha == "abc123"
 
     def test_pull_request_artifact_creation(self) -> None:
         """Test GhPullRequestArtifact can be created with valid data."""
