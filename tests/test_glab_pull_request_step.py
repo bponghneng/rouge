@@ -65,7 +65,9 @@ def _make_context(store: ArtifactStore, pipeline_type: str) -> WorkflowContext:
     """Create a WorkflowContext with a compose-request artifact and the given pipeline_type."""
     compose_artifact = ComposeRequestArtifact(
         workflow_id="test-glab-mr",
-        repos=[{"repo": "/path/to/repo", "title": "MR Title", "summary": "MR Summary", "commits": []}],
+        repos=[
+            {"repo": "/path/to/repo", "title": "MR Title", "summary": "MR Summary", "commits": []}
+        ],
     )
     store.write_artifact(compose_artifact)
 
@@ -269,7 +271,14 @@ class TestGlabPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_emit.return_value = ("success", "ok")
@@ -303,7 +312,14 @@ class TestGlabPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_get_affected.return_value = []
@@ -333,7 +349,14 @@ class TestGlabPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_emit.return_value = ("success", "ok")
@@ -514,7 +537,14 @@ class TestGlabPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -565,7 +595,14 @@ class TestGlabPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -615,7 +652,14 @@ class TestGlabPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -660,7 +704,14 @@ class TestGlabPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -715,7 +766,14 @@ class TestGlabPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-glab-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test MR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
