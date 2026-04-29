@@ -26,6 +26,9 @@ def mock_context() -> Mock:
     context.artifacts_enabled = True
     context.artifact_store = Mock()
     context.repo_paths = ["/repo"]
+    # Return None from load_optional_artifact so get_affected_repo_paths
+    # falls back to context.repo_paths (the default, non-implement path).
+    context.load_optional_artifact.return_value = None
     return context
 
 
@@ -232,11 +235,18 @@ class TestComposeCommits:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test commits", "commits": []}]}',
+            output=(
+                '{"output": "compose-commits", "repos": ['
+                '{"repo": "/repo", "summary": "Test commits", "commits": []}'
+                "]}"
+            ),
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test commits", "commits": []}]},
+            data={
+                "output": "compose-commits",
+                "repos": [{"repo": "/repo", "summary": "Test commits", "commits": []}],
+            },
             error=None,
         )
 
@@ -410,11 +420,18 @@ class TestComposeCommitsMultiRepo:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]}',
+            output=(
+                '{"output": "compose-commits", "repos": ['
+                '{"repo": "/repo", "summary": "Test", "commits": []}'
+                "]}"
+            ),
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]},
+            data={
+                "output": "compose-commits",
+                "repos": [{"repo": "/repo", "summary": "Test", "commits": []}],
+            },
             error=None,
         )
         mock_request_instance = Mock()
@@ -478,11 +495,18 @@ class TestComposeCommitsMultiRepo:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]}',
+            output=(
+                '{"output": "compose-commits", "repos": ['
+                '{"repo": "/repo", "summary": "Test", "commits": []}'
+                "]}"
+            ),
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]},
+            data={
+                "output": "compose-commits",
+                "repos": [{"repo": "/repo", "summary": "Test", "commits": []}],
+            },
             error=None,
         )
         mock_request_instance = Mock()
@@ -555,11 +579,18 @@ class TestPatchReviewContext:
 
         mock_exec.return_value = Mock(
             success=True,
-            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "s", "commits": []}]}',
+            output=(
+                '{"output": "compose-commits", "repos": ['
+                '{"repo": "/repo", "summary": "s", "commits": []}'
+                "]}"
+            ),
         )
         mock_parse.return_value = Mock(
             success=True,
-            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "s", "commits": []}]},
+            data={
+                "output": "compose-commits",
+                "repos": [{"repo": "/repo", "summary": "s", "commits": []}],
+            },
             error=None,
         )
 

@@ -137,7 +137,10 @@ class PullRequestStepBase(WorkflowStep, ABC):
             )
             return StepResult.ok(None)
 
-        if not pr_details.get("repos"):
+        # Filter repos to those with a non-empty title; warn and discard the rest.
+        # This prevents silent CLI failures when the LLM returns an empty title.
+        valid_repos = [r for r in pr_details.get("repos", []) if r.get("repo") and r.get("title")]
+        if not valid_repos:
             skip_msg = f"{self.entity_name} creation skipped: no repositories with PR details"
             logger.info(skip_msg)
             _emit_and_log(
@@ -481,18 +484,11 @@ class PullRequestStepBase(WorkflowStep, ABC):
             "pr_details",
             "compose-request",
             ComposeRequestArtifact,
-            lambda a: {"repos": a.repos},
+            lambda a: {"repos": [r.model_dump() for r in a.repos]},
         )
 
         attachment_md = load_and_render_attachment(context)
 
-        if result := self._check_preconditions(context, pr_details, logger):
-            return result
-
-        # pr_details is guaranteed non-None after preconditions pass
-        assert pr_details is not None
-        pr_by_repo = {r["repo"]: r for r in pr_details.get("repos", [])}
-        all_commits = [c for r in pr_details.get("repos", []) for c in r.get("commits", [])]
         pat_value = os.environ.get(self.pat_env_var, "")
 
         try:
@@ -500,7 +496,9 @@ class PullRequestStepBase(WorkflowStep, ABC):
             env = os.environ.copy()
             env[self.token_env_key] = pat_value
 
-            # Seed pull_requests from existing artifact for rerun continuity (Layer 0)
+            # Layer 0: Seed pull_requests from existing artifact for rerun continuity.
+            # This must happen before the repos-empty precondition check so that
+            # re-runs with no uncommitted changes can still adopt existing PRs.
             pull_requests: list[PullRequestEntry] = []
             if context.artifact_store.artifact_exists(self.artifact_slug):
                 try:
@@ -521,6 +519,21 @@ class PullRequestStepBase(WorkflowStep, ABC):
                         e,
                     )
 
+            if result := self._check_preconditions(context, pr_details, logger):
+                return result
+
+            # pr_details is guaranteed non-None and has valid repos after preconditions pass
+            assert pr_details is not None
+
+            # Build normalized path-keyed lookup for LLM-emitted repo entries.
+            # Use .get() with a fallsey filter to avoid KeyError when "repo" is absent.
+            pr_by_repo = {
+                os.path.realpath(os.path.normpath(r.get("repo", ""))): r
+                for r in pr_details.get("repos", [])
+                if r.get("repo")
+            }
+            all_commits = [c for r in pr_details.get("repos", []) for c in r.get("commits", [])]
+
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping %s creation", self.entity_name)
@@ -536,11 +549,27 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 return StepResult.ok(None)
 
             for repo_path in affected_repos:
-                repo_pr = pr_by_repo.get(repo_path, {})
+                normalized_key = os.path.realpath(os.path.normpath(repo_path))
+                repo_pr = pr_by_repo.get(normalized_key, {})
+                if not repo_pr:
+                    logger.warning(
+                        "No PR details found for repo %s — skipping %s creation",
+                        repo_path,
+                        self.entity_name,
+                    )
+                    continue
+                title = repo_pr.get("title", "")
+                if not title:
+                    logger.info(
+                        "Skipping %s creation for %s: empty title in PR details",
+                        self.entity_name,
+                        repo_path,
+                    )
+                    continue
                 self._process_repo(
                     context,
                     repo_path,
-                    repo_pr.get("title", ""),
+                    title,
                     repo_pr.get("summary", ""),
                     pull_requests,
                     env,

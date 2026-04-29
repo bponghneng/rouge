@@ -150,7 +150,14 @@ class TestGhPullRequestStepWithArtifact:
         # Write compose-request artifact
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-gh-pr",
-            repos=[{"repo": "/path/to/repo", "title": "My PR Title", "summary": "My PR Summary", "commits": []}],
+            repos=[
+                {
+                    "repo": "/path/to/repo",
+                    "title": "My PR Title",
+                    "summary": "My PR Summary",
+                    "commits": [],
+                }
+            ],
         )
         store.write_artifact(compose_artifact)
 
@@ -189,7 +196,14 @@ class TestGhPullRequestStepWithArtifact:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "My PR Title", "summary": "My PR Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "My PR Title",
+                        "summary": "My PR Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -237,7 +251,9 @@ class TestGhPullRequestStepDraftFlag:
         # Write compose-request artifact so the step proceeds to PR creation
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-gh-pr",
-            repos=[{"repo": "/path/to/repo", "title": "Draft PR", "summary": "Summary", "commits": []}],
+            repos=[
+                {"repo": "/path/to/repo", "title": "Draft PR", "summary": "Summary", "commits": []}
+            ],
         )
         store.write_artifact(compose_artifact)
 
@@ -290,7 +306,9 @@ class TestGhPullRequestStepDraftFlag:
 
         compose_artifact = ComposeRequestArtifact(
             workflow_id="test-gh-pr",
-            repos=[{"repo": "/path/to/repo", "title": "Full PR", "summary": "Summary", "commits": []}],
+            repos=[
+                {"repo": "/path/to/repo", "title": "Full PR", "summary": "Summary", "commits": []}
+            ],
         )
         store.write_artifact(compose_artifact)
 
@@ -345,7 +363,14 @@ class TestGhPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_which.return_value = "/usr/bin/gh"
@@ -378,7 +403,14 @@ class TestGhPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_get_affected.return_value = []
@@ -413,7 +445,14 @@ class TestGhPullRequestStepAffectedRepos:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
         mock_which.return_value = "/usr/bin/gh"
@@ -617,7 +656,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -663,7 +709,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -741,7 +794,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -786,7 +846,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -838,7 +905,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
@@ -877,7 +951,14 @@ class TestGhPullRequestStepAttachment:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id="test-gh-pr",
-                repos=[{"repo": "/path/to/repo", "title": "Test PR", "summary": "Summary", "commits": []}],
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
             )
         )
 
