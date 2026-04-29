@@ -137,9 +137,10 @@ class PullRequestStepBase(WorkflowStep, ABC):
             )
             return StepResult.ok(None)
 
-        # Filter repos to those with a non-empty title; warn and discard the rest.
-        # This prevents silent CLI failures when the LLM returns an empty title.
-        valid_repos = [r for r in pr_details.get("repos", []) if r.get("repo") and r.get("title")]
+        # Require at least one entry with a non-empty repo path.
+        # Empty-title entries are handled per-repo in the main loop, so we do
+        # not gate on title here to avoid duplicating that logic.
+        valid_repos = [r for r in pr_details.get("repos", []) if r.get("repo")]
         if not valid_repos:
             skip_msg = f"{self.entity_name} creation skipped: no repositories with PR details"
             logger.info(skip_msg)
@@ -479,7 +480,11 @@ class PullRequestStepBase(WorkflowStep, ABC):
         """
         logger = get_logger(context.adw_id)
 
-        # Try to load pr_details from artifact if not in context (optional)
+        # Try to load pr_details from artifact if not in context (optional).
+        # NOTE: load_optional_artifact caches the result under the "pr_details" key in
+        # context.data.  Do not share a WorkflowContext instance across step invocations
+        # (e.g. in tests or rerun harnesses) — the cached value will be stale on the
+        # second call.  If that becomes necessary, clear context.data["pr_details"] first.
         pr_details = context.load_optional_artifact(
             "pr_details",
             "compose-request",
@@ -526,27 +531,35 @@ class PullRequestStepBase(WorkflowStep, ABC):
             assert pr_details is not None
 
             # Build normalized path-keyed lookup for LLM-emitted repo entries.
-            # Use .get() with a fallsey filter to avoid KeyError when "repo" is absent.
+            # Use .get() with a falsy filter to avoid KeyError when "repo" is absent.
             pr_by_repo = {
                 os.path.realpath(os.path.normpath(r.get("repo", ""))): r
                 for r in pr_details.get("repos", [])
                 if r.get("repo")
             }
-            all_commits = [c for r in pr_details.get("repos", []) for c in r.get("commits", [])]
+            all_commits = [
+                c
+                for r in pr_details.get("repos", [])
+                if r.get("repo")
+                for c in r.get("commits", [])
+            ]
 
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping %s creation", self.entity_name)
-                # Seeded entries from a prior run are intentionally discarded here.
-                # When no repos are affected, there is nothing to publish and the
-                # artifact is written as an empty skip record.
+                # Preserve any seeded entries from a prior run so rerun continuity
+                # is not broken when the implement step yields no affected repos.
                 artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
                     workflow_id=context.adw_id,
-                    pull_requests=[],
+                    pull_requests=pull_requests,
                     platform=self.platform,
                 )
                 context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
+
+            # Track whether any repo was dispatched to _process_repo so we can
+            # surface a clear summary when all repos failed the lookup/title check.
+            dispatched_any = False
 
             for repo_path in affected_repos:
                 normalized_key = os.path.realpath(os.path.normpath(repo_path))
@@ -566,6 +579,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                         repo_path,
                     )
                     continue
+                dispatched_any = True
                 self._process_repo(
                     context,
                     repo_path,
@@ -574,6 +588,23 @@ class PullRequestStepBase(WorkflowStep, ABC):
                     pull_requests,
                     env,
                     attachment_md,
+                )
+
+            # Surface a visible summary when every repo failed the lookup or title check
+            # (i.e., no repo was dispatched at all).  This typically indicates LLM repo
+            # paths that don't normalize to any affected_repos path (relative path,
+            # off-by-one, or symlink resolution differences).
+            if not dispatched_any:
+                skip_msg = (
+                    f"{self.entity_name} creation skipped: "
+                    "no LLM repo entries matched affected paths"
+                )
+                logger.warning(skip_msg)
+                _emit_and_log(
+                    context.require_issue_id,
+                    context.adw_id,
+                    skip_msg,
+                    {"output": f"{self.output_key_prefix}-skipped", "reason": skip_msg},
                 )
 
             # Emit artifact comment and progress comment after all repos are processed
