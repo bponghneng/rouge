@@ -505,24 +505,49 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 )
         return pull_requests
 
+    @staticmethod
+    def _normalize_repo_key(path: str) -> str:
+        """Return the canonical, normalized absolute path used as a lookup key.
+
+        Both ``_build_pr_lookup`` and ``_dispatch_repos`` must key on the same
+        normalized form.  Centralising the computation here prevents the two
+        call sites from drifting independently.
+
+        Args:
+            path: Repository path string to normalise.
+
+        Returns:
+            ``os.path.realpath(os.path.normpath(path))``
+        """
+        return os.path.realpath(os.path.normpath(path))
+
     def _build_pr_lookup(
         self, pr_details: list[ComposeRequestRepoResult]
-    ) -> tuple[dict[str, ComposeRequestRepoResult], list[dict]]:
-        """Build a normalized path-keyed lookup and flat commit list from *pr_details*.
+    ) -> dict[str, ComposeRequestRepoResult]:
+        """Build a normalized path-keyed lookup from *pr_details*.
 
         Args:
             pr_details: The typed list of ``ComposeRequestRepoResult`` instances
                 loaded from context.
 
         Returns:
-            A 2-tuple ``(pr_by_repo, all_commits)`` where *pr_by_repo* maps
-            ``os.path.realpath(os.path.normpath(repo))`` → repo entry and
-            *all_commits* is the flat list of commit dicts across all repos
-            that have a non-empty ``repo`` attribute.
+            A dict mapping ``_normalize_repo_key(repo)`` → repo entry for every
+            entry that has a non-empty ``repo`` attribute.
         """
-        pr_by_repo = {os.path.realpath(os.path.normpath(r.repo)): r for r in pr_details if r.repo}
-        all_commits = [c.model_dump(mode="json") for r in pr_details if r.repo for c in r.commits]
-        return pr_by_repo, all_commits
+        return {self._normalize_repo_key(r.repo): r for r in pr_details if r.repo}
+
+    def _collect_commits(self, pr_details: list[ComposeRequestRepoResult]) -> list[dict]:
+        """Collect and JSON-serialise all commits across valid *pr_details* entries.
+
+        Args:
+            pr_details: The typed list of ``ComposeRequestRepoResult`` instances
+                loaded from context.
+
+        Returns:
+            Flat list of commit dicts (``CommitEntry.model_dump(mode="json")``)
+            from all entries that have a non-empty ``repo`` attribute.
+        """
+        return [c.model_dump(mode="json") for r in pr_details if r.repo for c in r.commits]
 
     def _dispatch_repos(
         self,
@@ -558,7 +583,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         empty_title_skips = 0
 
         for repo_path in affected_repos:
-            normalized_key = os.path.realpath(os.path.normpath(repo_path))
+            normalized_key = self._normalize_repo_key(repo_path)
             repo_pr = pr_by_repo.get(normalized_key)
             if repo_pr is None:
                 logger.warning(
@@ -602,7 +627,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
             else:
                 skip_msg = (
                     f"{self.entity_name} creation skipped: "
-                    f"no LLM repo entries matched affected paths "
+                    f"all matched repo entries were skipped "
                     f"({lookup_misses} lookup misses, {empty_title_skips} empty-title skips)"
                 )
             logger.warning(skip_msg)
@@ -656,19 +681,23 @@ class PullRequestStepBase(WorkflowStep, ABC):
             # pr_details is guaranteed non-None and non-empty after preconditions pass
             assert pr_details is not None
 
-            pr_by_repo, all_commits = self._build_pr_lookup(pr_details)
+            pr_by_repo = self._build_pr_lookup(pr_details)
 
             affected_repos = get_affected_repo_paths(context)
             if not affected_repos:
                 logger.info("No affected repos — skipping %s creation", self.entity_name)
-                # Preserve any seeded entries from a prior run so rerun continuity
-                # is not broken when the implement step yields no affected repos.
-                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                    workflow_id=context.adw_id,
-                    pull_requests=pull_requests,
-                    platform=self.platform,
-                )
-                context.artifact_store.write_artifact(artifact)
+                # Only write the artifact if it does not already exist.  On
+                # first run there is no prior artifact so we write a skeleton to
+                # satisfy downstream readers; on re-runs _seed_pull_requests
+                # already read the up-to-date artifact from disk, so a
+                # write-after-read would be a no-op at best.
+                if not context.artifact_store.artifact_exists(self.artifact_slug):
+                    artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
+                        workflow_id=context.adw_id,
+                        pull_requests=pull_requests,
+                        platform=self.platform,
+                    )
+                    context.artifact_store.write_artifact(artifact)
                 return StepResult.ok(None)
 
             dispatched_any = self._dispatch_repos(
@@ -698,7 +727,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
                 urls = [entry.url for entry in pull_requests]
                 comment_data = {
-                    "commits": all_commits,
+                    "commits": self._collect_commits(pr_details),
                     "output": f"{self.output_key_prefix}-created",
                     "urls": urls,
                 }
