@@ -1,5 +1,5 @@
 ---
-description: ADW step: orchestrates per-repository PR-composition sub-agents that group changes into conventional commits and prepare PR titles and descriptions, then aggregates results as JSON.
+description: ADW step: orchestrates per-repository PR-composition sub-agents for provided repository paths, grouping changes into conventional commits and preparing PR titles and descriptions, then aggregates results as JSON.
 model: sonnet
 thinking: false
 disable-model-invocation: true
@@ -7,13 +7,13 @@ disable-model-invocation: true
 
 # Pull Request Orchestrator
 
-Discover all repositories with uncommitted changes, launch a parallel PR-composition sub-agent for each one, and aggregate their results.
+Use the repository paths provided as arguments, launch a parallel PR-composition sub-agent for each repository with changes, and aggregate their results.
 
 ## Instructions
 
-### 1. Discover Repositories
+### 1. Select Target Repositories
 
-The arguments passed to this step are the absolute paths of the repositories to process. Do not perform filesystem discovery — use only the paths provided as arguments.
+The arguments passed to this step are the absolute paths of the repositories to process. Do not perform filesystem discovery, search for repositories, or infer additional repository paths — use only the paths provided as arguments.
 
 After receiving the repository paths, filter to those with either uncommitted changes (`git status --porcelain` output is non-empty) or commits ahead of the remote base branch (`git rev-list --count origin/HEAD..HEAD` output is greater than 0). This ensures that re-runs after commits are already created will still process repositories correctly.
 
