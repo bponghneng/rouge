@@ -109,10 +109,8 @@ def _chore_settings() -> PromptJsonStepSettings:
     return PromptJsonStepSettings(
         prompt_id=PromptId.THIN_PLAN,
         input_artifact="fetch-issue",
-        input_artifact_class_name="fetch-issue",
         input_field="issue",
         json_schema_kind="plan_chore_bug_feature",
-        output_artifact_kind="plan",
         title_keys=["chore", "bug", "feature"],
     )
 
@@ -121,10 +119,8 @@ def _task_settings() -> PromptJsonStepSettings:
     return PromptJsonStepSettings(
         prompt_id=PromptId.CLAUDE_CODE_PLAN,
         input_artifact="fetch-issue",
-        input_artifact_class_name="fetch-issue",
         input_field="issue",
         json_schema_kind="plan_task",
-        output_artifact_kind="plan",
         title_keys=["task"],
     )
 
@@ -133,10 +129,8 @@ def _patch_settings() -> PromptJsonStepSettings:
     return PromptJsonStepSettings(
         prompt_id=PromptId.PATCH_PLAN,
         input_artifact="fetch-patch",
-        input_artifact_class_name="fetch-patch",
         input_field="patch",
         json_schema_kind="plan_chore_bug_feature",
-        output_artifact_kind="plan",
         title_keys=["chore", "bug", "feature"],
     )
 

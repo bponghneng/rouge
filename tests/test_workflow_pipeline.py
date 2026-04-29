@@ -293,7 +293,7 @@ class TestWorkflowRunner:
         step3 = CountingStep("Step 3")
         runner = WorkflowRunner([step1, bad_rerun, step3])
 
-        with caplog.at_level(logging.WARNING):
+        with caplog.at_level(logging.ERROR):
             with patch(_WORKING_DIR_PATCH, return_value=str(tmp_path)):
                 success = runner.run(issue_id=1, adw_id="test-invalid-rerun")
 
@@ -306,7 +306,10 @@ class TestWorkflowRunner:
         # the step only runs once.
         assert bad_rerun.call_count >= 1
         assert step3.call_count == 1
-        assert "Rerun requested for unknown step 'NonExistent', ignoring" in caplog.text
+        assert "Rerun requested for unknown step 'NonExistent'; ignoring" in caplog.text
+        # The escalated ERROR-level log should also include the valid keys list
+        # so operators can diagnose name/id typos at a glance.
+        assert "Valid step IDs/names:" in caplog.text
 
 
 class TestGetPatchPipeline:
@@ -356,9 +359,9 @@ class TestGetPatchPipeline:
 
         pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "Patch pipeline should not include PR creation steps"
+            assert not isinstance(step, pr_step_types), (
+                "Patch pipeline should not include PR creation steps"
+            )
 
     def test_patch_pipeline_includes_update_commits_step(self, monkeypatch):
         """Verify patch pipeline ends with UpdatePRCommitsStep."""
@@ -466,12 +469,12 @@ class TestGetFullPipeline:
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        assert isinstance(
-            pipeline[2], PromptJsonStep
-        ), "claude-code-plan slug should resolve to PromptJsonStep at index 2"
-        assert (
-            pipeline[2].step_id == "claude-code-plan"
-        ), "Step at index 2 must carry step_id='claude-code-plan'"
+        assert isinstance(pipeline[2], PromptJsonStep), (
+            "claude-code-plan slug should resolve to PromptJsonStep at index 2"
+        )
+        assert pipeline[2].step_id == "claude-code-plan", (
+            "Step at index 2 must carry step_id='claude-code-plan'"
+        )
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""
@@ -481,9 +484,9 @@ class TestGetFullPipeline:
         assert len(pipeline) == 6
         pr_step_types = (GhPullRequestStep, GlabPullRequestStep)
         for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "No PR/MR step should be present without platform set"
+            assert not isinstance(step, pr_step_types), (
+                "No PR/MR step should be present without platform set"
+            )
 
         # Test with GitHub
         monkeypatch.setenv("DEV_SEC_OPS_PLATFORM", "github")
@@ -504,9 +507,9 @@ class TestGetFullPipeline:
         pipeline = get_full_pipeline()
         assert len(pipeline) == 6
         for step in pipeline:
-            assert not isinstance(
-                step, pr_step_types
-            ), "No PR/MR step should be present with unsupported platform"
+            assert not isinstance(step, pr_step_types), (
+                "No PR/MR step should be present with unsupported platform"
+            )
 
     def test_step_order_matches_spec(self, monkeypatch):
         """Verify the exact sequence of steps matches the specification.
@@ -575,9 +578,9 @@ class TestGetThinPipeline:
         pipeline = get_thin_pipeline()
 
         for step in pipeline:
-            assert not isinstance(
-                step, CodeQualityStep
-            ), "Thin pipeline should not include CodeQualityStep"
+            assert not isinstance(step, CodeQualityStep), (
+                "Thin pipeline should not include CodeQualityStep"
+            )
 
     def test_thin_pipeline_structure_github(self, monkeypatch) -> None:
         """Test thin pipeline structure with GitHub platform."""
@@ -614,18 +617,18 @@ class TestGetDirectPipeline:
         ]
 
         for i, (step, expected_type) in enumerate(zip(pipeline, expected_types, strict=True)):
-            assert isinstance(
-                step, expected_type
-            ), f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            assert isinstance(step, expected_type), (
+                f"Step {i} should be {expected_type.__name__}, got {type(step).__name__}"
+            )
 
     def test_direct_pipeline_no_code_quality_step(self) -> None:
         """Verify direct pipeline does not include CodeQualityStep."""
         pipeline = get_direct_pipeline()
 
         for step in pipeline:
-            assert not isinstance(
-                step, CodeQualityStep
-            ), "Direct pipeline should not include CodeQualityStep"
+            assert not isinstance(step, CodeQualityStep), (
+                "Direct pipeline should not include CodeQualityStep"
+            )
 
     def test_direct_pipeline_no_plan_step(self) -> None:
         """Verify direct pipeline does not include any plan step."""
@@ -633,12 +636,12 @@ class TestGetDirectPipeline:
 
         plan_step_types = (ClaudeCodePlanStep, ThinPlanStep, PatchPlanStep)
         for step in pipeline:
-            assert not isinstance(
-                step, plan_step_types
-            ), "Direct pipeline should not include any plan step"
+            assert not isinstance(step, plan_step_types), (
+                "Direct pipeline should not include any plan step"
+            )
 
         # Also verify no ImplementPlanStep (uses ImplementDirectStep instead)
         for step in pipeline:
-            assert not isinstance(
-                step, ImplementPlanStep
-            ), "Direct pipeline should use ImplementDirectStep, not ImplementPlanStep"
+            assert not isinstance(step, ImplementPlanStep), (
+                "Direct pipeline should use ImplementDirectStep, not ImplementPlanStep"
+            )

@@ -455,7 +455,7 @@ class TestWorkflowRunnerStepIdResume:
         step.step_id = step_id
         return step
 
-    def test_last_completed_step_id_written_when_step_has_id(self):
+    def test_last_completed_step_id_written_when_step_has_id(self) -> None:
         """When a step declares ``step_id``, it is persisted alongside name."""
         step = self._make_step(name="Plan Step", step_id="plan-step")
 
@@ -470,7 +470,7 @@ class TestWorkflowRunnerStepIdResume:
         assert state.last_completed_step == "Plan Step"
         assert state.last_completed_step_id == "plan-step"
 
-    def test_last_completed_step_id_is_none_when_step_lacks_id(self):
+    def test_last_completed_step_id_is_none_when_step_lacks_id(self) -> None:
         """Steps without a ``step_id`` persist a None last_completed_step_id."""
         step = self._make_step(name="Legacy Step", step_id=None)
 
@@ -484,7 +484,7 @@ class TestWorkflowRunnerStepIdResume:
         assert state.last_completed_step == "Legacy Step"
         assert state.last_completed_step_id is None
 
-    def test_resume_by_step_id_skips_earlier_steps(self):
+    def test_resume_by_step_id_skips_earlier_steps(self) -> None:
         """Resume target matches against ``step_id`` first."""
         step1 = self._make_step(name="Fetch Issue", step_id="fetch-issue")
         step2 = self._make_step(name="Build Plan", step_id="claude-code-plan")
@@ -499,7 +499,7 @@ class TestWorkflowRunnerStepIdResume:
         step2.run.assert_called_once()
         step3.run.assert_called_once()
 
-    def test_resume_by_name_still_works_alongside_step_id(self):
+    def test_resume_by_name_still_works_alongside_step_id(self) -> None:
         """Resume target falls back to ``step.name`` when not a step_id."""
         step1 = self._make_step(name="Fetch Issue", step_id="fetch-issue")
         step2 = self._make_step(name="Build Plan", step_id="claude-code-plan")
@@ -514,7 +514,7 @@ class TestWorkflowRunnerStepIdResume:
         step2.run.assert_called_once()
         step3.run.assert_called_once()
 
-    def test_resume_with_old_style_state_artifact(self, tmp_path, monkeypatch):
+    def test_resume_with_old_style_state_artifact(self, tmp_path, monkeypatch) -> None:
         """Old persisted artifacts (no ``last_completed_step_id``) still resume.
 
         The runner's resume_from argument is what drives skip behaviour, so
