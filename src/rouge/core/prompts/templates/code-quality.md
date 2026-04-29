@@ -1,5 +1,5 @@
 ---
-description: ADW step: orchestrates per-repository code quality sub-agents, aggregates their results, and returns a JSON summary of issues resolved.
+description: ADW step: orchestrates per-repository code quality sub-agents for provided repository paths, aggregates their results, and returns a JSON summary of issues resolved.
 model: sonnet
 thinking: false
 disable-model-invocation: true
@@ -7,13 +7,13 @@ disable-model-invocation: true
 
 # Code Quality Orchestrator
 
-Discover all repositories in the working environment, launch a parallel code-quality sub-agent for each one, and aggregate their results.
+Use the repository paths provided as arguments, launch a parallel code-quality sub-agent for each changed repository, and aggregate their results.
 
 ## Instructions
 
-### 1. Discover Repositories
+### 1. Select Target Repositories
 
-The arguments passed to this step are the absolute paths of the repositories to process. Do not perform filesystem discovery — use only the paths provided as arguments.
+The arguments passed to this step are the absolute paths of the repositories to process. Do not perform filesystem discovery, search for repositories, or infer additional repository paths — use only the paths provided as arguments.
 
 After receiving the repository paths, filter to only those with code changes by running `git status --porcelain` in each. A repository has changes if the output is non-empty (covers modified, untracked, and deleted files). Skip any repository with no changes.
 
