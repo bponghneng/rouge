@@ -232,11 +232,11 @@ class TestComposeCommits:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "summary": "Test commits", "commits": []}',
+            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test commits", "commits": []}]}',
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "summary": "Test commits", "commits": []},
+            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test commits", "commits": []}]},
             error=None,
         )
 
@@ -410,11 +410,11 @@ class TestComposeCommitsMultiRepo:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "summary": "Test", "commits": []}',
+            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]}',
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "summary": "Test", "commits": []},
+            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]},
             error=None,
         )
         mock_request_instance = Mock()
@@ -478,11 +478,11 @@ class TestComposeCommitsMultiRepo:
 
         mock_response = Mock(
             success=True,
-            output='{"output": "compose-commits", "summary": "Test", "commits": []}',
+            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]}',
         )
         mock_parse_response = Mock(
             success=True,
-            data={"output": "compose-commits", "summary": "Test", "commits": []},
+            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "Test", "commits": []}]},
             error=None,
         )
         mock_request_instance = Mock()
@@ -555,11 +555,11 @@ class TestPatchReviewContext:
 
         mock_exec.return_value = Mock(
             success=True,
-            output='{"output": "compose-commits", "summary": "s", "commits": []}',
+            output='{"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "s", "commits": []}]}',
         )
         mock_parse.return_value = Mock(
             success=True,
-            data={"output": "compose-commits", "summary": "s", "commits": []},
+            data={"output": "compose-commits", "repos": [{"repo": "/repo", "summary": "s", "commits": []}]},
             error=None,
         )
 

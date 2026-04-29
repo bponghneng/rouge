@@ -14,7 +14,7 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import ComposeRequestArtifact
-from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER, get_affected_repo_paths
+from rouge.core.workflow.shared import AGENT_PULL_REQUEST_BUILDER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import _sanitize_for_logging
 from rouge.core.workflow.types import StepResult
@@ -22,30 +22,39 @@ from rouge.core.workflow.types import StepResult
 # Required fields for pull request output JSON
 PR_REQUIRED_FIELDS = {
     "output": str,
-    "title": str,
-    "summary": str,
-    "commits": list,
+    "repos": list,
 }
 
 PULL_REQUEST_JSON_SCHEMA = """{
   "type": "object",
   "properties": {
     "output": { "type": "string", "enum": ["pull-request"] },
-    "title": { "type": "string" },
-    "summary": { "type": "string" },
-    "commits": {
+    "repos": {
       "type": "array",
       "items": {
-        "required": ["message", "sha"],
+        "type": "object",
+        "required": ["repo", "title", "summary", "commits"],
         "properties": {
-          "message": { "type": "string" },
-          "sha": { "type": "string" },
-          "files": { "type": "array", "items": { "type": "string" } }
+          "repo": { "type": "string" },
+          "title": { "type": "string" },
+          "summary": { "type": "string" },
+          "commits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["message", "sha"],
+              "properties": {
+                "message": { "type": "string" },
+                "sha": { "type": "string" },
+                "files": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
         }
       }
     }
   },
-  "required": ["output", "title", "summary", "commits"]
+  "required": ["output", "repos"]
 }"""
 
 
@@ -73,22 +82,10 @@ class ComposeRequestStep(WorkflowStep):
         logger = get_logger(context.adw_id)
 
         try:
-            affected_repos = get_affected_repo_paths(context)
-            if not affected_repos:
-                logger.info("No affected repos — skipping compose request")
-                artifact = ComposeRequestArtifact(
-                    workflow_id=context.adw_id,
-                    title="No changes",
-                    summary="No changes to compose",
-                    commits=[],
-                )
-                context.artifact_store.write_artifact(artifact)
-                return StepResult.ok(None)
-
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_PULL_REQUEST_BUILDER,
                 prompt_id=PromptId.PULL_REQUEST,
-                args=affected_repos,
+                args=[],
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
@@ -202,25 +199,19 @@ class ComposeRequestStep(WorkflowStep):
             context: Workflow context
         """
         logger = get_logger(context.adw_id)
-        # Store PR details for CreatePullRequestStep
         pr_details = {
-            "title": pr_data.get("title", ""),
-            "summary": pr_data.get("summary", ""),
-            "commits": pr_data.get("commits", []),
+            "repos": pr_data.get("repos", []),
         }
         context.data["pr_details"] = pr_details
         logger.debug(
-            "Stored PR details in context: title=%s, commits=%d",
-            pr_details["title"],
-            len(pr_details["commits"]),
+            "Stored PR details in context: %d repos",
+            len(pr_details["repos"]),
         )
 
         # Save artifact to the artifact store
         artifact = ComposeRequestArtifact(
             workflow_id=context.adw_id,
-            title=pr_details["title"],
-            summary=pr_details["summary"],
-            commits=pr_details["commits"],
+            repos=pr_details["repos"],
         )
         context.artifact_store.write_artifact(artifact)
         logger.debug("Saved pr_metadata artifact for workflow %s", context.adw_id)

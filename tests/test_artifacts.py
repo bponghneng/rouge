@@ -111,32 +111,38 @@ class TestArtifactModels:
 
     def test_quality_check_artifact_creation(self) -> None:
         """Test CodeQualityArtifact can be created with valid data."""
+        repos = [{"repo": "/srv/app", "issues": [], "tools": ["ruff", "mypy"]}]
         artifact = CodeQualityArtifact(
             workflow_id="adw-123",
-            output="Quality check output",
-            tools=["ruff", "mypy"],
-            parsed_data={"issues": 0},
+            output="code-quality",
+            repos=repos,
+            parsed_data={"repos": repos},
         )
 
         assert artifact.artifact_type == "code-quality"
-        assert artifact.output == "Quality check output"
-        assert artifact.tools == ["ruff", "mypy"]
-        assert artifact.parsed_data == {"issues": 0}
+        assert artifact.output == "code-quality"
+        assert artifact.repos == repos
+        assert artifact.parsed_data == {"repos": repos}
 
     def test_pr_metadata_artifact_creation(self) -> None:
         """Test ComposeRequestArtifact can be created with valid data."""
+        repos = [
+            {
+                "repo": "/srv/app",
+                "title": "Add new feature",
+                "summary": "This PR adds a new feature",
+                "commits": [{"sha": "abc123", "message": "feat: add feature"}],
+            }
+        ]
         artifact = ComposeRequestArtifact(
             workflow_id="adw-123",
-            title="Add new feature",
-            summary="This PR adds a new feature",
-            commits=[{"sha": "abc123", "message": "feat: add feature"}],
+            repos=repos,
         )
 
         assert artifact.artifact_type == "compose-request"
-        assert artifact.title == "Add new feature"
-        assert artifact.summary == "This PR adds a new feature"
-        assert len(artifact.commits) == 1
-        assert artifact.commits[0]["sha"] == "abc123"
+        assert len(artifact.repos) == 1
+        assert artifact.repos[0]["title"] == "Add new feature"
+        assert artifact.repos[0]["commits"][0]["sha"] == "abc123"
 
     def test_pull_request_artifact_creation(self) -> None:
         """Test GhPullRequestArtifact can be created with valid data."""
@@ -718,9 +724,14 @@ class TestArtifactStoreIntegration:
         store.write_artifact(
             ComposeRequestArtifact(
                 workflow_id=workflow_id,
-                title="feat: Add new feature",
-                summary="This PR implements...",
-                commits=[],
+                repos=[
+                    {
+                        "repo": "/srv/app",
+                        "title": "feat: Add new feature",
+                        "summary": "This PR implements...",
+                        "commits": [],
+                    }
+                ],
             )
         )
 

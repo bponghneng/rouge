@@ -12,33 +12,44 @@ from rouge.core.notifications.comments import (
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
 from rouge.core.workflow.artifacts import CodeQualityArtifact
-from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER, get_affected_repo_paths
+from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.types import StepResult
 
 # Required fields for code quality output JSON
 CODE_QUALITY_REQUIRED_FIELDS = {
     "output": str,
-    "tools": list,
+    "repos": list,
 }
 
 CODE_QUALITY_JSON_SCHEMA = """{
   "type": "object",
   "properties": {
-    "issues": {
+    "output": { "type": "string", "const": "code-quality" },
+    "repos": {
       "type": "array",
       "items": {
-        "required": ["file", "issue"],
+        "type": "object",
+        "required": ["repo", "issues", "tools"],
         "properties": {
-          "file": { "type": "string" },
-          "issue": { "type": "string" }
+          "repo": { "type": "string" },
+          "issues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["file", "issue"],
+              "properties": {
+                "file": { "type": "string" },
+                "issue": { "type": "string" }
+              }
+            }
+          },
+          "tools": { "type": "array", "items": { "type": "string" } }
         }
       }
-    },
-    "output": { "type": "string", "const": "code-quality" },
-    "tools": { "type": "array", "items": { "type": "string" } }
+    }
   },
-  "required": ["issues", "output", "tools"]
+  "required": ["output", "repos"]
 }"""
 
 
@@ -66,22 +77,10 @@ class CodeQualityStep(WorkflowStep):
         logger = get_logger(context.adw_id)
 
         try:
-            affected_repos = get_affected_repo_paths(context)
-            if not affected_repos:
-                logger.info("No affected repos — skipping code quality")
-                artifact = CodeQualityArtifact(
-                    workflow_id=context.adw_id,
-                    output="skipped",
-                    tools=[],
-                    parsed_data={"skipped": True, "reason": "no affected repos"},
-                )
-                context.artifact_store.write_artifact(artifact)
-                return StepResult.ok(None)
-
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_CODE_QUALITY_CHECKER,
                 prompt_id=PromptId.CODE_QUALITY,
-                args=affected_repos,
+                args=[],
                 adw_id=context.adw_id,
                 issue_id=context.issue_id,
                 model="sonnet",
@@ -117,7 +116,7 @@ class CodeQualityStep(WorkflowStep):
                 artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
                     output=parse_result.data.get("output", ""),
-                    tools=parse_result.data.get("tools", []),
+                    repos=parse_result.data.get("repos", []),
                     parsed_data=parse_result.data,
                 )
                 context.artifact_store.write_artifact(artifact)

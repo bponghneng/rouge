@@ -386,7 +386,7 @@ class TestDependencySemanticsIntegration:
             mock_response = Mock()
             mock_response.success = True
             # Include at least one tool to satisfy CodeQualityArtifact validation
-            mock_response.output = '{"output": "code-quality", "tools": ["ruff"], "issues": []}'
+            mock_response.output = '{"output": "code-quality", "repos": [{"repo": "/path/to/repo", "issues": [], "tools": ["ruff"]}]}'
             mock_exec.return_value = mock_response
 
             step = CodeQualityStep()

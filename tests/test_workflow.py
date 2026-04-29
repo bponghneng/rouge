@@ -152,7 +152,7 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     mock_emit.return_value = ("success", "ok")
     mock_response = Mock()
     mock_response.success = True
-    mock_response.output = '{"issues":[],"output":"code-quality","tools":["ruff"]}'
+    mock_response.output = '{"output":"code-quality","repos":[{"repo":"/path/to/repo","issues":[],"tools":["ruff"]}]}'
     mock_execute.return_value = mock_response
 
     context = _make_context()
@@ -204,9 +204,7 @@ def test_create_pr_step_success(mock_emit, mock_subprocess, mock_which) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": ["abc1234", "def5678"],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": ["abc1234", "def5678"]}],
     }
 
     step = GhPullRequestStep()
@@ -237,9 +235,7 @@ def test_create_pr_step_missing_github_pat(mock_emit) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -276,9 +272,7 @@ def test_create_pr_step_empty_title(mock_emit) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "",
-        "summary": "Some summary",
-        "commits": [],
+        "repos": [],
     }
 
     step = GhPullRequestStep()
@@ -313,9 +307,7 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -360,9 +352,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -406,9 +396,7 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -433,9 +421,7 @@ def test_create_pr_step_gh_not_found(mock_emit, mock_which) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -482,9 +468,7 @@ def test_create_pr_step_push_failure_continues_to_pr(
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -531,9 +515,7 @@ def test_create_pr_step_push_timeout_continues_to_pr(
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This PR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This PR adds a new feature.", "commits": []}],
     }
 
     step = GhPullRequestStep()
@@ -592,9 +574,10 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
     context.data["pr_details"] = {
-        "title": "feat: multi-repo feature",
-        "summary": "This PR spans two repos.",
-        "commits": ["abc1234"],
+        "repos": [
+            {"repo": "/repo/a", "title": "feat: multi-repo feature", "summary": "This PR spans two repos.", "commits": ["abc1234"]},
+            {"repo": "/repo/b", "title": "feat: multi-repo feature", "summary": "This PR spans two repos.", "commits": ["abc1234"]},
+        ],
     }
 
     step = GhPullRequestStep()
@@ -667,9 +650,10 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
 
     context = _make_context(repo_paths=["/repo/a", "/repo/b"])
     context.data["pr_details"] = {
-        "title": "feat: multi-repo feature",
-        "summary": "This PR spans two repos.",
-        "commits": [],
+        "repos": [
+            {"repo": "/repo/a", "title": "feat: multi-repo feature", "summary": "This PR spans two repos.", "commits": []},
+            {"repo": "/repo/b", "title": "feat: multi-repo feature", "summary": "This PR spans two repos.", "commits": []},
+        ],
     }
 
     step = GhPullRequestStep()
@@ -744,9 +728,7 @@ def test_create_gitlab_mr_step_success(mock_emit, mock_subprocess) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": ["abc1234", "def5678"],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": ["abc1234", "def5678"]}],
     }
 
     step = GlabPullRequestStep()
@@ -792,9 +774,7 @@ def test_create_gitlab_mr_step_missing_gitlab_pat(mock_get_logger, mock_emit) ->
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -851,16 +831,14 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "",
-        "summary": "Some summary",
-        "commits": [],
+        "repos": [],
     }
 
     step = GlabPullRequestStep()
     result = step.run(context)
 
     assert result.success is True
-    mock_logger.info.assert_called_with("MR creation skipped: MR title is empty")
+    mock_logger.info.assert_called_with("MR creation skipped: no repositories with PR details")
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-skipped"
 
@@ -903,9 +881,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -954,9 +930,7 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -997,9 +971,7 @@ def test_create_gitlab_mr_step_glab_not_found(mock_subprocess, mock_get_logger, 
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -1044,9 +1016,7 @@ def test_create_gitlab_mr_step_push_failure_continues_to_mr(mock_subprocess, moc
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -1092,9 +1062,7 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
 
     context = _make_context()
     context.data["pr_details"] = {
-        "title": "feat: add new feature",
-        "summary": "This MR adds a new feature.",
-        "commits": [],
+        "repos": [{"repo": "/path/to/repo", "title": "feat: add new feature", "summary": "This MR adds a new feature.", "commits": []}],
     }
 
     step = GlabPullRequestStep()
@@ -1134,19 +1102,16 @@ def test_prepare_pr_step_store_pr_details_success() -> None:
     context = _make_context()
     step = ComposeRequestStep()
 
-    # _store_pr_details expects a dict (pre-validated).
-    # Commits must be dicts (per ComposeRequestArtifact schema).
     pr_data = {
-        "title": "feat: add feature",
-        "summary": "This adds a feature.",
-        "commits": [{"message": "abc123"}, {"message": "def456"}],
+        "output": "pull-request",
+        "repos": [{"repo": "/srv/app", "title": "feat: add feature", "summary": "This adds a feature.", "commits": [{"message": "abc123"}, {"message": "def456"}]}],
     }
     step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
-    assert context.data["pr_details"]["title"] == "feat: add feature"
-    assert context.data["pr_details"]["summary"] == "This adds a feature."
-    assert context.data["pr_details"]["commits"] == [{"message": "abc123"}, {"message": "def456"}]
+    assert context.data["pr_details"]["repos"][0]["title"] == "feat: add feature"
+    assert context.data["pr_details"]["repos"][0]["summary"] == "This adds a feature."
+    assert context.data["pr_details"]["repos"][0]["commits"] == [{"message": "abc123"}, {"message": "def456"}]
 
 
 def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
@@ -1157,15 +1122,11 @@ def test_prepare_pr_step_store_pr_details_missing_fields() -> None:
     context = _make_context()
     step = ComposeRequestStep()
 
-    # Dict with title and a non-empty summary (empty summary fails artifact validation).
-    # Commits default to [] which is valid for ComposeRequestArtifact.
-    pr_data = {"title": "only title", "summary": "Default summary"}
+    pr_data = {"output": "pull-request"}
     step._store_pr_details(pr_data, context)
 
     assert "pr_details" in context.data
-    assert context.data["pr_details"]["title"] == "only title"
-    assert context.data["pr_details"]["summary"] == "Default summary"
-    assert context.data["pr_details"]["commits"] == []
+    assert context.data["pr_details"]["repos"] == []
 
 
 @patch("rouge.core.workflow.steps.compose_request_step.emit_comment_from_payload")
@@ -1178,11 +1139,9 @@ def test_prepare_pr_step_emits_raw_llm_response(mock_execute, mock_emit) -> None
     # Mock emit_comment_from_payload success
     mock_emit.return_value = ("success", "Comment inserted")
 
-    # Mock successful template execution with valid JSON
-    # Commits must be dicts to pass ComposeRequestArtifact validation.
     pr_json = (
-        '{"output": "pull_request", "title": "feat: test", '
-        '"summary": "Test summary", "commits": [{"message": "abc123"}]}'
+        '{"output": "pull-request", "repos": [{"repo": "/path/to/repo", "title": "feat: test", '
+        '"summary": "Test summary", "commits": [{"message": "abc123"}]}]}'
     )
     mock_response = Mock()
     mock_response.success = True

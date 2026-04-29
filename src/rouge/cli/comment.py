@@ -130,8 +130,9 @@ def render_comment_text(comment: Comment) -> str:
         lines.append("-" * 80)
 
     elif artifact_type == "compose-request":
-        # Extract and format PR summary
-        summary = artifact.get("summary", "")
+        repos = artifact.get("repos", [])
+        summaries = [r.get("summary", "") for r in repos if r.get("summary")]
+        summary = "\n\n---\n\n".join(summaries)
 
         lines.append("Pull Request Summary:")
         lines.append("-" * 80)

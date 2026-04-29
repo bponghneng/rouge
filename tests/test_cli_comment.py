@@ -422,10 +422,15 @@ class TestCommentReadCommand:
             raw={
                 "artifact": {
                     "artifact_type": "compose-request",
-                    "summary": (
-                        "## Summary\n\nFixed the login bug\n\n"
-                        "## Changes\n- Updated auth.py\n- Added tests"
-                    ),
+                    "repos": [
+                        {
+                            "repo": "/path/to/repo",
+                            "summary": (
+                                "## Summary\n\nFixed the login bug\n\n"
+                                "## Changes\n- Updated auth.py\n- Added tests"
+                            ),
+                        }
+                    ],
                 }
             },
             created_at=datetime(2024, 1, 1, 12, 0, 0),
@@ -720,7 +725,7 @@ class TestRenderCommentTextHelper:
             raw={
                 "artifact": {
                     "artifact_type": "compose-request",
-                    "summary": "## Summary\n\nFixed bugs",
+                    "repos": [{"repo": "/path/to/repo", "summary": "## Summary\n\nFixed bugs"}],
                 }
             },
             created_at=datetime(2024, 1, 1, 12, 0, 0),

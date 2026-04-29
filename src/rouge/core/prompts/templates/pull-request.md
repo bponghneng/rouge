@@ -1,35 +1,58 @@
 ---
-description: ADW step: groups unstaged changes into conventional commits, executes them, and prepares a PR title and structured PR description as JSON, including commit list and test checklist.
+description: ADW step: orchestrates per-repository PR-composition sub-agents that group changes into conventional commits and prepare PR titles and descriptions, then aggregates results as JSON.
 model: sonnet
 thinking: false
 disable-model-invocation: true
 ---
 
-# Compose Commits & PR Summary
+# Pull Request Orchestrator
 
-Follow the `Instructions` and `Commit Process` to create conventional commits for the repositories described in `README.md`, then respond with the exact `Output Format`.
+Discover all repositories with uncommitted changes, launch a parallel PR-composition sub-agent for each one, and aggregate their results.
 
 ## Instructions
 
-- Read `README.md` to identify the repository or repositories to process, and process each in turn
-- Use `cd` to change to the repo directory if needed
+### 1. Discover Repositories
+
+Find all repositories by locating directories that contain a `.git` folder.
+
+Repositories will be found either at the top-level working directory or as an immediate subdirectory of it — discovery does not need to recurse more than one level deep.
+
+After locating repositories, filter to only those with uncommitted changes by running `git status --porcelain` in each. A repository has changes if the output is non-empty (covers modified, untracked, and deleted files). Skip any repository with no changes.
+
+### 2. Launch a Sub-Agent per Repository
+
+For each repository with changes, launch a sub-agent using the `Task` tool with:
+
+- The absolute path to the repository as the sole argument
+- The following sub-agent prompt (verbatim):
+
+---
+
+You are a PR-composition agent for a single repository. Your working scope is the repository path provided as your argument.
+
+**Instructions**
+
+- Use `cd` to change to the repo directory
 - Read current git status: `git status`
 - Read current git diff (staged and unstaged changes): `git diff HEAD`
 - Read current branch: `git branch --show-current`
 - Read recent commits: `git log --oneline -10`
-- Read @ai_docs/conventional-commits.md to follow the conventional commits standard
 
-## Commit Process
+**Commit Process**
 
-### 1. Group Changes
+#### 1. Group Changes
+
 Logically group related changes into commit units. Consider:
+
 - Functional boundaries (each commit is a complete logical change)
 - File relationships (related files usually go together)
 - Change types (avoid mixing unrelated features, fixes, or chores)
 - Include both staged and unstaged changes; re-stage files as needed to match logical commit groups
 
-### 2. Compose Commit Messages
+#### 2. Compose Commit Messages
+
 For each group, create a conventional commit message:
+
 - Format: `type(scope): description`
 - Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build
 - Keep the first line under 72 characters
@@ -37,40 +60,26 @@ For each group, create a conventional commit message:
 - Include body text for complex changes
 - Add `BREAKING CHANGE:` footer if applicable
 
-### 3. Execute Commits
+#### 3. Execute Commits
+
 For each group:
+
 - Stage the relevant files using `git add`
 - Commit with the composed message using `git commit -m`
 
-### Edge Cases
+#### 4. Compose PR Title and Summary
 
-- If changes span multiple unrelated features, create separate commits
+After all commits are created, compose a pull request title and summary:
 
-## Output Format
+- Title: clear, concise summary of the overall change (under 72 characters)
+- Summary: structured markdown using the format below
 
-Return ONLY valid JSON with zero additional text, formatting, markdown, or explanation.
-
-{
-  "output": "pull-request",
-  "title": "<clear pull request title summarizing the overall change>",
-  "summary": "<markdown in the exact `Summary Format`>",
-  "commits": [
-    {
-      "message": "<full conventional commit message>",
-      "sha": "<commit SHA identifier>",
-      "files": ["repo/relative/path1","repo/relative/path2"]
-    }
-  ]
-}
-
-### Summary Format
-
-Replace <placeholders> with appropriate details. Select appropriate values for `Type of Change`
+**Summary Format**
 
 ```markdown
 ## Description
 
-<describe the change and any issue fixed. include relevant motivation and context. list and dependencies required for the change.>
+<describe the change and any issue fixed; include relevant motivation and context>
 
 ## Type of Change
 
@@ -84,11 +93,58 @@ Replace <placeholders> with appropriate details. Select appropriate values for `
 
 - <concise summary of change no. 1>
 - <concise summary of change no. 2>
-- ...
 
 ## How to Test
 
 - [ ] <concise description of test no. 1>
 - [ ] <concise description of test no. 2>
-- [ ] ...
 ```
+
+**Output Format**
+
+Return ONLY valid JSON with zero additional text, formatting, markdown, or explanation.
+
+```json
+{
+  "repo": "<absolute path to this repository>",
+  "title": "<clear pull request title summarizing the overall change>",
+  "summary": "<markdown in the Summary Format above>",
+  "commits": [
+    {
+      "message": "<full conventional commit message>",
+      "sha": "<commit SHA identifier>",
+      "files": ["repo/relative/path1", "repo/relative/path2"]
+    }
+  ]
+}
+```
+
+---
+
+Launch all sub-agents in parallel.
+
+### 3. Aggregate Results
+
+After all sub-agents complete, build a `repos` array where each element is one sub-agent's result object.
+
+## Output Format
+
+Return ONLY valid JSON with zero additional text, formatting, markdown, or explanation.
+
+{
+  "output": "pull-request",
+  "repos": [
+    {
+      "repo": "<absolute path to repository>",
+      "title": "<pull request title>",
+      "summary": "<markdown PR summary>",
+      "commits": [
+        {
+          "message": "<full conventional commit message>",
+          "sha": "<commit SHA identifier>",
+          "files": ["repo/relative/path1", "repo/relative/path2"]
+        }
+      ]
+    }
+  ]
+}
