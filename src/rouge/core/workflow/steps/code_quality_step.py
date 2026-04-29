@@ -1,5 +1,7 @@
 """Code quality step implementation."""
 
+import json
+
 from rouge.core.agent import execute_template
 from rouge.core.agents.claude import ClaudeAgentTemplateRequest
 from rouge.core.json_parser import parse_and_validate_json
@@ -11,9 +13,10 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import CodeQualityArtifact
+from rouge.core.workflow.artifacts import CodeQualityArtifact, CodeQualityRepoResult
 from rouge.core.workflow.shared import AGENT_CODE_QUALITY_CHECKER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
+from rouge.core.workflow.step_utils import coerce_repos
 from rouge.core.workflow.types import StepResult
 
 # Required fields for code quality output JSON
@@ -22,35 +25,23 @@ CODE_QUALITY_REQUIRED_FIELDS = {
     "repos": list,
 }
 
-CODE_QUALITY_JSON_SCHEMA = """{
-  "type": "object",
-  "properties": {
-    "output": { "type": "string", "const": "code-quality" },
-    "repos": {
-      "type": "array",
-      "items": {
+# JSON schema generated from the Pydantic submodel so the LLM-facing schema and
+# the artifact model stay in sync automatically.  Generated once at import time.
+_REPO_SCHEMA = CodeQualityRepoResult.model_json_schema()
+CODE_QUALITY_JSON_SCHEMA = json.dumps(
+    {
         "type": "object",
-        "required": ["repo", "issues", "tools"],
         "properties": {
-          "repo": { "type": "string" },
-          "issues": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["file", "issue"],
-              "properties": {
-                "file": { "type": "string" },
-                "issue": { "type": "string" }
-              }
-            }
-          },
-          "tools": { "type": "array", "items": { "type": "string" } }
-        }
-      }
-    }
-  },
-  "required": ["output", "repos"]
-}"""
+            "output": {"type": "string", "const": "code-quality"},
+            "repos": {
+                "type": "array",
+                "items": _REPO_SCHEMA,
+            },
+        },
+        "required": ["output", "repos"],
+    },
+    indent=2,
+)
 
 
 class CodeQualityStep(WorkflowStep):
@@ -83,7 +74,6 @@ class CodeQualityStep(WorkflowStep):
                 context.artifact_store.write_artifact(
                     CodeQualityArtifact(
                         workflow_id=context.adw_id,
-                        output="skipped",
                         repos=[],
                     )
                 )
@@ -125,11 +115,12 @@ class CodeQualityStep(WorkflowStep):
 
             # Save artifact to the artifact store
             if parse_result.data is not None:
+                valid_repos = coerce_repos(
+                    parse_result.data, CodeQualityRepoResult, "code_quality", logger
+                )
                 artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
-                    output=parse_result.data.get("output", "") or "code-quality",
-                    repos=parse_result.data.get("repos", []),
-                    parsed_data=parse_result.data,
+                    repos=valid_repos,
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved quality_check artifact for workflow %s", context.adw_id)

@@ -3,14 +3,18 @@
 import json
 import re
 import subprocess
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar
 
-if TYPE_CHECKING:
-    from rouge.core.workflow.step_base import WorkflowContext
+from pydantic import BaseModel, ValidationError
 
 from rouge.core.models import CommentPayload
 from rouge.core.notifications.comments import emit_comment_from_payload
 from rouge.core.utils import get_logger
+
+if TYPE_CHECKING:
+    from rouge.core.workflow.step_base import WorkflowContext
+
+_M = TypeVar("_M", bound=BaseModel)
 
 # Max characters to log from LLM response
 MAX_LOG_LENGTH = 500
@@ -53,6 +57,52 @@ def _sanitize_for_logging(text: Optional[str], max_length: int = MAX_LOG_LENGTH)
     if len(sanitized) > max_length:
         return sanitized[:max_length] + "..."
     return sanitized
+
+
+def coerce_repos(
+    data: Dict[str, Any],
+    submodel: Type[_M],
+    step_name: str,
+    logger: Any,
+) -> List[_M]:
+    """Coerce raw LLM repo dicts into typed Pydantic submodel instances.
+
+    Iterates ``data["repos"]`` and calls ``submodel.model_validate(r)`` on
+    each entry.  Entries that fail validation are dropped and a warning is
+    logged with step-aware context so errors surface near the parsing step
+    rather than at artifact construction.
+
+    Args:
+        data: The parsed LLM output dict (must contain a "repos" key).
+        submodel: The Pydantic model class to validate each repo entry against.
+        step_name: Human-readable step name used in warning messages.
+        logger: Logger instance for the calling step.
+
+    Returns:
+        List of validated submodel instances; may be shorter than the input
+        if some entries failed validation.
+    """
+    raw_repos = data.get("repos", [])
+    valid: List[_M] = []
+    for i, r in enumerate(raw_repos):
+        if not isinstance(r, dict):
+            logger.warning(
+                "[%s] repo entry %d is not a dict (got %s) — dropped",
+                step_name,
+                i,
+                type(r).__name__,
+            )
+            continue
+        try:
+            valid.append(submodel.model_validate(r))
+        except ValidationError as exc:
+            logger.warning(
+                "[%s] repo entry %d failed validation — dropped: %s",
+                step_name,
+                i,
+                exc,
+            )
+    return valid
 
 
 # GitHub imposes a 65 536-char limit on issue/PR comments.

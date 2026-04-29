@@ -15,12 +15,13 @@ from rouge.core.notifications.comments import (
 )
 from rouge.core.prompts import PromptId
 from rouge.core.utils import get_logger
-from rouge.core.workflow.artifacts import ComposeCommitsArtifact
+from rouge.core.workflow.artifacts import ComposeCommitsArtifact, ComposeCommitsRepoResult
 from rouge.core.workflow.shared import AGENT_COMMIT_COMPOSER, get_affected_repo_paths
 from rouge.core.workflow.step_base import WorkflowContext, WorkflowStep
 from rouge.core.workflow.step_utils import (
     _emit_and_log,
     _sanitize_for_logging,
+    coerce_repos,
     load_and_render_patch_attachment,
     post_gh_attachment_comment,
     post_glab_attachment_note,
@@ -30,36 +31,23 @@ from rouge.core.workflow.types import StepResult
 # Required fields for compose-commits output JSON
 COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str, "repos": list}
 
-COMPOSE_COMMITS_JSON_SCHEMA = """{
-  "type": "object",
-  "properties": {
-    "output": { "type": "string", "const": "compose-commits" },
-    "repos": {
-      "type": "array",
-      "items": {
+# JSON schema generated from the Pydantic submodel so the LLM-facing schema and
+# the artifact model stay in sync automatically.  Generated once at import time.
+_REPO_SCHEMA = ComposeCommitsRepoResult.model_json_schema()
+COMPOSE_COMMITS_JSON_SCHEMA = json.dumps(
+    {
         "type": "object",
-        "required": ["repo", "summary", "commits"],
         "properties": {
-          "repo": { "type": "string" },
-          "summary": { "type": "string" },
-          "commits": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "required": ["message", "sha"],
-              "properties": {
-                "message": { "type": "string" },
-                "sha": { "type": "string" },
-                "files": { "type": "array", "items": { "type": "string" } }
-              }
-            }
-          }
-        }
-      }
-    }
-  },
-  "required": ["output", "repos"]
-}"""
+            "output": {"type": "string", "const": "compose-commits"},
+            "repos": {
+                "type": "array",
+                "items": _REPO_SCHEMA,
+            },
+        },
+        "required": ["output", "repos"],
+    },
+    indent=2,
+)
 
 
 class ComposeCommitsStep(WorkflowStep):
@@ -337,9 +325,15 @@ class ComposeCommitsStep(WorkflowStep):
 
             # Save artifact to the artifact store
             if parse_result.data is not None:
+                valid_repos = coerce_repos(
+                    parse_result.data,
+                    ComposeCommitsRepoResult,
+                    "compose_commits",
+                    logger,
+                )
                 artifact = ComposeCommitsArtifact(
                     workflow_id=context.adw_id,
-                    repos=parse_result.data.get("repos", []),
+                    repos=valid_repos,
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved compose_commits artifact for workflow %s", context.adw_id)
