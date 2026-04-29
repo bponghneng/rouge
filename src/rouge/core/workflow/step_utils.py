@@ -65,7 +65,7 @@ def coerce_repos(
     submodel: Type[_M],
     step_name: str,
     logger: logging.Logger,
-) -> List[_M]:
+) -> tuple[List[_M], int]:
     """Coerce raw LLM repo dicts into typed Pydantic submodel instances.
 
     Iterates ``data["repos"]`` and calls ``submodel.model_validate(r)`` on
@@ -80,11 +80,15 @@ def coerce_repos(
         logger: Logger instance for the calling step.
 
     Returns:
-        List of validated submodel instances; may be shorter than the input
-        if some entries failed validation.
+        A 2-tuple ``(valid, dropped_count)`` where *valid* is the list of
+        validated submodel instances and *dropped_count* is the number of
+        entries that were dropped due to validation failures.  Callers can
+        inspect *dropped_count* to log or surface partial-validation
+        observability at the artifact level.
     """
     raw_repos = data.get("repos", [])
     valid: List[_M] = []
+    dropped = 0
     for i, r in enumerate(raw_repos):
         if not isinstance(r, dict):
             logger.warning(
@@ -93,6 +97,7 @@ def coerce_repos(
                 i,
                 type(r).__name__,
             )
+            dropped += 1
             continue
         try:
             valid.append(submodel.model_validate(r))
@@ -104,7 +109,8 @@ def coerce_repos(
                 exc,
                 _sanitize_for_logging(json.dumps(r, default=str)),
             )
-    return valid
+            dropped += 1
+    return valid, dropped
 
 
 def build_repos_schema(repo_submodel: Type[_M], output_const: str) -> str:

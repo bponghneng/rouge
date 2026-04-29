@@ -61,6 +61,21 @@ class CodeQualityStep(WorkflowStep):
                         repos=[],
                     )
                 )
+                if context.issue_id is not None:
+                    skip_text = "No affected repos — code quality checks skipped"
+                    payload = CommentPayload(
+                        issue_id=context.issue_id,
+                        adw_id=context.adw_id,
+                        text=skip_text,
+                        raw={"text": skip_text, "output": "code-quality-skipped"},
+                        source="system",
+                        kind="workflow",
+                    )
+                    status, msg = emit_comment_from_payload(payload)
+                    if status == "success":
+                        logger.debug(msg)
+                    else:
+                        logger.error(msg)
                 return StepResult.ok(None)
 
             request = ClaudeAgentTemplateRequest(
@@ -99,9 +114,15 @@ class CodeQualityStep(WorkflowStep):
 
             # Save artifact to the artifact store
             if parse_result.data is not None:
-                valid_repos = coerce_repos(
+                valid_repos, dropped = coerce_repos(
                     parse_result.data, CodeQualityRepoResult, "code_quality", logger
                 )
+                if dropped:
+                    logger.warning(
+                        "[code_quality] %d repo entr%s dropped during validation",
+                        dropped,
+                        "y" if dropped == 1 else "ies",
+                    )
                 artifact = CodeQualityArtifact(
                     workflow_id=context.adw_id,
                     repos=valid_repos,

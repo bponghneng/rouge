@@ -262,6 +262,13 @@ class ComposeCommitsStep(WorkflowStep):
                 context.artifact_store.write_artifact(
                     ComposeCommitsArtifact(workflow_id=context.adw_id, repos=[])
                 )
+                skip_text = "No affected repos — compose-commits skipped"
+                _emit_and_log(
+                    context.require_issue_id,
+                    context.adw_id,
+                    skip_text,
+                    {"text": skip_text, "output": "compose-commits-skipped"},
+                )
                 return None
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
@@ -318,12 +325,18 @@ class ComposeCommitsStep(WorkflowStep):
 
             # Save artifact to the artifact store
             if parse_result.data is not None:
-                valid_repos = coerce_repos(
+                valid_repos, dropped = coerce_repos(
                     parse_result.data,
                     ComposeCommitsRepoResult,
                     "compose_commits",
                     logger,
                 )
+                if dropped:
+                    logger.warning(
+                        "[compose_commits] %d repo entr%s dropped during validation",
+                        dropped,
+                        "y" if dropped == 1 else "ies",
+                    )
                 artifact = ComposeCommitsArtifact(
                     workflow_id=context.adw_id,
                     repos=valid_repos,
