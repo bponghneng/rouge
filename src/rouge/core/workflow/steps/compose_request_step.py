@@ -62,7 +62,7 @@ class ComposeRequestStep(WorkflowStep):
                     repos=[],
                 )
                 context.artifact_store.write_artifact(artifact)
-                self._emit_completion_comment(context)
+                self._emit_skip_comment(context)
                 return StepResult.ok(None)
 
             request = ClaudeAgentTemplateRequest(
@@ -174,6 +174,31 @@ class ComposeRequestStep(WorkflowStep):
         else:
             logger.error(msg)
 
+    def _emit_skip_comment(self, context: WorkflowContext) -> None:
+        """Emit a skip comment when no affected repos are present.
+
+        Distinct from :meth:`_emit_completion_comment` so operators can tell
+        that compose-commits was skipped rather than completed successfully.
+
+        Args:
+            context: Workflow context
+        """
+        logger = get_logger(context.adw_id)
+        skip_text = "No affected repos — compose-commits skipped"
+        payload = CommentPayload(
+            issue_id=context.require_issue_id,
+            adw_id=context.adw_id,
+            text=skip_text,
+            raw={"text": skip_text, "output": "compose-request-skipped"},
+            source="system",
+            kind="workflow",
+        )
+        status, msg = emit_comment_from_payload(payload)
+        if status == "success":
+            logger.debug(msg)
+        else:
+            logger.error(msg)
+
     def _store_pr_details(self, pr_data: Dict[str, Any], context: WorkflowContext) -> None:
         """Store validated PR details in context for CreatePullRequestStep.
 
@@ -183,7 +208,15 @@ class ComposeRequestStep(WorkflowStep):
         """
         logger = get_logger(context.adw_id)
         # Coerce to typed models for artifact construction (surfaces validation errors early).
-        typed_repos = coerce_repos(pr_data, ComposeRequestRepoResult, "compose_request", logger)
+        typed_repos, dropped = coerce_repos(
+            pr_data, ComposeRequestRepoResult, "compose_request", logger
+        )
+        if dropped:
+            logger.warning(
+                "[compose_request] %d repo entr%s dropped during validation",
+                dropped,
+                "y" if dropped == 1 else "ies",
+            )
         # Store the typed list directly so downstream code can use attribute access.
         context.data["pr_details"] = typed_repos
         logger.debug(
