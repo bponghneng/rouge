@@ -434,10 +434,10 @@ class TestPromptJsonStepProperties:
         assert step.name == "Building implementation plan"
 
     def test_display_name_override(self) -> None:
-        step = PromptJsonStep(
-            settings=_chore_settings(),
-            display_name="Building patch plan",
-        )
+        # ``display_name`` is no longer a constructor argument; the resolver
+        # sets it post-construction via the ``step.name`` setter.
+        step = PromptJsonStep(settings=_chore_settings())
+        step.name = "Building patch plan"
         assert step.name == "Building patch plan"
 
     def test_display_name_setter(self) -> None:

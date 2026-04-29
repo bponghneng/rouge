@@ -468,9 +468,9 @@ class TestWorkerContinuesAfterTransientError:
                                     worker.run()
 
                                 # Should have transitioned to failed state
-                                assert any(a.state == "failed" for a in artifact_writes), (
-                                    "Worker should transition to failed on workflow failure"
-                                )
+                                assert any(
+                                    a.state == "failed" for a in artifact_writes
+                                ), "Worker should transition to failed on workflow failure"
 
 
 class TestJitteredBackoff:

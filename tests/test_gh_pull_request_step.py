@@ -817,9 +817,9 @@ class TestGhPullRequestStepAttachment:
         # No attachment-related calls: no comment listing, no gh pr comment, no gh api PATCH
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
-            assert not ("api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str), (
-                "GitHub issue-comments API should not be called when attachment is None"
-            )
+            assert not (
+                "api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str
+            ), "GitHub issue-comments API should not be called when attachment is None"
             has_attachment_comment = (
                 "pr" in cmd_str and "comment" in cmd_str and "rouge-review-context" in cmd_str
             )
