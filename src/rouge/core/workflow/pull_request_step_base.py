@@ -137,10 +137,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
             )
             return StepResult.ok(None)
 
-        title = pr_details.get("title", "")
-
-        if not title:
-            skip_msg = f"{self.entity_name} creation skipped: {self.entity_name} title is empty"
+        if not pr_details.get("repos"):
+            skip_msg = f"{self.entity_name} creation skipped: no repositories with PR details"
             logger.info(skip_msg)
             _emit_and_log(
                 context.require_issue_id,
@@ -483,7 +481,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
             "pr_details",
             "compose-request",
             ComposeRequestArtifact,
-            lambda a: {"title": a.title, "summary": a.summary, "commits": a.commits},
+            lambda a: {"repos": a.repos},
         )
 
         attachment_md = load_and_render_attachment(context)
@@ -493,9 +491,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
         # pr_details is guaranteed non-None after preconditions pass
         assert pr_details is not None
-        title = pr_details.get("title", "")
-        summary = pr_details.get("summary", "")
-        commits = pr_details.get("commits", [])
+        pr_by_repo = {r["repo"]: r for r in pr_details.get("repos", [])}
+        all_commits = [c for r in pr_details.get("repos", []) for c in r.get("commits", [])]
         pat_value = os.environ.get(self.pat_env_var, "")
 
         try:
@@ -539,8 +536,15 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 return StepResult.ok(None)
 
             for repo_path in affected_repos:
+                repo_pr = pr_by_repo.get(repo_path, {})
                 self._process_repo(
-                    context, repo_path, title, summary, pull_requests, env, attachment_md
+                    context,
+                    repo_path,
+                    repo_pr.get("title", ""),
+                    repo_pr.get("summary", ""),
+                    pull_requests,
+                    env,
+                    attachment_md,
                 )
 
             # Emit artifact comment and progress comment after all repos are processed
@@ -557,7 +561,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
                 urls = [entry.url for entry in pull_requests]
                 comment_data = {
-                    "commits": commits,
+                    "commits": all_commits,
                     "output": f"{self.output_key_prefix}-created",
                     "urls": urls,
                 }

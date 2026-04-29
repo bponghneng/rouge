@@ -128,15 +128,15 @@ class CodeQualityArtifact(Artifact):
 
     Attributes:
         output: The quality check output text
-        tools: List of tools that were run
+        repos: Per-repository results, each containing repo path, issues, and tools run
         parsed_data: Optional parsed JSON data from the check
     """
 
     artifact_type: Literal["code-quality"] = "code-quality"
     output: str = Field(description="Raw output text from code quality tools", min_length=1)
-    tools: List[str] = Field(
+    repos: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="List of quality tool names that were executed",
+        description="Per-repository code quality results",
     )
     parsed_data: Optional[Dict[str, Any]] = Field(
         default=None, description="Structured JSON data parsed from tool output"
@@ -147,16 +147,13 @@ class ComposeRequestArtifact(Artifact):
     """Artifact containing prepared pull request metadata.
 
     Attributes:
-        title: The PR title
-        summary: The PR body/summary
-        commits: List of commit information
+        repos: Per-repository PR metadata, each containing repo path, title, summary, and commits
     """
 
     artifact_type: Literal["compose-request"] = "compose-request"
-    title: str = Field(description="The pull request title", min_length=1)
-    summary: str = Field(description="The pull request body/summary text", min_length=1)
-    commits: List[Dict[str, Any]] = Field(
-        default_factory=list, description="List of commit metadata objects related to the artifact"
+    repos: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Per-repository PR metadata",
     )
 
 
@@ -259,20 +256,13 @@ class ComposeCommitsArtifact(Artifact):
     """Artifact containing composed commit metadata.
 
     Attributes:
-        summary: A summary of the commits being composed
-        commits: List of commit information dictionaries
+        repos: Per-repository commit results, each containing repo path, summary, and commits
     """
 
     artifact_type: Literal["compose-commits"] = "compose-commits"
-    summary: str = Field(
-        description="A summary of the commits being composed",
-        min_length=1,
-        examples=["Add user authentication", "Fix validation bug"],
-    )
-    commits: List[Dict[str, Any]] = Field(
+    repos: List[Dict[str, Any]] = Field(
         default_factory=list,
-        description="List of commit information dictionaries with metadata",
-        examples=[[{"message": "feat: add login", "sha": "abc123"}]],
+        description="Per-repository commit composition results",
     )
 
 

@@ -28,26 +28,37 @@ from rouge.core.workflow.step_utils import (
 from rouge.core.workflow.types import StepResult
 
 # Required fields for compose-commits output JSON
-COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str}
+COMPOSE_COMMITS_REQUIRED_FIELDS = {"output": str, "repos": list}
 
 COMPOSE_COMMITS_JSON_SCHEMA = """{
   "type": "object",
   "properties": {
     "output": { "type": "string", "const": "compose-commits" },
-    "summary": { "type": "string" },
-    "commits": {
+    "repos": {
       "type": "array",
       "items": {
-        "required": ["message", "sha"],
+        "type": "object",
+        "required": ["repo", "summary", "commits"],
         "properties": {
-          "message": { "type": "string" },
-          "sha": { "type": "string" },
-          "files": { "type": "array", "items": { "type": "string" } }
+          "repo": { "type": "string" },
+          "summary": { "type": "string" },
+          "commits": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["message", "sha"],
+              "properties": {
+                "message": { "type": "string" },
+                "sha": { "type": "string" },
+                "files": { "type": "array", "items": { "type": "string" } }
+              }
+            }
+          }
         }
       }
     }
   },
-  "required": ["output", "summary", "commits"]
+  "required": ["output", "repos"]
 }"""
 
 
@@ -273,7 +284,7 @@ class ComposeCommitsStep(WorkflowStep):
             request = ClaudeAgentTemplateRequest(
                 agent_name=AGENT_COMMIT_COMPOSER,
                 prompt_id=PromptId.COMPOSE_COMMITS,
-                args=context.repo_paths,
+                args=[],
                 adw_id=context.adw_id,
                 issue_id=context.require_issue_id,
                 model="sonnet",
@@ -327,8 +338,7 @@ class ComposeCommitsStep(WorkflowStep):
             if parse_result.data is not None:
                 artifact = ComposeCommitsArtifact(
                     workflow_id=context.adw_id,
-                    summary=parse_result.data.get("summary", ""),
-                    commits=parse_result.data.get("commits", []),
+                    repos=parse_result.data.get("repos", []),
                 )
                 context.artifact_store.write_artifact(artifact)
                 logger.debug("Saved compose_commits artifact for workflow %s", context.adw_id)
