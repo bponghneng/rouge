@@ -158,7 +158,20 @@ def build_repos_schema(repo_submodel: Type[_M], output_const: str) -> str:
 _MAX_BODY_CHARS = 60_000
 _TRUNCATION_NOTICE = "\n\n… *(content truncated to fit platform limits)*"
 
-_REVIEW_CONTEXT_MARKER = "<!-- rouge-review-context -->"
+_REVIEW_CONTEXT_PREFIX = "<!-- review-context"
+
+
+def _build_review_context_marker(has_spec: bool, has_plan: bool) -> str:
+    """Build the metadata block prepended to a Rouge review-context comment."""
+    payload = {
+        "has_plan": has_plan,
+        "has_spec": has_spec,
+        "schema_version": 1,
+        "type": "planning_context",
+    }
+    encoded = json.dumps(payload, sort_keys=True)
+    return f"{_REVIEW_CONTEXT_PREFIX}\n{encoded}\n-->"
+
 
 _GLAB_NOTES_PAGE_SIZE = 100
 _GLAB_NOTES_MAX_PAGES = 50  # 5,000 notes ceiling; safety stop only
@@ -236,7 +249,7 @@ def _find_existing_glab_marker_note_id(
         for note in notes:
             if not isinstance(note, dict):
                 continue
-            if note.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
+            if note.get("body", "").startswith(_REVIEW_CONTEXT_PREFIX):
                 try:
                     return int(note["id"])
                 except (KeyError, TypeError, ValueError):
@@ -284,7 +297,7 @@ def render_attachment_markdown(
     if not has_spec and not has_plan:
         return None
 
-    parts: list[str] = ["## Planning Context", ""]
+    parts: list[str] = ["## Review Context", ""]
 
     if has_spec:
         parts.extend(
@@ -418,7 +431,9 @@ def post_gh_attachment_comment(
         env: Environment dict with the appropriate token set.
     """
     logger = get_logger(__name__)
-    tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
+    has_spec = "<summary>Spec</summary>" in body
+    has_plan = "<summary>Plan</summary>" in body
+    tagged_body = f"{_build_review_context_marker(has_spec, has_plan)}\n{body}"
 
     # NOTE: per_page=100 without pagination; duplicates possible on PRs with 100+ comments.
     list_cmd = [
@@ -435,7 +450,7 @@ def post_gh_attachment_comment(
         try:
             comments = json.loads(result.stdout)
             for comment in comments:
-                if comment.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
+                if comment.get("body", "").startswith(_REVIEW_CONTEXT_PREFIX):
                     existing_comment_id = int(comment["id"])
                     break
         except (ValueError, KeyError, TypeError, AttributeError):
@@ -510,7 +525,9 @@ def post_glab_attachment_note(
         env: Environment dict with the appropriate token set.
     """
     logger = get_logger(__name__)
-    tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
+    has_spec = "<summary>Spec</summary>" in body
+    has_plan = "<summary>Plan</summary>" in body
+    tagged_body = f"{_build_review_context_marker(has_spec, has_plan)}\n{body}"
 
     existing_note_id = _find_existing_glab_marker_note_id(repo_path, mr_number, env)
 

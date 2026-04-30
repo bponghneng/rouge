@@ -582,10 +582,7 @@ def _make_subprocess_side_effect(
             else:
                 result.returncode = 0
                 result.stdout = (
-                    (
-                        f'[{{"id": {existing_comment_id}, '
-                        '"body": "<!-- rouge-review-context -->\\nold"}]'
-                    )
+                    (f'[{{"id": {existing_comment_id}, "body": "<!-- review-context -->\\nold"}}]')
                     if existing_comment_id is not None
                     else "[]"
                 )
@@ -683,8 +680,8 @@ class TestGhPullRequestStepAttachment:
         ]
         assert len(comment_calls) == 1
         comment_cmd = comment_calls[0][0][0]
-        # Should contain the marker
-        assert any("<!-- rouge-review-context -->" in arg for arg in comment_cmd)
+        # Should contain the marker prefix
+        assert any("<!-- review-context" in arg for arg in comment_cmd)
         # Should contain the PR number
         assert "99" in comment_cmd
 
@@ -770,7 +767,7 @@ class TestGhPullRequestStepAttachment:
         ]
         assert len(comment_calls) == 1
         comment_cmd = comment_calls[0][0][0]
-        assert any("<!-- rouge-review-context -->" in arg for arg in comment_cmd)
+        assert any("<!-- review-context" in arg for arg in comment_cmd)
         assert "77" in comment_cmd
 
     @patch(_ATTACHMENT_PATCHES[0])
@@ -817,11 +814,11 @@ class TestGhPullRequestStepAttachment:
         # No attachment-related calls: no comment listing, no gh pr comment, no gh api PATCH
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
-            assert not (
-                "api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str
-            ), "GitHub issue-comments API should not be called when attachment is None"
+            assert not ("api" in cmd_str and "/issues/" in cmd_str and "/comments" in cmd_str), (
+                "GitHub issue-comments API should not be called when attachment is None"
+            )
             has_attachment_comment = (
-                "pr" in cmd_str and "comment" in cmd_str and "rouge-review-context" in cmd_str
+                "pr" in cmd_str and "comment" in cmd_str and "review-context" in cmd_str
             )
             assert not has_attachment_comment, "gh pr comment for attachment should not be called"
 

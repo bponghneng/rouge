@@ -37,7 +37,7 @@ class TestRenderAttachmentMarkdown:
         )
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "My specification" in result
         assert "<summary>Plan</summary>" in result
@@ -52,7 +52,7 @@ class TestRenderAttachmentMarkdown:
         )
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "Only spec here" in result
         assert "<summary>Plan</summary>" not in result
@@ -66,7 +66,7 @@ class TestRenderAttachmentMarkdown:
         )
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" not in result
         assert "<summary>Plan</summary>" in result
         assert "Only plan here" in result
@@ -177,7 +177,7 @@ class TestRenderAttachmentMarkdown:
         assert result.endswith("</details>\n")
 
     def test_header_present(self) -> None:
-        """Output starts with the Planning Context header."""
+        """Output starts with the Review Context header."""
         result = render_attachment_markdown(
             spec_text="spec",
             plan_text=None,
@@ -185,7 +185,7 @@ class TestRenderAttachmentMarkdown:
         )
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
 
 
 def _make_context(data: dict | None = None) -> MagicMock:
@@ -234,7 +234,7 @@ class TestLoadAndRenderAttachment:
         result = load_and_render_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Plan</summary>" in result
         assert "Implement feature X step by step" in result
         assert "**Summary:** Feature X plan" in result
@@ -254,7 +254,7 @@ class TestLoadAndRenderAttachment:
         result = load_and_render_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "The spec text" in result
         assert "<summary>Plan</summary>" in result
@@ -284,7 +284,7 @@ class TestLoadAndRenderAttachment:
         result = load_and_render_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "Spec from issue" in result
         assert "<summary>Plan</summary>" not in result
@@ -298,7 +298,7 @@ class TestLoadAndRenderAttachment:
         result = load_and_render_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Plan</summary>" in result
         assert "Only plan content" in result
         assert "<summary>Spec</summary>" not in result
@@ -329,7 +329,7 @@ class TestLoadAndRenderPatchAttachment:
         result = load_and_render_patch_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "Patch spec text" in result
         assert "<summary>Plan</summary>" in result
@@ -348,7 +348,7 @@ class TestLoadAndRenderPatchAttachment:
         result = load_and_render_patch_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Spec</summary>" in result
         assert "Only patch spec" in result
         assert "<summary>Plan</summary>" not in result
@@ -362,7 +362,7 @@ class TestLoadAndRenderPatchAttachment:
         result = load_and_render_patch_attachment(ctx)
 
         assert result is not None
-        assert "## Planning Context" in result
+        assert "## Review Context" in result
         assert "<summary>Plan</summary>" in result
         assert "Plan without patch" in result
         assert "<summary>Spec</summary>" not in result
