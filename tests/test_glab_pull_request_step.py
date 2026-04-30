@@ -87,9 +87,9 @@ def _find_glab_create_cmd(mock_run: MagicMock) -> list[str]:
         for call in mock_run.call_args_list
         if call[0][0][0] == "glab" and call[0][0][2] == "create"
     ]
-    assert (
-        len(glab_create_calls) == 1
-    ), f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
+    assert len(glab_create_calls) == 1, (
+        f"Expected exactly 1 glab mr create call, got {len(glab_create_calls)}"
+    )
     return glab_create_calls[0][0][0]
 
 
@@ -150,7 +150,7 @@ def _make_subprocess_side_effect(
     Args:
         adopt: If True, glab mr list returns an existing MR to adopt.
         existing_note_id: If set, the notes listing returns a note with this
-            ID containing the rouge-review-context marker, triggering a PUT.
+            ID containing the review-context marker, triggering a PUT.
         attachment_error: If True, raise OSError for attachment-related
             subprocess calls.
     """
@@ -199,7 +199,7 @@ def _make_subprocess_side_effect(
             result.returncode = 0
             if existing_note_id:
                 result.stdout = json.dumps(
-                    [{"id": existing_note_id, "body": "<!-- rouge-review-context -->\nold content"}]
+                    [{"id": existing_note_id, "body": "<!-- review-context -->\nold content"}]
                 )
             else:
                 result.stdout = "[]"
@@ -569,8 +569,8 @@ class TestGlabPullRequestStepAttachment:
         ]
         assert len(note_create_calls) == 1
         note_cmd = note_create_calls[0][0][0]
-        # Should contain the marker
-        assert any("<!-- rouge-review-context -->" in arg for arg in note_cmd)
+        # Should contain the marker prefix
+        assert any("<!-- review-context" in arg for arg in note_cmd)
         # Should contain the MR number
         assert "99" in note_cmd
         # Regression: "create" must not appear in the note command
@@ -627,7 +627,7 @@ class TestGlabPullRequestStepAttachment:
         ]
         assert len(note_create_calls) == 1
         note_cmd = note_create_calls[0][0][0]
-        assert any("<!-- rouge-review-context -->" in arg for arg in note_cmd)
+        assert any("<!-- review-context" in arg for arg in note_cmd)
         # Should reference MR 77 (the adopted MR)
         assert "77" in note_cmd
         # Regression: "create" must not appear in the note command
@@ -675,9 +675,9 @@ class TestGlabPullRequestStepAttachment:
         # No attachment-related calls: no notes listing, no note create, no api PUT
         for c in mock_subprocess.call_args_list:
             cmd_str = " ".join(c[0][0])
-            assert not (
-                "api" in cmd_str and "notes" in cmd_str
-            ), "glab api notes listing should not be called when attachment is None"
+            assert not ("api" in cmd_str and "notes" in cmd_str), (
+                "glab api notes listing should not be called when attachment is None"
+            )
             has_note_cmd = (
                 "glab" in cmd_str and "mr" in cmd_str and "note" in cmd_str and "api" not in cmd_str
             )

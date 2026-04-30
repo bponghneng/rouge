@@ -14,7 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from rouge.core.workflow.step_utils import (
-    _REVIEW_CONTEXT_MARKER,
+    _REVIEW_CONTEXT_PREFIX,
     post_glab_attachment_note,
 )
 
@@ -27,7 +27,7 @@ _ENV = {"GITLAB_TOKEN": "fake"}
 
 def _make_note(note_id: int, *, marker: bool = False) -> dict[str, object]:
     body = (
-        f"{_REVIEW_CONTEXT_MARKER}\nold content" if marker else f"some unrelated comment {note_id}"
+        f"{_REVIEW_CONTEXT_PREFIX}\nold content" if marker else f"some unrelated comment {note_id}"
     )
     return {"id": note_id, "body": body}
 
@@ -151,7 +151,7 @@ def test_no_match_creates_note() -> None:
     assert len(grouped.get("create_note", [])) == 1
     create_cmd = grouped["create_note"][0]
     # Marker should appear in the create message body.
-    assert any(_REVIEW_CONTEXT_MARKER in part for part in create_cmd)
+    assert any(_REVIEW_CONTEXT_PREFIX in part for part in create_cmd)
 
 
 def test_list_failure_falls_back_to_create(caplog: pytest.LogCaptureFixture) -> None:
