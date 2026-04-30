@@ -8,6 +8,7 @@ contract stays the test surface.
 
 import json
 import logging
+from collections.abc import Callable
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -24,7 +25,7 @@ _BODY = "rendered body"
 _ENV = {"GITLAB_TOKEN": "fake"}
 
 
-def _make_note(note_id: int, *, marker: bool = False) -> dict:
+def _make_note(note_id: int, *, marker: bool = False) -> dict[str, object]:
     body = (
         f"{_REVIEW_CONTEXT_MARKER}\nold content" if marker else f"some unrelated comment {note_id}"
     )
@@ -41,19 +42,20 @@ def _ok(stdout: str = "") -> MagicMock:
 
 def _classify(cmd: list[str]) -> str:
     """Return a short tag describing which subprocess branch was invoked."""
-    cmd_str = " ".join(cmd)
-    if "api" in cmd_str and "notes?page=1" in cmd_str:
-        return "list_page_1"
-    if "api" in cmd_str and "notes?page=2" in cmd_str:
-        return "list_page_2"
-    if "api" in cmd_str and "PUT" in cmd_str:
+    if cmd[:2] == ["glab", "api"] and "--method" in cmd and "PUT" in cmd:
         return "put_update"
-    if "mr" in cmd_str and "note" in cmd_str:
+    if cmd[:2] == ["glab", "api"]:
+        for token in cmd:
+            if "notes?page=1" in token:
+                return "list_page_1"
+            if "notes?page=2" in token:
+                return "list_page_2"
+    if len(cmd) >= 3 and cmd[:3] == ["glab", "mr", "note"]:
         return "create_note"
     return "unknown"
 
 
-def _build_side_effect(page_responses: dict[str, MagicMock]):
+def _build_side_effect(page_responses: dict[str, MagicMock]) -> Callable[..., MagicMock]:
     """Return a side_effect that maps classified calls to canned responses."""
 
     def _side_effect(cmd: list[str], **_kwargs: object) -> MagicMock:
