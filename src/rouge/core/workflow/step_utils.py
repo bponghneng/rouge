@@ -168,8 +168,8 @@ def _find_existing_glab_marker_note_id(
     repo_path: str,
     mr_number: int,
     env: dict[str, str],
-    logger: logging.Logger,
 ) -> int | None:
+    logger = get_logger(__name__)
     for page in range(1, _GLAB_NOTES_MAX_PAGES + 1):
         list_cmd = [
             "glab",
@@ -240,7 +240,12 @@ def _find_existing_glab_marker_note_id(
                 try:
                     return int(note["id"])
                 except (KeyError, TypeError, ValueError):
-                    continue
+                    logger.warning(
+                        "Marker note on MR !%d has unparseable id: %r",
+                        mr_number,
+                        note.get("id"),
+                    )
+                    return None
 
         if len(notes) < _GLAB_NOTES_PAGE_SIZE:
             return None
@@ -509,9 +514,9 @@ def post_glab_attachment_note(
     logger = get_logger(__name__)
     tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
 
-    existing_note_id = _find_existing_glab_marker_note_id(repo_path, mr_number, env, logger)
+    existing_note_id = _find_existing_glab_marker_note_id(repo_path, mr_number, env)
 
-    if existing_note_id:
+    if existing_note_id is not None:
         update_cmd = [
             "glab",
             "api",
