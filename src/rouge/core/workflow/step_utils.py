@@ -160,6 +160,98 @@ _TRUNCATION_NOTICE = "\n\n… *(content truncated to fit platform limits)*"
 
 _REVIEW_CONTEXT_MARKER = "<!-- rouge-review-context -->"
 
+_GLAB_NOTES_PAGE_SIZE = 100
+_GLAB_NOTES_MAX_PAGES = 50  # 5,000 notes ceiling; safety stop only
+
+
+def _find_existing_glab_marker_note_id(
+    repo_path: str,
+    mr_number: int,
+    env: dict[str, str],
+    logger: logging.Logger,
+) -> int | None:
+    for page in range(1, _GLAB_NOTES_MAX_PAGES + 1):
+        list_cmd = [
+            "glab",
+            "api",
+            f"projects/:id/merge_requests/{mr_number}/notes?page={page}&per_page={_GLAB_NOTES_PAGE_SIZE}",
+        ]
+        try:
+            result = subprocess.run(
+                list_cmd,
+                capture_output=True,
+                text=True,
+                cwd=repo_path,
+                env=env,
+                timeout=30,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning(
+                "Failed to list review-context notes on MR !%d in %s "
+                "(phase=list-existing, page=%d): %s",
+                mr_number,
+                repo_path,
+                page,
+                _sanitize_for_logging(str(exc)),
+            )
+            return None
+
+        if result.returncode != 0:
+            logger.warning(
+                "Failed to list review-context notes on MR !%d in %s "
+                "(phase=list-existing, page=%d, exit_code=%d): %s",
+                mr_number,
+                repo_path,
+                page,
+                result.returncode,
+                _sanitize_for_logging(result.stderr),
+            )
+            return None
+
+        if not result.stdout.strip():
+            return None
+
+        try:
+            notes = json.loads(result.stdout)
+        except ValueError:
+            logger.warning(
+                "Malformed JSON listing review-context notes on MR !%d in %s "
+                "(phase=list-existing, page=%d)",
+                mr_number,
+                repo_path,
+                page,
+            )
+            return None
+
+        if not isinstance(notes, list):
+            logger.warning(
+                "Unexpected payload listing review-context notes on MR !%d in %s "
+                "(phase=list-existing, page=%d)",
+                mr_number,
+                repo_path,
+                page,
+            )
+            return None
+
+        for note in notes:
+            if not isinstance(note, dict):
+                continue
+            if note.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
+                try:
+                    return int(note["id"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+
+        if len(notes) < _GLAB_NOTES_PAGE_SIZE:
+            return None
+
+    logger.warning(
+        "Reached %d-page cap searching review-context note on MR !%d",
+        _GLAB_NOTES_MAX_PAGES,
+        mr_number,
+    )
+    return None
+
 
 def render_attachment_markdown(
     spec_text: str | None,
@@ -417,26 +509,7 @@ def post_glab_attachment_note(
     logger = get_logger(__name__)
     tagged_body = f"{_REVIEW_CONTEXT_MARKER}\n{body}"
 
-    # NOTE: per_page=100 without pagination; duplicates possible on MRs with 100+ notes.
-    list_cmd = [
-        "glab",
-        "api",
-        f"projects/:id/merge_requests/{mr_number}/notes?per_page=100",
-    ]
-    result = subprocess.run(
-        list_cmd, capture_output=True, text=True, cwd=repo_path, env=env, timeout=30
-    )
-
-    existing_note_id = None
-    if result.returncode == 0 and result.stdout.strip():
-        try:
-            notes = json.loads(result.stdout)
-            for note in notes:
-                if note.get("body", "").startswith(_REVIEW_CONTEXT_MARKER):
-                    existing_note_id = int(note["id"])
-                    break
-        except (ValueError, KeyError, TypeError, AttributeError):
-            logger.debug("Failed to parse GitLab notes response for MR !%d", mr_number)
+    existing_note_id = _find_existing_glab_marker_note_id(repo_path, mr_number, env, logger)
 
     if existing_note_id:
         update_cmd = [
