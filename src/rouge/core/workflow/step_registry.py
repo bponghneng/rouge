@@ -362,12 +362,12 @@ def _register_default_steps(registry: StepRegistry) -> None:
         registry: The registry to populate
     """
     # Import here to avoid circular imports
-    from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
     from rouge.core.workflow.steps.code_quality_step import CodeQualityStep
     from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
     from rouge.core.workflow.steps.compose_request_step import ComposeRequestStep
     from rouge.core.workflow.steps.fetch_issue_step import FetchIssueStep
     from rouge.core.workflow.steps.fetch_patch_step import FetchPatchStep
+    from rouge.core.workflow.steps.full_plan_step import FullPlanStep
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
@@ -512,9 +512,9 @@ def _register_default_steps(registry: StepRegistry) -> None:
         description="Push patch commits to existing PR/MR (detects PR via gh/glab CLI)",
     )
 
-    # 15. ClaudeCodePlanStep: requires fetch-issue, produces plan
+    # 15. FullPlanStep: requires fetch-issue, produces plan
     registry.register(
-        ClaudeCodePlanStep,
+        FullPlanStep,
         slug="claude-code-plan",
         dependencies=["fetch-issue"],
         outputs=["plan"],

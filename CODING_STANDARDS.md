@@ -16,5 +16,5 @@
 
 ## Workflow Step Conventions
 
-- **File naming**: Step class files use snake_case with a `_step` suffix. Class name maps directly to filename: `FetchIssueStep` → `fetch_issue_step.py`, `ClaudeCodePlanStep` → `claude_code_plan_step.py`.
+- **File naming**: Step class files use snake_case with a `_step` suffix. Class name maps directly to filename: `FetchIssueStep` → `fetch_issue_step.py`, `FullPlanStep` → `full_plan_step.py`.
 - **Step registry**: Every step must declare its `dependencies=[...]` explicitly and keep those declarations in sync with the step registry comments.

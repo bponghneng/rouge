@@ -10,7 +10,7 @@ class PromptId(str, Enum):
     ``rouge/core/prompts/templates/<value>.md``.
     """
 
-    CLAUDE_CODE_PLAN = "claude-code-plan"
+    FULL_PLAN = "full-plan"
     CODE_QUALITY = "code-quality"
     COMPOSE_COMMITS = "compose-commits"
     IMPLEMENT_PLAN = "implement-plan"
