@@ -308,13 +308,17 @@ def get_patch_pipeline() -> List[WorkflowStep]:
     from any parent or prior workflow.
 
     The patch workflow sequence is:
-    1. FetchPatchStep - Fetch the patch issue from the database; writes PatchArtifact
-    2. BuildPatchPlanStep - Build a standalone plan from the patch issue description;
+    1. FetchPatchStep - Fetch the patch issue from the database; writes
+       FetchPatchArtifact for downstream steps in this workflow's artifact directory
+    2. GitCheckoutStep - Check out the existing branch associated with the patch
+       issue (resolved from the FetchPatchArtifact) so subsequent steps operate on
+       the correct PR/MR branch
+    3. PatchPlanStep - Build a standalone plan from the patch issue description;
        writes a standard PlanArtifact (no parent issue or plan is referenced)
-    3. ImplementPlanStep - Implement the plan by loading PlanArtifact from the current
-       patch workflow's artifact directory
-    4. CodeQualityStep - Run code quality checks
-    5. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
+    4. ImplementPlanStep - Implement the plan by loading PlanArtifact from the
+       current patch workflow's artifact directory
+    5. CodeQualityStep - Run code quality checks on the implementation
+    6. ComposeCommitsStep - Push commits to the existing PR/MR branch; detects the
        PR/MR via git CLI tools (gh/glab) rather than loading parent artifacts
 
     Returns:
