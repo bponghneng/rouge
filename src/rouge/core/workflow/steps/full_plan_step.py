@@ -1,4 +1,4 @@
-"""Claude Code plan building step implementation.
+"""Full plan building step implementation.
 
 Builds a task-oriented implementation plan without requiring classification,
 using a streamlined task-keyed schema (task, output, plan, summary).
@@ -41,13 +41,13 @@ PLAN_JSON_SCHEMA = """{
 }"""
 
 
-class ClaudeCodePlanStep(WorkflowStep):
+class FullPlanStep(WorkflowStep):
     """Task-oriented plan building step for full workflow.
 
     This step builds an implementation plan directly from the issue
     description, without requiring classification. It:
     1. Uses the issue from FetchIssueArtifact
-    2. Generates a task-oriented plan via the claude-code-plan prompt template
+    2. Generates a task-oriented plan via the full-plan prompt template
     3. Stores the result in context and as a PlanArtifact
     """
 
@@ -60,7 +60,7 @@ class ClaudeCodePlanStep(WorkflowStep):
         issue: Issue,
         adw_id: str,
     ) -> StepResult[PlanData]:
-        """Build implementation plan for the issue using the claude-code-plan prompt template.
+        """Build implementation plan for the issue using the full-plan prompt template.
 
         Args:
             issue: The Rouge issue to plan for
@@ -72,7 +72,7 @@ class ClaudeCodePlanStep(WorkflowStep):
         logger = get_logger(adw_id)
         request = ClaudeAgentTemplateRequest(
             agent_name=AGENT_PLANNER,
-            prompt_id=PromptId.CLAUDE_CODE_PLAN,
+            prompt_id=PromptId.FULL_PLAN,
             args=[issue.description],
             adw_id=adw_id,
             issue_id=issue.id,

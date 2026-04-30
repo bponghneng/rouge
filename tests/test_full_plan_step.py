@@ -1,8 +1,8 @@
-"""Tests for ClaudeCodePlanStep workflow step.
+"""Tests for FullPlanStep workflow step.
 
-Tests verify that ClaudeCodePlanStep:
+Tests verify that FullPlanStep:
 - Loads issue from fetch-issue artifact
-- Builds task-oriented plan via /adw-claude-code-plan
+- Builds task-oriented plan via the full-plan prompt template
 - Stores result as PlanArtifact
 - Extracts comment title from 'task' field
 """
@@ -15,7 +15,7 @@ import pytest
 from rouge.core.models import Issue
 from rouge.core.workflow.artifacts import ArtifactStore, FetchIssueArtifact
 from rouge.core.workflow.step_base import WorkflowContext
-from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
+from rouge.core.workflow.steps.full_plan_step import FullPlanStep
 from rouge.core.workflow.types import PlanData, StepResult
 
 
@@ -63,12 +63,12 @@ def context_without_artifact(store: ArtifactStore) -> WorkflowContext:
     )
 
 
-class TestClaudeCodePlanStepHappyPath:
+class TestFullPlanStepHappyPath:
     """Tests for successful plan building flow."""
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_happy_path(
         self,
         mock_build,
@@ -95,7 +95,7 @@ class TestClaudeCodePlanStepHappyPath:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         # Verify success
@@ -122,9 +122,9 @@ class TestClaudeCodePlanStepHappyPath:
         # Verify artifact comment emitted
         mock_emit_artifact.assert_called_once()
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_succeeds_when_context_issue_is_none_but_artifact_present(
         self,
         mock_build,
@@ -148,26 +148,26 @@ class TestClaudeCodePlanStepHappyPath:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
 
 
-class TestClaudeCodePlanStepFailureCases:
+class TestFullPlanStepFailureCases:
     """Tests for error handling scenarios."""
 
     def test_missing_fetch_issue_artifact(self, context_without_artifact) -> None:
         """Step fails when FetchIssueArtifact is missing."""
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_without_artifact)
 
         assert result.success is False
         assert "issue not fetched" in result.error
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_agent_failure(
         self,
         mock_build,
@@ -179,7 +179,7 @@ class TestClaudeCodePlanStepFailureCases:
         # Simulate agent failure
         mock_build.return_value = StepResult.fail("Agent execution failed")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         # Verify step failed
@@ -194,9 +194,9 @@ class TestClaudeCodePlanStepFailureCases:
         mock_emit_artifact.assert_not_called()
         mock_emit.assert_not_called()
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_json_parse_failure(
         self,
         mock_build,
@@ -208,7 +208,7 @@ class TestClaudeCodePlanStepFailureCases:
         # Mock _build_plan to return a parse failure
         mock_build.return_value = StepResult.fail("Missing required field: task")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         # Verify step failed
@@ -220,12 +220,12 @@ class TestClaudeCodePlanStepFailureCases:
         assert not context_with_artifact.artifact_store.artifact_exists("plan")
 
 
-class TestClaudeCodePlanStepCommentTitleExtraction:
+class TestFullPlanStepCommentTitleExtraction:
     """Tests for comment title extraction from 'task' field."""
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_task_key_in_comment(
         self,
         mock_build,
@@ -248,7 +248,7 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
@@ -264,9 +264,9 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         # Verify parsed data is stored in raw field
         assert payload.raw["parsed"] == parsed_data
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_task_key_fallback_when_missing(
         self,
         mock_build,
@@ -289,7 +289,7 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
@@ -301,26 +301,26 @@ class TestClaudeCodePlanStepCommentTitleExtraction:
         assert "Summary" in payload.text
 
 
-class TestClaudeCodePlanStepProperties:
-    """Tests for ClaudeCodePlanStep properties."""
+class TestFullPlanStepProperties:
+    """Tests for FullPlanStep properties."""
 
     def test_step_name(self) -> None:
         """Test step has correct name."""
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         assert step.name == "Building task-oriented implementation plan"
 
     def test_step_is_critical(self) -> None:
         """Test step is critical."""
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         assert step.is_critical is True
 
 
-class TestClaudeCodePlanStepArtifactHandling:
+class TestFullPlanStepArtifactHandling:
     """Tests for artifact reading and writing behavior."""
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_loads_issue_from_fetch_issue_artifact(
         self,
         mock_build,
@@ -344,7 +344,7 @@ class TestClaudeCodePlanStepArtifactHandling:
         mock_emit.return_value = ("success", "ok")
         mock_emit_artifact.return_value = ("success", "ok")
 
-        step = ClaudeCodePlanStep()
+        step = FullPlanStep()
         result = step.run(context_with_artifact)
 
         assert result.success is True
@@ -354,9 +354,9 @@ class TestClaudeCodePlanStepArtifactHandling:
             context_with_artifact.adw_id,
         )
 
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_comment_from_payload")
-    @patch("rouge.core.workflow.steps.claude_code_plan_step.emit_artifact_comment")
-    @patch.object(ClaudeCodePlanStep, "_build_plan")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_comment_from_payload")
+    @patch("rouge.core.workflow.steps.full_plan_step.emit_artifact_comment")
+    @patch.object(FullPlanStep, "_build_plan")
     def test_does_not_read_other_artifacts(
         self,
         mock_build,
@@ -386,7 +386,7 @@ class TestClaudeCodePlanStepArtifactHandling:
         with patch.object(
             context_with_artifact.artifact_store, "read_artifact", side_effect=tracking_read
         ):
-            step = ClaudeCodePlanStep()
+            step = FullPlanStep()
             step.run(context_with_artifact)
 
         # Only fetch-issue should be read

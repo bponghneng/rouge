@@ -65,7 +65,7 @@ class TestPromptId:
     def test_all_expected_members_exist(self) -> None:
         """Every workflow step prompt ID is declared."""
         expected = {
-            "CLAUDE_CODE_PLAN",
+            "FULL_PLAN",
             "CODE_QUALITY",
             "COMPOSE_COMMITS",
             "IMPLEMENT_PLAN",
@@ -90,7 +90,7 @@ class TestPromptId:
 
     def test_specific_values(self) -> None:
         """Spot-check a few value mappings."""
-        assert PromptId.CLAUDE_CODE_PLAN.value == "claude-code-plan"
+        assert PromptId.FULL_PLAN.value == "full-plan"
         assert PromptId.IMPLEMENT_PLAN.value == "implement-plan"
         assert PromptId.PATCH_PLAN.value == "patch-plan"
         assert PromptId.CODE_QUALITY.value == "code-quality"
@@ -261,8 +261,8 @@ class TestPromptRegistryGet:
     def test_templates_return_model_from_front_matter(self) -> None:
         """Templates that declare 'model' in front matter return the correct model."""
         registry = PromptRegistry()
-        # claude-code-plan.md declares model: opus
-        template = registry.get(PromptId.CLAUDE_CODE_PLAN)
+        # full-plan.md declares model: opus
+        template = registry.get(PromptId.FULL_PLAN)
         assert template.model == "opus"
 
     def test_no_template_contains_thinking_key(self) -> None:

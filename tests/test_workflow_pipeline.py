@@ -19,8 +19,8 @@ from rouge.core.workflow.steps import (
     GitPrepareStep,
     ImplementPlanStep,
 )
-from rouge.core.workflow.steps.claude_code_plan_step import ClaudeCodePlanStep
 from rouge.core.workflow.steps.compose_commits_step import ComposeCommitsStep
+from rouge.core.workflow.steps.full_plan_step import FullPlanStep
 from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 from rouge.core.workflow.steps.implement_direct_step import ImplementDirectStep
@@ -394,7 +394,7 @@ class TestGetFullPipeline:
         expected_types = [
             FetchIssueStep,
             GitBranchStep,
-            ClaudeCodePlanStep,
+            FullPlanStep,
             ImplementPlanStep,
             CodeQualityStep,
             ComposeRequestStep,
@@ -411,7 +411,7 @@ class TestGetFullPipeline:
         # Verify critical flags
         assert pipeline[0].is_critical  # FetchIssueStep
         assert pipeline[1].is_critical  # GitBranchStep
-        assert pipeline[2].is_critical  # ClaudeCodePlanStep
+        assert pipeline[2].is_critical  # FullPlanStep
         assert pipeline[3].is_critical  # ImplementPlanStep
         assert not pipeline[4].is_critical  # CodeQualityStep
 
@@ -435,14 +435,14 @@ class TestGetFullPipeline:
         assert isinstance(pipeline[-1], GlabPullRequestStep)
         assert not pipeline[-1].is_critical  # MR creation is best effort
 
-    def test_claude_code_plan_step_present_at_index_2(self, monkeypatch):
-        """Verify ClaudeCodePlanStep is present at index 2."""
+    def test_full_plan_step_present_at_index_2(self, monkeypatch):
+        """Verify FullPlanStep is present at index 2."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
         assert isinstance(
-            pipeline[2], ClaudeCodePlanStep
-        ), "ClaudeCodePlanStep should be at index 2"
+            pipeline[2], FullPlanStep
+        ), "FullPlanStep should be at index 2"
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""
@@ -487,7 +487,7 @@ class TestGetFullPipeline:
         expected_types = [
             FetchIssueStep,
             GitBranchStep,
-            ClaudeCodePlanStep,
+            FullPlanStep,
             ImplementPlanStep,
             CodeQualityStep,
             ComposeRequestStep,
@@ -589,7 +589,7 @@ class TestGetDirectPipeline:
         """Verify direct pipeline does not include any plan step."""
         pipeline = get_direct_pipeline()
 
-        plan_step_types = (ClaudeCodePlanStep, ThinPlanStep, PatchPlanStep)
+        plan_step_types = (FullPlanStep, ThinPlanStep, PatchPlanStep)
         for step in pipeline:
             assert not isinstance(
                 step, plan_step_types
