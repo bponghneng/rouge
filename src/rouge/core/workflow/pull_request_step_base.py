@@ -640,6 +640,88 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
         return dispatched_any
 
+    def _execute_pr_creation(
+        self,
+        context: WorkflowContext,
+        pr_details: list[ComposeRequestRepoResult] | None,
+        attachment_md: str | None,
+        logger: logging.Logger,
+        pat_value: str,
+    ) -> StepResult:
+        """Run the happy-path PR/MR creation orchestration.
+
+        Caller is responsible for the surrounding exception envelope.
+        """
+        # Execute with platform token environment variable
+        env = os.environ.copy()
+        env[self.token_env_key] = pat_value
+
+        # Layer 0: Seed pull_requests from existing artifact for rerun continuity.
+        pull_requests = self._seed_pull_requests(context)
+
+        if result := self._check_preconditions(context, pr_details, logger):
+            return result
+
+        # pr_details is guaranteed non-None and non-empty after preconditions pass
+        assert pr_details is not None
+
+        pr_by_repo = self._build_pr_lookup(pr_details)
+
+        affected_repos = get_affected_repo_paths(context)
+        if not affected_repos:
+            logger.info("No affected repos — skipping %s creation", self.entity_name)
+            # Only write the artifact if it does not already exist.  On
+            # first run there is no prior artifact so we write a skeleton to
+            # satisfy downstream readers; on re-runs _seed_pull_requests
+            # already read the up-to-date artifact from disk, so a
+            # write-after-read would be a no-op at best.
+            if not context.artifact_store.artifact_exists(self.artifact_slug):
+                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
+                    workflow_id=context.adw_id,
+                    pull_requests=pull_requests,
+                    platform=self.platform,
+                )
+                context.artifact_store.write_artifact(artifact)
+            return StepResult.ok(None)
+
+        dispatched_any = self._dispatch_repos(
+            context,
+            affected_repos,
+            pr_by_repo,
+            pull_requests,
+            env,
+            attachment_md,
+            logger,
+        )
+
+        # Emit artifact comment and progress comment after all repos are processed.
+        # Only emit the "created" comment when at least one new PR/MR was dispatched
+        # this run; otherwise seeded (prior-run) URLs would generate a duplicate
+        # "created" comment alongside the "skipped" comment from _dispatch_repos.
+        if dispatched_any and pull_requests:
+            artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
+                workflow_id=context.adw_id,
+                pull_requests=pull_requests,
+                platform=self.platform,
+            )
+            status, msg = emit_artifact_comment(context.require_issue_id, context.adw_id, artifact)
+            log_artifact_comment_status(status, msg)
+
+            urls = [entry.url for entry in pull_requests]
+            comment_data = {
+                "commits": self._collect_commits(pr_details),
+                "output": f"{self.output_key_prefix}-created",
+                "urls": urls,
+            }
+            _emit_and_log(
+                context.require_issue_id,
+                context.adw_id,
+                f"{self.entity_name}(s) created: {', '.join(urls)}",
+                comment_data,
+            )
+
+        return StepResult.ok(None)
+
     def run(self, context: WorkflowContext) -> StepResult:
         """Create a pull request / merge request using the platform CLI.
 
@@ -668,77 +750,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         pat_value = os.environ.get(self.pat_env_var, "")
 
         try:
-            # Execute with platform token environment variable
-            env = os.environ.copy()
-            env[self.token_env_key] = pat_value
-
-            # Layer 0: Seed pull_requests from existing artifact for rerun continuity.
-            pull_requests = self._seed_pull_requests(context)
-
-            if result := self._check_preconditions(context, pr_details, logger):
-                return result
-
-            # pr_details is guaranteed non-None and non-empty after preconditions pass
-            assert pr_details is not None
-
-            pr_by_repo = self._build_pr_lookup(pr_details)
-
-            affected_repos = get_affected_repo_paths(context)
-            if not affected_repos:
-                logger.info("No affected repos — skipping %s creation", self.entity_name)
-                # Only write the artifact if it does not already exist.  On
-                # first run there is no prior artifact so we write a skeleton to
-                # satisfy downstream readers; on re-runs _seed_pull_requests
-                # already read the up-to-date artifact from disk, so a
-                # write-after-read would be a no-op at best.
-                if not context.artifact_store.artifact_exists(self.artifact_slug):
-                    artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                        workflow_id=context.adw_id,
-                        pull_requests=pull_requests,
-                        platform=self.platform,
-                    )
-                    context.artifact_store.write_artifact(artifact)
-                return StepResult.ok(None)
-
-            dispatched_any = self._dispatch_repos(
-                context,
-                affected_repos,
-                pr_by_repo,
-                pull_requests,
-                env,
-                attachment_md,
-                logger,
-            )
-
-            # Emit artifact comment and progress comment after all repos are processed.
-            # Only emit the "created" comment when at least one new PR/MR was dispatched
-            # this run; otherwise seeded (prior-run) URLs would generate a duplicate
-            # "created" comment alongside the "skipped" comment from _dispatch_repos.
-            if dispatched_any and pull_requests:
-                artifact = self.artifact_class(  # type: ignore[call-arg]  # subclass provides artifact_type default
-                    workflow_id=context.adw_id,
-                    pull_requests=pull_requests,
-                    platform=self.platform,
-                )
-                status, msg = emit_artifact_comment(
-                    context.require_issue_id, context.adw_id, artifact
-                )
-                log_artifact_comment_status(status, msg)
-
-                urls = [entry.url for entry in pull_requests]
-                comment_data = {
-                    "commits": self._collect_commits(pr_details),
-                    "output": f"{self.output_key_prefix}-created",
-                    "urls": urls,
-                }
-                _emit_and_log(
-                    context.require_issue_id,
-                    context.adw_id,
-                    f"{self.entity_name}(s) created: {', '.join(urls)}",
-                    comment_data,
-                )
-
-            return StepResult.ok(None)
+            return self._execute_pr_creation(context, pr_details, attachment_md, logger, pat_value)
 
         except subprocess.TimeoutExpired:
             error_msg = (
