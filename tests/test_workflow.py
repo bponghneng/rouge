@@ -1,7 +1,9 @@
 """Tests for workflow orchestration."""
 
+import json
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -165,6 +167,82 @@ def test_code_quality_step_passes_json_schema(mock_execute, mock_emit) -> None:
     request = mock_execute.call_args[0][0]
     assert request.json_schema is not None
     assert '"const": "code-quality"' in request.json_schema
+
+
+def _collect_local_refs(value: Any) -> list[str]:
+    """Collect all local JSON Schema ``$ref`` pointers from a schema fragment."""
+    refs: list[str] = []
+    if isinstance(value, dict):
+        ref = value.get("$ref")
+        if isinstance(ref, str) and ref.startswith("#/"):
+            refs.append(ref)
+        for child in value.values():
+            refs.extend(_collect_local_refs(child))
+    elif isinstance(value, list):
+        for child in value:
+            refs.extend(_collect_local_refs(child))
+    return refs
+
+
+def _resolve_json_pointer(schema: dict[str, Any], pointer: str) -> Any:
+    """Resolve a local JSON pointer against *schema* and assert it is valid."""
+    current: Any = schema
+    for raw_segment in pointer[2:].split("/"):
+        segment = raw_segment.replace("~1", "/").replace("~0", "~")
+        assert isinstance(current, dict)
+        assert segment in current
+        current = current[segment]
+    return current
+
+
+@pytest.mark.parametrize(
+    ("schema_name", "schema_json", "output_const", "expected_definition"),
+    [
+        (
+            "code-quality",
+            "rouge.core.workflow.steps.code_quality_step",
+            "code-quality",
+            "CodeQualityIssue",
+        ),
+        (
+            "compose-request",
+            "rouge.core.workflow.steps.compose_request_step",
+            "pull-request",
+            "CommitEntry",
+        ),
+        (
+            "compose-commits",
+            "rouge.core.workflow.steps.compose_commits_step",
+            "compose-commits",
+            "CommitEntry",
+        ),
+    ],
+)
+def test_generated_repos_schemas_hoist_defs_to_root(
+    schema_name: str,
+    schema_json: str,
+    output_const: str,
+    expected_definition: str,
+) -> None:
+    """Generated repos schemas keep local refs resolvable from the schema root."""
+    import importlib
+
+    module = importlib.import_module(schema_json)
+    schema_attr = {
+        "code-quality": "CODE_QUALITY_JSON_SCHEMA",
+        "compose-request": "PULL_REQUEST_JSON_SCHEMA",
+        "compose-commits": "COMPOSE_COMMITS_JSON_SCHEMA",
+    }[schema_name]
+    schema = json.loads(getattr(module, schema_attr))
+
+    assert schema["properties"]["output"]["const"] == output_const
+    assert expected_definition in schema["$defs"]
+    assert "$defs" not in schema["properties"]["repos"]["items"]
+
+    refs = _collect_local_refs(schema)
+    assert refs
+    for ref in refs:
+        assert _resolve_json_pointer(schema, ref)
 
 
 # === GhPullRequestStep Tests ===

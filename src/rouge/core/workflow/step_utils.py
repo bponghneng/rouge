@@ -138,18 +138,23 @@ def build_repos_schema(repo_submodel: Type[_M], output_const: str) -> str:
         A ``json.dumps``-rendered JSON Schema string, indented with 2 spaces,
         ready to be embedded in a prompt template.
     """
-    return json.dumps(
-        {
-            "type": "object",
-            "properties": {
-                "output": {"type": "string", "const": output_const},
-                "repos": {
-                    "type": "array",
-                    "items": repo_submodel.model_json_schema(),
-                },
+    item_schema = repo_submodel.model_json_schema()
+    definitions = item_schema.pop("$defs", None)
+    schema: Dict[str, Any] = {
+        "type": "object",
+        "properties": {
+            "output": {"type": "string", "const": output_const},
+            "repos": {
+                "type": "array",
+                "items": item_schema,
             },
-            "required": ["output", "repos"],
         },
+        "required": ["output", "repos"],
+    }
+    if definitions:
+        schema["$defs"] = definitions
+    return json.dumps(
+        schema,
         indent=2,
     )
 
