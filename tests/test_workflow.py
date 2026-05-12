@@ -413,7 +413,7 @@ def test_create_pr_step_already_exists_is_success(mock_subprocess, mock_emit, mo
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_which) -> None:
-    """Test PR creation handles gh command failure."""
+    """Test PR creation surfaces gh command failure as a failed StepResult."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
@@ -452,8 +452,10 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
     step = GhPullRequestStep()
     result = step.run(context)
 
-    # When all repos fail (only one repo), step returns success (best-effort)
-    assert result.success is True
+    # Per-repo failures are surfaced as a failed StepResult so callers can react.
+    assert result.success is False
+    assert result.error is not None
+    assert "creation failed for one or more repos" in result.error
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
@@ -461,7 +463,7 @@ def test_create_pr_step_gh_command_failure(mock_subprocess, mock_emit, mock_whic
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
-    """Test PR creation handles timeout on gh pr create (caught per-repo, best-effort)."""
+    """Test PR creation surfaces a per-repo `gh pr create` timeout as a failed StepResult."""
     import subprocess
 
     from rouge.core.workflow.steps.gh_pull_request_step import (
@@ -500,8 +502,10 @@ def test_create_pr_step_timeout(mock_subprocess, mock_emit, mock_which) -> None:
     step = GhPullRequestStep()
     result = step.run(context)
 
-    # Per-repo timeout is caught in _process_repo; step returns success (best-effort)
-    assert result.success is True
+    # Per-repo timeout is caught in _process_repo and reported as a failed StepResult.
+    assert result.success is False
+    assert result.error is not None
+    assert "creation failed for one or more repos" in result.error
 
 
 @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
@@ -727,7 +731,7 @@ def test_create_pr_step_multi_repo_success(mock_emit, mock_subprocess, mock_whic
 @patch.dict("os.environ", {"GITHUB_PAT": "test-token"})
 def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_which) -> None:
     """Test PR creation with both repos failing: subprocess invoked once per repo,
-    best-effort continues."""
+    loop continues, and the step returns a failed StepResult."""
 
     from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
 
@@ -781,8 +785,10 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     step = GhPullRequestStep()
     result = step.run(context)
 
-    # Step is best-effort: returns success even when all repos fail
-    assert result.success is True
+    # All-repo failures surface as a failed StepResult; loop still continues over every repo.
+    assert result.success is False
+    assert result.error is not None
+    assert "creation failed for one or more repos" in result.error
     # Subprocess called 6 times per repo = 12 total (loop continues on per-repo failure)
     assert mock_subprocess.call_count == 12
 
@@ -978,7 +984,7 @@ def test_create_gitlab_mr_step_empty_title(mock_get_logger, mock_emit) -> None:
 def test_create_gitlab_mr_step_glab_command_failure(
     mock_subprocess, mock_get_logger, mock_emit
 ) -> None:
-    """Test MR creation handles glab command failure (best-effort: returns success)."""
+    """Test MR creation surfaces glab command failure as a failed StepResult."""
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
@@ -1019,8 +1025,10 @@ def test_create_gitlab_mr_step_glab_command_failure(
     step = GlabPullRequestStep()
     result = step.run(context)
 
-    # Per-repo failure continues loop; no MRs created → returns ok (best-effort step)
-    assert result.success is True
+    # Per-repo failure continues the loop; no MRs created → step returns a failed StepResult.
+    assert result.success is False
+    assert result.error is not None
+    assert "creation failed for one or more repos" in result.error
     mock_logger.warning.assert_called()
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
@@ -1031,7 +1039,7 @@ def test_create_gitlab_mr_step_glab_command_failure(
 @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
 @patch.dict("os.environ", {"GITLAB_PAT": "test-token"})
 def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_emit) -> None:
-    """Test MR creation handles timeout on glab mr create (caught per-repo, step continues)."""
+    """Test MR creation surfaces a per-repo `glab mr create` timeout as a failed StepResult."""
     import subprocess
 
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
@@ -1072,8 +1080,10 @@ def test_create_gitlab_mr_step_timeout(mock_subprocess, mock_get_logger, mock_em
     step = GlabPullRequestStep()
     result = step.run(context)
 
-    # Per-repo timeout is caught in the inner loop; step continues and returns success
-    assert result.success is True
+    # Per-repo timeout is caught in the inner loop and reported as a failed StepResult.
+    assert result.success is False
+    assert result.error is not None
+    assert "creation failed for one or more repos" in result.error
     mock_logger.warning.assert_called()
     mock_emit.assert_called_once()
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-failed"
