@@ -786,3 +786,210 @@ class TestGlabPullRequestStepAttachment:
 
         # Step should still succeed despite attachment posting failure
         assert result.success is True
+
+
+class TestGlabPullRequestStepFailure:
+    """Tests verifying GlabPullRequestStep returns failed StepResult when create fails."""
+
+    @patch(f"{_BASE_MODULE}._emit_and_log")
+    @patch(f"{_BASE_MODULE}.emit_artifact_comment")
+    @patch(f"{_BASE_MODULE}.log_artifact_comment_status")
+    @patch(f"{_BASE_MODULE}.subprocess.run")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_non_zero_create_exit_returns_failed_step_result(
+        self,
+        mock_run: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Non-zero glab mr create exit code results in a failed StepResult."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
+            )
+        )
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "create":
+                result.returncode = 1
+                result.stdout = ""
+                result.stderr = "glab: HTTP 422"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+    @patch(f"{_BASE_MODULE}._emit_and_log")
+    @patch(f"{_BASE_MODULE}.emit_artifact_comment")
+    @patch(f"{_BASE_MODULE}.log_artifact_comment_status")
+    @patch(f"{_BASE_MODULE}.subprocess.run")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_unparseable_create_output_returns_failed_step_result(
+        self,
+        mock_run: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Successful exit but unparseable glab mr create output results in failed StepResult."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test MR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
+            )
+        )
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "create":
+                result.returncode = 0
+                result.stdout = "not a valid url\n"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+    @patch(f"{_BASE_MODULE}._emit_and_log")
+    @patch(f"{_BASE_MODULE}.emit_artifact_comment")
+    @patch(f"{_BASE_MODULE}.log_artifact_comment_status")
+    @patch(f"{_BASE_MODULE}.subprocess.run")
+    @patch(f"{_BASE_MODULE}.get_affected_repo_paths")
+    @patch.dict("os.environ", {"GITLAB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_multi_repo_first_success_second_failure(
+        self,
+        mock_get_affected: MagicMock,
+        mock_run: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """First repo succeeds (artifact written); second repo fails; run() returns failed."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-glab-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo-a",
+                        "title": "MR A",
+                        "summary": "Summary A",
+                        "commits": [],
+                    },
+                    {
+                        "repo": "/path/to/repo-b",
+                        "title": "MR B",
+                        "summary": "Summary B",
+                        "commits": [],
+                    },
+                ],
+            )
+        )
+        mock_emit.return_value = ("success", "ok")
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+        mock_get_affected.return_value = ["/path/to/repo-a", "/path/to/repo-b"]
+
+        def _side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
+            cwd = str(kwargs.get("cwd", ""))
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "glab" and cmd[1] == "mr" and cmd[2] == "create":
+                if "repo-a" in cwd:
+                    result.returncode = 0
+                    result.stdout = "https://gitlab.com/org/repo-a/-/merge_requests/1"
+                else:
+                    result.returncode = 1
+                    result.stdout = ""
+                    result.stderr = "glab: HTTP 422"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GlabPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+        # First repo's MR should still have been written to the artifact
+        artifact = store.read_artifact("glab-pull-request")
+        assert len(artifact.pull_requests) == 1
+        assert artifact.pull_requests[0].url == "https://gitlab.com/org/repo-a/-/merge_requests/1"

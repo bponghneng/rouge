@@ -981,3 +981,216 @@ class TestGhPullRequestStepAttachment:
             1,
             "HTTP 403: Forbidden",
         )
+
+
+class TestGhPullRequestStepFailure:
+    """Tests verifying GhPullRequestStep returns failed StepResult when create fails."""
+
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_non_zero_create_exit_returns_failed_step_result(
+        self,
+        mock_run: MagicMock,
+        mock_which: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Non-zero gh pr create exit code results in a failed StepResult."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
+            )
+        )
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+                result.returncode = 1
+                result.stdout = ""
+                result.stderr = "gh: HTTP 422"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_unparseable_create_output_returns_failed_step_result(
+        self,
+        mock_run: MagicMock,
+        mock_which: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """Successful exit but unparseable gh pr create output results in failed StepResult."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo",
+                        "title": "Test PR",
+                        "summary": "Summary",
+                        "commits": [],
+                    }
+                ],
+            )
+        )
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        def _side_effect(cmd: list[str], **_kwargs: Any) -> MagicMock:
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+                result.returncode = 0
+                result.stdout = "   \n"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+    @patch("rouge.core.workflow.pull_request_step_base._emit_and_log")
+    @patch("rouge.core.workflow.pull_request_step_base.emit_artifact_comment")
+    @patch("rouge.core.workflow.pull_request_step_base.log_artifact_comment_status")
+    @patch("rouge.core.workflow.steps.gh_pull_request_step.shutil.which")
+    @patch("rouge.core.workflow.pull_request_step_base.subprocess.run")
+    @patch("rouge.core.workflow.pull_request_step_base.get_affected_repo_paths")
+    @patch.dict("os.environ", {"GITHUB_PAT": "tok", "PATH": "/usr/bin"}, clear=True)
+    def test_multi_repo_first_success_second_failure(
+        self,
+        mock_get_affected: MagicMock,
+        mock_run: MagicMock,
+        mock_which: MagicMock,
+        _mock_log: MagicMock,
+        mock_emit_artifact: MagicMock,
+        mock_emit: MagicMock,
+        base_context: WorkflowContext,
+        store: ArtifactStore,
+    ) -> None:
+        """First repo succeeds (artifact written); second repo fails; run() returns failed."""
+        store.write_artifact(
+            ComposeRequestArtifact(
+                workflow_id="test-gh-pr",
+                repos=[
+                    {
+                        "repo": "/path/to/repo-a",
+                        "title": "PR A",
+                        "summary": "Summary A",
+                        "commits": [],
+                    },
+                    {
+                        "repo": "/path/to/repo-b",
+                        "title": "PR B",
+                        "summary": "Summary B",
+                        "commits": [],
+                    },
+                ],
+            )
+        )
+        mock_which.return_value = "/usr/bin/gh"
+        mock_emit_artifact.return_value = ("success", "ok")
+
+        base_context.repo_paths = ["/path/to/repo-a", "/path/to/repo-b"]
+        mock_get_affected.return_value = ["/path/to/repo-a", "/path/to/repo-b"]
+
+        def _side_effect(cmd: list[str], **kwargs: Any) -> MagicMock:
+            cwd = str(kwargs.get("cwd", ""))
+            result = MagicMock()
+            if cmd[0] == "git" and cmd[1] == "rev-parse":
+                result.returncode = 0
+                result.stdout = "feature-branch"
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "list":
+                result.returncode = 0
+                result.stdout = "[]"
+            elif cmd[0] == "git" and cmd[1] == "push":
+                result.returncode = 0
+                result.stdout = ""
+                result.stderr = ""
+            elif cmd[0] == "gh" and cmd[1] == "pr" and cmd[2] == "create":
+                if "repo-a" in cwd:
+                    result.returncode = 0
+                    result.stdout = "https://github.com/org/repo-a/pull/1"
+                else:
+                    result.returncode = 1
+                    result.stdout = ""
+                    result.stderr = "gh: HTTP 422"
+            else:
+                result.returncode = 0
+                result.stdout = ""
+            return result
+
+        mock_run.side_effect = _side_effect
+
+        step = GhPullRequestStep()
+        result = step.run(base_context)
+
+        assert result.success is False
+        assert result.error is not None
+        assert "creation failed for one or more repos" in result.error
+
+        # First repo's PR should still have been written to the artifact
+        artifact = store.read_artifact("gh-pull-request")
+        assert len(artifact.pull_requests) == 1
+        assert artifact.pull_requests[0].url == "https://github.com/org/repo-a/pull/1"

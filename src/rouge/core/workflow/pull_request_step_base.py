@@ -283,12 +283,16 @@ class PullRequestStepBase(WorkflowStep, ABC):
         pull_requests: list[PullRequestEntry],
         env: dict[str, str],
         attachment_md: str | None,
-    ) -> None:
+    ) -> bool | None:
         """Process a single repository for PR/MR creation.
 
         Checks for existing PRs/MRs, pushes the branch, and creates a new
         one.  Mutates *pull_requests* in-place when a PR/MR is adopted or
         created.
+
+        Returns ``True`` when a PR/MR is successfully created, ``False`` when
+        creation was attempted but failed, and ``None`` for intentional skip
+        paths (already-done, adopt-existing succeeded, no branch delta).
         """
         logger = get_logger(context.adw_id)
         repo_name = os.path.basename(os.path.normpath(repo_path))
@@ -302,7 +306,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 repo_name,
                 repo_path,
             )
-            return
+            return None
 
         # Determine the current branch name for this repo
         try:
@@ -322,7 +326,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         if branch_name and self._try_adopt_existing(
             context, repo_path, branch_name, pull_requests, env, attachment_md
         ):
-            return
+            return None
 
         # Layer 2.5: Branch-delta guard -- skip creation if no commits ahead of base
         if not has_branch_delta(repo_path, context.adw_id):
@@ -331,7 +335,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 repo_path,
                 self.entity_name,
             )
-            return
+            return None
 
         # Layer 3: Push + create new PR/MR
         push_cmd = ["git", "push", "--set-upstream", "origin", "HEAD"]
@@ -390,7 +394,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 error_msg,
                 {"output": f"{self.output_key_prefix}-failed", "error": error_msg},
             )
-            return
+            return False
 
         if result.returncode != 0:
             error_msg = (
@@ -412,7 +416,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 {"output": f"{self.output_key_prefix}-failed", "error": error_msg},
             )
             # Continue to next repo; partial progress is already saved
-            return
+            return False
 
         # Parse URL and number from create command output
         parsed = self._parse_create_output(result.stdout)
@@ -424,7 +428,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 repo_name,
                 result.stdout,
             )
-            return
+            return False
 
         item_url, item_number = parsed
         repo_display_name = extract_repo_from_pull_request_url(item_url) or repo_name
@@ -469,6 +473,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
                     entry.number,
                     exc,
                 )
+
+        return True
 
     def _seed_pull_requests(self, context: WorkflowContext) -> list[PullRequestEntry]:
         """Load existing pull request entries from the artifact store for rerun continuity.
@@ -558,7 +564,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
         env: dict[str, str],
         attachment_md: str | None,
         logger: logging.Logger,
-    ) -> bool:
+    ) -> tuple[bool, bool]:
         """Iterate *affected_repos* and dispatch each matched entry to ``_process_repo``.
 
         Logs a warning for repos with no matching PR-details entry and an info
@@ -576,9 +582,12 @@ class PullRequestStepBase(WorkflowStep, ABC):
             logger: Logger for the current workflow run.
 
         Returns:
-            ``True`` if at least one repo was dispatched; ``False`` otherwise.
+            ``(dispatched_any, failed_any)`` where ``dispatched_any`` is ``True``
+            when at least one repo was dispatched, and ``failed_any`` is ``True``
+            when at least one dispatched repo attempted creation and failed.
         """
         dispatched_any = False
+        failed_any = False
         lookup_misses = 0
         empty_title_skips = 0
 
@@ -603,7 +612,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 empty_title_skips += 1
                 continue
             dispatched_any = True
-            self._process_repo(
+            repo_result = self._process_repo(
                 context,
                 repo_path,
                 title,
@@ -612,6 +621,8 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 env,
                 attachment_md,
             )
+            if repo_result is False:
+                failed_any = True
 
         if not dispatched_any:
             if empty_title_skips > 0 and lookup_misses == 0:
@@ -638,7 +649,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 {"output": f"{self.output_key_prefix}-skipped", "reason": skip_msg},
             )
 
-        return dispatched_any
+        return dispatched_any, failed_any
 
     def _execute_pr_creation(
         self,
@@ -684,7 +695,7 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 context.artifact_store.write_artifact(artifact)
             return StepResult.ok(None)
 
-        dispatched_any = self._dispatch_repos(
+        dispatched_any, failed_any = self._dispatch_repos(
             context,
             affected_repos,
             pr_by_repo,
@@ -719,6 +730,10 @@ class PullRequestStepBase(WorkflowStep, ABC):
                 f"{self.entity_name}(s) created: {', '.join(urls)}",
                 comment_data,
             )
+
+        if failed_any:
+            error_msg = f"{self.entity_name} creation failed for one or more repos"
+            return StepResult.fail(error_msg)
 
         return StepResult.ok(None)
 
