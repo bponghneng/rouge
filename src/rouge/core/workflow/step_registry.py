@@ -537,7 +537,7 @@ def _register_default_steps(registry: StepRegistry) -> None:
         ImplementDirectStep,
         slug="implement-direct",
         dependencies=["git-branch", "fetch-issue"],
-        outputs=["implement:direct"],
+        outputs=["implement"],
         is_critical=True,
         description="Implement directly from the issue description without a plan",
         dependency_kinds={"git-branch": "ordering-only"},

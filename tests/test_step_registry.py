@@ -718,7 +718,7 @@ class TestGlobalRegistry:
             metadata is not None
         ), "ImplementDirectStep should be registered with slug 'implement-direct'"
         assert metadata.dependencies == ["git-branch", "fetch-issue"]
-        assert metadata.outputs == ["implement:direct"]
+        assert metadata.outputs == ["implement"]
         assert metadata.dependency_kinds == {"git-branch": "ordering-only"}
         assert metadata.is_critical is True
 
