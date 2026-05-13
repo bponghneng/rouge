@@ -995,3 +995,7 @@ def test_git_checkout_skips_repo_when_remote_branch_missing_after_local_checkout
         "refs/remotes/origin/feature-branch",
     ]
     assert mock_subprocess.call_args_list[3][1]["cwd"] == "/repo/b"
+
+    # The artifact must record only the repo whose remote ref was present.
+    artifact = store.read_artifact("git-checkout", GitCheckoutArtifact)
+    assert artifact.checked_out_repos == ["/repo/b"]
