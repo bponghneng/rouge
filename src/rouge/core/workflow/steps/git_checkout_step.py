@@ -265,7 +265,28 @@ class GitCheckoutStep(WorkflowStep):
                 else:
                     logger.debug("Checked out branch %s", branch)
 
-                # Step 3: Pull with rebase to bring branch up to date
+                # Step 3: Verify the remote branch exists for this repo before pulling.
+                # In multi-repo workspaces, some repos may have a stale local branch with
+                # no matching origin/<branch>. Those repos should be skipped rather than
+                # failing the whole workflow.
+                remote_ref_result = subprocess.run(
+                    ["git", "show-ref", "--verify", f"refs/remotes/origin/{branch}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=GIT_TIMEOUT,
+                    cwd=repo_path,
+                )
+                if remote_ref_result.returncode != 0:
+                    logger.debug(
+                        "Remote branch ref missing: repo=%s, branch=%s, stderr=%s",
+                        repo_path,
+                        branch,
+                        remote_ref_result.stderr.strip(),
+                    )
+                    logger.warning("Branch '%s' not found in repo %s, skipping", branch, repo_path)
+                    continue
+
+                # Step 4: Pull with rebase to bring branch up to date
                 pull_result = subprocess.run(
                     ["git", "pull", "--rebase", "origin", branch],
                     capture_output=True,

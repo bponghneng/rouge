@@ -138,8 +138,9 @@ def test_checkout_step_loads_issue_from_fetch_patch_artifact(tmp_path) -> None:
         mock_emit.return_value = ("ok", "ok")
         mock_checkout = Mock(returncode=0, stdout="", stderr="")
         mock_fetch = Mock(returncode=0, stdout="", stderr="")
+        mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
         mock_pull = Mock(returncode=0, stdout="", stderr="")
-        mock_sub.side_effect = [mock_fetch, mock_checkout, mock_pull]
+        mock_sub.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
         step = GitCheckoutStep()
         result = step.run(ctx)
@@ -164,8 +165,9 @@ def test_checkout_step_uses_context_issue_when_no_artifact(mock_subprocess, tmp_
     """
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
     # Provide context.issue with a branch but NO FetchPatchArtifact in the store.
     issue = _make_issue(branch="context-issue-branch")
@@ -207,12 +209,14 @@ def test_checkout_step_success(
     mock_fetch.stdout = ""
     mock_fetch.stderr = ""
 
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
+
     mock_pull = Mock()
     mock_pull.returncode = 0
     mock_pull.stdout = ""
     mock_pull.stderr = ""
 
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
     mock_emit_comment.return_value = ("ok", "comment posted")
 
     # Provide an artifact store so the artifact write path is exercised
@@ -228,7 +232,7 @@ def test_checkout_step_success(
 
     assert result.success is True
     assert result.error is None
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
     # Verify git fetch --all --prune call
     fetch_call = mock_subprocess.call_args_list[0]
@@ -244,8 +248,19 @@ def test_checkout_step_success(
     assert checkout_call[1]["capture_output"] is True
     assert checkout_call[1]["text"] is True
 
+    # Verify remote ref check runs before pull
+    remote_ref_call = mock_subprocess.call_args_list[2]
+    assert remote_ref_call[0][0] == [
+        "git",
+        "show-ref",
+        "--verify",
+        "refs/remotes/origin/feature-branch",
+    ]
+    assert remote_ref_call[1]["cwd"] == "/path/to/repo"
+    assert remote_ref_call[1]["timeout"] == GIT_TIMEOUT
+
     # Verify git pull --rebase call
-    pull_call = mock_subprocess.call_args_list[2]
+    pull_call = mock_subprocess.call_args_list[3]
     assert pull_call[0][0] == ["git", "pull", "--rebase", "origin", "feature-branch"]
     assert pull_call[1]["cwd"] == "/path/to/repo"
     assert pull_call[1]["timeout"] == GIT_TIMEOUT
@@ -265,8 +280,9 @@ def test_checkout_step_success_no_artifact_store(mock_subprocess, context) -> No
 
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
     # No artifact_store set on context; use cached fetch-patch data
     context.data["fetch_patch_data"] = _make_issue(branch="feature-branch")
@@ -277,7 +293,7 @@ def test_checkout_step_success_no_artifact_store(mock_subprocess, context) -> No
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 3  # fetch, checkout, pull
+    assert mock_subprocess.call_count == 4  # fetch, checkout, remote ref check, pull
 
 
 # === git checkout Failure ===
@@ -312,20 +328,28 @@ def test_checkout_step_git_checkout_fails(mock_subprocess, context) -> None:
 def test_checkout_step_dirty_state_cleanup_allowed(mock_subprocess, context) -> None:
     """When ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS=true, dirty state is cleaned before checkout."""
 
-    # Mock successful reset, clean, fetch, checkout, and pull
+    # Mock successful reset, clean, fetch, checkout, remote ref check, and pull
     mock_reset = Mock(returncode=0, stdout="", stderr="")
     mock_clean = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [
+        mock_reset,
+        mock_clean,
+        mock_fetch,
+        mock_checkout,
+        mock_remote_ref,
+        mock_pull,
+    ]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 5
+    assert mock_subprocess.call_count == 6
 
     # Verify git reset --hard was called first
     reset_call = mock_subprocess.call_args_list[0]
@@ -383,9 +407,17 @@ def test_checkout_step_dirty_state_uncommitted_changes(mock_subprocess, context)
     mock_clean = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_reset, mock_clean, mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [
+        mock_reset,
+        mock_clean,
+        mock_fetch,
+        mock_checkout,
+        mock_remote_ref,
+        mock_pull,
+    ]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -458,12 +490,14 @@ def test_checkout_step_missing_local_branch_fallback_success(mock_subprocess, co
     # Fallback checkout succeeds
     mock_checkout_fallback = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
     mock_subprocess.side_effect = [
         mock_fetch,
         mock_checkout_fail,
         mock_checkout_fallback,
+        mock_remote_ref,
         mock_pull,
     ]
 
@@ -471,7 +505,7 @@ def test_checkout_step_missing_local_branch_fallback_success(mock_subprocess, co
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 4
+    assert mock_subprocess.call_count == 5
 
     # Verify fetch runs before checkout attempts
     fetch_call = mock_subprocess.call_args_list[0]
@@ -486,6 +520,14 @@ def test_checkout_step_missing_local_branch_fallback_success(mock_subprocess, co
     assert fallback_checkout[0][0] == ["git", "checkout", "-t", "origin/feature-branch"]
     assert fallback_checkout[1]["cwd"] == "/path/to/repo"
     assert fallback_checkout[1]["timeout"] == GIT_TIMEOUT
+
+    remote_ref_call = mock_subprocess.call_args_list[3]
+    assert remote_ref_call[0][0] == [
+        "git",
+        "show-ref",
+        "--verify",
+        "refs/remotes/origin/feature-branch",
+    ]
 
 
 @patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
@@ -553,15 +595,16 @@ def test_checkout_step_fetch_all_prune_called(mock_subprocess, context) -> None:
 
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock(returncode=0, stdout="", stderr="")
 
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
     # Verify fetch was called before checkout and before pull
     fetch_call = mock_subprocess.call_args_list[0]
@@ -572,7 +615,7 @@ def test_checkout_step_fetch_all_prune_called(mock_subprocess, context) -> None:
     checkout_call = mock_subprocess.call_args_list[1]
     assert checkout_call[0][0] == ["git", "checkout", "feature-branch"]
 
-    pull_call = mock_subprocess.call_args_list[2]
+    pull_call = mock_subprocess.call_args_list[3]
     assert pull_call[0][0] == ["git", "pull", "--rebase", "origin", "feature-branch"]
 
 
@@ -658,12 +701,13 @@ def test_checkout_step_standardized_error_pull_rebase_conflict(mock_subprocess, 
 
     mock_fetch = Mock(returncode=0, stdout="", stderr="")
     mock_checkout = Mock(returncode=0, stdout="", stderr="")
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
     mock_pull = Mock()
     mock_pull.returncode = 1
     mock_pull.stdout = ""
     mock_pull.stderr = "error: could not apply commit... CONFLICT (content): merge conflict"
 
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
@@ -718,19 +762,21 @@ def test_checkout_step_git_pull_fails(mock_subprocess, context) -> None:
     mock_fetch.stdout = ""
     mock_fetch.stderr = ""
 
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
+
     mock_pull = Mock()
     mock_pull.returncode = 1
     mock_pull.stdout = ""
     mock_pull.stderr = "error: could not apply abc1234... commit message"
 
-    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_pull]
+    mock_subprocess.side_effect = [mock_fetch, mock_checkout, mock_remote_ref, mock_pull]
 
     step = GitCheckoutStep()
     result = step.run(context)
 
     assert result.success is False
     assert "git pull --rebase failed" in result.error
-    assert mock_subprocess.call_count == 3
+    assert mock_subprocess.call_count == 4
 
 
 # === Timeout Handling ===
@@ -766,9 +812,12 @@ def test_checkout_step_pull_timeout(mock_subprocess, context) -> None:
     mock_fetch.stdout = ""
     mock_fetch.stderr = ""
 
+    mock_remote_ref = Mock(returncode=0, stdout="", stderr="")
+
     mock_subprocess.side_effect = [
-        mock_checkout,
         mock_fetch,
+        mock_checkout,
+        mock_remote_ref,
         subprocess.TimeoutExpired(cmd=["git", "pull", "--rebase"], timeout=GIT_TIMEOUT),
     ]
 
@@ -873,14 +922,16 @@ def test_git_checkout_multiple_repos(mock_subprocess, tmp_path) -> None:
         repo_paths=["/repo/a", "/repo/b"],
     )
 
-    # 3 calls per repo (fetch, checkout, pull) x 2 repos = 6 total
+    # 4 calls per repo (fetch, checkout, remote ref check, pull) x 2 repos = 8 total
     mock_success = Mock(returncode=0, stdout="", stderr="")
     mock_subprocess.side_effect = [
         mock_success,  # /repo/a: fetch
         mock_success,  # /repo/a: checkout
+        mock_success,  # /repo/a: remote ref check
         mock_success,  # /repo/a: pull
         mock_success,  # /repo/b: fetch
         mock_success,  # /repo/b: checkout
+        mock_success,  # /repo/b: remote ref check
         mock_success,  # /repo/b: pull
     ]
 
@@ -888,14 +939,59 @@ def test_git_checkout_multiple_repos(mock_subprocess, tmp_path) -> None:
     result = step.run(ctx)
 
     assert result.success is True
-    assert mock_subprocess.call_count == 6
+    assert mock_subprocess.call_count == 8
 
-    # Verify /repo/a appears as cwd in its three calls
+    # Verify /repo/a appears as cwd in its four calls
     assert mock_subprocess.call_args_list[0][1]["cwd"] == "/repo/a"
     assert mock_subprocess.call_args_list[1][1]["cwd"] == "/repo/a"
     assert mock_subprocess.call_args_list[2][1]["cwd"] == "/repo/a"
+    assert mock_subprocess.call_args_list[3][1]["cwd"] == "/repo/a"
 
-    # Verify /repo/b appears as cwd in its three calls
-    assert mock_subprocess.call_args_list[3][1]["cwd"] == "/repo/b"
+    # Verify /repo/b appears as cwd in its four calls
     assert mock_subprocess.call_args_list[4][1]["cwd"] == "/repo/b"
     assert mock_subprocess.call_args_list[5][1]["cwd"] == "/repo/b"
+    assert mock_subprocess.call_args_list[6][1]["cwd"] == "/repo/b"
+    assert mock_subprocess.call_args_list[7][1]["cwd"] == "/repo/b"
+
+
+@patch("rouge.core.workflow.steps.git_checkout_step.subprocess.run")
+@patch.dict("os.environ", {"ROUGE_ALLOW_DESTRUCTIVE_GIT_OPS": "false"}, clear=False)
+def test_git_checkout_skips_repo_when_remote_branch_missing_after_local_checkout(
+    mock_subprocess, tmp_path
+) -> None:
+    """A repo with only a stale local branch is skipped instead of failing the workflow."""
+
+    store = ArtifactStore(workflow_id="test123", base_path=tmp_path)
+    _write_fetch_patch_artifact(store, _make_issue(branch="feature-branch"))
+    ctx = WorkflowContext(
+        issue_id=1,
+        adw_id="test123",
+        artifact_store=store,
+        repo_paths=["/repo/a", "/repo/b"],
+    )
+
+    mock_success = Mock(returncode=0, stdout="", stderr="")
+    mock_missing_remote_ref = Mock(returncode=1, stdout="", stderr="fatal: not a valid ref")
+
+    mock_subprocess.side_effect = [
+        mock_success,  # /repo/a: fetch
+        mock_success,  # /repo/a: checkout
+        mock_missing_remote_ref,  # /repo/a: remote ref check -> skip
+        mock_success,  # /repo/b: fetch
+        mock_success,  # /repo/b: checkout
+        mock_success,  # /repo/b: remote ref check
+        mock_success,  # /repo/b: pull
+    ]
+
+    step = GitCheckoutStep()
+    result = step.run(ctx)
+
+    assert result.success is True
+    assert mock_subprocess.call_count == 7
+    assert mock_subprocess.call_args_list[2][0][0] == [
+        "git",
+        "show-ref",
+        "--verify",
+        "refs/remotes/origin/feature-branch",
+    ]
+    assert mock_subprocess.call_args_list[3][1]["cwd"] == "/repo/b"
