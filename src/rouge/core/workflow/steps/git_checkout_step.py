@@ -283,7 +283,12 @@ class GitCheckoutStep(WorkflowStep):
                         branch,
                         remote_ref_result.stderr.strip(),
                     )
-                    logger.warning("Branch '%s' not found in repo %s, skipping", branch, repo_path)
+                    logger.warning(
+                        "Branch '%s' has no remote ref refs/remotes/origin/%s in repo %s, skipping",
+                        branch,
+                        branch,
+                        repo_path,
+                    )
                     continue
 
                 # Step 4: Pull with rebase to bring branch up to date
