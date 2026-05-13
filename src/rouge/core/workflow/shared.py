@@ -50,26 +50,45 @@ def get_working_dir() -> str:
 def get_affected_repo_paths(
     context: WorkflowContext,
 ) -> list[str]:
-    """Return repo paths that the Implement step actually changed.
+    """Return repo paths that the Implement step actually changed and were checked out.
 
     Loads the Implement artifact and returns the intersection of
     affected_repos with context.repo_paths (preserving original order).
-    Falls back to context.repo_paths if no affected_repos data exists.
+    Falls back to context.repo_paths before applying the checkout filter when
+    no affected_repos data exists.
+
+    Additionally intersects the result against GitCheckoutArtifact.checked_out_repos
+    when that artifact is present, so that repos skipped by GitCheckoutStep (e.g.
+    those whose remote branch ref is missing) are excluded from downstream steps.
     """
-    from rouge.core.workflow.artifacts import ImplementArtifact
+    from rouge.core.workflow.artifacts import GitCheckoutArtifact, ImplementArtifact
 
     implement_data = context.load_optional_artifact(
         "implement_data", "implement", ImplementArtifact, lambda a: a.implement_data
     )
     if implement_data is None or not implement_data.affected_repos:
-        return list(context.repo_paths)  # fallback: all repos
+        candidate_paths = list(context.repo_paths)  # fallback: all repos
+    else:
+        logger = get_logger(context.adw_id)
+        affected_set = {r.repo_path for r in implement_data.affected_repos}
+        extra = affected_set - set(context.repo_paths)
+        if extra:
+            logger.warning("affected_repos contains paths not in context.repo_paths: %s", extra)
+        candidate_paths = [p for p in context.repo_paths if p in affected_set]
 
-    logger = get_logger(context.adw_id)
-    affected_set = {r.repo_path for r in implement_data.affected_repos}
-    extra = affected_set - set(context.repo_paths)
-    if extra:
-        logger.warning("affected_repos contains paths not in context.repo_paths: %s", extra)
-    return [p for p in context.repo_paths if p in affected_set]
+    # Artifact may be absent when GitCheckoutStep didn't run (e.g. standalone test
+    # workflows); GitCheckoutStep fails the step before writing an empty artifact.
+    git_checkout_artifact = context.load_optional_artifact(
+        "git_checkout_data",
+        "git-checkout",
+        GitCheckoutArtifact,
+        lambda a: a,
+    )
+    if git_checkout_artifact is not None:
+        checked_out_set = set(git_checkout_artifact.checked_out_repos)
+        candidate_paths = [p for p in candidate_paths if p in checked_out_set]
+
+    return candidate_paths
 
 
 def has_branch_delta(repo_path: str, adw_id: str) -> bool:

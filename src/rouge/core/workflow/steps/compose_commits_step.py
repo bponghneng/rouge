@@ -384,7 +384,7 @@ class ComposeCommitsStep(WorkflowStep):
         succeeded: List[str] = []
         errors: List[str] = []
 
-        for repo_path in context.repo_paths:
+        for repo_path in get_affected_repo_paths(context):
             # Detect platform and PR/MR URL for this repo
             platform, pr_url, pr_number = self._detect_pr_platform(repo_path, context.adw_id)
 
