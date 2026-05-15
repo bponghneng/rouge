@@ -97,8 +97,9 @@ class PullRequestStepBase(WorkflowStep, ABC):
 
     @property
     def is_critical(self) -> bool:
-        # PR/MR creation is best-effort - workflow continues on failure
-        return False
+        # PR/MR creation is critical — attempted-and-failed creates abort the workflow;
+        # intentional skips remain non-failing via StepResult.ok.
+        return True
 
     # ------------------------------------------------------------------
     # Concrete methods – shared orchestration

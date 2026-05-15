@@ -800,14 +800,44 @@ def test_create_pr_step_multi_repo_failure(mock_emit, mock_subprocess, mock_whic
     assert push_call_b[1]["cwd"] == "/repo/b"
 
 
-def test_create_pr_step_is_not_critical() -> None:
-    """Test GhPullRequestStep is not critical."""
+def test_create_pr_step_is_critical() -> None:
+    """Test GhPullRequestStep is critical — failed PR creates abort the workflow."""
     from rouge.core.workflow.steps.gh_pull_request_step import (
         GhPullRequestStep,
     )
 
     step = GhPullRequestStep()
-    assert step.is_critical is False
+    assert step.is_critical is True
+
+
+def test_pr_step_failure_aborts_workflow(caplog, tmp_path) -> None:
+    """A failed GhPullRequestStep aborts the WorkflowRunner with no success log."""
+    import logging
+
+    from rouge.core.workflow.pipeline import WorkflowRunner
+    from rouge.core.workflow.steps.gh_pull_request_step import GhPullRequestStep
+
+    failing_pr_step = GhPullRequestStep()
+    pr_run = Mock(return_value=StepResult.fail("PR creation failed for one or more repos"))
+    # Patch the run method while preserving the critical property.
+    failing_pr_step.run = pr_run  # type: ignore[method-assign]
+
+    trailing_step = Mock()
+    trailing_step.name = "Trailing Step"
+    trailing_step.is_critical = True
+    trailing_step.run = Mock(return_value=StepResult.ok(None))
+
+    runner = WorkflowRunner([failing_pr_step, trailing_step])
+
+    with caplog.at_level(logging.INFO):
+        with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
+            success = runner.run(issue_id=1, adw_id="adw-pr-fail")
+
+    assert success is False
+    # Trailing step must not execute after a critical PR failure.
+    trailing_step.run.assert_not_called()
+    assert "Workflow completed successfully" not in caplog.text
+    assert "Critical step 'Creating GitHub pull request' failed" in caplog.text
 
 
 def test_create_pr_step_name() -> None:
@@ -1233,12 +1263,42 @@ def test_create_gitlab_mr_step_push_timeout_continues_to_mr(mock_subprocess, moc
     assert mock_emit.call_args[0][0].raw["output"] == "merge-request-created"
 
 
-def test_create_gitlab_mr_step_is_not_critical() -> None:
-    """Test GlabPullRequestStep is not critical."""
+def test_create_gitlab_mr_step_is_critical() -> None:
+    """Test GlabPullRequestStep is critical — failed MR creates abort the workflow."""
     from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
 
     step = GlabPullRequestStep()
-    assert step.is_critical is False
+    assert step.is_critical is True
+
+
+def test_mr_step_failure_aborts_workflow(caplog, tmp_path) -> None:
+    """A failed GlabPullRequestStep aborts the WorkflowRunner with no success log."""
+    import logging
+
+    from rouge.core.workflow.pipeline import WorkflowRunner
+    from rouge.core.workflow.steps.glab_pull_request_step import GlabPullRequestStep
+
+    failing_mr_step = GlabPullRequestStep()
+    mr_run = Mock(return_value=StepResult.fail("MR creation failed for one or more repos"))
+    # Patch the run method while preserving the critical property.
+    failing_mr_step.run = mr_run  # type: ignore[method-assign]
+
+    trailing_step = Mock()
+    trailing_step.name = "Trailing Step"
+    trailing_step.is_critical = True
+    trailing_step.run = Mock(return_value=StepResult.ok(None))
+
+    runner = WorkflowRunner([failing_mr_step, trailing_step])
+
+    with caplog.at_level(logging.INFO):
+        with patch("rouge.core.paths.get_working_dir", return_value=str(tmp_path)):
+            success = runner.run(issue_id=1, adw_id="adw-mr-fail")
+
+    assert success is False
+    # Trailing step must not execute after a critical MR failure.
+    trailing_step.run.assert_not_called()
+    assert "Workflow completed successfully" not in caplog.text
+    assert "Critical step 'Creating GitLab merge request' failed" in caplog.text
 
 
 def test_create_gitlab_mr_step_name() -> None:
