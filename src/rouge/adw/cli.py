@@ -1,12 +1,26 @@
 """CLI interface for Rouge ADW."""
 
+from pathlib import Path
 from typing import Optional
 
 import typer
 
-from rouge.adw.adw import execute_adw_workflow
-from rouge.cli.utils import prepare_adw_id, validate_issue_id
-from rouge.core.utils import get_logger, setup_logger
+from rouge.core.database import init_db_env
+
+# Load environment variables
+env_file_path = Path.cwd() / ".env"
+if env_file_path.exists():
+    init_db_env(dotenv_path=env_file_path)
+else:
+    parent_env_file_path = Path.cwd().parent / ".env"
+    if parent_env_file_path.exists():
+        init_db_env(dotenv_path=parent_env_file_path)
+    else:
+        init_db_env()
+
+from rouge.adw.adw import execute_adw_workflow  # noqa: E402
+from rouge.cli.utils import prepare_adw_id, validate_issue_id  # noqa: E402
+from rouge.core.utils import get_logger, setup_logger  # noqa: E402
 
 app = typer.Typer(
     help="Rouge ADW - Agent Development Workflow",

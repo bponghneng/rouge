@@ -1,6 +1,6 @@
 """Shared infrastructure used by Rouge tooling (CLI, ADW, worker)."""
 
-from . import agent, database, models, paths, utils, workflow
+from . import database, models, paths, utils, workflow
 
 __all__ = [
     "database",
@@ -8,5 +8,4 @@ __all__ = [
     "paths",
     "utils",
     "workflow",
-    "agent",
 ]

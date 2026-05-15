@@ -12,16 +12,11 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Optional
 
-from dotenv import load_dotenv
-
 from rouge.core.agents.base import (
     AgentExecuteRequest,
     AgentExecuteResponse,
     CodingAgent,
 )
-
-# Load environment variables
-load_dotenv()
 
 # Get Claude Code CLI path from environment
 CLAUDE_PATH = os.getenv("CLAUDE_CODE_PATH", "claude")

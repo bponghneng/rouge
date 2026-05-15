@@ -1,4 +1,5 @@
 import logging
+import os
 from unittest.mock import MagicMock, patch
 
 from rouge.core.workflow.pipeline import (
@@ -423,7 +424,7 @@ class TestGetFullPipeline:
         # Check step count (should be 7 with GitHub PR step)
         assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GhPullRequestStep)
-        assert not pipeline[-1].is_critical  # PR creation is best effort
+        assert pipeline[-1].is_critical  # PR creation is critical — failures abort workflow
 
     def test_pipeline_structure_gitlab(self, monkeypatch):
         """Test full pipeline structure with GitLab platform."""
@@ -433,16 +434,14 @@ class TestGetFullPipeline:
         # Check step count (should be 7 with GitLab MR step)
         assert len(pipeline) == 7
         assert isinstance(pipeline[-1], GlabPullRequestStep)
-        assert not pipeline[-1].is_critical  # MR creation is best effort
+        assert pipeline[-1].is_critical  # MR creation is critical — failures abort workflow
 
     def test_full_plan_step_present_at_index_2(self, monkeypatch):
         """Verify FullPlanStep is present at index 2."""
         monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
         pipeline = get_full_pipeline()
 
-        assert isinstance(
-            pipeline[2], FullPlanStep
-        ), "FullPlanStep should be at index 2"
+        assert isinstance(pipeline[2], FullPlanStep), "FullPlanStep should be at index 2"
 
     def test_conditional_pr_step_logic(self, monkeypatch):
         """Verify conditional PR/MR step logic across all platforms."""
@@ -600,3 +599,75 @@ class TestGetDirectPipeline:
             assert not isinstance(
                 step, ImplementPlanStep
             ), "Direct pipeline should use ImplementDirectStep, not ImplementPlanStep"
+
+
+class TestPlatformRoutingWithConflictingDotenv:
+    """Regression coverage for the ADW entrypoint env-loading contract.
+
+    Phase 1 moved dotenv loading out of import-time side effects and into the
+    ADW CLI entrypoint, mirroring ``rouge.cli.cli``.  These tests pin down the
+    behavior that matters operationally: a ``.env`` file in the *target
+    workspace* must win over any ambient platform default, so the pipeline
+    routes to the correct PR/MR step.
+    """
+
+    def test_target_workspace_dotenv_routes_to_gitlab(self, tmp_path, monkeypatch) -> None:
+        """Loading the target workspace .env selects the GitLab MR step."""
+        rouge_source = tmp_path / "rouge_source"
+        target_workspace = tmp_path / "target_workspace"
+        rouge_source.mkdir()
+        target_workspace.mkdir()
+        (rouge_source / ".env").write_text("DEV_SEC_OPS_PLATFORM=github\n")
+        (target_workspace / ".env").write_text("DEV_SEC_OPS_PLATFORM=gitlab\n")
+
+        # Ensure no ambient platform leaks into the test from the host shell.
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+
+        # Simulate the entrypoint flow: cwd at the target workspace, load its .env.
+        monkeypatch.chdir(target_workspace)
+        from rouge.core.database import init_db_env
+
+        init_db_env(dotenv_path=target_workspace / ".env")
+
+        assert os.environ["DEV_SEC_OPS_PLATFORM"] == "gitlab"
+        pipeline = get_full_pipeline()
+        assert isinstance(pipeline[-1], GlabPullRequestStep)
+
+    def test_target_workspace_dotenv_routes_to_github(self, tmp_path, monkeypatch) -> None:
+        """Symmetric case: a target workspace .env pinned to github routes to GitHub."""
+        rouge_source = tmp_path / "rouge_source"
+        target_workspace = tmp_path / "target_workspace"
+        rouge_source.mkdir()
+        target_workspace.mkdir()
+        (rouge_source / ".env").write_text("DEV_SEC_OPS_PLATFORM=gitlab\n")
+        (target_workspace / ".env").write_text("DEV_SEC_OPS_PLATFORM=github\n")
+
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+
+        monkeypatch.chdir(target_workspace)
+        from rouge.core.database import init_db_env
+
+        init_db_env(dotenv_path=target_workspace / ".env")
+
+        assert os.environ["DEV_SEC_OPS_PLATFORM"] == "github"
+        pipeline = get_full_pipeline()
+        assert isinstance(pipeline[-1], GhPullRequestStep)
+
+    def test_importing_claude_does_not_mutate_platform_env(self, monkeypatch) -> None:
+        """Control: importing the Claude provider must not perform dotenv loading.
+
+        Phase 1 removed the import-time ``load_dotenv()`` call from
+        ``rouge.core.agents.claude.claude``.  Re-importing the module without
+        running the entrypoint env probe must leave ``DEV_SEC_OPS_PLATFORM``
+        untouched.
+        """
+        monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+
+        # Force a fresh import so any latent module-level side effects would fire here.
+        import importlib
+
+        import rouge.core.agents.claude.claude as claude_module
+
+        importlib.reload(claude_module)
+
+        assert "DEV_SEC_OPS_PLATFORM" not in os.environ

@@ -1,6 +1,10 @@
 """Tests for CAPE ADW functionality."""
 
+import importlib
+import os
+
 import pytest
+from typer.testing import CliRunner
 
 from rouge.adw.adw import execute_adw_workflow
 
@@ -97,3 +101,41 @@ def test_execute_adw_workflow_unknown_type_raises(monkeypatch) -> None:
 
     with pytest.raises(ValueError, match="Unknown workflow type 'bogus'"):
         execute_adw_workflow("test-adw-id", 999, workflow_type="bogus")
+
+
+def test_rouge_adw_loads_workspace_dotenv_before_workflow_runs(tmp_path, monkeypatch) -> None:
+    """Invoking rouge-adw from a workspace cwd must apply that workspace's .env.
+
+    Phase 1 moved dotenv loading to the top of ``rouge.adw.cli``.  This locks in
+    the contract that ``DEV_SEC_OPS_PLATFORM`` (and any other workspace
+    overrides) are visible by the time ``execute_adw_workflow`` is called.
+    """
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / ".env").write_text("DEV_SEC_OPS_PLATFORM=gitlab\n")
+
+    # Clear any inherited platform value so the .env load is the only source.
+    monkeypatch.delenv("DEV_SEC_OPS_PLATFORM", raising=False)
+
+    # Re-import the ADW CLI module from the workspace cwd so the module-top
+    # env probe runs against the workspace .env.
+    monkeypatch.chdir(workspace)
+    import rouge.adw.cli as adw_cli
+
+    adw_cli = importlib.reload(adw_cli)
+
+    captured: dict[str, str | None] = {}
+
+    def fake_execute(adw_id, issue_id, *, workflow_type="full", resume_from=None):
+        captured["DEV_SEC_OPS_PLATFORM"] = os.environ.get("DEV_SEC_OPS_PLATFORM")
+        return True, adw_id
+
+    monkeypatch.setattr(adw_cli, "execute_adw_workflow", fake_execute)
+    # Avoid touching real logger files during the test.
+    monkeypatch.setattr(adw_cli, "setup_logger", lambda _wf_id: None)
+
+    runner = CliRunner()
+    result = runner.invoke(adw_cli.app, ["--adw-id", "test-adw", "42"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["DEV_SEC_OPS_PLATFORM"] == "gitlab"
